@@ -603,6 +603,75 @@ class TestEffectivePermissions:
                 assert batch == expected, (is_owner, is_member, project_id)
 
 
+class TestEffectivePermissionsCache:
+    """effective_permissions() is cached like authorize(): per principal, scope and token."""
+
+    def setup_method(self):
+        _AuthorizationRegistry.reset()
+
+    def teardown_method(self):
+        _AuthorizationRegistry.reset()
+
+    @staticmethod
+    def _counting_provider(caps=frozenset({"test_set:read"}), fail=False):
+        class CountingProvider(AuthorizationProvider):
+            calls = 0
+
+            def get_effective_permissions(self, principal, *, project_id, db):
+                type(self).calls += 1
+                if fail:
+                    raise RuntimeError("simulated provider failure")
+                return set(caps)
+
+        provider = CountingProvider()
+        set_authorization_provider(provider)
+        return provider
+
+    def test_second_call_is_served_from_the_cache(self):
+        provider = self._counting_provider()
+        p = _principal()
+
+        first = effective_permissions(p, project_id=None, db=MagicMock())
+        second = effective_permissions(p, project_id=None, db=MagicMock())
+
+        assert first == second == ["test_set:read"]
+        assert type(provider).calls == 1
+
+    def test_bust_user_drops_the_cached_set(self):
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        provider = self._counting_provider()
+        p = _principal()
+        effective_permissions(p, project_id=None, db=MagicMock())
+        get_permission_cache().bust_user(p.user_id, p.organization_id)
+        effective_permissions(p, project_id=None, db=MagicMock())
+
+        assert type(provider).calls == 2
+
+    def test_a_provider_error_is_not_cached(self):
+        self._counting_provider(fail=True)
+        p = _principal()
+        assert effective_permissions(p, project_id=None, db=MagicMock()) == []
+
+        self._counting_provider()
+        assert effective_permissions(p, project_id=None, db=MagicMock()) == ["test_set:read"]
+
+    def test_tokens_with_other_scopes_do_not_share_an_entry(self):
+        provider = self._counting_provider()
+        session = _principal()
+        scoped = Principal(
+            user_id=USER_ID,
+            organization_id=ORG_ID,
+            kind="token",
+            scopes=frozenset({"test_set:read"}),
+        )
+
+        effective_permissions(session, project_id=None, db=MagicMock())
+        effective_permissions(scoped, project_id=None, db=MagicMock())
+
+        assert type(provider).calls == 2
+
+
 class TestEffectivePermissionsOrgProjectSplit:
     """Provider-agnostic proof of the fix: effective_permissions() must keep
     only org-scoped capabilities from the project_id=None call and only

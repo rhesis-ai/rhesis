@@ -663,8 +663,8 @@ def _get_effective_permissions_safe(
     *,
     project_id: Optional[UUID],
     db: Session,
-) -> set[str]:
-    """Call ``provider.get_effective_permissions``, fail-closed on exception."""
+) -> Optional[set[str]]:
+    """Call ``provider.get_effective_permissions``; ``None`` on exception, so callers deny."""
     try:
         return provider.get_effective_permissions(principal, project_id=project_id, db=db)
     except Exception:
@@ -673,7 +673,7 @@ def _get_effective_permissions_safe(
             principal.user_id,
             project_id,
         )
-        return set()
+        return None
 
 
 def effective_permissions(
@@ -712,14 +712,45 @@ def effective_permissions(
     ):
         return []
 
+    # Cached like authorize(): same 45 s TTL, same key parts, busted by bust_user.
+    cache = get_permission_cache() if principal.organization_id is not None else None
+    scope_fp = _scope_fingerprint(principal)
+    if cache is not None:
+        cached = cache.get_effective(
+            principal.user_id, principal.organization_id, project_id, scope_fp
+        )
+        if cached is not None:
+            return cached
+
+    result = _resolve_effective_permissions(principal, project_id=project_id, db=db)
+    if result is None:
+        return []
+    if cache is not None:
+        try:
+            cache.set_effective(
+                principal.user_id, principal.organization_id, project_id, result, scope_fp
+            )
+        except Exception as exc:
+            logger.warning("effective_permissions: cache set failed (non-fatal): %s", exc)
+    return result
+
+
+def _resolve_effective_permissions(
+    principal: Principal, *, project_id: Optional[UUID], db: Session
+) -> Optional[list[str]]:
+    """The provider's answer for :func:`effective_permissions`; ``None`` if it failed."""
     provider = _AuthorizationRegistry.get_authorization_provider()
     org_context = _get_effective_permissions_safe(provider, principal, project_id=None, db=db)
+    if org_context is None:
+        return None
     if project_id is None:
         return sorted(org_context)
 
     project_context = _get_effective_permissions_safe(
         provider, principal, project_id=project_id, db=db
     )
+    if project_context is None:
+        return None
     result = {cap for cap in org_context if capability_scope(cap) == SCOPE_ORGANIZATION} | {
         cap for cap in project_context if capability_scope(cap) == SCOPE_PROJECT
     }

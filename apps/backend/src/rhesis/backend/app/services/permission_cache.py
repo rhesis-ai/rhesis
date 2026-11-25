@@ -1,7 +1,8 @@
 """Permission decision cache — Redis DB 5.
 
-Wraps the authorization PDP result cache so that ``authorize()`` in
-``app/auth/rbac.py`` avoids a DB round-trip on every request.
+Wraps the authorization PDP result cache so that ``authorize()`` and
+``effective_permissions()`` in ``app/auth/rbac.py`` avoid a DB round-trip on
+every request.
 
 Cache key format::
 
@@ -59,14 +60,18 @@ _KEY_PREFIX = "perm:v1"
 #: key shape (no user_id/project_id/permission) so it can't collide with
 #: per-decision keys or get swept by bust_user's per-user prefix scan.
 _RBAC_ACTIVE_KEY_PREFIX = "rbac_active:v1"
+#: Stands in for the permission in the key of a cached effective-permission set. Shares the
+#: per-user prefix, so bust_user drops it with the single decisions.
+_EFFECTIVE_PERMISSIONS = "@effective"
 
 
 class PermissionCache(RedisBackedCache):
     """Redis-backed permission-decision cache with in-memory fallback.
 
     Stores boolean authorization results keyed by
-    ``(user_id, org_id, project_id, permission)``.  Falls back to an in-memory
-    dict with TTL eviction when Redis is unavailable.
+    ``(user_id, org_id, project_id, permission)``, and each principal's effective
+    capability set under the same prefix.  Falls back to an in-memory dict with
+    TTL eviction when Redis is unavailable.
     """
 
     def __init__(self) -> None:
@@ -131,6 +136,32 @@ class PermissionCache(RedisBackedCache):
         """Store a permission decision in the cache."""
         key = self._make_key(user_id, org_id, project_id, permission, scope_fingerprint)
         self._set(key, "1" if result else "0")
+
+    def get_effective(
+        self,
+        user_id: UUID,
+        org_id: UUID,
+        project_id: Optional[UUID],
+        scope_fingerprint: str = "*",
+    ) -> Optional[list[str]]:
+        """Return the cached effective capabilities, or ``None`` on miss."""
+        key = self._make_key(user_id, org_id, project_id, _EFFECTIVE_PERMISSIONS, scope_fingerprint)
+        val = self._get(key)
+        if val is None:
+            return None
+        return val.split(",") if val else []
+
+    def set_effective(
+        self,
+        user_id: UUID,
+        org_id: UUID,
+        project_id: Optional[UUID],
+        capabilities: list[str],
+        scope_fingerprint: str = "*",
+    ) -> None:
+        """Store the effective capabilities for a principal in one scope."""
+        key = self._make_key(user_id, org_id, project_id, _EFFECTIVE_PERMISSIONS, scope_fingerprint)
+        self._set(key, ",".join(capabilities))
 
     def get_rbac_active(self, org_id: UUID) -> Optional[bool]:
         """Return the cached "is RBAC active for this org" flag, or ``None`` on miss.
