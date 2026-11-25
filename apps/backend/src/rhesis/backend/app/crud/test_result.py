@@ -7,18 +7,19 @@ so joining it unscoped costs O(tests^2) bytes on a list query), the test, and th
 prompt and requirement. All many-to-one, so eager-loading them in one query costs nothing;
 without them a results list issues four queries per row.
 
-``_TEST_RESULT_DERIVED_FIELDS`` eager-loads exactly the comments/tasks/tags
-``TestResultDetail`` actually serializes: its own (``CountsMixin``/``TagsMixin``), plus
-``test.prompt``'s and ``test.requirement``'s (``PromptReference``/``RequirementReference``
-both carry ``counts``/``tags`` too). ``QueryBuilder.with_default_derived_field_loads()`` looks
-like the right tool here, but it only cascades one hop from the root model -- prompt and
-requirement sit two hops down (via ``test``), so it never reaches them, and every row's prompt
-and requirement lazy-load these individually (prompts are ~1:1 with tests, so this is what
-made a results list scale O(tests) queries). The same auto-cascade also walks every one-hop
-many-to-one relation of ``TestResult`` looking for mixin targets and happens to land on
-``organization`` and ``project`` too -- neither of which ``TestResultDetail`` serializes at
-all -- joining both in and eager-loading their tags for nothing. Listing exactly what's used
-avoids both problems.
+``_TEST_RESULT_DERIVED_FIELDS`` loads exactly the counts/tags ``TestResultDetail`` actually
+serializes: its own (``CountsMixin``/``TagsMixin``), plus ``test.prompt``'s and
+``test.requirement``'s (``PromptReference``/``RequirementReference`` both carry
+``counts``/``tags`` too). Counts come from ``batch_counts()``, which counts every row loaded
+up to two hops deep in grouped queries; tags still load as rows.
+``QueryBuilder.with_default_derived_field_loads()`` looks like the right tool here, but its tag
+loads only cascade one hop from the root model -- prompt and requirement sit two hops down (via
+``test``), so it never reaches them, and every row's prompt and requirement lazy-load these
+individually (prompts are ~1:1 with tests, so this is what made a results list scale O(tests)
+queries). The same auto-cascade also walks every one-hop many-to-one relation of ``TestResult``
+looking for mixin targets and happens to land on ``organization`` and ``project`` too -- neither
+of which ``TestResultDetail`` serializes at all -- joining both in and eager-loading their tags
+for nothing. Listing exactly what's used avoids both problems.
 """
 
 import uuid
@@ -27,6 +28,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.models.entity_counts import batch_counts
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
@@ -52,20 +54,14 @@ _TEST_RESULT_RELATED_FIELDS = (
 )
 
 _TEST_RESULT_DERIVED_FIELDS = (
-    include(models.TestResult.comments),
-    include(models.TestResult.tasks),
-    include(models.TestResult.files),
+    batch_counts(),
     include(models.TestResult._tags_relationship, models.TaggedItem.tag),
-    include(models.TestResult.test, models.Test.prompt, models.Prompt.comments),
-    include(models.TestResult.test, models.Test.prompt, models.Prompt.tasks),
     include(
         models.TestResult.test,
         models.Test.prompt,
         models.Prompt._tags_relationship,
         models.TaggedItem.tag,
     ),
-    include(models.TestResult.test, models.Test.requirement, models.Requirement.comments),
-    include(models.TestResult.test, models.Test.requirement, models.Requirement.tasks),
     include(
         models.TestResult.test,
         models.Test.requirement,

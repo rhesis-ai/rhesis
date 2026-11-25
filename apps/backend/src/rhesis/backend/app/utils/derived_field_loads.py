@@ -51,6 +51,11 @@ def derived_field_load_options(
     """Build eager-load options for comments/tasks/files/tags on ``model``, and
     for any many-to-one/one-to-one relationship whose target model also has them.
 
+    A ``CountsMixin`` model only reads comments/tasks/files to count them, so for
+    those the full-row loads are replaced by one ``BatchCounts`` option, which
+    counts every loaded row and its loaded relations in grouped queries (see
+    ``models/entity_counts.py``). Tags still load as rows.
+
     Detail response schemas nest a related model's own derived fields
     too (e.g. Test.prompt -> the nested PromptReference schema also gets
     a "counts"/"tags" field, since Prompt has the same mixins), so those
@@ -74,8 +79,10 @@ def derived_field_load_options(
     cascades into all of them. The model's own derived fields always load, so
     ``cascade=()`` means "this model's fields only", not "no derived loads".
     """
+    from rhesis.backend.app.models.entity_counts import batch_counts
     from rhesis.backend.app.models.mixins import (
         CommentsMixin,
+        CountsMixin,
         FilesMixin,
         TagsMixin,
         TasksMixin,
@@ -97,8 +104,15 @@ def derived_field_load_options(
             seen.add(key)
             chains.append(list(chain))
 
+    def _needed(target_model, mixin) -> bool:
+        if not issubclass(target_model, mixin):
+            return False
+        # Counted by BatchCounts instead; a model without CountsMixin (Trace) still
+        # serializes the rows themselves.
+        return mixin is TagsMixin or not issubclass(target_model, CountsMixin)
+
     for mixin, chain in derived_field_chains:
-        if issubclass(model, mixin):
+        if _needed(model, mixin):
             _add(list(chain))
 
     # resolve_chain turns the runtime [name, ...] chain into a tuple of real
@@ -116,17 +130,21 @@ def derived_field_load_options(
     # loader-strategy conflict, so the nested load is chained off the
     # existing joinedload instead of starting fresh.
     seen_nested = set()
+    counted = issubclass(model, CountsMixin)
     for rel_name, rel_prop in get_model_relationships(
         model, skip_many_to_many=True, skip_one_to_many=True
     ).items():
         if cascade is not None and rel_name not in cascade:
             continue
         target_model = rel_prop.mapper.class_
+        counted = counted or issubclass(target_model, CountsMixin)
+        emitted = False
         for mixin, chain in derived_field_chains:
             key = (rel_name, *chain)
-            if key in seen_nested or not issubclass(target_model, mixin):
+            if key in seen_nested or not _needed(target_model, mixin):
                 continue
             seen_nested.add(key)
+            emitted = True
             load = joinedload(getattr(model, rel_name))
             nested_model = target_model
             for nested_name in chain:
@@ -135,5 +153,11 @@ def derived_field_load_options(
                 if nested_rel_prop is not None:
                     nested_model = nested_rel_prop.mapper.class_
             options.append(load)
+        if not emitted and issubclass(target_model, CountsMixin):
+            # Still join it in, so BatchCounts finds it loaded (Category has no tags).
+            options.append(joinedload(getattr(model, rel_name)))
 
+    # One option covers this model and every loaded relation, whatever the cascade.
+    if counted:
+        options.append(batch_counts())
     return options

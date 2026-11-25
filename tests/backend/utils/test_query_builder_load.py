@@ -19,6 +19,7 @@ from rhesis.backend.app import models, schemas
 from rhesis.backend.app.crud import requirement as requirement_crud
 from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.crud.metric import get_metrics
+from rhesis.backend.app.models.mixins import BATCHED_COUNTS_KEY
 from rhesis.backend.app.utils import crud_utils
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 from tests.backend.routes.fixtures.data_factories import RequirementDataFactory, TestDataFactory
@@ -211,8 +212,10 @@ class TestMetricRequirementNestedM2MLoads:
 
         assert _is_loaded(result, "requirements")
         nested_requirement = next(b for b in result.requirements if b.id == requirement.id)
-        assert _is_loaded(nested_requirement, "comments")
-        assert _is_loaded(nested_requirement, "tasks")
+        # Counts are batched onto the nested row; the comment/task rows never load.
+        assert BATCHED_COUNTS_KEY in nested_requirement.__dict__
+        assert not _is_loaded(nested_requirement, "comments")
+        assert nested_requirement.counts == {"comments": 0, "tasks": 0}
         assert _is_loaded(nested_requirement, "_tags_relationship")
         assert len(nested_requirement.tags) == 1
         assert nested_requirement.tags[0].name == "nested-requirement-tag"
@@ -382,7 +385,7 @@ class TestTestListDerivedCascade:
         [test] = [t for t in tests if t.id == test_test.id]
 
         assert _is_loaded(test, "requirement")
-        assert _is_loaded(test.requirement, "comments")
+        assert BATCHED_COUNTS_KEY in test.requirement.__dict__
         for unused in ("organization", "project", "parent", "source"):
             if hasattr(models.Test, unused):
                 assert not _is_loaded(test, unused), unused
