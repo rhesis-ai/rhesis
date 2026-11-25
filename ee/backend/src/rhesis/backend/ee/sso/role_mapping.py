@@ -354,7 +354,8 @@ def _apply_project_roles(
                 unenroll_user_from_project(db, user_id, project_id, organization_id)
             except ProjectServiceError:
                 continue
-            changes.append({"project_id": str(project_id), "before": "member", "after": None})
+            before = str(current.role_id) if current.role_id else None
+            changes.append({"project_id": str(project_id), "before": before, "after": None})
     db.flush()
     return changes
 
