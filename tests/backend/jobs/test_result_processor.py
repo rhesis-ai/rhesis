@@ -80,6 +80,25 @@ class TestGetTestStatistics:
         assert failed == 0
         assert errors == 0
 
+    def test_soft_deleted_results_are_not_counted(
+        self, test_db, test_organization, db_user, db_test_configuration, db_test_run
+    ):
+        """The total query must keep the soft-delete filter that the grouped one has."""
+        from datetime import datetime, timezone
+
+        org_id = test_organization.id
+        user_id = db_user.id
+        _result(test_db, db_test_run, db_test_configuration, org_id, user_id, "ok", "pass")
+        deleted = _result(
+            test_db, db_test_run, db_test_configuration, org_id, user_id, "ok", "fail"
+        )
+        deleted.deleted_at = datetime.now(timezone.utc)
+        test_db.commit()
+
+        assert get_test_statistics(db_test_run, test_db) == (1, 1, 0, 0)
+        stats = get_test_statistics_for_runs(test_db, [db_test_run.id])
+        assert stats[str(db_test_run.id)] == {"total": 1, "passed": 1, "failed": 0, "errors": 0}
+
 
 @pytest.mark.unit
 class TestGetTestStatisticsForRuns:
