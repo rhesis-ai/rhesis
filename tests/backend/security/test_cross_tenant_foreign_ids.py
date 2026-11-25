@@ -353,6 +353,18 @@ class TestOrgWideCatalogForeignIds:
             )
         assert exc.value.field == "model_id"
 
+    def test_catalog_read_stays_within_org_under_bypass(self, test_db, test_org_id, org_b):
+        """The catalog check reads under bypass_tenant_filter, so confirm RLS and the
+        explicit org predicate still hide another org's catalog rows from the caller."""
+        from rhesis.backend.app.scope import bypass_tenant_filter
+        from rhesis.backend.app.utils.foreign_refs import _row_in_org
+
+        b_status, _, b_model = _org_b_catalog(test_db, org_b)
+
+        with bypass_tenant_filter():
+            assert _row_in_org(test_db, models.Status, b_status.id, test_org_id) is False
+            assert _row_in_org(test_db, models.Model, b_model.id, test_org_id) is False
+
 
 @pytest.mark.security
 class TestProjectScopedForeignIds:
