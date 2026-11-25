@@ -53,6 +53,12 @@ Then configure the organization in Rhesis with these values:
 
 Role mapping gives people organization and project roles from the groups their identity provider sends at sign-in. Set it up under **Organization Settings → SSO → Role mapping**. It needs roles and permissions, which come with the Enterprise Edition.
 
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-sso-role-mapping.webp"
+  darkSrc="/screenshots/rhesis-ai-sso-role-mapping-dark.webp"
+  alt="Role mapping tab with Keycloak groups mapped to organization and project roles, the everyone-else fallback, and a preview of who changes at their next sign-in"
+/>
+
 Each rule names a group exactly as the token carries it and what members of that group get:
 
 - an organization role (any role except Owner), and
@@ -70,7 +76,7 @@ By default roles apply at every sign-in. The Team tab shows those roles with a l
 
 Before you save, the tab shows who changes at their next sign-in, based on the groups each member had at their last SSO sign-in. Rhesis suggests groups it has seen at sign-in; you can also type a group name.
 
-**Edit as JSON** shows the same rules with role and project names:
+The **JSON** view shows the same rules with role and project names:
 
 <CodeBlock filename="role-mapping.json" language="json">
 {`{
