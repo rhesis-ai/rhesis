@@ -1,0 +1,181 @@
+# Licensing reminders from the Rhesis Enterprise registry (rhesis-ee), shared by
+# dev/stg/prd like the other alert groups. Each cluster's "Rhesis <ENV> Enterprise"
+# datasource carries the fixed uid "rhesis-enterprise" that these rules reference.
+# The SQL reads v_subscriptions, whose day counts and "needs attention" logic are
+# defined and tested in rhesis-ee (enterprise/migrations/versions/002_reporting_views.py).
+# In prd these rules can reach Grafana (which tracks main) before the database does
+# (prd-base and its CNPG/ESO Applications move with releases); they report a
+# DatasourceError until then.
+#
+# These are business follow-ups, not incidents: label category=licensing routes them
+# through the notification-policy sub-route that repeats daily instead of every 4h.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: rhesis-licensing-alerts
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  folderRef: rhesis-alerts
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  # Day-granular data; hourly is plenty.
+  interval: 1h
+  rules:
+    - uid: rhesis-licensing-renewal-reminder
+      title: Subscription renewal reminder
+      condition: B
+      for: 0s
+      # No rows = nothing to do. Unlike the infrastructure alerts, a query error
+      # alerts (Error) instead of holding the last state: silently missing a
+      # renewal is worse than a daily "DatasourceError" for this rule.
+      noDataState: OK
+      execErrState: Error
+      data:
+        - refId: A
+          datasourceUid: rhesis-enterprise
+          relativeTimeRange:
+            from: 3600
+            to: 0
+          model:
+            datasource: { type: postgres, uid: rhesis-enterprise }
+            editorMode: code
+            rawQuery: true
+            format: table
+            refId: A
+            # One row per subscription: text columns become labels (the subscription
+            # id keeps label sets unique), "value" the number.
+            rawSql: |
+              SELECT id::text AS subscription, customer_slug AS customer, COALESCE(owner, 'unassigned') AS owner, deployment, edition,
+                environment, term_end::text AS term_end, COALESCE(primary_contact_email, '') AS contact,
+                days_to_renewal AS value
+              FROM v_subscriptions
+              WHERE status IN ('trial', 'active', 'past_due') AND days_to_renewal IN (90, 60, 30, 14, 7)
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 3600
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            # Every returned row is a hit; the WHERE clause is the condition.
+            conditions:
+              - evaluator: { type: gt, params: [-100000] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: info
+        category: licensing
+      annotations:
+        summary: "{{ $labels.customer }}: {{ $labels.edition }} ({{ $labels.deployment }}) renews in {{ $values.A.Value }} days"
+        description: "Term ends {{ $labels.term_end }}. Owner: {{ $labels.owner }}. Contact: {{ $labels.contact }}. Fires once on each of 90/60/30/14/7 days before the end of the term. After the renewal is signed: [Enterprise] Subscription (renew), then issue a new license for it."
+    - uid: rhesis-licensing-license-not-covered
+      title: License expiring or missing
+      condition: B
+      for: 0s
+      # No rows = nothing to do. Unlike the infrastructure alerts, a query error
+      # alerts (Error) instead of holding the last state: silently missing a
+      # renewal is worse than a daily "DatasourceError" for this rule.
+      noDataState: OK
+      execErrState: Error
+      data:
+        - refId: A
+          datasourceUid: rhesis-enterprise
+          relativeTimeRange:
+            from: 3600
+            to: 0
+          model:
+            datasource: { type: postgres, uid: rhesis-enterprise }
+            editorMode: code
+            rawQuery: true
+            format: table
+            refId: A
+            # One row per subscription: text columns become labels (the subscription
+            # id keeps label sets unique), "value" the number.
+            rawSql: |
+              SELECT id::text AS subscription, customer_slug AS customer, COALESCE(owner, 'unassigned') AS owner, deployment, edition,
+                environment, term_end::text AS term_end, COALESCE(primary_contact_email, '') AS contact,
+                COALESCE(days_to_license_expiry, -1) AS value
+              FROM v_subscriptions
+              WHERE status IN ('trial', 'active', 'past_due')
+                AND ((current_grant_id IS NULL AND term_start < (now() AT TIME ZONE 'UTC')::date)
+                     OR days_to_license_expiry <= 14)
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 3600
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            # Every returned row is a hit; the WHERE clause is the condition.
+            conditions:
+              - evaluator: { type: gt, params: [-100000] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: critical
+        category: licensing
+      annotations:
+        summary: "{{ $labels.customer }}: license expires in {{ $values.A.Value }} days or was never issued"
+        description: "A live subscription whose license expires within 14 days ({{ $values.A.Value }}; -1 = none issued). Owner: {{ $labels.owner }}. If the contract was renewed, issue a new license for the subscription; if not, cancel or expire the subscription."
+    - uid: rhesis-licensing-term-ended
+      title: Subscription term ended
+      condition: B
+      for: 0s
+      # No rows = nothing to do. Unlike the infrastructure alerts, a query error
+      # alerts (Error) instead of holding the last state: silently missing a
+      # renewal is worse than a daily "DatasourceError" for this rule.
+      noDataState: OK
+      execErrState: Error
+      data:
+        - refId: A
+          datasourceUid: rhesis-enterprise
+          relativeTimeRange:
+            from: 3600
+            to: 0
+          model:
+            datasource: { type: postgres, uid: rhesis-enterprise }
+            editorMode: code
+            rawQuery: true
+            format: table
+            refId: A
+            # One row per subscription: text columns become labels (the subscription
+            # id keeps label sets unique), "value" the number.
+            rawSql: |
+              SELECT id::text AS subscription, customer_slug AS customer, COALESCE(owner, 'unassigned') AS owner, deployment, edition,
+                environment, term_end::text AS term_end, COALESCE(primary_contact_email, '') AS contact,
+                -days_to_renewal AS value
+              FROM v_subscriptions
+              WHERE status IN ('trial', 'active', 'past_due') AND term_end < (now() AT TIME ZONE 'UTC')::date
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 3600
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            # Every returned row is a hit; the WHERE clause is the condition.
+            conditions:
+              - evaluator: { type: gt, params: [-100000] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: warning
+        category: licensing
+      annotations:
+        summary: "{{ $labels.customer }}: term ended {{ $values.A.Value }} days ago and the subscription is still live"
+        description: "Term ended {{ $labels.term_end }}. Renew it, or mark it canceled/expired, with [Enterprise] Subscription. Owner: {{ $labels.owner }}."

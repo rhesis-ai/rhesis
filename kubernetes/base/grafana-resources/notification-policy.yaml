@@ -16,3 +16,13 @@ spec:
     group_wait: 30s
     group_interval: 5m
     repeat_interval: 4h
+    routes:
+      # Licensing reminders (licensing-alerts.yaml) are business follow-ups, not
+      # incidents: same receiver, but once a day is enough.
+      - receiver: default-notifications
+        object_matchers:
+          - ["category", "=", "licensing"]
+        group_by:
+          - alertname
+          - customer
+        repeat_interval: 24h

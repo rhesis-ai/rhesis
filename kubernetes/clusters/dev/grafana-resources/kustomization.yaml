@@ -10,6 +10,8 @@ resources:
   # Telemetry analytics DB (user_activity / endpoint_usage / feature_usage). Separate
   # database, same server, so it needs its own datasource. Carries deployment_type.
   - postgres-dev-analytics-datasource.yaml
+  # Rhesis Enterprise licensing registry (rhesis-ee). Fixed uid, used by licensing-alerts.yaml.
+  - postgres-dev-enterprise-datasource.yaml
   # dev-scoped Discord webhook URL and SMTP creds; the contact point that consumes
   # them lives in base/grafana-resources (shared identically by dev/stg/prd).
   - discord-webhook-secret.yaml

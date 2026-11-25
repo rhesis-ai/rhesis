@@ -1,0 +1,40 @@
+# Rhesis Enterprise licensing registry (customers, subscriptions, license grants),
+# read by the "Rhesis Licensing" dashboard and licensing-alerts.yaml as grafana-viewer,
+# which rhesis-ee's Alembic chain grants SELECT on. Separate database, same server.
+# rhesis-prd-ro routes to the hot-standby replica, so this cannot write.
+#
+# Fixed uid in every env: the alert rules in base/grafana-resources reference the
+# datasource by uid, so one definition serves dev, stg and prd.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: rhesis-prd-enterprise
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  datasource:
+    name: "Rhesis PRD Enterprise (RO)"
+    uid: rhesis-enterprise
+    type: postgres
+    access: proxy
+    url: rhesis-prd-ro.rhesis.svc:5432
+    user: grafana-viewer
+    jsonData:
+      database: rhesis-enterprise
+      sslmode: disable
+      postgresVersion: 1700
+    # Placeholder the operator substitutes the secret into; see
+    # postgres-prd-datasource.yaml for why it must exist.
+    secureJsonData:
+      password: ${password}
+    editable: false
+  valuesFrom:
+    - targetPath: "secureJsonData.password"
+      valueFrom:
+        secretKeyRef:
+          name: grafana-viewer-credentials
+          key: password

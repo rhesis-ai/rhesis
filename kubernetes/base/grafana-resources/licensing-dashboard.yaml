@@ -1,0 +1,529 @@
+# EE licensing overview, read from the Rhesis Enterprise registry database that the
+# private rhesis-ee repo writes (customers, subscriptions, license grants). Queries hit
+# its v_subscriptions / v_grants views, which own the "needs attention" logic and are
+# tested there. Same datasource-variable pattern as the other dashboards, bound to each
+# cluster's "Rhesis <ENV> Enterprise" datasource. Alerts: licensing-alerts.yaml.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: rhesis-licensing
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  folder: Rhesis
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  json: |
+    {
+      "uid": "rhesis-licensing",
+      "title": "Rhesis Licensing",
+      "tags": [
+        "rhesis",
+        "licensing"
+      ],
+      "timezone": "utc",
+      "editable": false,
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "",
+      "time": {
+        "from": "now-12M",
+        "to": "now"
+      },
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "label": "Datasource",
+            "type": "datasource",
+            "query": "postgres",
+            "regex": "/Enterprise/",
+            "current": {},
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "row",
+          "title": "Overview",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Licensing totals",
+          "description": "Right now; ignores the time picker. A customer counts as active with at least one trial, active or past-due subscription.",
+          "gridPos": {
+            "h": 4,
+            "w": 24,
+            "x": 0,
+            "y": 1
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "text",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Needs attention"
+                },
+                "properties": [
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 1
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "none",
+            "textMode": "auto",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COUNT(DISTINCT customer_id) FILTER (WHERE status IN ('trial', 'active', 'past_due')) AS \"Active customers\",\n  COUNT(*) FILTER (WHERE status IN ('active', 'past_due')) AS \"Paid subscriptions\",\n  COUNT(*) FILTER (WHERE status = 'trial') AS \"Trials\",\n  COUNT(*) FILTER (WHERE status = 'past_due') AS \"Past due\",\n  COUNT(*) FILTER (WHERE status IN ('trial', 'active', 'past_due') AND days_to_renewal BETWEEN 0 AND 30) AS \"Renewals in 30 days\",\n  COUNT(*) FILTER (WHERE status IN ('trial', 'active', 'past_due') AND days_to_renewal BETWEEN 0 AND 90) AS \"Renewals in 90 days\",\n  COUNT(*) FILTER (WHERE needs_attention IS NOT NULL) AS \"Needs attention\"\nFROM v_subscriptions"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "bargauge",
+          "title": "Live subscriptions by edition",
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 0,
+            "y": 5
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "displayMode": "basic",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": true
+            },
+            "showUnfilled": true
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT edition || ' / ' || deployment AS \"Edition\", COUNT(*) AS \"Subscriptions\"\nFROM v_subscriptions WHERE status IN ('trial', 'active', 'past_due')\nGROUP BY 1 ORDER BY 2 DESC"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "table",
+          "title": "Contract value of live subscriptions",
+          "description": "Sum of the current term's contract value, per currency. Trials and subscriptions without an amount are left out.",
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 5
+          },
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "filterable": true
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT COALESCE(currency, '?') AS \"Currency\", SUM(amount) AS \"Contract value\", COUNT(*) AS \"Subscriptions\"\nFROM v_subscriptions WHERE status IN ('active', 'past_due') AND amount IS NOT NULL\nGROUP BY 1 ORDER BY 2 DESC"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Action",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 11
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 4,
+          "type": "table",
+          "title": "Needs attention",
+          "description": "Live subscriptions the view flags: term ended, no license issued, a license that expires before the term does (renewed but not re-issued), or a renewal within 90 days. Days are colored red under 30 and orange under 90.",
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 12
+          },
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "filterable": true
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Days to renewal"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background",
+                      "mode": "basic"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 30
+                        },
+                        {
+                          "color": "transparent",
+                          "value": 90
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Days to license expiry"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background",
+                      "mode": "basic"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 14
+                        },
+                        {
+                          "color": "transparent",
+                          "value": 30
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT customer_name AS \"Customer\", owner AS \"Owner\", needs_attention AS \"Why\", deployment AS \"Deployment\",\n  edition AS \"Edition\", status AS \"Status\", term_end AS \"Term end\", days_to_renewal AS \"Days to renewal\",\n  license_expires_at AS \"License expires\", days_to_license_expiry AS \"Days to license expiry\",\n  primary_contact_name AS \"Contact\", primary_contact_email AS \"Contact email\", id AS \"Subscription\"\nFROM v_subscriptions\nWHERE needs_attention IS NOT NULL\nORDER BY days_to_renewal"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Inventory",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 21
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 5,
+          "type": "table",
+          "title": "Subscriptions",
+          "description": "Every subscription, live first, by renewal date.",
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 22
+          },
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "filterable": true
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Days to renewal"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background",
+                      "mode": "basic"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "orange",
+                          "value": 30
+                        },
+                        {
+                          "color": "transparent",
+                          "value": 90
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT customer_name AS \"Customer\", deployment AS \"Deployment\", environment AS \"Env\", edition AS \"Edition\",\n  status AS \"Status\", term_start AS \"Term start\", term_end AS \"Term end\", days_to_renewal AS \"Days to renewal\",\n  auto_renew AS \"Auto-renew\", license_expires_at AS \"License expires\", current_jti AS \"Current jti\",\n  amount AS \"Amount\", currency AS \"Currency\", contract_ref AS \"Contract\", owner AS \"Owner\", id AS \"Subscription\"\nFROM v_subscriptions\nORDER BY (status IN ('trial', 'active', 'past_due')) DESC, term_end"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "type": "table",
+          "title": "License grant history",
+          "description": "Every token minted, newest first. Dry runs are hidden. Superseded means a newer token replaced it; revoked is bookkeeping only (the token keeps verifying until it expires).",
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 32
+          },
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "filterable": true
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Run"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Open run",
+                        "url": "${__value.raw}",
+                        "targetBlank": true
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT COALESCE(issued_at, created_at) AS \"Issued\", customer_name AS \"Customer\", state AS \"State\",\n  environment AS \"Env\", kid AS \"Key\", subject AS \"Subject\", edition AS \"Edition\", license_status AS \"Status\",\n  expires_at AS \"Expires\", days_to_expiry AS \"Days left\", delivery AS \"Delivery\", issued_by AS \"Issued by\",\n  jti AS \"jti\", run_url AS \"Run\"\nFROM v_grants\nWHERE NOT dry_run\nORDER BY COALESCE(issued_at, created_at) DESC\nLIMIT 500"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "type": "table",
+          "title": "Unlinked grants",
+          "description": "Issued tokens with no subscription: backfilled or imported ones still to link, or internal orgs. Link them with rhesis-ee's \"[Enterprise] License Grant\" workflow (action: link).",
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 42
+          },
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "filterable": true
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "postgres",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT COALESCE(issued_at, created_at) AS \"Issued\", subject AS \"Subject\", environment AS \"Env\",\n  edition AS \"Edition\", expires_at AS \"Expires\", days_to_expiry AS \"Days left\", notes AS \"Notes\",\n  COALESCE(jti::text, id::text) AS \"Grant\"\nFROM v_grants\nWHERE subscription_id IS NULL AND state = 'issued' AND NOT dry_run\nORDER BY expires_at"
+            }
+          ]
+        }
+      ]
+    }
