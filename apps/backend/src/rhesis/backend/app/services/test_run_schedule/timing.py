@@ -188,9 +188,11 @@ def occurrences(
     ``limit`` caps how many are returned, e.g. the runs left under ``max_runs``.
     """
     changes = _changes(exceptions)
+    # Changed runs can sort ahead of regular ones, so collect that many extra before stopping.
+    enough = None if limit is None else limit + len(changes.moved) + len(changes.extra)
     result = []
     for original in _originals_after(timing, start - timedelta(microseconds=1)):
-        if original >= end:
+        if original >= end or (enough is not None and len(result) >= enough):
             break
         if not changes.touches(original):
             result.append(Occurrence(original, original))

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import (
     UUID4,
@@ -11,7 +11,9 @@ from pydantic import (
     model_validator,
 )
 
+from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.config.settings import get_application_settings
+from rhesis.backend.app.schemas.affordances import WithPermittedActions
 from rhesis.backend.app.schemas.test_set import TestSetExecutionRequest
 from rhesis.backend.app.services.test_run_schedule import timing
 
@@ -108,3 +110,121 @@ class OccurrenceEdit(ScheduleUpdate):
     """A change made from one run on the calendar. ``move_to`` is that run's new time."""
 
     move_to: AwareDatetime | None = None
+
+
+# --- requests ---------------------------------------------------------------------------------
+
+
+class ScheduleCreate(BaseModel):
+    """Schedule a test set (or several, one schedule each) against an endpoint."""
+
+    test_set_id: UUID4 | None = None
+    test_set_ids: list[UUID4] | None = None
+    endpoint_id: UUID4
+    schedule: ScheduleSpecIn
+    run_settings: TestSetExecutionRequest | None = None
+
+    @model_validator(mode="after")
+    def _one_or_many(self) -> "ScheduleCreate":
+        if (self.test_set_id is None) == (not self.test_set_ids):
+            raise ValueError("Send either test_set_id or test_set_ids.")
+        return self
+
+
+# --- responses --------------------------------------------------------------------------------
+
+
+class NamedRef(BaseModel):
+    id: UUID4
+    name: str | None = None
+
+
+class EndpointRef(NamedRef):
+    connection_type: str | None = None
+
+
+class ScheduleRunSummary(BaseModel):
+    id: UUID4
+    name: str | None = None
+    status: str | None = None
+    pass_rate: float | None = None
+    started_at: datetime | None = None
+    duration_s: float | None = None
+    total_cost_usd: float | None = None
+    trigger: str | None = None
+    scheduled_for: datetime | None = None
+
+
+class LastSkip(BaseModel):
+    at: datetime
+    reason: str
+
+
+class TestRunScheduleOut(WithPermittedActions):
+    __resource_type__: ClassVar[str | None] = ResourceType.TEST_RUN
+
+    id: UUID4
+    name: str
+    status: str | None = None
+    overdue: bool = False
+    repeats: str
+    cron: str | None = None
+    run_at: datetime | None = None
+    timezone: str
+    next_run_at: datetime | None = None
+    ends_at: datetime | None = None
+    max_runs: int | None = None
+    notify: ScheduleNotify
+    paused_reason: str | None = None
+    last_skip: LastSkip | None = None
+    test_set: NamedRef | None = None
+    endpoint: EndpointRef | None = None
+    owner: NamedRef | None = None
+    # The owner, read by WithPermittedActions for ownership-gated actions.
+    user_id: UUID4 | None = None
+    created_at: datetime | None = None
+    last_run: ScheduleRunSummary | None = None
+
+
+class ScheduleUsage(BaseModel):
+    run_count: int = 0
+    first_run_at: datetime | None = None
+    total_cost_usd: float = 0
+    total_tokens: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    avg_cost_usd: float | None = None
+    expected_month_usd: float | None = None
+
+
+class RunSettingsOut(BaseModel):
+    metrics_source: str | None = None
+    metrics: list[dict] = Field(default_factory=list)
+    execution_model_id: str | None = None
+    evaluation_model_id: str | None = None
+    execution_mode: str | None = None
+
+
+class TestRunScheduleDetail(TestRunScheduleOut):
+    upcoming: list[datetime] = Field(default_factory=list)
+    recent_runs: list[ScheduleRunSummary] = Field(default_factory=list)
+    usage: ScheduleUsage = Field(default_factory=ScheduleUsage)
+    run_settings: RunSettingsOut = Field(default_factory=RunSettingsOut)
+
+
+class OccurrenceOut(BaseModel):
+    schedule_id: UUID4
+    name: str
+    occurrence: datetime
+    at: datetime
+    changed: bool = False
+
+
+class OccurrencesOut(BaseModel):
+    items: list[OccurrenceOut]
+    hourly: list[NamedRef]
+
+
+class SchedulePreview(BaseModel):
+    repeats: str
+    next: list[datetime]

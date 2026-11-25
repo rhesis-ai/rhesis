@@ -20,7 +20,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import Integer, cast, func
+from sqlalchemy import Integer, cast, func, or_
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, joinedload
 
@@ -39,6 +39,7 @@ from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.telemetry.providers import resolve_provider
 from rhesis.backend.app.utils.crud_utils import (
     bulk_delete_by_ids,
+    count_items,
     create_item,
     delete_item,
     get_item_detail,
@@ -217,12 +218,27 @@ def sum_run_test_counts(
     return total or 0
 
 
+def trigger_filter(trigger: str | None):
+    """Runs started by a schedule, or by a person. Runs from before schedules count as manual."""
+
+    def _filter(q):
+        if trigger is None:
+            return q
+        stored = models.TestRun.attributes["trigger"].astext
+        if trigger == "schedule":
+            return q.filter(stored == "schedule")
+        return q.filter(or_(stored.is_(None), stored != "schedule"))
+
+    return _filter
+
+
 def _test_run_experiment_filter(
     db: Session,
     experiment_id: str | None,
     parameter_version: str | None,
     has_experiment: bool | None,
     has_annotations: bool | None,
+    trigger: str | None = None,
 ):
     """Build the experiment/parameter/annotation row-selection filter for get_test_runs.
 
@@ -257,7 +273,7 @@ def _test_run_experiment_filter(
                 .exists()
             )
             q = q.filter(annotated_result_exists if has_annotations else ~annotated_result_exists)
-        return q
+        return trigger_filter(trigger)(q)
 
     return _filter
 
@@ -275,6 +291,7 @@ def get_test_runs(
     has_annotations: bool | None = None,
     organization_id: str | None = None,
     user_id: str | None = None,
+    trigger: str | None = None,
 ) -> List[models.TestRun]:
     return get_items_detail(
         db,
@@ -288,9 +305,27 @@ def get_test_runs(
         organization_id=organization_id,
         user_id=user_id,
         extra_filter=_test_run_experiment_filter(
-            db, experiment_id, parameter_version, has_experiment, has_annotations
+            db, experiment_id, parameter_version, has_experiment, has_annotations, trigger
         ),
         hydrate_filter=_defer_endpoint_last_token,
+    )
+
+
+def count_test_runs_by_trigger(
+    db: Session,
+    trigger: str,
+    filter: str | None = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+) -> int:
+    """The list total when the runs list is filtered by trigger."""
+    return count_items(
+        db,
+        models.TestRun,
+        filter,
+        organization_id,
+        user_id,
+        extra_filter=trigger_filter(trigger),
     )
 
 

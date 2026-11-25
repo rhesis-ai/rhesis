@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Request, Response
@@ -102,6 +102,9 @@ def read_test_runs(
         "true = runs with at least one annotated test, "
         "false = runs with no annotated tests, omit = all runs",
     ),
+    trigger: Literal["manual", "schedule"] | None = Query(
+        None, description="Only runs a schedule started, or only runs a person started"
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -118,7 +121,14 @@ def read_test_runs(
         has_annotations=has_annotations,
         organization_id=str(current_user.organization_id),
         user_id=str(current_user.id),
+        trigger=trigger,
     )
+    if trigger:
+        # with_count_header can't see this filter, so the total is counted again with it.
+        organization_id, user_id = tenant_context
+        response.headers["X-Total-Count"] = str(
+            test_run_crud.count_test_runs_by_trigger(db, trigger, filter, organization_id, user_id)
+        )
 
     # Attach accurate per-run pass/fail counts so list views (e.g. the test
     # runs grid pass-rate column) don't rely on the stale

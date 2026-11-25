@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, List, Optional
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
@@ -140,9 +140,18 @@ SCHEDULE_STATUS_ENTITY = "TestConfiguration"
 
 def _scheduled_configurations(db: Session):
     # Soft-deleted rows aren't filtered automatically outside QueryBuilder.
-    return db.query(models.TestConfiguration).filter(
-        models.TestConfiguration.attributes.has_key("schedule"),
-        models.TestConfiguration.deleted_at.is_(None),
+    return (
+        db.query(models.TestConfiguration)
+        .options(
+            joinedload(models.TestConfiguration.status),
+            joinedload(models.TestConfiguration.test_set),
+            joinedload(models.TestConfiguration.endpoint),
+            joinedload(models.TestConfiguration.user),
+        )
+        .filter(
+            models.TestConfiguration.attributes.has_key("schedule"),
+            models.TestConfiguration.deleted_at.is_(None),
+        )
     )
 
 
@@ -254,6 +263,7 @@ def recent_configuration_runs(
 ) -> List[models.TestRun]:
     return (
         _runs_of(db, config_id)
+        .options(joinedload(models.TestRun.status))
         .order_by(models.TestRun.created_at.desc())
         .offset(offset)
         .limit(limit)
