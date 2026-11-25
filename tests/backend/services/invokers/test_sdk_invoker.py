@@ -62,7 +62,7 @@ class TestSdkEndpointInvoker:
     def test_connection_lost_maps_to_sdk_connection_lost(self):
         """A connector that dropped mid-call and never came back is its own failure."""
         error = SdkEndpointInvoker()._check_result_errors(
-            {"error": "connection_lost", "details": "did not reconnect within 90s"}, "fn"
+            {"error": "connection_lost", "details": "did not reconnect within 90s"}, "fn", 120.0
         )
 
         assert error is not None
@@ -71,10 +71,17 @@ class TestSdkEndpointInvoker:
 
     def test_function_error_named_connection_lost_stays_a_function_error(self):
         error = SdkEndpointInvoker()._check_result_errors(
-            {"status": "error", "error": "connection_lost", "duration_ms": 1.0}, "fn"
+            {"status": "error", "error": "connection_lost", "duration_ms": 1.0}, "fn", 120.0
         )
 
         assert error.error_type == "sdk_function_error"
+
+    def test_timeout_names_function_and_limit(self):
+        error = SdkEndpointInvoker()._check_result_errors({"error": "timeout"}, "fn", 30.0)
+
+        assert error.error_type == "sdk_timeout"
+        assert error.output.startswith("SDK function fn did not finish within 30 seconds.")
+        assert "through the Rhesis SDK" not in error.output
 
     def test_prepare_function_kwargs_renders_params_in_mapping(self, sample_endpoint_sdk):
         """{{ params.model }} in request_mapping renders from input_data['params']."""

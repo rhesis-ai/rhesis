@@ -103,9 +103,9 @@ class TestClassifyErrorResponse:
         an arbitrary user endpoint is idempotent.
         """
         resp = ErrorResponse(
-            output="SDK function execution timed out",
+            output="SDK function fn did not finish within 120 seconds.",
             error_type="sdk_timeout",
-            message="Function did not respond within 120.0 seconds",
+            message="SDK function fn did not finish within 120 seconds.",
         )
         assert classify_error_response(resp).transient is False
 

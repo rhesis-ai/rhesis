@@ -39,11 +39,16 @@ def call_timeout(endpoint: Any) -> float:
     return default_call_timeout(getattr(endpoint, "connection_type", None))
 
 
-def call_timeout_message(target: str, seconds: float) -> str:
-    """Why a call stopped, and what to change."""
+def call_timeout_message(target: str, seconds: float, suggest_sdk: bool = True) -> str:
+    """Why a call stopped, and what to change. ``suggest_sdk`` is off for SDK calls."""
     unit = "second" if seconds == 1 else "seconds"
-    return (
+    message = (
         f"{target} did not finish within {seconds:g} {unit}. If it is just slow, raise "
-        "the endpoint's Timeout (seconds). Jobs that run longer than the proxies in front "
-        "of your API allow can run through the Rhesis SDK instead."
+        "the endpoint's Timeout (seconds)."
     )
+    if suggest_sdk:
+        message += (
+            " Jobs that run longer than the proxies in front of your API allow can run "
+            "through the Rhesis SDK instead."
+        )
+    return message
