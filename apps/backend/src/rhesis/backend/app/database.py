@@ -412,6 +412,12 @@ def temporary_project_scope(
         user_id=user_id or None,
         project_id=project_id or None,
     )
+    if prev_scope == temp_scope:
+        # Already in this scope (a job's own session): setting it again and restoring it
+        # would only cost two round trips.
+        yield
+        return
+
     db.info[_SCOPE_KEY] = temp_scope
     _apply_scope_variables(db, temp_scope)
 
