@@ -100,6 +100,10 @@ class TestCreate:
         assert config.attributes["metrics_source"] == "requirement"
         assert _runs(test_db, config) == 0
 
+    def test_a_blank_name_takes_the_test_set_name(self, create):
+        config = create(_spec(name=""))
+        assert _schedule(config)["name"] == "Weekday regression set"
+
     def test_refuses_output_reuse(self, create):
         settings = TestSetExecutionRequest(reference_test_run_id=uuid.uuid4())
         with pytest.raises(ScheduleValidationError, match="reuse"):
