@@ -105,12 +105,21 @@ export const skeletonCardKeys = Array.from(
 const SKELETON_LAST_LINE_WIDTH = '60%';
 
 /**
- * A text placeholder exactly as wide as `children`: `fit-content` keeps it
- * from stretching across a block parent.
+ * A text placeholder as wide as `children`: `fit-content` keeps it from
+ * stretching across a block parent. Where the text would run out of room it
+ * shrinks, as the real text wraps or shortens there.
  */
 function TextSlot({ children }: { children: React.ReactNode }) {
   return (
-    <SkeletonSlot variant="text" sx={{ maxWidth: 'fit-content' }}>
+    <SkeletonSlot
+      variant="text"
+      sx={{
+        width: 'fit-content',
+        maxWidth: '100%',
+        flexShrink: 1,
+        minWidth: 0,
+      }}
+    >
       <span>{children}</span>
     </SkeletonSlot>
   );
@@ -380,7 +389,8 @@ export default function EntityCard({
             topRightActions
           )}
           {onDelete && (
-            <SkeletonSlot variant="circular">
+            // Flex, so the circle hugs the button instead of a text line.
+            <SkeletonSlot variant="circular" sx={{ display: 'inline-flex' }}>
               <Tooltip title={deleteDisabledReason || deleteLabel}>
                 {/* The span keeps the tooltip working on a disabled button, and
                   carries the cursor — MUI sets pointer-events: none on the
