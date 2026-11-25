@@ -1,0 +1,11 @@
+# Where rhesis-ee's Rhesis Enterprise registry Jobs run (customers, subscriptions,
+# license grants). Kept apart from "rhesis" on purpose: creating a Job lets you mount
+# any Secret in its namespace, and this one holds only the registry's credentials,
+# so the ungated enterprise-ci-dev identity never gets near the app's secrets.
+# Must exist before dev-external-secrets syncs rhesis-enterprise-credentials into it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rhesis-enterprise
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"

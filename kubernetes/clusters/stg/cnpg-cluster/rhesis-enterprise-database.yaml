@@ -1,0 +1,28 @@
+# Rhesis Enterprise licensing registry: customers, subscriptions and every license
+# grant minted for them. Written only by the private rhesis-ee repo's workflows
+# (one-off Jobs); schema and grants come from its CLI's `migrate` (rhesis-ee
+# enterprise/), which also grants grafana-viewer SELECT.
+#
+# A declarative Database rather than postInitSQL: bootstrap SQL only runs on a fresh
+# initdb, and this cluster already exists. Owner role: spec.managed.roles in
+# kubernetes/base/cnpg-cluster/cnpg-cluster.yaml.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: rhesis-enterprise
+  namespace: rhesis
+  annotations:
+    # After the Cluster (wave 2) within this Application. The owner's password comes
+    # from an ExternalSecret synced by a different Application (stg-external-secrets),
+    # which waves can't order against: until it exists the role has no password and
+    # CNPG keeps retrying this Database, which then reconciles on its own.
+    argocd.argoproj.io/sync-wave: "4"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  name: rhesis-enterprise
+  owner: rhesis-enterprise
+  cluster:
+    name: rhesis-stg
+  # Keep the data if this CR is ever deleted: it is the only record of who holds
+  # which license.
+  databaseReclaimPolicy: retain

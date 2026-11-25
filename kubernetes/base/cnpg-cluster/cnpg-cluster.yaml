@@ -3,7 +3,8 @@
 # names and backup target; everything here is the same in all of them.
 #
 # Roles: rhesis-admin (BYPASSRLS, owner, runs migrations), rhesis-user (DML only,
-# the app), rhesis-analytics-user (owns the analytics DB), grafana-viewer (SELECT).
+# the app), rhesis-analytics-user (owns the analytics DB), grafana-viewer (SELECT),
+# rhesis-enterprise (owns the Rhesis Enterprise licensing registry DB).
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -60,6 +61,16 @@ spec:
         bypassrls: true
         passwordSecret:
           name: grafana-viewer-credentials
+      # Owns the "rhesis-enterprise" database (customers, subscriptions, license
+      # grants), created by the Database CR in each CNPG overlay. Used only by the
+      # private rhesis-ee repo's workflows, as one-off Jobs; the app never connects.
+      # Its CLI's `migrate` grants grafana-viewer SELECT, as the analytics DB does.
+      - name: rhesis-enterprise
+        ensure: present
+        login: true
+        bypassrls: false
+        passwordSecret:
+          name: rhesis-enterprise-credentials
   # Bootstrap SQL runs once, on a fresh initdb (new environment, or DR restore
   # without a Barman backup). Editing it does nothing to a running cluster; apply
   # the same change by hand there.

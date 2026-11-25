@@ -1,0 +1,13 @@
+# Where the registry database is: the "rhesis-enterprise" database on Bitnami PostgreSQL (dev has no CNPG),
+# in namespace "rhesis" (no NetworkPolicy restricts cross-namespace traffic).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rhesis-enterprise-config
+  namespace: rhesis-enterprise
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  ENTERPRISE_DB_HOST: rhesis-postgresql.rhesis.svc
+  ENTERPRISE_DB_PORT: "5432"
+  ENTERPRISE_DB_NAME: rhesis-enterprise
