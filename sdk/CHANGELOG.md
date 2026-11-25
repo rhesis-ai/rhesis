@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The connector keeps each test and metric result until the backend acknowledges it, and resends unacknowledged results after reconnecting, and otherwise after 30 seconds, backing off to 5 minutes, paced at 200 per second. Against a backend without acknowledgements it keeps a result only while it cannot be sent. It keeps at most 1000 results for at most 10 minutes, logging each one it drops, and drops a result that cannot be serialized instead of retrying it.
 - After a connection that had stayed up drops, the connector reconnects at once instead of waiting out a backoff that grew with every earlier drop (up to 60 seconds), and sends during the reconnect go straight to the outbox.
 - The backend's keepalive `ping` is logged at debug level instead of info.
+- The SDK requires the `rhesis` core package at its own version or newer, instead of `0.17.1`, so it no longer installs next to an older core.
 
 ## [0.22.0] - 2026-11-19
 

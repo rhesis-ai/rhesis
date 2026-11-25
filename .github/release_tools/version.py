@@ -7,7 +7,12 @@ import re
 import subprocess
 from pathlib import Path
 
-from release_tools.config import COMPONENTS, PLATFORM_PINNED_FILES, PLATFORM_VERSION_FILE
+from release_tools.config import (
+    COMPONENTS,
+    PLATFORM_PINNED_FILES,
+    PLATFORM_VERSION_FILE,
+    SDK_CORE_REQUIREMENT,
+)
 from release_tools.utils import error, info, success
 
 
@@ -116,10 +121,14 @@ def update_version_file(
 
     if dry_run:
         info(f"Would update {config.config_file} version to: {new_version}")
+        if component == "sdk":
+            info(f"Would raise the SDK's rhesis requirement to: >={new_version}")
         return True
 
     if config.config_type == "pyproject":
-        return _update_pyproject_version(config_path, new_version)
+        if not _update_pyproject_version(config_path, new_version):
+            return False
+        return component != "sdk" or pin_sdk_core_floor(new_version, repo_root)
     if config.config_type == "package":
         return _update_package_version(config_path, new_version, repo_root)
 
@@ -153,6 +162,21 @@ def pin_platform_files(new_version: str, repo_root: Path) -> bool:
             return False
         path.write_text(text)
         success(f"Pinned {rel_path} to: {new_version}")
+    return True
+
+
+def pin_sdk_core_floor(new_version: str, repo_root: Path) -> bool:
+    """Raise the SDK's requirement on the core package to the version being released"""
+    rel_path, pattern = SDK_CORE_REQUIREMENT
+    path = repo_root / rel_path
+    text, count = re.subn(
+        pattern, lambda m: f"{m.group(1)}{new_version}{m.group(2)}", path.read_text()
+    )
+    if count != 1:
+        error(f"Expected one rhesis[telemetry] requirement in {rel_path}, found {count}")
+        return False
+    path.write_text(text)
+    success(f"Raised the rhesis requirement in {rel_path} to: >={new_version}")
     return True
 
 
