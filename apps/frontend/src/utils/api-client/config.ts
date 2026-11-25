@@ -23,6 +23,7 @@ export const API_ENDPOINTS = {
   testRuns: '/test_runs',
   testResults: '/test_results',
   testConfigurations: '/test_configurations',
+  testRunSchedules: '/test_run_schedules',
   prompts: '/prompts',
   statuses: '/statuses',
   tags: '/tags',
