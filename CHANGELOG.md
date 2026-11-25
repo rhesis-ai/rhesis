@@ -28,7 +28,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 - Sequential runs now retry temporary endpoint failures (HTTP 429, 502, 503, 504 and dropped connections), as parallel runs do.
 - The pre-run connectivity check waits for the endpoint's timeout, up to 1 minute, and reports a slower endpoint as a warning instead of a failure.
 - The test button in the endpoint form and on the endpoint page says when it stops waiting before the endpoint's timeout. Test runs still wait the full timeout.
-- The Helm chart gives worker pods 9000 seconds to finish running jobs on shutdown (was the Kubernetes default of 30), which covers a test run at the default run time limit. Set `workers[].terminationGracePeriodSeconds` to change it.
+- The Helm chart gives worker pods 9000 seconds to finish running jobs on shutdown (was the Kubernetes default of 30), which covers a test run at the default run time limit. Set `workers[].terminationGracePeriodSeconds` to change it. Docker Compose does the same for the worker service (was 10 seconds); set `WORKER_STOP_GRACE_PERIOD` to change it. `docker compose stop` now waits for running test runs.
 
 ### Fixed
 

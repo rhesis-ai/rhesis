@@ -179,6 +179,8 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
       target: worker
+    # Time for running test runs to finish on stop or upgrade. An idle worker still stops at once.
+    stop_grace_period: ${WORKER_STOP_GRACE_PERIOD:-9000s}
     environment: &worker-environment
       <<: [*common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *moderation-config, *common-storage]
       # DB/Redis default to the built-in postgres/redis services above; set
