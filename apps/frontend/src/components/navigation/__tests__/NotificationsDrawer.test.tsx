@@ -409,4 +409,21 @@ describe('NotificationsDrawer', () => {
     fireEvent.click(await screen.findByText("Weekday regression didn't run"));
     expect(mockPush).toHaveBeenCalledWith('/test-runs');
   });
+
+  it('shows a paused schedule as a warning, not a failure', async () => {
+    mockGetNotifications.mockResolvedValue([
+      notification({
+        id: 'n-paused',
+        event_type: 'test_run_schedule.paused',
+        title: 'Weekday regression paused',
+        is_failure: true,
+        payload: { link: '/test-runs?tab=schedules&schedule=s-1' },
+      }),
+    ]);
+    render(<NotificationsDrawer open onClose={jest.fn()} />);
+
+    await screen.findByText('Weekday regression paused');
+    expect(screen.getByTestId('ScheduleIcon')).toBeInTheDocument();
+    expect(screen.queryByTestId('WarningAmberOutlinedIcon')).toBeNull();
+  });
 });

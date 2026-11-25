@@ -137,3 +137,15 @@ describe('timeUntil', () => {
     expect(timeUntil(iso, now)).toBe(text);
   });
 });
+
+describe('formProblems with a stored schedule', () => {
+  const past = base({ repeat: false, date: '2026-11-20', time: '09:00' });
+  it('accepts a past date the schedule already had', () => {
+    expect(formProblems({ ...past, name: 'Renamed' }, NOW, past)).toEqual({});
+  });
+  it('still refuses a new past date', () => {
+    expect(
+      formProblems({ ...past, date: '2026-11-21' }, NOW, past).time
+    ).toBeDefined();
+  });
+});

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { TestRunSchedule } from '@/utils/api-client/interfaces/test-run-schedule';
 import ScheduleStatusChip from '../ScheduleStatusChip';
-import SchedulesListView from '../SchedulesListView';
+import SchedulesListView, { sortSchedules } from '../SchedulesListView';
 import { scheduleOf } from '../../RunNameCell';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
@@ -120,5 +120,18 @@ describe('scheduleOf', () => {
   it('is empty for manual runs and deleted schedules', () => {
     expect(scheduleOf(run({}, { name: 'Nightly' }))).toBeNull();
     expect(scheduleOf(run({ trigger: 'schedule' }))).toBeNull();
+  });
+});
+
+describe('sortSchedules', () => {
+  it('puts overdue first and paused and finished last', () => {
+    const sorted = sortSchedules([
+      schedule({ id: 'f', name: 'F', status: 'Finished', next_run_at: null }),
+      schedule({ id: 'p', name: 'P', status: 'Paused' }),
+      schedule({ id: 'b', name: 'B', next_run_at: '2026-11-27T09:00:00Z' }),
+      schedule({ id: 'a', name: 'A', next_run_at: '2026-11-26T09:00:00Z' }),
+      schedule({ id: 'o', name: 'O', overdue: true }),
+    ]);
+    expect(sorted.map(s => s.id)).toEqual(['o', 'a', 'b', 'p', 'f']);
   });
 });

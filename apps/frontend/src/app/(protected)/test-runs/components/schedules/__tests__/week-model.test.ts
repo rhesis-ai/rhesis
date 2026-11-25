@@ -3,7 +3,14 @@ import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import type { TestRunSchedule } from '@/utils/api-client/interfaces/test-run-schedule';
-import { buildWeek, weekStart } from '../week-model';
+import {
+  CARD_KIND,
+  buildWeek,
+  cardCaption,
+  dayAfter,
+  weekStart,
+  type WeekCard,
+} from '../week-model';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -83,5 +90,35 @@ describe('buildWeek', () => {
     expect(kinds(days, '2026-11-25')).toEqual(['overdue']);
     expect(days.find(d => d.date === '2026-11-24')?.past).toBe(true);
     expect(days.find(d => d.date === '2026-11-25')?.today).toBe(true);
+  });
+});
+
+describe('dayAfter', () => {
+  it('lands on midnight across the autumn clock change', () => {
+    const start = weekStart(dayjs.tz('2026-10-21 12:00', 'Europe/Berlin'));
+    // Clocks go back on Sun 25 Oct; Mon 26 Oct 00:00 Berlin is 23:00 UTC.
+    expect(dayAfter(start, 7, 'Europe/Berlin').utc().toISOString()).toBe(
+      '2026-10-25T23:00:00.000Z'
+    );
+  });
+});
+
+describe('cardCaption', () => {
+  const card = (overrides: Partial<WeekCard>): WeekCard => ({
+    key: 'k',
+    kind: CARD_KIND.UPCOMING,
+    scheduleId: 's1',
+    name: 'Daily',
+    at: '2026-11-25T09:00:00Z',
+    original: '2026-11-25T09:00:00Z',
+    ...overrides,
+  });
+  it('shows the pass rate on a run that happened', () => {
+    expect(
+      cardCaption(card({ kind: CARD_KIND.RAN, passRate: 91.6 }), '09:00')
+    ).toBe('09:00 · Ran · 92%');
+  });
+  it('shows only the time on a planned run', () => {
+    expect(cardCaption(card({}), '09:00')).toBe('09:00');
   });
 });
