@@ -86,6 +86,25 @@ describe('AuditLogTab', () => {
     ]);
   });
 
+  it('puts the open section in a tab panel named by its tab', () => {
+    render(<AuditLogTab />);
+    const tab = screen.getByRole('tab', { name: 'Events' });
+    const panel = screen.getByRole('tabpanel', { name: 'Events' });
+    expect(tab).toHaveAttribute('aria-controls', panel.id);
+    expect(panel).toContainElement(screen.getByTestId('events'));
+  });
+
+  it('gives every tab a panel to control', () => {
+    const { container } = render(<AuditLogTab />);
+    for (const tab of screen.getAllByRole('tab')) {
+      const id = tab.getAttribute('aria-controls');
+      expect(container.querySelector(`#${id}`)).toHaveAttribute(
+        'role',
+        'tabpanel'
+      );
+    }
+  });
+
   it('opens the section named in the URL, and writes the choice back', () => {
     search = 'tab=audit-log&section=settings';
     render(<AuditLogTab />);

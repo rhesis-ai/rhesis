@@ -68,10 +68,22 @@ export default function AuditExportDialog({
     );
 
   return (
-    <Dialog open={open} onClose={close} maxWidth="xs" fullWidth>
-      <DialogTitle>Export audit log</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={close}
+      maxWidth="xs"
+      fullWidth
+      aria-labelledby="audit-export-title"
+      aria-describedby="audit-export-description"
+    >
+      <DialogTitle id="audit-export-title">Export audit log</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography
+          id="audit-export-description"
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: 2 }}
+        >
           {filter
             ? 'Exports every event that matches the current search and filters, not just this page.'
             : 'Exports every event in the log.'}{' '}

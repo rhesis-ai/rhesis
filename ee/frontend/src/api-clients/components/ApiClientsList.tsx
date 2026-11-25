@@ -271,12 +271,18 @@ export default function ApiClientsList({
         onClose={() => !working && setConfirm(null)}
         maxWidth="xs"
         fullWidth
+        aria-labelledby="api-client-confirm-title"
+        aria-describedby="api-client-confirm-description"
+        // alertdialog: screen readers read the message on open, not just the title.
+        slotProps={{ paper: { role: 'alertdialog' } }}
       >
         {confirm && (
           <>
-            <DialogTitle>{ACTION_COPY[confirm.action].title}</DialogTitle>
+            <DialogTitle id="api-client-confirm-title">
+              {ACTION_COPY[confirm.action].title}
+            </DialogTitle>
             <DialogContent>
-              <DialogContentText>
+              <DialogContentText id="api-client-confirm-description">
                 {ACTION_COPY[confirm.action].body}
               </DialogContentText>
               <Box sx={{ mt: 2, fontFamily: 'monospace' }}>
@@ -284,7 +290,12 @@ export default function ApiClientsList({
               </Box>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setConfirm(null)} disabled={working}>
+              <Button
+                onClick={() => setConfirm(null)}
+                disabled={working}
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- the safe choice gets focus
+                autoFocus
+              >
                 Cancel
               </Button>
               <Button
