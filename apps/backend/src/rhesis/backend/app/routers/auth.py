@@ -465,8 +465,8 @@ def _store_new_password(
     """Hash and persist a new password and revoke every refresh token.
 
     Returns the user's email for logging. ``action`` is the audit action:
-    ``password.reset`` or ``password.changed``. ``revoke_api_tokens`` also soft
-    deletes the user's API tokens, for the reset path.
+    ``password.reset`` or ``password.changed``. ``revoke_api_tokens`` also
+    revokes the user's API tokens, for the reset path.
     """
     from rhesis.backend.app.crud.token import revoke_user_tokens
     from rhesis.backend.app.utils.encryption import hash_password
@@ -1656,8 +1656,8 @@ def _revoke_cookie_session_on_logout(
         db.commit()
         # This sync route runs in a worker thread; the Redis client lives on the loop.
         anyio.from_thread.run(invalidate_user_sessions, cookie_user_id)
-    except Exception as e:
-        logger.error(f"Error invalidating cookie session on logout: {str(e)}")
+    except Exception:
+        logger.exception("Error invalidating cookie session on logout")
 
 
 @router.get("/logout")
