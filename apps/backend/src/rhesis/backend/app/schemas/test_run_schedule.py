@@ -103,6 +103,10 @@ class ScheduleUpdate(BaseModel):
     def touches_timing(self) -> bool:
         return any(f in self.model_fields_set for f in TIMING_FIELDS)
 
+    def changes_times(self) -> bool:
+        """When the runs fall, not just when the schedule ends."""
+        return bool(self.model_fields_set & {"cron", "run_at", "timezone"})
+
     def touches_settings(self) -> bool:
         return bool(self.model_fields_set & {"endpoint_id", "run_settings", "name", "notify"})
 

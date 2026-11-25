@@ -221,10 +221,20 @@ def occurrence_window(db: Session, start: datetime, end: datetime) -> dict[str, 
         if schedule_timing.cron and timing.min_gap(schedule_timing, sample=24) <= HOURLY:
             hourly.append({"id": config.id, "name": schedule.get("name")})
             continue
-        window_start = max(start, _now())
-        for occurrence in timing.occurrences(
-            schedule_timing, window_start, end, schedule.get("exceptions") or []
-        ):
+        now = _now()
+        window_start = max(start, now)
+        exceptions = schedule.get("exceptions") or []
+        if schedule.get("max_runs") is not None:
+            # Counted from now, like upcoming(): only the runs left under the limit.
+            left = max(schedule["max_runs"] - count_schedule_runs(db, config.id), 0)
+            window = [
+                o
+                for o in timing.occurrences(schedule_timing, now, end, exceptions, limit=left)
+                if o.at >= window_start
+            ]
+        else:
+            window = timing.occurrences(schedule_timing, window_start, end, exceptions)
+        for occurrence in window:
             items.append(
                 OccurrenceOut(
                     schedule_id=config.id,

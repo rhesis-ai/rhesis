@@ -57,7 +57,7 @@ def record_run_outcome(
     attributes = test_run.attributes or {}
     if attributes.get("trigger") != "schedule":
         return None
-    config = get_schedule(db, test_run.test_configuration_id)
+    config = get_schedule(db, test_run.test_configuration_id, for_update=True)
     if config is None:  # deleted since the run started
         return None
     schedule = schedule_of(config)
@@ -79,12 +79,13 @@ def record_run_outcome(
         schedule["first_run_notified"] = True
 
     state = status_of(config)
-    if schedule["failure_streak"] >= FAILURE_STREAK_LIMIT and state != PAUSED:
+    paused_now = schedule["failure_streak"] >= FAILURE_STREAK_LIMIT and state != PAUSED
+    if paused_now:
         schedule["paused_reason"] = "failure_streak"
         state = PAUSED
     set_schedule(db, config, schedule, state)
     db.commit()
-    if schedule.get("paused_reason") == "failure_streak" and state == PAUSED:
+    if paused_now:
         notify_paused(db, config, "failure_streak")
 
     wanted = notify_setting == "always" or (notify_setting == "problems" and problem)

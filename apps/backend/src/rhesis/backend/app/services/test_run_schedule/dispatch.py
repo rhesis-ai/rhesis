@@ -86,7 +86,7 @@ def due_in_org(organization_id: str, now: datetime) -> list[tuple[UUID, str | No
     with get_db_with_tenant_variables(organization_id) as db:
         # With no project bound, project RLS shows only project-less rows; walk each project.
         due = [(config_id, None) for config_id in find_due_schedule_ids(db, now, SCHEDULED, None)]
-        for project_id in list_org_project_ids(db, organization_id):
+        for project_id in list_org_project_ids(db, organization_id, include_deleted=False):
             with temporary_project_scope(db, organization_id, "", str(project_id)):
                 due += [
                     (config_id, str(project_id))
@@ -142,10 +142,24 @@ def _fire(
         outcomes.notify_needs_owner(db, config, creator.display_name if creator else "Its owner")
         db.commit()
         return FireResult.PAUSED
-    return _submit(db, config, creator, occurrence)
+    return _submit(db, config, creator, occurrence, now)
 
 
-def _submit(db: Session, config: TestConfiguration, creator, occurrence) -> FireResult:
+def _keep_after_skip(
+    db: Session, config: TestConfiguration, occurrence, reason: str, now: datetime
+) -> None:
+    """Record a run that didn't start, planned again as not counted toward ``max_runs``."""
+    schedule = _record_skip(schedule_of(config), occurrence, reason)
+    if reason == FireResult.QUOTA.value:
+        # Before the write: it marks the schedule as notified.
+        outcomes.notify_quota_once(db, config, schedule)
+    state = plan_next_run(db, config, schedule, now, starting=0)
+    set_schedule(db, config, schedule, state)
+
+
+def _submit(
+    db: Session, config: TestConfiguration, creator, occurrence, now: datetime
+) -> FireResult:
     config_id = config.id
     try:
         _check_targets(db, config)
@@ -156,9 +170,7 @@ def _submit(db: Session, config: TestConfiguration, creator, occurrence) -> Fire
     except QuotaExceededError:
         db.rollback()
         config = get_schedule(db, config_id)
-        schedule = _record_skip(schedule_of(config), occurrence, "quota")
-        outcomes.notify_quota_once(db, config, schedule)
-        set_schedule(db, config, schedule, status_of(config))
+        _keep_after_skip(db, config, occurrence, FireResult.QUOTA.value, now)
         db.commit()
         return FireResult.QUOTA
     except (TargetMissing, ModelNotConfiguredError, ModelConfigurationError) as exc:
@@ -174,8 +186,7 @@ def _submit(db: Session, config: TestConfiguration, creator, occurrence) -> Fire
         db.rollback()
         config = get_schedule(db, config_id)
         if config is not None:
-            schedule = _record_skip(schedule_of(config), occurrence, "error")
-            set_schedule(db, config, schedule, status_of(config))
+            _keep_after_skip(db, config, occurrence, FireResult.ERROR.value, now)
             db.commit()
         return FireResult.ERROR
 

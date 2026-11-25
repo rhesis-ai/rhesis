@@ -31,12 +31,21 @@ def dispatch_due_schedules(self) -> dict:
     for organization_id in all_organization_ids():
         # One organization's trouble never costs the others their runs.
         try:
-            for config_id, project_id in due_in_org(organization_id, now):
-                counts["due"] += 1
-                counts[fire_due_schedule(config_id, organization_id, project_id, now).value] += 1
+            due = due_in_org(organization_id, now)
         except Exception:
             logger.exception("Schedule dispatch failed for organization %s", organization_id)
             counts["org_errors"] += 1
+            continue
+        for config_id, project_id in due:
+            counts["due"] += 1
+            # Nor does one broken schedule cost the rest of its organization theirs.
+            try:
+                result = fire_due_schedule(config_id, organization_id, project_id, now)
+            except Exception:
+                logger.exception("Scheduled run of %s failed to dispatch", config_id)
+                counts["error"] += 1
+                continue
+            counts[result.value] += 1
     if counts:
         logger.info("Schedule dispatch: %s", dict(counts), extra=dict(counts))
     return dict(counts)

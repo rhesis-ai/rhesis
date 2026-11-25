@@ -74,8 +74,9 @@ def _now() -> datetime:
 # --- reading ----------------------------------------------------------------------------------
 
 
-def load_schedule(db: Session, config_id: UUID) -> TestConfiguration:
-    config = get_schedule(db, config_id)
+def load_schedule(db: Session, config_id: UUID, *, for_update: bool = False) -> TestConfiguration:
+    """``for_update`` for any change: it holds the row until commit."""
+    config = get_schedule(db, config_id, for_update=for_update)
     if config is None:
         raise ScheduleNotFound("Schedule not found")
     return config
@@ -281,7 +282,8 @@ def update_schedule(
     schedule = schedule_of(config)
     spec = _validated_spec(schedule, update.spec_changes())
     _apply_spec(schedule, spec)
-    if update.touches_timing():
+    if update.changes_times():
+        # New times make moved and skipped runs meaningless; a new end or run limit doesn't.
         schedule["starts_at"] = None
         schedule["exceptions"] = []
     _apply_run_settings(db, config, update)
@@ -292,6 +294,8 @@ def _apply_run_settings(db: Session, config: TestConfiguration, update: Schedule
     if "run_settings" not in update.model_fields_set and update.endpoint_id is None:
         return
     _refuse_reuse(update.run_settings)
+    if update.endpoint_id is not None:
+        _require_endpoint(db, config, update.endpoint_id)
     attributes = None
     if "run_settings" in update.model_fields_set:
         attributes = {
@@ -299,6 +303,26 @@ def _apply_run_settings(db: Session, config: TestConfiguration, update: Schedule
         }
         attributes |= _settings_attributes(db, config.test_set_id, update.run_settings)
     replace_run_settings(db, config, attributes=attributes, endpoint_id=update.endpoint_id)
+
+
+def _require_endpoint(db: Session, config: TestConfiguration, endpoint_id: UUID) -> None:
+    """The new endpoint must be one the caller can see in this schedule's project."""
+    from rhesis.backend.app.crud.endpoint import get_endpoint
+    from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+
+    try:
+        # Runs execute as the owner, so the endpoint must be visible to them.
+        endpoint = get_endpoint(
+            db,
+            endpoint_id=endpoint_id,
+            organization_id=str(config.organization_id),
+            user_id=str(config.user_id or ""),
+            project_id=str(config.project_id) if config.project_id else None,
+        )
+    except ItemDeletedException:
+        endpoint = None
+    if endpoint is None:
+        raise ScheduleValidationError("Endpoint not found.")
 
 
 def edit_occurrence(
@@ -379,9 +403,7 @@ def _change_following(
         return _replan(db, config, schedule)
 
     starts_at = min(current.original, (edit.move_to or current.original).astimezone(timezone.utc))
-    kept = timing.occurrences(
-        timing_of(schedule), _now(), starts_at, schedule.get("exceptions") or []
-    )
+    kept = _runs_before(schedule, current, starts_at)
     if len(kept) > MAX_PINNED_RUNS:
         raise ScheduleValidationError(
             "Too many runs come before this one. Change the schedule from the list instead."
@@ -397,6 +419,27 @@ def _change_following(
         for o in kept
     ]
     return _replan(db, config, schedule)
+
+
+def _runs_before(
+    schedule: dict, current: timing.Occurrence, starts_at: datetime
+) -> list[timing.Occurrence]:
+    """Pending runs the old timetable still owns: those it put before ``starts_at``.
+
+    Chosen by original time, wherever they were moved, so a run moved past the edit isn't
+    kept next to the new timetable's own run that day. The edited run belongs to the new one.
+    """
+    exceptions = schedule.get("exceptions") or []
+    latest = max(
+        [starts_at] + [timing.parse_instant(e["run_at"]) for e in exceptions if e.get("run_at")]
+    )
+    return [
+        o
+        for o in timing.occurrences(
+            timing_of(schedule), _now(), latest + timedelta(seconds=1), exceptions
+        )
+        if o.original < starts_at and o.original != current.original
+    ]
 
 
 def _cron_at_new_time(schedule: dict, current: timing.Occurrence, move_to: datetime) -> str:
@@ -432,7 +475,10 @@ def delete_occurrence(
     ends_at = min(current.original, current.at) - timedelta(seconds=1)
     schedule["ends_at"] = timing.format_instant(ends_at)
     schedule["exceptions"] = [
-        e
+        # A run moved to before the cut from after it keeps running: pin it as extra.
+        e | {"extra": True}
+        if not e.get("skip") and timing.parse_instant(e["occurrence"]) > ends_at
+        else e
         for e in schedule.get("exceptions") or []
         if e.get("skip") or timing.parse_instant(e["run_at"]) <= ends_at
     ]
@@ -456,6 +502,9 @@ def skip_next(db: Session, config: TestConfiguration) -> TestConfiguration:
 def pause(db: Session, config: TestConfiguration, reason: str = "user") -> TestConfiguration:
     if status_of(config) == FINISHED:
         raise ScheduleConflict("This schedule has finished. Give it a new date to run again.")
+    if status_of(config) == PAUSED and reason == "user":
+        # Already paused: keep the system's reason, or Resume would get past "needs a new owner".
+        return config
     schedule = schedule_of(config)
     schedule["paused_reason"] = reason
     return set_schedule(db, config, schedule, PAUSED)

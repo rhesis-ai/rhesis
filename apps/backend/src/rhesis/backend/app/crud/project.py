@@ -119,8 +119,10 @@ def _visible_projects(db: Session, organization_id: str | None, user_id: str | N
     return builder
 
 
-def list_org_project_ids(db: Session, organization_id: str) -> List[uuid.UUID]:
-    """Every project id in the org, soft-deleted included, ignoring membership.
+def list_org_project_ids(
+    db: Session, organization_id: str, *, include_deleted: bool = True
+) -> List[uuid.UUID]:
+    """Every project id in the org, ignoring membership; soft-deleted too by default.
 
     For org-wide bookkeeping (quota), not for showing projects to a user.
     """
@@ -128,11 +130,12 @@ def list_org_project_ids(db: Session, organization_id: str) -> List[uuid.UUID]:
     from rhesis.backend.app.scope import bypass_tenant_filter
 
     with bypass_tenant_filter(), without_soft_delete_filter():
-        rows = (
-            db.query(models.Project.id)
-            .filter(models.Project.organization_id == uuid.UUID(str(organization_id)))
-            .all()
+        query = db.query(models.Project.id).filter(
+            models.Project.organization_id == uuid.UUID(str(organization_id))
         )
+        if not include_deleted:
+            query = query.filter(models.Project.deleted_at.is_(None))
+        rows = query.all()
     return [row.id for row in rows]
 
 

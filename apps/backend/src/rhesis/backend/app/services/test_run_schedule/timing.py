@@ -150,7 +150,12 @@ class _Changes:
     extra: tuple[tuple[datetime, datetime], ...]
 
     def touches(self, original: datetime) -> bool:
-        return original in self.skipped or original in self.moved
+        # An extra entry stands in for the cron's own run at that time.
+        return (
+            original in self.skipped
+            or original in self.moved
+            or any(original == kept for kept, _ in self.extra)
+        )
 
 
 def _changes(exceptions: Iterable[Mapping[str, Any]]) -> _Changes:

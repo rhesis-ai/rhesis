@@ -10,12 +10,13 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Query
-from pydantic import ValidationError
+from fastapi import Depends, HTTPException, Query, Request
+from pydantic import AwareDatetime, ValidationError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_job_capacity, require_quota
+from rhesis.backend.app.auth.rbac import require_object
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -141,8 +142,9 @@ def list_test_run_schedules(
 
 @router.get("/occurrences", response_model=OccurrencesOut, **capability(Permission.TestRun.READ))
 def list_test_run_schedule_occurrences(
-    start: datetime = Query(..., alias="from"),
-    end: datetime = Query(..., alias="to"),
+    # Aware only: a time without an offset can't be compared with stored UTC times.
+    start: AwareDatetime = Query(..., alias="from"),
+    end: AwareDatetime = Query(..., alias="to"),
     db: Session = Depends(get_tenant_db_session),
 ):
     """Upcoming runs of every active schedule in a window of up to 42 days."""
@@ -175,17 +177,30 @@ def update_test_run_schedule(
 ):
     """Change the schedule from now on. Runs that happened keep their settings."""
     with _schedule_errors("update schedule"):
-        config = service.update_schedule(db, service.load_schedule(db, schedule_id), body)
+        config = service.update_schedule(
+            db, service.load_schedule(db, schedule_id, for_update=True), body
+        )
         return _saved(db, config)
 
 
-@router.delete(
-    "/{schedule_id}", response_model=TestRunScheduleOut, **capability(Permission.TestRun.DELETE)
-)
-def delete_test_run_schedule(schedule_id: UUID, db: Session = Depends(get_tenant_db_session)):
-    """Stop the schedule. Its past runs are kept."""
+@router.delete("/{schedule_id}", response_model=TestRunScheduleOut)
+def delete_test_run_schedule(
+    schedule_id: UUID,
+    request: Request,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Stop the schedule. Its past runs are kept. Same ownership rule as deleting a test run."""
     with _schedule_errors("delete schedule"):
-        config = service.load_schedule(db, schedule_id)
+        config = service.load_schedule(db, schedule_id, for_update=True)
+        require_object(
+            request,
+            current_user,
+            Permission.TestRun.DELETE_OWN,
+            config,
+            db=db,
+            detail="Not authorized to delete this schedule",
+        )
         item = TestRunScheduleOut.model_validate(views.schedule_item(config))
         service.delete_schedule(db, config)
         db.commit()
@@ -206,7 +221,9 @@ def run_test_run_schedule_now(
 ):
     """Start a run now, as the caller. The schedule's own times don't change."""
     with _schedule_errors("run schedule now"):
-        task, test_run = service.run_now(db, service.load_schedule(db, schedule_id), current_user)
+        task, test_run = service.run_now(
+            db, service.load_schedule(db, schedule_id, for_update=True), current_user
+        )
         return {"test_run_id": str(test_run.id), "task_id": task.id, "status": "submitted"}
 
 
@@ -219,7 +236,9 @@ def skip_next_test_run_schedule_run(
     schedule_id: UUID, db: Session = Depends(get_tenant_db_session)
 ):
     with _schedule_errors("skip the next run"):
-        return _saved(db, service.skip_next(db, service.load_schedule(db, schedule_id)))
+        return _saved(
+            db, service.skip_next(db, service.load_schedule(db, schedule_id, for_update=True))
+        )
 
 
 @router.post(
@@ -229,7 +248,9 @@ def skip_next_test_run_schedule_run(
 )
 def pause_test_run_schedule(schedule_id: UUID, db: Session = Depends(get_tenant_db_session)):
     with _schedule_errors("pause schedule"):
-        return _saved(db, service.pause(db, service.load_schedule(db, schedule_id)))
+        return _saved(
+            db, service.pause(db, service.load_schedule(db, schedule_id, for_update=True))
+        )
 
 
 @router.post(
@@ -239,7 +260,9 @@ def pause_test_run_schedule(schedule_id: UUID, db: Session = Depends(get_tenant_
 )
 def resume_test_run_schedule(schedule_id: UUID, db: Session = Depends(get_tenant_db_session)):
     with _schedule_errors("resume schedule"):
-        return _saved(db, service.resume(db, service.load_schedule(db, schedule_id)))
+        return _saved(
+            db, service.resume(db, service.load_schedule(db, schedule_id, for_update=True))
+        )
 
 
 @router.post(
@@ -254,7 +277,9 @@ def take_over_test_run_schedule(
 ):
     """Become the schedule's owner, so its runs execute as you. Also needs run permission."""
     with _schedule_errors("take over schedule"):
-        config = service.take_over(db, service.load_schedule(db, schedule_id), current_user)
+        config = service.take_over(
+            db, service.load_schedule(db, schedule_id, for_update=True), current_user
+        )
         return _saved(db, config)
 
 
@@ -272,7 +297,7 @@ def edit_test_run_schedule_occurrence(
 ):
     """Change one upcoming run, or that run and the ones after it."""
     with _schedule_errors("change the run"):
-        config = service.load_schedule(db, schedule_id)
+        config = service.load_schedule(db, schedule_id, for_update=True)
         return _saved(db, service.edit_occurrence(db, config, occurrence, scope, body))
 
 
@@ -289,5 +314,5 @@ def delete_test_run_schedule_occurrence(
 ):
     """Skip one upcoming run, or end the schedule just before it."""
     with _schedule_errors("delete the run"):
-        config = service.load_schedule(db, schedule_id)
+        config = service.load_schedule(db, schedule_id, for_update=True)
         return _saved(db, service.delete_occurrence(db, config, occurrence, scope))

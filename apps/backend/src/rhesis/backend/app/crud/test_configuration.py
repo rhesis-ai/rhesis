@@ -104,8 +104,9 @@ def _keep_schedule(
         return update
     changed = update.model_fields_set
     incoming = update.attributes or {}
-    if "attributes" in changed and incoming.get("schedule", schedule) != schedule:
-        raise ScheduleManagedElsewhere("Change schedules through /test_run_schedules")
+    # An incoming schedule is ignored rather than refused: a client that reads, then writes
+    # the whole configuration back would otherwise fail whenever the dispatcher moved
+    # next_run_at in between. Schedules change through /test_run_schedules only.
     if "status_id" in changed and update.status_id != stored.status_id:
         raise ScheduleManagedElsewhere("Change schedules through /test_run_schedules")
     if "attributes" not in changed:
@@ -244,9 +245,22 @@ def lock_schedule(db: Session, config_id: uuid.UUID) -> bool:
     return row is not None
 
 
-def get_schedule(db: Session, config_id: uuid.UUID) -> Optional[models.TestConfiguration]:
-    """A configuration that has a schedule, or ``None``."""
-    return _scheduled_configurations(db).filter(models.TestConfiguration.id == config_id).first()
+def get_schedule(
+    db: Session, config_id: uuid.UUID, *, for_update: bool = False
+) -> Optional[models.TestConfiguration]:
+    """A configuration that has a schedule, or ``None``.
+
+    ``for_update`` waits for and holds the row lock until commit, so a read-change-write of
+    the schedule can't overwrite a change made in between (e.g. the dispatcher's next run).
+    """
+    query = _scheduled_configurations(db).filter(models.TestConfiguration.id == config_id)
+    if for_update:
+        # Locked on its own: FOR UPDATE can't cover the outer joins the loader adds.
+        db.query(models.TestConfiguration.id).filter(
+            models.TestConfiguration.id == config_id
+        ).with_for_update().first()
+        query = query.populate_existing()
+    return query.first()
 
 
 def list_schedules(
