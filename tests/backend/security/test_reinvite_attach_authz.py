@@ -116,7 +116,6 @@ def ctx(test_db):
     returning = create_test_user(test_db, None, f"returning-{suffix}@rhesis-test.com")
 
     member_token = create_test_api_token(test_db, member)
-    owner_token_obj = create_test_api_token(test_db, owner)
     test_db.commit()
     return {
         "db": test_db,
@@ -126,7 +125,7 @@ def ctx(test_db):
         "member": member,
         "returning": returning,
         "member_auth": {"Authorization": f"Bearer {member_token.token}"},
-        "owner_auth": {"Authorization": f"Bearer {owner_token_obj.token}"},
+        "owner_auth": {"Authorization": f"Bearer {owner_token.token}"},
     }
 
 
@@ -144,23 +143,23 @@ def _active(db, org_id, user, project_id):
         db.info["_scope"] = previous
 
 
-def _reinvite(client, ctx, headers, active_project):
+def _reinvite(client, ctx, user, headers, active_project):
     body = {"email": ctx["returning"].email, "send_invite": False}
-    with _active(ctx["db"], ctx["org_id"], ctx["member"], active_project):
+    with _active(ctx["db"], ctx["org_id"], user, active_project):
         extra = {"X-Project-Id": str(active_project)} if active_project else {}
         return client.post("/users/", json=body, headers={**headers, **extra})
 
 
 def test_member_cannot_reinvite_even_with_active_project(client, ctx):
     """A project membership must not let a plain member attach an existing account."""
-    resp = _reinvite(client, ctx, ctx["member_auth"], ctx["project_id"])
+    resp = _reinvite(client, ctx, ctx["member"], ctx["member_auth"], ctx["project_id"])
 
     assert resp.status_code == 403, resp.text
     assert _org_of(ctx["db"], ctx["returning"].id) is None
 
 
 def test_member_cannot_reinvite_without_active_project(client, ctx):
-    resp = _reinvite(client, ctx, ctx["member_auth"], None)
+    resp = _reinvite(client, ctx, ctx["member"], ctx["member_auth"], None)
 
     assert resp.status_code == 403, resp.text
     assert _org_of(ctx["db"], ctx["returning"].id) is None
