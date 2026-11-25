@@ -43,6 +43,7 @@ import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
 import { LayoutContent } from '../components/layout/LayoutContent';
 import { createServerApiFactory } from '../utils/api-client/server-factory';
+import { cachedOrganization } from '../utils/organization-cache';
 import { getServerActiveProjectId } from '../utils/server-active-project';
 import { fetchQuickStartEnabledServer } from '../utils/quick_start.server';
 import {
@@ -156,12 +157,17 @@ const getRequestSession = cache(
  */
 const getRequestOrganization = cache(async (): Promise<Organization | null> => {
   const session = await getRequestSession();
-  if (!session?.user?.organization_id || session.error) return null;
+  const organizationId = session?.user?.organization_id;
+  const userId = session?.user?.id;
+  if (!organizationId || !userId || session.error) return null;
   try {
-    const clientFactory = await createServerApiFactory();
-    return await clientFactory
-      .getOrganizationsClient()
-      .getOrganization(session.user.organization_id);
+    // Across requests too: every sidebar prefetch re-runs generateMetadata.
+    return await cachedOrganization(userId, organizationId, async () => {
+      const clientFactory = await createServerApiFactory();
+      return clientFactory
+        .getOrganizationsClient()
+        .getOrganization(organizationId);
+    });
   } catch {
     return null;
   }
@@ -376,6 +382,38 @@ async function getNavigationItems(
 }
 
 /**
+ * The active project, and the full member-project list for the switcher,
+ * fetched server-side so the sidebar/switcher render on first paint without a
+ * flash. Without `projects`, `ActiveProjectProvider` always issued a client-side
+ * `GET /projects/mine` on mount; this seeds that list so the client effect can
+ * skip the round trip (falling back to fetching itself if this failed).
+ *
+ * `settings` seeds `useUserSettings`'s cache too (see `ActiveProjectProvider`),
+ * so the `default_project` fallback lookup it otherwise does with a client
+ * `GET /users/settings` (needed whenever there's no active-project cookie yet,
+ * e.g. a brand-new session) is already answered.
+ */
+async function loadUserData(session: Session | null): Promise<{
+  projects: Project[] | null;
+  settings: UserSettings | null;
+}> {
+  if (!session || session.error || !session.user?.organization_id) {
+    return { projects: null, settings: null };
+  }
+  const factory = await createServerApiFactory();
+  const [projectsResult, settingsResult] = await Promise.allSettled([
+    factory.getProjectsClient().getMyProjects(),
+    factory.getUsersClient().getUserSettings(),
+  ]);
+  return {
+    projects:
+      projectsResult.status === 'fulfilled' ? projectsResult.value : null,
+    settings:
+      settingsResult.status === 'fulfilled' ? settingsResult.value : null,
+  };
+}
+
+/**
  * A function rather than a static `metadata` object so the favicon and product
  * name are resolved per request — from the caller's organisation first, then
  * the environment — letting one image serve deployments, and one deployment
@@ -411,13 +449,36 @@ const AUTHENTICATION: AuthenticationProps = {
 };
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
-  const session = await getRequestSession();
+  // None of these depend on each other, so they run together rather than in
+  // series. The project list and user settings need the session, and start as
+  // soon as it resolves.
+  const [
+    session,
+    cookieStore,
+    organization,
+    projectId,
+    initialQuickStart,
+    userData,
+  ] = await Promise.all([
+    getRequestSession(),
+    cookies(),
+    // Already awaited by `generateMetadata` on this request, so a cache hit.
+    getRequestOrganization(),
+    getServerActiveProjectId(),
+    // Fetched once here (unauthenticated `GET /auth/providers`) and threaded
+    // down via `QuickStartProvider` — see `fetchQuickStartEnabledServer`'s
+    // docstring for why this replaced two separate client-side
+    // `/api/auth-config` calls.
+    fetchQuickStartEnabledServer(),
+    getRequestSession().then(loadUserData),
+  ]);
+
   // Only an explicit choice pins the mode. When the cookie is absent we leave
   // `data-theme-mode` off the <html> element so the pre-paint script below can
   // resolve it from the browser's `prefers-color-scheme` — stamping 'light'
   // here made `ThemeContextProvider`'s layout effect match the attribute and
   // return early, so a first-time visitor never got their system dark mode.
-  const themeCookie = (await cookies()).get('theme-mode')?.value;
+  const themeCookie = cookieStore.get('theme-mode')?.value;
   const storedThemeMode =
     themeCookie === 'dark' || themeCookie === 'light' ? themeCookie : undefined;
 
@@ -425,10 +486,6 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   // vars carry no `NEXT_PUBLIC_` prefix — see `config/branding.ts`. Reading it
   // on the server and passing it down as props also keeps the server-rendered
   // markup and the hydrated tree in agreement.
-  //
-  // `getRequestOrganization` was already awaited by `generateMetadata` on this
-  // request, so this is a cache hit, not a second fetch.
-  const organization = await getRequestOrganization();
   const deploymentBranding = getServerBranding();
   const branding = resolveBranding(
     deploymentBranding,
@@ -469,46 +526,12 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     },
   }).replace(/</g, '\\u003c')};`;
 
-  // Fetch the active project, and the full member-project list for the
-  // switcher, server-side so the sidebar/switcher render on first paint
-  // without a flash. Without `initialProjects`, `ActiveProjectProvider`
-  // always issued a client-side `GET /projects/mine` on mount even though
-  // the active project itself was already known here — this seeds that list
-  // too so the client effect can skip the network round trip entirely on
-  // the common case (falling back to fetching itself if this failed).
-  let initialActiveProject: Project | null = null;
-  let initialProjects: Project[] | null = null;
-  // Seeds `useUserSettings`'s cache too (see `ActiveProjectProvider`), so
-  // the `default_project` fallback lookup it otherwise does with a client
-  // `GET /users/settings` — needed whenever there's no active-project cookie
-  // yet, e.g. a brand-new session — is already answered.
-  let initialUserSettings: UserSettings | null = null;
-  const projectId = await getServerActiveProjectId();
-  if (session && !session.error && session.user?.organization_id) {
-    const factory = await createServerApiFactory();
-    const [projectsResult, settingsResult] = await Promise.allSettled([
-      factory.getProjectsClient().getMyProjects(),
-      factory.getUsersClient().getUserSettings(),
-    ]);
-
-    if (projectsResult.status === 'fulfilled') {
-      initialProjects = projectsResult.value;
-      if (projectId) {
-        initialActiveProject =
-          projectsResult.value.find(p => String(p.id) === projectId) ?? null;
-      }
-    }
-    if (settingsResult.status === 'fulfilled') {
-      initialUserSettings = settingsResult.value;
-    }
-  }
-
-  // Fetched once here (unauthenticated `GET /auth/providers`) and threaded
-  // down via `QuickStartProvider` — see `fetchQuickStartEnabledServer`'s
-  // docstring for why this replaced two separate client-side `/api/auth-config`
-  // calls (one from `LayoutContent`, one from whichever consumer — the
-  // landing page or `TermsAcceptanceGate` — was also mounted).
-  const initialQuickStart = await fetchQuickStartEnabledServer();
+  const initialProjects = userData.projects;
+  const initialUserSettings = userData.settings;
+  const initialActiveProject =
+    projectId && initialProjects
+      ? (initialProjects.find(p => String(p.id) === projectId) ?? null)
+      : null;
 
   const accessibilityMode = resolveAccessibilityMode({
     deployment: deploymentBranding.accessibilityMode,

@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  forgetOrganization,
+  organizationWrittenBy,
+} from '@/utils/organization-cache';
 import { LONG_REQUEST_LIMIT_SECONDS } from '@/constants/endpoint-timeout';
 import { webClientHeaders } from '@/utils/provenance';
 import { getServerBackendUrl } from '@/utils/url-resolver';
@@ -258,6 +262,12 @@ export async function proxyToBackend(
         signal: controller.signal,
         redirect: 'manual',
       });
+    }
+
+    const writtenOrganization = organizationWrittenBy(request.method, pathname);
+    if (writtenOrganization && upstream.ok) {
+      // The root layout caches the organisation across requests; see the module.
+      forgetOrganization(writtenOrganization);
     }
 
     const responseHeaders: Record<string, string> = {
