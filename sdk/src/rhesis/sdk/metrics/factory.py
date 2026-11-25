@@ -54,7 +54,8 @@ class MetricFactory:
             AttributeError: If the class does not exist in the framework
         """
 
-        # Lazy load factories to avoid circular imports
+        # Imported on use, and only the one asked for: deepeval and garak take seconds of
+        # CPU to import, which a process evaluating only Rhesis metrics never needs.
         def get_deepeval_factory():
             from rhesis.sdk.metrics.providers.deepeval import DeepEvalMetricFactory
 
@@ -71,10 +72,10 @@ class MetricFactory:
             return GarakMetricFactory()
 
         factories = {
-            "deepeval": get_deepeval_factory(),
-            "rhesis": get_rhesis_factory(),
-            "custom": get_rhesis_factory(),
-            "garak": get_garak_factory(),
+            "deepeval": get_deepeval_factory,
+            "rhesis": get_rhesis_factory,
+            "custom": get_rhesis_factory,
+            "garak": get_garak_factory,
         }
 
         if framework not in factories:
@@ -83,7 +84,7 @@ class MetricFactory:
                 f"Supported frameworks are: {list(factories.keys())}"
             )
 
-        return factories[framework].create(class_name, **kwargs)
+        return factories[framework]().create(class_name, **kwargs)
 
     @staticmethod
     def list_supported_frameworks() -> List[str]:
