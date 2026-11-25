@@ -130,12 +130,14 @@ def derived_field_load_options(
     # loader-strategy conflict, so the nested load is chained off the
     # existing joinedload instead of starting fresh.
     seen_nested = set()
+    counted = issubclass(model, CountsMixin)
     for rel_name, rel_prop in get_model_relationships(
         model, skip_many_to_many=True, skip_one_to_many=True
     ).items():
         if cascade is not None and rel_name not in cascade:
             continue
         target_model = rel_prop.mapper.class_
+        counted = counted or issubclass(target_model, CountsMixin)
         emitted = False
         for mixin, chain in derived_field_chains:
             key = (rel_name, *chain)
@@ -156,5 +158,6 @@ def derived_field_load_options(
             options.append(joinedload(getattr(model, rel_name)))
 
     # One option covers this model and every loaded relation, whatever the cascade.
-    options.append(batch_counts())
+    if counted:
+        options.append(batch_counts())
     return options
