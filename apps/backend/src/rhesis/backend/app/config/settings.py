@@ -109,6 +109,12 @@ class ApplicationSettings(BaseSettings):
     quick_start: bool = Field(default=False, alias="QUICK_START")
     dev_mode: bool = Field(default=False, alias="DEV_MODE")
     usage_quotas_enabled: bool = Field(default=False, alias="USAGE_QUOTAS_ENABLED")
+    # Shortest gap allowed between two runs of a test run schedule.
+    schedule_min_interval_minutes: int = Field(
+        default=60, ge=1, alias="SCHEDULE_MIN_INTERVAL_MINUTES"
+    )
+    # Off stops Beat from starting scheduled runs; schedules stay as they are.
+    schedule_dispatch_enabled: bool = Field(default=True, alias="SCHEDULE_DISPATCH_ENABLED")
     # Platform-wide daily cap on what hosted models (our credentials) cost us, in USD.
     # Unset means no cap. See rhesis.backend.app.quota.hosted_spend.
     hosted_model_daily_budget_usd: float | None = Field(
