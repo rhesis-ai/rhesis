@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Connector keepalive**: the connector WebSocket sends an app-level `ping` every third of `WS_IDLE_TIMEOUT`, so quiet SDK connectors are no longer closed by the idle timeout. A client that stops answering is still closed.
+
 ## [0.22.0] - 2026-11-19
 
 ### Breaking Changes

@@ -88,6 +88,10 @@ def _assert_project_membership(db: Session, project_id_str: str, user: User) -> 
 # --- Security limits (configurable via env) ---
 MAX_MESSAGE_SIZE = int(os.getenv("WS_MAX_MESSAGE_SIZE", str(1024 * 1024)))
 IDLE_TIMEOUT = int(os.getenv("WS_IDLE_TIMEOUT", "300"))
+# Protocol-level pings never reach receive_text(), so a quiet connector would hit
+# IDLE_TIMEOUT and reconnect mid-call. SDKs answer this app-level ping with a pong,
+# which resets the idle timer; a client that stops answering is still closed.
+PING_INTERVAL = IDLE_TIMEOUT / 3
 # Useful concurrency on one connection is roughly limit x call latency, so the
 # old default of 50 capped a single endpoint at ~100 in-flight 2s calls, well
 # below what one pod can absorb. Over the limit the frame is dropped and the
@@ -149,6 +153,8 @@ async def websocket_endpoint(
         )
     )
 
+    keepalive = asyncio.create_task(_send_pings(websocket, context.connection_id))
+
     try:
         await connection_manager.connect(context.connection_id, context, websocket)
 
@@ -172,7 +178,21 @@ async def websocket_endpoint(
 
     finally:
         membership_watch.cancel()
+        keepalive.cancel()
         connection_manager.disconnect_by_connection_id(context.connection_id)
+        # Let both finish unwinding before the endpoint returns.
+        await asyncio.gather(membership_watch, keepalive, return_exceptions=True)
+
+
+async def _send_pings(websocket: WebSocket, connection_id: str) -> None:
+    """Send an app-level ping every ``PING_INTERVAL`` seconds until a send fails."""
+    while True:
+        await asyncio.sleep(PING_INTERVAL)
+        try:
+            await websocket.send_json({"type": "ping"})
+        except Exception as e:
+            logger.debug(f"Stopped pinging {connection_id}: {e}")
+            return
 
 
 async def _message_loop(

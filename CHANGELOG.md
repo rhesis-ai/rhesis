@@ -15,6 +15,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ### Fixed
 
+- SDK connectors are no longer disconnected every 5 minutes while idle or waiting on a long function call. The backend now sends an app-level `ping` that the SDK answers, so a call in flight no longer loses its result to an idle-timeout reconnect.
 - Requests from Python's built-in `urllib` with its default User-Agent are no longer rejected with a 403 (error 1010) by the hosted API, telemetry, Polyphemus and demo chatbot hosts.
 
 ## [0.22.0] - 2026-11-19
