@@ -83,6 +83,67 @@ describe('trace-filter-params', () => {
   });
 });
 
+describe('agent filter', () => {
+  const base: TraceDrawerFilters = { timeRange: 'all' };
+
+  it('sends every ticked agent as a repeatable param', () => {
+    const params = buildTraceQueryParams(
+      { ...base, agents: ['planner', 'researcher'] },
+      ''
+    );
+
+    expect(params.agent).toEqual(['planner', 'researcher']);
+  });
+
+  it('sends nothing when none are ticked', () => {
+    expect(buildTraceQueryParams(base, '').agent).toBeUndefined();
+    expect(
+      buildTraceQueryParams({ ...base, agents: [] }, '').agent
+    ).toBeUndefined();
+  });
+
+  it('sends agents to the spans list too', () => {
+    expect(
+      buildSpanQueryParams({ ...base, agents: ['planner'] }, '').agent
+    ).toEqual(['planner']);
+  });
+
+  it('counts as one active filter however many are ticked', () => {
+    expect(
+      countActiveTraceDrawerFilters({
+        ...base,
+        agents: ['planner', 'researcher'],
+      })
+    ).toBe(1);
+    expect(countActiveTraceDrawerFilters({ ...base, agents: [] })).toBe(0);
+    expect(
+      countActiveTraceDrawerFilters(
+        { ...base, agents: ['planner'] },
+        { view: 'spans' }
+      )
+    ).toBe(1);
+  });
+
+  it('marks the drawer as filtered', () => {
+    expect(hasActiveTraceDrawerFilters({ ...base, agents: ['planner'] })).toBe(
+      true
+    );
+    expect(hasActiveTraceDrawerFilters({ ...base, agents: [] })).toBe(false);
+  });
+
+  it('survives being scoped to a test run', () => {
+    const scoped = sanitizeTraceDrawerFiltersForTestRunScope(
+      { ...base, agents: ['planner'], projectId: 'gone' },
+      'run-1'
+    );
+
+    expect(scoped.agents).toEqual(['planner']);
+    expect(countActiveTraceDrawerFilters(scoped, { testRunScope: true })).toBe(
+      1
+    );
+  });
+});
+
 describe('provider filter', () => {
   const base: TraceDrawerFilters = { timeRange: 'all' };
 

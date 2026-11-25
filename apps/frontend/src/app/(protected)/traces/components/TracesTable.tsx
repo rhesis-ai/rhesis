@@ -122,6 +122,37 @@ export default function TracesTable({
         ),
       },
       {
+        field: 'agent_name',
+        // a JSONB span attribute, so the backend cannot order by it.
+        sortable: false,
+        headerName: 'Agent',
+        flex: 1.6,
+        minWidth: 100,
+        renderCell: params => {
+          const agentName = params.value as string | null | undefined;
+          if (!agentName) {
+            return (
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.disabled', fontStyle: 'italic' }}
+              >
+                —
+              </Typography>
+            );
+          }
+          return (
+            <Tooltip title={agentName}>
+              <Typography
+                variant="body2"
+                sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
+                {agentName}
+              </Typography>
+            </Tooltip>
+          );
+        },
+      },
+      {
         field: 'conversation_input',
         // a JSONB span attribute, so the backend cannot order by it.
         sortable: false,

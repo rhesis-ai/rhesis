@@ -93,3 +93,24 @@ describe('TracesTable evaluation column', () => {
     expect(screen.getByLabelText('Annotated')).toBeInTheDocument();
   });
 });
+
+describe('TracesTable agent column', () => {
+  const base: TraceSummary = {
+    trace_id: 'trace-1',
+    project_id: 'project-1',
+    environment: 'development',
+    start_time: '2026-11-23T10:00:00Z',
+    duration_ms: 120,
+    span_count: 1,
+    root_operation: 'ai.agent.run',
+    execution: 'not_run',
+    verdict: null,
+  };
+
+  it('shows the agent that ran the trace', async () => {
+    renderTable({}, [{ ...base, agent_name: 'planner' }]);
+
+    expect(await screen.findByText('Agent')).toBeInTheDocument();
+    expect(screen.getByText('planner')).toBeInTheDocument();
+  });
+});

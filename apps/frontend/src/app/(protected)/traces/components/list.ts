@@ -24,6 +24,7 @@ const TRACES_FILTERS = {
   traceMetricsStatus: { kind: 'raw' },
   /** A list: the drawer ticks any number of providers. */
   providers: { kind: 'raw', multi: true },
+  agents: { kind: 'raw', multi: true },
   testRunId: { kind: 'raw' },
   testResultId: { kind: 'raw' },
   testId: { kind: 'raw' },

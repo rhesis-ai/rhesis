@@ -56,6 +56,8 @@ export interface TraceSummary {
   duration_ms: number;
   span_count: number;
   root_operation: string;
+  /** `ai.agent.name` of the listed root span; null when it is not an agent run. */
+  agent_name?: string | null;
 
   // Token usage and cost. Summed over the trace's llm.invoke spans, so a trace with
   // no LLM spans omits them rather than reporting zero.
@@ -198,6 +200,8 @@ export interface TraceQueryParams {
   trace_metrics_status?: TraceMetricsStatus;
   /** Repeatable: a trace matches if any of its priced calls used one of these. */
   provider?: string[];
+  /** Repeatable: a trace matches if any of its spans ran one of these agents. */
+  agent?: string[];
   limit?: number;
   offset?: number;
   sort_by?: string;
@@ -268,6 +272,8 @@ export interface SpanFilterParams {
   trace_source?: TraceSource;
   model?: string[];
   provider?: string[];
+  /** Matches spans whose own `ai.agent.name` is one of these. */
+  agent?: string[];
 }
 
 export interface SpanQueryParams extends SpanFilterParams {
@@ -289,6 +295,7 @@ export interface SpanFacetsResponse {
   /** More names exist than name_limit returned. */
   span_names_truncated: boolean;
   models: SpanFacetValue[];
+  agents: SpanFacetValue[];
 }
 
 /**

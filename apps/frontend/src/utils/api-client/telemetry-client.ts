@@ -89,6 +89,19 @@ export class TelemetryClient extends BaseApiClient {
   }
 
   /**
+   * Agent names (`ai.agent.name`) present in a project's traces, for the traces
+   * filter checklist. Scoped the same way as getProviders.
+   */
+  async getAgents(projectId?: string): Promise<string[]> {
+    const query = projectId
+      ? `?project_id=${encodeURIComponent(projectId)}`
+      : '';
+    return this.fetch<string[]>(`/telemetry/agents${query}`, {
+      cache: 'no-store',
+    });
+  }
+
+  /**
    * Get detailed trace with all spans
    *
    * Note: project_id is required for access control even though trace_id is unique.

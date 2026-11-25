@@ -122,6 +122,8 @@ export default function TraceFilterDrawer({
   >([]);
   const [providers, setProviders] = React.useState<string[]>([]);
   const [providersLoading, setProvidersLoading] = React.useState(false);
+  const [agents, setAgents] = React.useState<string[]>([]);
+  const [agentsLoading, setAgentsLoading] = React.useState(false);
   const { data: endpoints = [] } = useEndpoints(
     { limit: 100 },
     open && !isTestRunScope && !isSpansView
@@ -190,6 +192,31 @@ export default function TraceFilterDrawer({
       })
       .finally(() => {
         if (!cancelled) setProvidersLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, status, draft.projectId]);
+
+  // Same scoping as the providers checklist above.
+  React.useEffect(() => {
+    if (!open || !isAuthenticated(status)) return;
+
+    let cancelled = false;
+
+    setAgentsLoading(true);
+    new ApiClientFactory()
+      .getTelemetryClient()
+      .getAgents(draft.projectId || undefined)
+      .then(list => {
+        if (!cancelled) setAgents(list);
+      })
+      .catch(() => {
+        if (!cancelled) setAgents([]);
+      })
+      .finally(() => {
+        if (!cancelled) setAgentsLoading(false);
       });
 
     return () => {
@@ -492,6 +519,45 @@ export default function TraceFilterDrawer({
                   sx={filterChipSx(selected)}
                 >
                   {provider}
+                </Box>
+              );
+            })}
+          </Box>
+        )}
+      </FilterSection>
+
+      <FilterSection title="Agent">
+        {agents.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            {agentsLoading
+              ? 'Loading…'
+              : 'No agent runs yet, so there is nothing to filter by.'}
+          </Typography>
+        ) : (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {agents.map(agent => {
+              const selected = (draft.agents ?? []).includes(agent);
+              return (
+                <Box
+                  key={agent}
+                  component="button"
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() =>
+                    setDraft(prev => {
+                      const current = prev.agents ?? [];
+                      const next = selected
+                        ? current.filter(value => value !== agent)
+                        : [...current, agent];
+                      return {
+                        ...prev,
+                        agents: next.length ? next : undefined,
+                      };
+                    })
+                  }
+                  sx={filterChipSx(selected)}
+                >
+                  {agent}
                 </Box>
               );
             })}

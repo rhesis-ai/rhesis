@@ -22,6 +22,8 @@ export interface TraceDrawerFilters {
   traceMetricsStatus?: string;
   /** Several at once: a trace matches if any of its priced calls used one of them. */
   providers?: string[];
+  /** Traces view: any span ran one of them. Spans view: the span itself did. */
+  agents?: string[];
   testRunId?: string;
   testResultId?: string;
   testId?: string;
@@ -58,7 +60,13 @@ function activeFilterFlags(
     : [!!f.traceMetricsStatus];
 
   if (options?.testRunScope) {
-    return [...viewOnly, !!f.providers?.length, !!f.testResultId, !!f.testId];
+    return [
+      ...viewOnly,
+      !!f.providers?.length,
+      !!f.agents?.length,
+      !!f.testResultId,
+      !!f.testId,
+    ];
   }
 
   const testRunId = options?.excludeTestRunId ? undefined : f.testRunId;
@@ -70,6 +78,7 @@ function activeFilterFlags(
     !!f.traceSource,
     !!f.traceType,
     !!f.providers?.length,
+    !!f.agents?.length,
     !!testRunId,
     !!f.testResultId,
     !!f.testId,
@@ -104,6 +113,7 @@ export function sanitizeTraceDrawerFiltersForTestRunScope(
     traceMetricsStatus: filters.traceMetricsStatus,
     // Kept: one run can span several providers, so narrowing to one is still useful.
     providers: filters.providers,
+    agents: filters.agents,
     testResultId: filters.testResultId,
     testId: filters.testId,
     spanTypes: filters.spanTypes,
@@ -185,6 +195,7 @@ export function buildTraceQueryParams(
       drawer.traceMetricsStatus as TraceMetricsStatus;
   }
   if (drawer.providers?.length) params.provider = drawer.providers;
+  if (drawer.agents?.length) params.agent = drawer.agents;
   if (drawer.testRunId) params.test_run_id = drawer.testRunId;
   if (drawer.testResultId) params.test_result_id = drawer.testResultId;
   if (drawer.testId) params.test_id = drawer.testId;
@@ -208,6 +219,7 @@ export function buildSpanQueryParams(
     params.trace_source = drawer.traceSource as TraceSource;
   }
   if (drawer.providers?.length) params.provider = drawer.providers;
+  if (drawer.agents?.length) params.agent = drawer.agents;
   if (drawer.testRunId) params.test_run_id = drawer.testRunId;
   if (drawer.testResultId) params.test_result_id = drawer.testResultId;
   if (drawer.testId) params.test_id = drawer.testId;
