@@ -1,15 +1,15 @@
 'use client';
 
 import React from 'react';
-import { Box, Skeleton, useTheme } from '@mui/material';
+import { useTheme } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import { useRouter } from 'next/navigation';
 import EntityCard, {
+  skeletonCardKeys,
   type EntityCardFact,
 } from '@/components/common/EntityCard';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { BORDER_RADIUS } from '@/styles/theme';
-import { alpha, type Theme } from '@mui/material/styles';
+import { alpha } from '@mui/material/styles';
 
 // Project icon imports
 import WebIcon from '@mui/icons-material/Web';
@@ -81,31 +81,8 @@ function getProjectIcon(project: Project): React.ReactElement {
   return <SmartToyIcon />;
 }
 
-export const ProjectCardSkeleton = () => (
-  <Box
-    sx={{
-      border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
-      borderRadius: BORDER_RADIUS.md,
-      p: 3.75,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 1.5,
-      height: '100%',
-    }}
-  >
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-      <Skeleton variant="circular" width={24} height={24} />
-      <Skeleton variant="text" width="60%" height={25} />
-    </Box>
-    <Skeleton variant="text" width="100%" />
-    <Skeleton variant="text" width="80%" />
-    <Skeleton variant="rounded" width="40%" height={24} sx={{ mt: 1 }} />
-  </Box>
-);
-
 interface ProjectCardProps {
   project: Project;
-  isLoading?: boolean;
   onDelete?: () => void;
   /** When set, the trash can renders disabled with this as its tooltip. */
   deleteDisabledReason?: string;
@@ -116,17 +93,12 @@ interface ProjectCardProps {
 const ProjectCard = React.memo(
   ({
     project,
-    isLoading = false,
     onDelete,
     deleteDisabledReason,
     isActive = false,
   }: ProjectCardProps) => {
     const router = useRouter();
     const theme = useTheme();
-
-    if (isLoading) {
-      return <ProjectCardSkeleton />;
-    }
 
     const facts: EntityCardFact[] = [];
     if (project.is_active !== undefined) {
@@ -180,3 +152,31 @@ const ProjectCard = React.memo(
 ProjectCard.displayName = 'ProjectCard';
 
 export default ProjectCard;
+
+/** Typical values for a loading view's cards, only the fields the card reads. */
+const PLACEHOLDER_PROJECT = {
+  id: '00000000-0000-0000-0000-000000000000',
+  name: 'Project name',
+  is_active: true,
+  environment: 'development',
+  owner: { name: 'Owner' },
+} as unknown as Project;
+
+/**
+ * A loading view's cards: the real card in skeleton mode. `canDelete` follows
+ * the page's own permission, so the delete placeholder shows only for users
+ * who get the button.
+ */
+export function ProjectCardPlaceholders({ canDelete }: { canDelete: boolean }) {
+  return (
+    <>
+      {skeletonCardKeys.map(key => (
+        <ProjectCard
+          key={key}
+          project={PLACEHOLDER_PROJECT}
+          onDelete={canDelete ? () => {} : undefined}
+        />
+      ))}
+    </>
+  );
+}
