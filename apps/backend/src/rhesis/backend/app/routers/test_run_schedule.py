@@ -126,8 +126,7 @@ def create_test_run_schedule(
 def preview_test_run_schedule(body: dict):
     """When a schedule would run, in plain words, with the next three times."""
     with _schedule_errors("preview schedule"):
-        # The drawer may not have a name yet; it doesn't change when the schedule runs.
-        return views.preview(ScheduleSpecIn.model_validate({"name": "Preview"} | body))
+        return views.preview(ScheduleSpecIn.model_validate(body))
 
 
 @router.get("/", response_model=list[TestRunScheduleOut], **capability(Permission.TestRun.READ))

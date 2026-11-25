@@ -231,7 +231,7 @@ def create_schedule(
         db, UUID(config_id), organization_id=str(user.organization_id), user_id=str(user.id)
     )
     schedule = _new_schedule(spec)
-    if name_after_test_set:
+    if name_after_test_set or not schedule["name"].strip():
         schedule["name"] = test_set.name
     state = plan_next_run(db, config, schedule, _now())
     if state == FINISHED:

@@ -41,7 +41,8 @@ class ScheduleException(BaseModel):
 class ScheduleSpecIn(BaseModel):
     """When and how a schedule runs, as sent by the client."""
 
-    name: str = Field(min_length=1, max_length=200)
+    # Blank on create means "name it after the test set".
+    name: str = Field(default="", max_length=200)
     cron: str | None = None
     run_at: AwareDatetime | None = None
     timezone: str = "UTC"
