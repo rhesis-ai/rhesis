@@ -1,5 +1,6 @@
 'use client';
 
+import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import { SectionCard } from '@/components/common/SectionCard';
@@ -45,30 +46,34 @@ export default function SectionPlaceholder({
       subtitle={subtitle}
       actions={editable ? <SectionEditButton onClick={noop} /> : undefined}
     >
-      {!title && (
-        <Typography variant="h6" sx={{ mb: 3 }}>
-          <TextPlaceholder>{PLACEHOLDER_TEXT.crumb}</TextPlaceholder>
-        </Typography>
-      )}
-      {fields ? (
-        <Grid
-          container
-          columnSpacing={SECTION_GRID.columnSpacing}
-          rowSpacing={SECTION_GRID.rowSpacing}
-        >
-          {fields.map(label => (
-            <Grid key={label} size={{ xs: 12, md: 12 / columns }}>
-              <ViewField label={label} value={PLACEHOLDER_TEXT.value} />
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
-        DEFAULT_LINES.map(key => (
-          <Typography key={key} variant="body1">
-            <TextPlaceholder>{PLACEHOLDER_TEXT.long}</TextPlaceholder>
+      {/* Only values wait here; a screen reader would meet labels without
+          them, so the card announces just its heading until they arrive. */}
+      <Box inert sx={{ display: 'contents' }}>
+        {!title && (
+          <Typography variant="h6" sx={{ mb: 3 }}>
+            <TextPlaceholder>{PLACEHOLDER_TEXT.crumb}</TextPlaceholder>
           </Typography>
-        ))
-      )}
+        )}
+        {fields ? (
+          <Grid
+            container
+            columnSpacing={SECTION_GRID.columnSpacing}
+            rowSpacing={SECTION_GRID.rowSpacing}
+          >
+            {fields.map(label => (
+              <Grid key={label} size={{ xs: 12, md: 12 / columns }}>
+                <ViewField label={label} value={PLACEHOLDER_TEXT.value} />
+              </Grid>
+            ))}
+          </Grid>
+        ) : (
+          DEFAULT_LINES.map(key => (
+            <Typography key={key} variant="body1">
+              <TextPlaceholder>{PLACEHOLDER_TEXT.long}</TextPlaceholder>
+            </Typography>
+          ))
+        )}
+      </Box>
     </SectionCard>
   );
 }

@@ -324,7 +324,7 @@ export default function EntityCard({
     <Box
       data-testid="entity-card"
       onClick={skeleton ? undefined : onClick}
-      aria-hidden={skeleton || undefined}
+      inert={skeleton || undefined}
       sx={{
         display: 'flex',
         flexDirection: 'column',

@@ -302,7 +302,8 @@ describe('EntityCard description in accessibility mode', () => {
       );
 
       const card = screen.getByTestId('entity-card');
-      expect(card).toHaveAttribute('aria-hidden', 'true');
+      // Out of the accessibility tree and the focus order.
+      expect(card).toHaveAttribute('inert');
       expect(
         screen.queryByText('A helpful description')
       ).not.toBeInTheDocument();

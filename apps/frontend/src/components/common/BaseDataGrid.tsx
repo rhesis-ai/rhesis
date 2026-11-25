@@ -1029,7 +1029,9 @@ export default function BaseDataGrid({
   const hasRowUrl = !!(getRowUrl || linkPath);
 
   return (
-    <>
+    // In a loading view the grid is all placeholders: out of the accessibility
+    // tree and focus order, so screen readers don't meet a grid of empty headers.
+    <Box inert={skeleton || undefined} sx={{ display: 'contents' }}>
       <RowActionsHoverGrid enabled={hasActionsColumn}>
         {rowActionsRootProps => {
           const grid = (
@@ -1146,6 +1148,6 @@ export default function BaseDataGrid({
           Open in new tab
         </MenuItem>
       </Menu>
-    </>
+    </Box>
   );
 }
