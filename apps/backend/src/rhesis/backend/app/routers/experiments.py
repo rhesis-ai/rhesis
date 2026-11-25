@@ -41,6 +41,7 @@ from rhesis.backend.app.schemas.parameters import (
     ExperimentVersion,
     ExperimentVersionCreate,
 )
+from rhesis.backend.app.schemas.test_run import TestRunDetail
 from rhesis.backend.app.services.experiment import (
     append_version,
     assert_no_active_environments,
@@ -436,7 +437,7 @@ def get_experiment_results(
     annotation_stats = get_annotation_statistics_for_runs(db, run_ids)
 
     def _with_stats(run) -> dict:
-        encoded = jsonable_encoder(run)
+        encoded = TestRunDetail.model_validate(run).model_dump(mode="json")
         encoded["stats"] = run_stats.get(
             str(run.id),
             {"total": 0, "passed": 0, "failed": 0, "errors": 0},

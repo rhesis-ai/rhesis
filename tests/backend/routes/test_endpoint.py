@@ -422,6 +422,22 @@ class TestEndpointAuthFields(EndpointTestMixin, BaseEntityTests):
         assert "client_secret" not in data
         assert "super-secret" not in response.text
 
+    def test_list_select_returns_response_fields_only(
+        self, authenticated_client: TestClient, db_project
+    ):
+        authenticated_client.post(self.endpoints.create, json=self._oauth_data(db_project))
+
+        response = authenticated_client.get(
+            self.endpoints.list,
+            params={"$select": "name,client_secret,has_client_secret"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert "super-secret" not in response.text
+        item = response.json()[0]
+        assert set(item) == {"id", "name", "has_client_secret"}
+        assert item["has_client_secret"] is True
+
     @pytest.mark.parametrize(
         "token_url",
         ["http://auth.example.com/oauth/token", "ftp://auth.example.com/token", "not a url"],

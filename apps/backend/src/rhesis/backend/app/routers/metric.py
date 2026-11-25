@@ -3,8 +3,6 @@ from typing import List
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Response
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -26,7 +24,6 @@ from rhesis.backend.app.services.metric_tuning import attach_tuning_case_counts
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
-from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT
 from rhesis.backend.app.utils.user_model_utils import (
     check_metric_model_fits,
@@ -348,9 +345,6 @@ def read_metrics(
 
     attach_tuning_case_counts(db, results, organization_id)
 
-    if select:
-        serialized = jsonable_encoder(results)
-        return JSONResponse(content=apply_select(serialized, select))
     return results
 
 

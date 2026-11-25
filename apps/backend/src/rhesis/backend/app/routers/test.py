@@ -4,8 +4,6 @@ from uuid import UUID
 
 import anyio
 from fastapi import Depends, HTTPException, Query, Request, Response
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -43,7 +41,6 @@ from rhesis.backend.app.utils.execution_validation import (
 )
 from rhesis.backend.app.utils.hidden_rows import exclude_metric_owned
 from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
-from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.rate_limit import (
     EXECUTION_RATE_LIMIT,
     GENERATION_RATE_LIMIT,
@@ -259,9 +256,6 @@ def read_tests(
         organization_id=organization_id,
         user_id=user_id,
     )
-    if select:
-        serialized = jsonable_encoder(tests)
-        return JSONResponse(content=apply_select(serialized, select))
     return tests
 
 

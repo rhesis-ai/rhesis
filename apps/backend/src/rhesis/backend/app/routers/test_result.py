@@ -2,8 +2,6 @@ from typing import List
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Request, Response
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -20,7 +18,6 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.odata import apply_select
 
 router = RhesisRouter(
     prefix="/test_results",
@@ -133,9 +130,6 @@ def read_test_results(
         user_id=user_id,
         strip_conversation=strip_conversation,
     )
-    if select:
-        serialized = jsonable_encoder(results)
-        return JSONResponse(content=apply_select(serialized, select))
     return results
 
 

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Type, Union
+from typing import Type
 
 from fastapi import HTTPException
 from odata_query import ast
@@ -153,42 +153,6 @@ def _type_literals_as_their_columns(clause) -> None:
                     element.type = other.type
 
     visitors.traverse(clause, {}, {"binary": retype})
-
-
-def apply_select(
-    data: Union[List[Dict[str, Any]], Dict[str, Any], Any],
-    select: str | None,
-) -> Union[List[Dict[str, Any]], Dict[str, Any], Any]:
-    """Filter serialized response data to include only selected fields.
-
-    Accepts a comma-separated list of field names (OData ``$select``).
-    ``id`` is always included so that entities remain identifiable.
-
-    Works on both single dicts and lists of dicts.  If *data* is a list
-    of ORM/Pydantic objects, each item is converted via ``model_dump()``
-    (Pydantic v2) or ``dict()`` first.
-    """
-    if not select:
-        return data
-
-    fields = {f.strip() for f in select.split(",") if f.strip()}
-    fields.add("id")  # always include id
-
-    def _pick(obj: Any) -> Dict[str, Any]:
-        if isinstance(obj, dict):
-            d = obj
-        elif hasattr(obj, "model_dump"):
-            d = obj.model_dump()
-        elif hasattr(obj, "dict"):
-            d = obj.dict()
-        else:
-            # Exclude private/internal attributes (e.g. SQLAlchemy's _sa_instance_state)
-            d = {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
-        return {k: v for k, v in d.items() if k in fields}
-
-    if isinstance(data, list):
-        return [_pick(item) for item in data]
-    return _pick(data)
 
 
 def combine_entity_type_filter(base_filter: str | None, entity_type: str | None) -> str | None:

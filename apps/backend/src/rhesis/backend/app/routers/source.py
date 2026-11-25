@@ -1,8 +1,7 @@
 import uuid
 
 from fastapi import Depends, File, Form, HTTPException, Query, Response, UploadFile
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -36,7 +35,6 @@ from rhesis.backend.app.services.source import (
 from rhesis.backend.app.utils.content_disposition import attachment_disposition
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT
 from rhesis.backend.jobs.embedding.graph import compute_source_graph_task
 
@@ -99,9 +97,6 @@ def read_sources(
         organization_id=organization_id,
         user_id=user_id,
     )
-    if select:
-        serialized = jsonable_encoder(results)
-        return JSONResponse(content=apply_select(serialized, select))
     return results
 
 

@@ -1,8 +1,6 @@
 import uuid
 
 from fastapi import Depends, HTTPException, Query, Response
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -16,7 +14,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.odata import apply_select, combine_entity_type_filter
+from rhesis.backend.app.utils.odata import combine_entity_type_filter
 
 router = RhesisRouter(
     prefix="/categories",
@@ -81,9 +79,6 @@ def read_categories(
         organization_id=organization_id,
         user_id=user_id,
     )
-    if select:
-        serialized = jsonable_encoder(results)
-        return JSONResponse(content=apply_select(serialized, select))
     return results
 
 

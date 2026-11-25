@@ -3,8 +3,6 @@ import uuid
 from typing import Any, Dict, List
 
 from fastapi import Depends, HTTPException, Query, Response
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from pydantic import Field, create_model
 from sqlalchemy.orm import Session
 
@@ -35,7 +33,6 @@ from rhesis.backend.app.services import requirement as requirement_service
 from rhesis.backend.app.services.requirement_review import ReviewUnavailable, review_requirement
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.odata import apply_select
 
 logger = logging.getLogger(__name__)
 
@@ -155,9 +152,6 @@ def read_requirements(
         user_id=user_id,
     )
     _with_details(db, results, organization_id)
-    if select:
-        serialized = jsonable_encoder(results)
-        return JSONResponse(content=apply_select(serialized, select))
     return results
 
 

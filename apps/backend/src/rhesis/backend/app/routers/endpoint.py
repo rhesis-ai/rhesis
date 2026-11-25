@@ -4,8 +4,6 @@ from typing import Any, Dict
 
 import anyio
 from fastapi import Depends, HTTPException, Query, Response
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -45,7 +43,6 @@ from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
-from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT, PROBE_RATE_LIMIT
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.endpoint.explore import run_exploration_task
@@ -143,9 +140,6 @@ def read_endpoints(
         organization_id=organization_id,
         user_id=user_id,
     )
-    if select:
-        serialized = jsonable_encoder(results)
-        return JSONResponse(content=apply_select(serialized, select))
     return results
 
 
