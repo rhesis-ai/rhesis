@@ -1,8 +1,8 @@
 import logging
-from typing import Callable, List, Optional, Type, TypeVar
+from typing import Callable, Collection, List, Optional, Type, TypeVar
 from uuid import UUID
 
-from sqlalchemy import desc, inspect, or_
+from sqlalchemy import desc, func, inspect, or_
 from sqlalchemy.orm import Query, Session, joinedload, selectinload
 
 # Removed unused imports - legacy tenant functions no longer needed
@@ -133,14 +133,16 @@ class QueryBuilder:
             self._maybe_warn_load_count()
         return self
 
-    def with_default_derived_field_loads(self, extra_chains: list | None = None) -> "QueryBuilder":
+    def with_default_derived_field_loads(
+        self, extra_chains: list | None = None, cascade: Collection[str] | None = None
+    ) -> "QueryBuilder":
         """Eager-load comments/tasks/files/tags for this model (and one level of
         cascade into related models that carry the same mixins) -- see
         ``derived_field_loads.derived_field_load_options`` for the policy.
         """
         from rhesis.backend.app.utils.derived_field_loads import derived_field_load_options
 
-        return self.with_related(*derived_field_load_options(self.model, extra_chains))
+        return self.with_related(*derived_field_load_options(self.model, extra_chains, cascade))
 
     def _maybe_warn_load_count(self) -> None:
         if self._eager_load_count >= _MAX_EAGER_LOADS_WARN:
@@ -406,8 +408,12 @@ class QueryBuilder:
 
     def count(self) -> int:
         """Execute query and return the count of results without pagination"""
-        # Create a count query without pagination or sorting
-        return self.query.count()
+        # DISTINCT or GROUP BY change what a row is; Query.count() handles those.
+        if getattr(self.query, "_distinct", True) or getattr(self.query, "_group_by_clauses", ()):
+            return self.query.count()
+        # Query.count() wraps every column in a subquery. Counting the id keeps the model in
+        # the column list, so the tenant and soft-delete criteria still attach.
+        return self.query.with_entities(func.count(self.model.id)).order_by(None).scalar() or 0
 
     def first(self) -> Optional[T]:
         """Execute query and return first result"""

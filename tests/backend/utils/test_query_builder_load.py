@@ -367,3 +367,53 @@ class TestODataAnyNavigationFilter:
 
         assert matching_metric.id in result_ids
         assert other_metric.id not in result_ids
+
+
+@pytest.mark.unit
+class TestTestListDerivedCascade:
+    """The tests list loads the nested counts/tags TestDetail shows, and nothing else."""
+
+    def test_nested_references_are_loaded_but_unused_relations_are_not(
+        self, test_db: Session, test_org_id, test_test
+    ):
+        from rhesis.backend.app.crud.test import get_tests
+
+        tests = get_tests(test_db, limit=100, organization_id=test_org_id)
+        [test] = [t for t in tests if t.id == test_test.id]
+
+        assert _is_loaded(test, "requirement")
+        assert _is_loaded(test.requirement, "comments")
+        for unused in ("organization", "project", "parent", "source"):
+            if hasattr(models.Test, unused):
+                assert not _is_loaded(test, unused), unused
+
+    def test_cascade_limits_only_the_nested_loads(self):
+        from rhesis.backend.app.utils.derived_field_loads import derived_field_load_options
+
+        everything = derived_field_load_options(models.Test)
+        own_only = derived_field_load_options(models.Test, cascade=())
+        prompt_too = derived_field_load_options(models.Test, cascade=("prompt",))
+
+        assert len(own_only) < len(prompt_too) < len(everything)
+
+
+@pytest.mark.unit
+class TestQueryBuilderCount:
+    def test_count_skips_soft_deleted_rows(self, test_db: Session, test_org_id, test_test):
+        from datetime import datetime, timezone
+
+        before = QueryBuilder(test_db, models.Test).with_organization_filter(test_org_id).count()
+        test_test.deleted_at = datetime.now(timezone.utc)
+        test_db.flush()
+        after = QueryBuilder(test_db, models.Test).with_organization_filter(test_org_id).count()
+
+        assert after == before - 1
+
+    def test_distinct_queries_keep_the_subquery_count(
+        self, test_db: Session, test_org_id, test_test
+    ):
+        builder = QueryBuilder(test_db, models.Test).with_organization_filter(test_org_id)
+        plain = builder.count()
+        builder.query = builder.query.distinct()
+
+        assert builder.count() == plain

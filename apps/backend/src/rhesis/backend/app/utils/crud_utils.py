@@ -5,7 +5,7 @@ Utility functions for CRUD operations with improved readability and maintainabil
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Collection, Dict, List, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete
@@ -370,6 +370,7 @@ def get_item_detail(
     selectin_chains: list | None = None,
     extra_filter: Callable[[Query], Query] | None = None,
     derived_fields: bool = True,
+    derived_cascade: Collection[str] | None = None,
 ) -> Optional[T]:
     """
     Get a single item with explicitly declared relationships eagerly loaded.
@@ -424,7 +425,7 @@ def get_item_detail(
         .with_visibility_filter(user_id)
     )
     if derived_fields:
-        builder = builder.with_default_derived_field_loads(selectin_chains)
+        builder = builder.with_default_derived_field_loads(selectin_chains, derived_cascade)
     if extra_filter:
         builder = builder.with_custom_filter(extra_filter)
     item = builder.filter_by_id(item_id)
@@ -473,6 +474,7 @@ def get_items_detail(
     exclude_explorer_rows: bool = False,
     extra_filter: Callable[[Query], Query] | None = None,
     hydrate_filter: Callable[[Query], Query] | None = None,
+    derived_cascade: Collection[str] | None = None,
 ) -> List[T]:
     """
     Get multiple items with explicitly declared relationships eagerly loaded,
@@ -507,6 +509,9 @@ def get_items_detail(
             SQLAlchemy warnings), since that query never loads the relationship.
             Pair it with the same filter on ``count_items`` or the
             X-Total-Count header will disagree with the rows returned.
+        derived_cascade: Relationships whose own comments/tasks/files/tags the
+            response nests; see ``derived_field_load_options``. ``None`` loads
+            them for every joined relationship that has them.
 
     Runs as two queries rather than one: a joinless query picks the page's IDs
     (filter + sort + LIMIT/OFFSET), then a second query eager-loads
@@ -543,7 +548,7 @@ def get_items_detail(
         return []
 
     builder = QueryBuilder(db, model).with_related(*(related_fields or ()))
-    builder = builder.with_default_derived_field_loads(selectin_chains)
+    builder = builder.with_default_derived_field_loads(selectin_chains, derived_cascade)
     if hydrate_filter:
         builder = builder.with_custom_filter(hydrate_filter)
     items = (

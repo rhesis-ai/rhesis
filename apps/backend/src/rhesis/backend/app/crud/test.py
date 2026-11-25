@@ -45,13 +45,23 @@ _TEST_RELATED_FIELDS = (
     include(models.Test.status),
 )
 
+# The nested references TestDetail serializes with their own counts/tags. Without this the
+# derived loads also cascade into parent, source, organization and project, which it never shows.
+_TEST_DERIVED_CASCADE = ("prompt", "requirement", "category")
+
 
 def get_test_detail(
     db: Session, test_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Test]:
     """Get test with all relationships loaded using optimized approach."""
     return get_item_detail(
-        db, models.Test, test_id, organization_id, user_id, related_fields=_TEST_RELATED_FIELDS
+        db,
+        models.Test,
+        test_id,
+        organization_id,
+        user_id,
+        related_fields=_TEST_RELATED_FIELDS,
+        derived_cascade=_TEST_DERIVED_CASCADE,
     )
 
 
@@ -76,6 +86,7 @@ def get_tests(
         sort_order,
         filter,
         related_fields=_TEST_RELATED_FIELDS,
+        derived_cascade=_TEST_DERIVED_CASCADE,
         organization_id=organization_id,
         user_id=user_id,
         exclude_explorer_rows=True,

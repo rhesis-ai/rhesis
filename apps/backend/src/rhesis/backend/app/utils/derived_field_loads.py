@@ -1,4 +1,4 @@
-from typing import Dict, Type
+from typing import Collection, Dict, Type
 
 from sqlalchemy import inspect
 from sqlalchemy.orm import RelationshipProperty, joinedload
@@ -45,7 +45,9 @@ def get_model_relationships(
     return relationships
 
 
-def derived_field_load_options(model: Type, extra_chains: list | None = None) -> list:
+def derived_field_load_options(
+    model: Type, extra_chains: list | None = None, cascade: Collection[str] | None = None
+) -> list:
     """Build eager-load options for comments/tasks/files/tags on ``model``, and
     for any many-to-one/one-to-one relationship whose target model also has them.
 
@@ -66,6 +68,11 @@ def derived_field_load_options(model: Type, extra_chains: list | None = None) ->
     have these mixins. Merges in any caller-supplied ``extra_chains`` too
     (each a flat ``[name, ...]`` path, e.g. ``["_tags_relationship", "tag"]``),
     deduped by full chain.
+
+    ``cascade`` limits only the cascade into related models, to the named
+    relationships, for a response schema that nests only some of them; ``None``
+    cascades into all of them. The model's own derived fields always load, so
+    ``cascade=()`` means "this model's fields only", not "no derived loads".
     """
     from rhesis.backend.app.models.mixins import (
         CommentsMixin,
@@ -112,6 +119,8 @@ def derived_field_load_options(model: Type, extra_chains: list | None = None) ->
     for rel_name, rel_prop in get_model_relationships(
         model, skip_many_to_many=True, skip_one_to_many=True
     ).items():
+        if cascade is not None and rel_name not in cascade:
+            continue
         target_model = rel_prop.mapper.class_
         for mixin, chain in derived_field_chains:
             key = (rel_name, *chain)
