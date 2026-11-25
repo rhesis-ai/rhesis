@@ -10,6 +10,7 @@ with requires_full_sdk("The LiteLLM model provider"):
     import litellm
     from litellm import acompletion, aembedding, batch_completion, embedding
 
+from rhesis.sdk.async_utils import use_per_loop_litellm_logging_worker
 from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding, ModelCall, UsageCallback
@@ -18,6 +19,7 @@ from rhesis.sdk.models.utils import validate_llm_response
 litellm.suppress_debug_info = True
 # Prevents "attached to a different loop" errors in threaded/Celery contexts.
 litellm.disable_aiohttp_transport = True
+use_per_loop_litellm_logging_worker()
 for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
     logging.getLogger(_logger_name).setLevel(logging.WARNING)
 

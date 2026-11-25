@@ -1,7 +1,10 @@
 """Tests for rhesis.sdk.async_utils."""
 
 import asyncio
+import gc
+import logging
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 
 import pytest
@@ -282,3 +285,124 @@ def test_generate_stream_does_not_deadlock():
 
     assert result == ["hello from a_generate"]
     close_background_loop()
+
+
+class _Records(logging.Handler):
+    def __init__(self):
+        super().__init__(logging.WARNING)
+        self.messages: list[str] = []
+
+    def emit(self, record):
+        self.messages.append(record.getMessage())
+
+
+@pytest.fixture
+def litellm_warnings():
+    """Collect warnings from asyncio and litellm, which logs to its own non-propagating logger."""
+    handler = _Records()
+    loggers = [logging.getLogger("asyncio"), logging.getLogger("LiteLLM")]
+    for logger in loggers:
+        logger.addHandler(handler)
+    yield handler.messages
+    for logger in loggers:
+        logger.removeHandler(handler)
+
+
+def test_litellm_calls_from_several_loops_leave_no_logging_errors(litellm_warnings):
+    """Like the worker's run_on_thread_loop: each thread runs calls on its own lasting loop."""
+    import litellm
+
+    from rhesis.sdk.models.providers import litellm as _provider  # noqa: F401  installs the worker
+
+    local = threading.local()
+
+    def on_thread_loop(index):
+        if getattr(local, "loop", None) is None:
+            local.loop = asyncio.new_event_loop()
+        return local.loop.run_until_complete(call(index))
+
+    async def call(index):
+        response = await litellm.acompletion(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": str(index)}],
+            mock_response="ok",
+        )
+        await asyncio.sleep(0.01)  # lets the logging worker pick the call up
+        return response.choices[0].message.content
+
+    with ThreadPoolExecutor(4) as pool:
+        results = list(pool.map(on_thread_loop, range(80)))
+    gc.collect()
+
+    assert results == ["ok"] * 80
+    # The destroyed-task message names LoggingWorker._worker_loop; other tests' leftovers don't.
+    assert [m for m in litellm_warnings if "LoggingWorker" in m] == []
+
+
+def test_success_logging_survives_asyncio_run_per_call(monkeypatch):
+    """asyncio.run() closes its loop before the worker runs; the next loop sends its logging."""
+    import litellm
+    from litellm.integrations.custom_logger import CustomLogger
+
+    from rhesis.sdk.models.providers import litellm as _provider  # noqa: F401  installs the worker
+
+    logged = []
+
+    class Counter(CustomLogger):
+        async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
+            logged.append(response_obj)
+
+    monkeypatch.setattr(litellm, "callbacks", [Counter()])
+
+    async def call():
+        return await litellm.acompletion(
+            model="gpt-4o-mini", messages=[{"role": "user", "content": "hi"}], mock_response="ok"
+        )
+
+    async def call_and_wait():
+        await call()
+        for _ in range(100):  # until the carried-over logging has run
+            if len(logged) == 11:
+                break
+            await asyncio.sleep(0.01)
+
+    for _ in range(10):
+        asyncio.run(call())
+    asyncio.run(call_and_wait())
+
+    assert len(logged) == 11
+
+
+def test_per_loop_logging_worker_drops_closed_loops(monkeypatch):
+    """asyncio.run() per call must not leave a worker, its loop and an atexit hook behind."""
+    from litellm.litellm_core_utils import logging_worker
+
+    import rhesis.sdk.async_utils as async_utils
+
+    unregistered = []
+    monkeypatch.setattr(async_utils.atexit, "unregister", unregistered.append)
+    per_loop = async_utils._PerLoopLoggingWorker(logging_worker.LoggingWorker, fallback=None)
+
+    async def touch():
+        return per_loop._worker()
+
+    first = asyncio.run(touch())
+    second = asyncio.run(touch())
+
+    assert first is not second
+    assert list(per_loop._workers.values()) == [second]
+    assert unregistered == [first._flush_on_exit]
+
+
+def test_use_per_loop_litellm_logging_worker_is_idempotent(monkeypatch):
+    from litellm.litellm_core_utils import logging_worker
+
+    import rhesis.sdk.async_utils as async_utils
+
+    monkeypatch.setattr(logging_worker, "GLOBAL_LOGGING_WORKER", logging_worker.LoggingWorker())
+    async_utils.use_per_loop_litellm_logging_worker()
+    installed = logging_worker.GLOBAL_LOGGING_WORKER
+    async_utils.use_per_loop_litellm_logging_worker()
+
+    assert isinstance(installed, async_utils._PerLoopLoggingWorker)
+    assert logging_worker.GLOBAL_LOGGING_WORKER is installed
