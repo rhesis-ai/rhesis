@@ -6,10 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, QuotaVerdict
 from rhesis.backend.app.services.explorer import (
     evaluate_suggestions_stream,
+    generate_suggestions,
     invoke_endpoint_for_suggestions_stream,
     suggestion_pipeline_stream,
 )
@@ -580,3 +582,74 @@ class TestSuggestionPipelineStream:
         error = next(e for e in events if e["type"] == "error")
         assert error["message"] == "Your organization is at its model tokens limit for this period."
         assert "QuotaExceededError" not in error["message"]
+
+
+@pytest.mark.asyncio
+class TestSuggestionsWithEmbeddingsOff:
+    """generate_embeddings is ignored while EMBEDDINGS_ENABLED is off."""
+
+    @pytest.fixture(autouse=True)
+    def _embeddings_off(self, monkeypatch):
+        monkeypatch.setattr(get_application_settings(), "embeddings_enabled", False)
+
+    async def test_generate_suggestions_skips_embeddings(self):
+        model = MagicMock()
+        model.a_generate = AsyncMock(return_value={"suggestions": [{"input": "first"}]})
+        ctx = {
+            "model": model,
+            "response_model": MagicMock(),
+            "prompt_text": "p",
+            "topic_value": "",
+            "sample_size": 1,
+        }
+
+        with (
+            patch(
+                "rhesis.backend.app.services.explorer.suggestions._prepare_suggestion_context",
+                return_value=ctx,
+            ),
+            patch(_RESOLVE_EMBEDDER_PATCH) as resolve_embedder,
+        ):
+            result = await generate_suggestions(
+                db=MagicMock(),
+                test_set_identifier="some-test-set",
+                organization_id=str(uuid.uuid4()),
+                user_id=str(uuid.uuid4()),
+                generate_embeddings=True,
+            )
+
+        assert [s.input for s in result.suggestions] == ["first"]
+        resolve_embedder.assert_not_called()
+
+    async def test_pipeline_skips_embeddings(self):
+        mock_invoker = MagicMock()
+        mock_invoker.invoke = AsyncMock(return_value=("an answer", None))
+        embed_one = AsyncMock()
+
+        with (
+            patch(
+                _GENERATE_SUGGESTIONS_PATCH,
+                new=AsyncMock(return_value=_fake_suggestion_stream([("", "first")])),
+            ),
+            patch(_INVOKER_PATCH, return_value=mock_invoker),
+            patch(_RESOLVE_METRICS_PATCH, return_value=[]),
+            patch(_RUN_METRICS_PATCH, new=AsyncMock(return_value={})),
+            patch(_RESOLVE_EMBEDDER_PATCH) as resolve_embedder,
+            patch(_EMBED_ONE_PATCH, new=embed_one),
+        ):
+            events = await _collect(
+                suggestion_pipeline_stream(
+                    db=MagicMock(),
+                    test_set_identifier="some-test-set",
+                    organization_id=str(uuid.uuid4()),
+                    user_id=str(uuid.uuid4()),
+                    endpoint_id=str(uuid.uuid4()),
+                    metric_names=[],
+                    num_suggestions=1,
+                    generate_embeddings=True,
+                )
+            )
+
+        assert next(e for e in events if e["type"] == "suggestions_done")["total"] == 1
+        resolve_embedder.assert_not_called()
+        embed_one.assert_not_called()

@@ -123,9 +123,23 @@ def require_rhesis_key_enabled() -> None:
     return None
 
 
+def require_embeddings_enabled() -> None:
+    """Dependency: raise 404 unless EMBEDDINGS_ENABLED is set.
+
+    Same shape and rationale as :func:`require_rhesis_key_enabled`.
+    """
+    if not get_application_settings().embeddings_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Not available",
+        )
+    return None
+
+
 __all__ = [
     "feature_for_route",
     "has_feature",
+    "require_embeddings_enabled",
     "require_feature",
     "require_rhesis_key_enabled",
 ]

@@ -436,6 +436,11 @@ def _queue_embedding_after_commit(target) -> None:
     is still in memory. If to_searchable_text() fails, the job is not enqueued
     at all — we fail loudly rather than falling back to a DB reload after commit.
     """
+    from rhesis.backend.app.config.settings import get_application_settings
+
+    if not get_application_settings().embeddings_enabled:
+        return
+
     session = object_session(target)
     if session is None:
         logger.debug(

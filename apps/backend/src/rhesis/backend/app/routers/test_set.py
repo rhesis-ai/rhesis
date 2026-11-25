@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.feature_gates import require_embeddings_enabled
 from rhesis.backend.app.auth.quota_gates import require_job_capacity, require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import metric as metric_crud
@@ -912,7 +913,10 @@ def remove_metric_from_test_set(
     "/{test_set_identifier}/embeddings/compute-graph",
     response_model=EmbeddingGraphComputeResponse,
     **capability(Permission.TestSet.EXECUTE),
-    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+    dependencies=[
+        Depends(require_embeddings_enabled),
+        per_user_rate_limit(GENERATION_RATE_LIMIT),
+    ],
 )
 def compute_test_set_embedding_graph(
     test_set_identifier: str,
@@ -935,6 +939,7 @@ def compute_test_set_embedding_graph(
 @router.get(
     "/{test_set_identifier}/embeddings/graph",
     response_model=EmbeddingGraphGetResponse,
+    dependencies=[Depends(require_embeddings_enabled)],
 )
 def get_test_set_embedding_graph(
     test_set_identifier: str,

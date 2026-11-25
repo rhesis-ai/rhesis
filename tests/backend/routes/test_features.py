@@ -10,6 +10,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.dependencies import (
     get_db_session,
     get_tenant_context,
@@ -157,6 +158,14 @@ class TestFeaturesEndpoint:
         finally:
             FeatureRegistry.reset()
 
+    @pytest.mark.parametrize("enabled", [True, False])
+    def test_embeddings_enabled_follows_the_setting(
+        self, client: TestClient, registered_sso, mock_current_user, monkeypatch, enabled
+    ):
+        monkeypatch.setattr(get_application_settings(), "embeddings_enabled", enabled)
+
+        assert client.get("/features").json()["embeddings_enabled"] is enabled
+
     def test_response_shape_is_stable(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
         body = response.json()
@@ -170,6 +179,7 @@ class TestFeaturesEndpoint:
             "rhesis_key_enabled",
             "models_ready",
             "embedding_model_ready",
+            "embeddings_enabled",
             "max_endpoint_timeout_seconds",
             "default_endpoint_timeout_seconds",
         }
@@ -194,6 +204,7 @@ class TestFeaturesEndpoint:
         assert isinstance(body["rhesis_key_enabled"], bool)
         assert isinstance(body["models_ready"], bool)
         assert isinstance(body["embedding_model_ready"], bool)
+        assert isinstance(body["embeddings_enabled"], bool)
 
     def test_models_ready_when_generation_and_evaluation_build(
         self, client: TestClient, registered_sso, mock_current_user

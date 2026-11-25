@@ -105,6 +105,8 @@ class FeaturesResponse(BaseModel):
     models_ready: bool = False
     #: Same for embeddings; kept separate since without it only search quality suffers.
     embedding_model_ready: bool = False
+    #: Whether embedding generation and its UI are on (EMBEDDINGS_ENABLED).
+    embeddings_enabled: bool = False
     #: Longest timeout_seconds an endpoint may set (MAX_ENDPOINT_TIMEOUT).
     max_endpoint_timeout_seconds: int
     #: Timeout per connection type when an endpoint sets none.
@@ -150,7 +152,9 @@ def list_features(
         is_local=get_application_settings().is_local,
         rhesis_key_enabled=get_application_settings().enable_rhesis_key,
         models_ready=bool(readiness and readiness.ready),
-        embedding_model_ready=bool(readiness and readiness.embedding is None),
+        embedding_model_ready=get_application_settings().embeddings_enabled
+        and bool(readiness and readiness.embedding is None),
+        embeddings_enabled=get_application_settings().embeddings_enabled,
         max_endpoint_timeout_seconds=get_job_limit_settings().max_endpoint_timeout,
         default_endpoint_timeout_seconds={
             kind: int(seconds) for kind, seconds in DEFAULT_CALL_TIMEOUTS.items()

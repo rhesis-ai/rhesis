@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import capability
+from rhesis.backend.app.auth.feature_gates import require_embeddings_enabled
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import source as source_crud
 from rhesis.backend.app.dependencies import (
@@ -306,7 +307,10 @@ def read_source_with_content(
     "/{source_id}/embeddings/compute-graph",
     response_model=EmbeddingGraphComputeResponse,
     **capability("source:update"),
-    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+    dependencies=[
+        Depends(require_embeddings_enabled),
+        per_user_rate_limit(GENERATION_RATE_LIMIT),
+    ],
 )
 def compute_source_embedding_graph(
     source_id: uuid.UUID,
@@ -328,6 +332,7 @@ def compute_source_embedding_graph(
 @router.get(
     "/{source_id}/embeddings/graph",
     response_model=EmbeddingGraphGetResponse,
+    dependencies=[Depends(require_embeddings_enabled)],
 )
 def get_source_embedding_graph(
     source_id: uuid.UUID,

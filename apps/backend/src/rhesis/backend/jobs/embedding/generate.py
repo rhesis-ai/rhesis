@@ -28,8 +28,14 @@ def generate_embedding_task(
 
     Return value is that method's result dict (``status``, ``embedding_id``). See its
     docstring for ``status`` values, including ``skipped_empty_text`` when text is empty.
+    Returns ``skipped_disabled`` without generating anything while embeddings are off.
     """
+    from rhesis.backend.app.config.settings import get_application_settings
     from rhesis.backend.app.services.embedding.generator import EmbeddingGenerator
+
+    # Jobs queued before embeddings were switched off.
+    if not get_application_settings().embeddings_enabled:
+        return {"status": "skipped_disabled", "embedding_id": None}
 
     organization_id, user_id, _ = self.get_tenant_context()
 
