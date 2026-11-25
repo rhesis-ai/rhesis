@@ -47,12 +47,16 @@ class TestQueryBuilder:
                 QueryBuilder(test_db, models.Test)
 
     def test_with_related_warns_when_load_count_exceeds_threshold(
-        self, test_db: Session, authenticated_user_id, test_org_id, caplog
+        self, test_db: Session, authenticated_user_id, test_org_id, caplog, monkeypatch
     ):
         """Crossing the eager-load threshold should emit a warning."""
         import logging
 
+        from rhesis.backend.app.utils import query_utils
         from rhesis.backend.app.utils.query_utils import include
+
+        # The warning fires once per model per process; earlier tests may have used it.
+        monkeypatch.setattr(query_utils, "_warned_eager_load_models", set())
 
         query_builder = QueryBuilder(test_db, models.Test)
         query_builder.query = MagicMock()
