@@ -31,6 +31,7 @@ variable "noncurrent_version_age_days" {
 # the data.terraform_remote_state blocks in the env roots:
 #   dev  -> wireguard
 #   stg  -> wireguard, prd
+#   prd  -> wireguard
 #   wireguard -> dev, stg, prd   (and writes billing + this admin-state prefix)
 # terraform-wireguard is the admin SA; it manages the bucket itself, so it holds
 # storage.admin on the bucket rather than per-prefix object grants.

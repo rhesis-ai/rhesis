@@ -194,6 +194,16 @@ data "google_iam_policy" "state" {
       expression  = "resource.name.startsWith(\"${local.prefix.wireguard}\") || resource.name.startsWith(\"${local.prefix.prd}\")"
     }
   }
+  # prd reads wireguard.
+  binding {
+    role    = "roles/storage.objectViewer"
+    members = ["serviceAccount:${local.sa.prd}"]
+    condition {
+      title       = "prd-reads-wireguard"
+      description = "prd root reads wireguard remote state"
+      expression  = "resource.name.startsWith(\"${local.prefix.wireguard}\")"
+    }
+  }
 }
 
 resource "google_storage_bucket_iam_policy" "state" {
