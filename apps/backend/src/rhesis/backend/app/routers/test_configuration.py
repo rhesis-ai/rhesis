@@ -139,13 +139,16 @@ def update_test_configuration(
     if db_test_configuration is None:
         raise HTTPException(status_code=404, detail="Test configuration not found")
 
-    return test_configuration_crud.update_test_configuration(
-        db=db,
-        test_configuration_id=test_configuration_id,
-        test_configuration=test_configuration,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
+    try:
+        return test_configuration_crud.update_test_configuration(
+            db=db,
+            test_configuration_id=test_configuration_id,
+            test_configuration=test_configuration,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+    except test_configuration_crud.ScheduleManagedElsewhere as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.delete("/{test_configuration_id}", response_model=schemas.TestConfiguration)

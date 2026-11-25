@@ -71,6 +71,10 @@ def create_test_configuration(
     )
 
 
+class ScheduleManagedElsewhere(ValueError):
+    """A plain configuration update tried to change the schedule it carries."""
+
+
 def update_test_configuration(
     db: Session,
     test_configuration_id: uuid.UUID,
@@ -78,7 +82,10 @@ def update_test_configuration(
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> Optional[models.TestConfiguration]:
-    """Update test_configuration."""
+    """Update test_configuration. A schedule on it survives; it changes only through its API."""
+    stored = get_test_configuration(db, test_configuration_id, organization_id, user_id)
+    if stored is not None:
+        test_configuration = _keep_schedule(stored, test_configuration)
     return update_item(
         db,
         models.TestConfiguration,
@@ -89,13 +96,33 @@ def update_test_configuration(
     )
 
 
+def _keep_schedule(
+    stored: models.TestConfiguration, update: schemas.TestConfigurationUpdate
+) -> schemas.TestConfigurationUpdate:
+    schedule = (stored.attributes or {}).get("schedule")
+    if schedule is None:
+        return update
+    changed = update.model_fields_set
+    incoming = update.attributes or {}
+    if "attributes" in changed and incoming.get("schedule", schedule) != schedule:
+        raise ScheduleManagedElsewhere("Change schedules through /test_run_schedules")
+    if "status_id" in changed and update.status_id != stored.status_id:
+        raise ScheduleManagedElsewhere("Change schedules through /test_run_schedules")
+    if "attributes" not in changed:
+        return update
+    return update.model_copy(update={"attributes": incoming | {"schedule": schedule}})
+
+
 def delete_test_configuration(
     db: Session,
     test_configuration_id: uuid.UUID,
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> Optional[models.TestConfiguration]:
-    """Delete test_configuration."""
+    """Delete test_configuration. Its schedule goes first, so a restore brings none back."""
+    config = get_test_configuration(db, test_configuration_id, organization_id, user_id)
+    if config is not None and (config.attributes or {}).get("schedule") is not None:
+        set_schedule(db, config, None, None)
     return delete_item(
         db,
         models.TestConfiguration,
