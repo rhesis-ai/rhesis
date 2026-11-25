@@ -49,9 +49,17 @@ function renderTiles(props: Record<string, unknown> = {}) {
   return render(<TraceMetricsSummary projectId="project-1" {...props} />);
 }
 
+/** The tiles hold placeholders until the numbers arrive; wait them out. */
+async function waitForFigures() {
+  await waitFor(() =>
+    expect(document.querySelector('.MuiSkeleton-root')).toBeNull()
+  );
+}
+
 /** Hovers the (i) next to a tile's title and returns the tooltip it opens. */
 async function openInfoTooltip(title: string) {
-  const card = (await screen.findByText(title)).closest('.MuiCard-root');
+  await waitForFigures();
+  const card = screen.getByText(title).closest('.MuiCard-root');
   if (!(card instanceof HTMLElement))
     throw new Error(`${title} card not found`);
   fireEvent.mouseOver(within(card).getByTestId('InfoOutlinedIcon'));
@@ -77,10 +85,15 @@ describe('TraceMetricsSummary', () => {
     getMetrics.mockResolvedValue(metrics());
   });
 
-  it('renders nothing until the numbers arrive', () => {
+  it('keeps placeholder tiles until the numbers arrive', () => {
+    getMetrics.mockReturnValue(new Promise(() => {}));
     const { container } = renderTiles();
 
-    expect(container).toBeEmptyDOMElement();
+    // Placeholders, not an empty row the tiles later pop into.
+    expect(
+      container.querySelectorAll('.MuiSkeleton-root').length
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText('226')).not.toBeInTheDocument();
   });
 
   it('renders nothing without a project to scope to', () => {
@@ -138,7 +151,8 @@ describe('TraceMetricsSummary', () => {
     getMetrics.mockResolvedValue(metrics({ operation_breakdown: {} }));
     renderTiles();
 
-    const card = (await screen.findByText('Traces')).closest('.MuiCard-root');
+    await waitForFigures();
+    const card = screen.getByText('Traces').closest('.MuiCard-root');
     if (!(card instanceof HTMLElement))
       throw new Error('Traces card not found');
     expect(
