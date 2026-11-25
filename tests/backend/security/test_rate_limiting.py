@@ -531,6 +531,19 @@ def test_get_real_ip_still_returns_the_full_address():
     assert get_real_ip(_request_from("198.51.100.7")) == "198.51.100.7"
 
 
+def test_zero_trusted_proxies_ignores_a_spoofed_forwarded_for(monkeypatch):
+    """With no proxy in front (compose default), a client X-Forwarded-For is ignored."""
+    monkeypatch.setattr(rate_limit, "TRUSTED_PROXY_COUNT", 0)
+    # _request_from's socket peer is 203.0.113.9; the header claims someone else.
+    assert get_real_ip(_request_from("10.9.9.9")) == "203.0.113.9"
+
+
+def test_one_trusted_proxy_reads_the_forwarded_client(monkeypatch):
+    """With a single proxy, the forwarded client IP is read."""
+    monkeypatch.setattr(rate_limit, "TRUSTED_PROXY_COUNT", 1)
+    assert get_real_ip(_request_from("10.9.9.9")) == "10.9.9.9"
+
+
 def test_ipv6_rotation_within_a_slash_64_shares_one_bucket(limiter_on, monkeypatch):
     monkeypatch.setattr(
         limiter,

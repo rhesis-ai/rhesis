@@ -151,6 +151,11 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: https://telemetry.rhesis.ai
       OTEL_SERVICE_NAME: rhesis
       OTEL_DEPLOYMENT_TYPE: self-hosted
+      # Number of trusted reverse proxies in front of the backend, used to pick the
+      # real client IP for rate limiting. The backend port is published directly
+      # here, so 0 keeps the socket peer and ignores a client-supplied
+      # X-Forwarded-For. Behind a reverse proxy, set this to the number of proxies.
+      TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-0}
     volumes:
       - rhesis-storage:/app/storage
     ports:
