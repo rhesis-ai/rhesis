@@ -1,6 +1,13 @@
-import PageListSkeleton from '@/components/loading/PageListSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import KnowledgeClientWrapper from '@/app/(protected)/knowledge/components/KnowledgeClientWrapper';
+
+/** The Knowledge page itself, drawn as placeholders until its data arrives. */
 export default function KnowledgeLoading() {
-  return <PageListSkeleton header={PAGE_HEADERS.knowledge} showPills={false} />;
+  return (
+    <SkeletonMode>
+      <KnowledgeClientWrapper />
+    </SkeletonMode>
+  );
 }

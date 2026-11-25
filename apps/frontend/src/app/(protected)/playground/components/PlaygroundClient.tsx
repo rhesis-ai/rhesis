@@ -29,6 +29,10 @@ import PlaygroundChat from './PlaygroundChat';
 import PlaygroundEndpointDrawer from './PlaygroundEndpointDrawer';
 import { scaledVh } from '@/styles/viewport-scaling';
 import { PAGE_HEADERS } from '@/constants/page-headers';
+import {
+  SkeletonSlot,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 
 /**
  * Placeholder shown when no endpoint is selected.
@@ -84,15 +88,20 @@ function ChatPlaceholder({
             </IconButton>
           )}
           {onSplit && (
-            <Tooltip title="Add chat pane">
-              <IconButton
-                size="small"
-                onClick={onSplit}
-                sx={{ color: theme => theme.palette.greyscale.label, p: 0.25 }}
-              >
-                <AddIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            <SkeletonSlot>
+              <Tooltip title="Add chat pane">
+                <IconButton
+                  size="small"
+                  onClick={onSplit}
+                  sx={{
+                    color: theme => theme.palette.greyscale.label,
+                    p: 0.25,
+                  }}
+                >
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </SkeletonSlot>
           )}
         </Box>
       )}
@@ -104,20 +113,23 @@ function ChatPlaceholder({
           justifyContent: 'center',
         }}
       >
-        <Stack spacing={1} alignItems="center">
-          <PlaygroundIcon
-            sx={{
-              fontSize: theme => theme.typography.h3.fontSize,
-              color: 'primary.main',
-            }}
-          />
-          <Typography
-            variant="h6"
-            sx={{ color: 'primary.main', fontWeight: 600 }}
-          >
-            Select an endpoint to start chatting
-          </Typography>
-        </Stack>
+        {/* Loading, it's not yet known whether an endpoint gets picked. */}
+        <SkeletonSlot>
+          <Stack spacing={1} alignItems="center">
+            <PlaygroundIcon
+              sx={{
+                fontSize: theme => theme.typography.h3.fontSize,
+                color: 'primary.main',
+              }}
+            />
+            <Typography
+              variant="h6"
+              sx={{ color: 'primary.main', fontWeight: 600 }}
+            >
+              Select an endpoint to start chatting
+            </Typography>
+          </Stack>
+        </SkeletonSlot>
       </Box>
     </Paper>
   );
@@ -139,6 +151,8 @@ export default function PlaygroundClient({
   initialEndpoints,
   initialProjects,
 }: PlaygroundClientProps) {
+  // As the route's loading view: no fetch, no session, just the empty panel.
+  const skeleton = useSkeletonMode();
   const searchParams = useSearchParams();
   const { allowed: canUsePlayground, loading: permsLoading } = useCanWithStatus(
     Capability.Playground.USE
@@ -149,7 +163,7 @@ export default function PlaygroundClient({
     isLoading,
     error: optionsError,
   } = useEndpointOptions(
-    !permsLoading && canUsePlayground,
+    !skeleton && !permsLoading && canUsePlayground,
     initialEndpoints,
     initialProjects
   );
@@ -176,6 +190,8 @@ export default function PlaygroundClient({
   // Apply initial endpoint after endpoints are loaded: URL param if it matches,
   // otherwise the only endpoint when there is exactly one to choose from.
   useEffect(() => {
+    // Cached endpoints must not open a chat from the loading view.
+    if (skeleton) return;
     if (!initialEndpointApplied && endpointOptions.length > 0) {
       const endpointIdParam = searchParams.get('endpointId');
       const initialOption = endpointIdParam
@@ -189,7 +205,7 @@ export default function PlaygroundClient({
       }
       setInitialEndpointApplied(true);
     }
-  }, [endpointOptions, searchParams, initialEndpointApplied]);
+  }, [skeleton, endpointOptions, searchParams, initialEndpointApplied]);
 
   const handleReset = useCallback(() => {
     setSelectedEndpointId(null);
@@ -214,8 +230,10 @@ export default function PlaygroundClient({
 
   const hasActiveSession = !!(selectedEndpointId || isSplit);
 
-  if (permsLoading) return <PageLoadingState />;
-  if (!canUsePlayground) return <AccessDenied resource="playground" />;
+  if (!skeleton && permsLoading) return <PageLoadingState />;
+  if (!skeleton && !canUsePlayground) {
+    return <AccessDenied resource="playground" />;
+  }
 
   return (
     <PageLayout
@@ -240,15 +258,17 @@ export default function PlaygroundClient({
         </FabGroup>
       }
     >
-      <PlaygroundEndpointDrawer
-        open={endpointDrawerOpen}
-        onClose={() => setEndpointDrawerOpen(false)}
-        endpointOptions={endpointOptions}
-        selectedEndpointId={selectedEndpointId}
-        isLoading={isLoading}
-        error={error}
-        onSelect={handleEndpointSelect}
-      />
+      {!skeleton && (
+        <PlaygroundEndpointDrawer
+          open={endpointDrawerOpen}
+          onClose={() => setEndpointDrawerOpen(false)}
+          endpointOptions={endpointOptions}
+          selectedEndpointId={selectedEndpointId}
+          isLoading={isLoading}
+          error={error}
+          onSelect={handleEndpointSelect}
+        />
+      )}
 
       {/* Chat Area */}
       <Box

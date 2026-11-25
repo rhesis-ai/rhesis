@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTheme } from '@mui/material/styles';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import EntityCard from '@/components/common/EntityCard';
+import EntityCard, { skeletonCardKeys } from '@/components/common/EntityCard';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import {
   TOOL_PROVIDER_ICONS,
@@ -54,5 +54,26 @@ export function ConnectedToolCard({
           : []
       }
     />
+  );
+}
+
+/** Typical values for a loading view's cards, only the fields the card reads. */
+const PLACEHOLDER_TOOL = {
+  id: '00000000-0000-0000-0000-000000000000',
+  name: 'Tool connection',
+  tool_provider_type: { type_value: 'github' },
+  tool_metadata: { repository: { full_name: 'organization/repository' } },
+} as unknown as Tool;
+
+const noop = () => {};
+
+/** A loading view's cards: the real card in skeleton mode. */
+export function ConnectedToolCardPlaceholders() {
+  return (
+    <>
+      {skeletonCardKeys.map(key => (
+        <ConnectedToolCard key={key} tool={PLACEHOLDER_TOOL} onDelete={noop} />
+      ))}
+    </>
   );
 }

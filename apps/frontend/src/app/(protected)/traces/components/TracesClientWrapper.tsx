@@ -22,6 +22,7 @@ import {
   viewFromSearchParams,
 } from './trace-url-state';
 import { PAGE_HEADERS } from '@/constants/page-headers';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 
 interface TracesClientWrapperProps {
   currentUserId?: string;
@@ -39,6 +40,8 @@ export default function TracesClientWrapper({
   initialData,
   initialTotalCount = 0,
 }: TracesClientWrapperProps) {
+  // As the route's loading view: the page drawn without data or a session.
+  const skeleton = useSkeletonMode();
   const { status } = useSession();
   const searchParams = useSearchParams();
   const initialTraceId = searchParams.get('open_trace');
@@ -72,10 +75,10 @@ export default function TracesClientWrapper({
     setShowEmptyHint(empty);
   }, []);
 
-  if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="traces" />;
+  if (!skeleton && permsLoading) return <PageLoadingState />;
+  if (!skeleton && !canRead) return <AccessDenied resource="traces" />;
 
-  if (!isAuthenticated(status)) {
+  if (!skeleton && !isAuthenticated(status)) {
     return (
       <PageLayout
         title={PAGE_HEADERS.traces.title}
@@ -118,7 +121,7 @@ export default function TracesClientWrapper({
          */}
         <Box
           sx={
-            showEmptyHint
+            showEmptyHint && !skeleton
               ? {
                   position: 'absolute',
                   width: '100%',
@@ -136,9 +139,9 @@ export default function TracesClientWrapper({
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             currentUserPicture={currentUserPicture}
-            initialTraceId={initialTraceId}
+            initialTraceId={skeleton ? null : initialTraceId}
             initialProjectId={initialProjectId}
-            initialSpanId={initialSpanId}
+            initialSpanId={skeleton ? null : initialSpanId}
             initialView={initialView}
             initialFilters={initialFilters}
             onUnfilteredEmpty={handleUnfilteredEmpty}
@@ -147,7 +150,7 @@ export default function TracesClientWrapper({
             initialTotalCount={initialTotalCount}
           />
         </Box>
-        {showEmptyHint && (
+        {showEmptyHint && !skeleton && (
           <EntityEmptyState
             card
             icon={TimelineOutlinedIcon}

@@ -2,6 +2,10 @@
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import {
+  PLACEHOLDER_TEXT,
+  TextPlaceholder,
+} from '@/components/loading/TextPlaceholder';
 import { rem } from '@/styles/theme-constants';
 
 interface MetadataItem {
@@ -43,10 +47,24 @@ export default function DetailMetadataStrip({
               color: theme => theme.palette.greyscale.subtitle,
             }}
           >
-            {value}
+            {/* The value itself outside skeleton mode. */}
+            <TextPlaceholder>{value}</TextPlaceholder>
           </Typography>
         </Box>
       ))}
     </Box>
+  );
+}
+
+/** The usual "created by / created on" strip while the record loads; the
+ *  values are placeholders in skeleton mode. */
+export function CreatedMetadataPlaceholder() {
+  return (
+    <DetailMetadataStrip
+      items={[
+        { label: 'created by:', value: PLACEHOLDER_TEXT.person },
+        { label: 'created on:', value: PLACEHOLDER_TEXT.date },
+      ]}
+    />
   );
 }

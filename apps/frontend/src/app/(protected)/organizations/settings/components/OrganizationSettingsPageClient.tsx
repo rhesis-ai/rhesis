@@ -6,6 +6,11 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
 import OrganizationSettingsTabs from './OrganizationSettingsTabs';
+import {
+  ORG_SETTINGS_CRUMB,
+  ORG_SETTINGS_DESCRIPTION,
+  ORG_SETTINGS_TITLE,
+} from './tabs';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useCanWithStatus } from '@/components/common/Can';
@@ -31,13 +36,12 @@ export default function OrganizationSettingsPageClient({
 
   const breadcrumbs = [
     { label: organizationName, href: '/organizations' },
-    { label: 'Organization Settings', href: '/organizations/settings' },
+    ORG_SETTINGS_CRUMB,
   ];
 
   const pageHeader = {
-    title: 'Organization Settings',
-    description:
-      "Manage your organization's profile, contact details, and security settings.",
+    title: ORG_SETTINGS_TITLE,
+    description: ORG_SETTINGS_DESCRIPTION,
     breadcrumbs,
   };
 

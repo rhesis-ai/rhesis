@@ -1,14 +1,14 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { requireSession } from '@/utils/require-session';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
-import TestRunMainView from './components/TestRunMainViewClient';
+import TestRunMainView from '../components/TestRunMainViewClient';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
-import { fetchSmallTestRunResults } from './hooks/test-run-results';
+import { fetchSmallTestRunResults } from '../hooks/test-run-results';
 import { getServerActiveProjectId } from '@/utils/server-active-project';
 import { emptyFilters, listParams } from '@/utils/list';
 import { tracesList } from '@/app/(protected)/traces/components/list';
-import { TAB_KEYS, tabIndexFromKey } from './utils/tab-key';
+import { TAB_KEYS, tabIndexFromKey } from '../utils/tab-key';
 
 interface _PageProps {
   params: Promise<{ identifier: string }>;

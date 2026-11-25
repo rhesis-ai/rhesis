@@ -2,8 +2,6 @@
 
 import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
-import LinkIcon from '@mui/icons-material/Link';
-import TestRunsIcon from '@/components/TestRunsIcon';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
@@ -15,7 +13,7 @@ import TestSetDetailsCard from './TestSetDetailsCard';
 import TestSetTagsMetricsCard from './TestSetTagsMetricsCard';
 import TestSetLinkedTestsSection from './TestSetLinkedTestsSection';
 import TestSetRunsGrid from './TestSetRunsGrid';
-import { TAB_KEYS, TAB_LABELS, type TestSetTabKey } from './tabs';
+import { TAB_ICONS, TAB_KEYS, TAB_LABELS } from './tabs';
 
 interface TestSetDetailTabsProps {
   testSet: TestSet;
@@ -40,18 +38,16 @@ export default function TestSetDetailTabs({
   const router = useRouter();
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
-  const tabIcons: Partial<Record<TestSetTabKey, React.ReactElement>> = {
-    linked: <LinkIcon />,
-    runs: <TestRunsIcon />,
-  };
-
-  const navTabs = TAB_KEYS.map((key, index) => ({
-    key,
-    label: TAB_LABELS[key],
-    ...(tabIcons[key] && { icon: tabIcons[key] }),
-    id: `test-set-detail-tab-${index}`,
-    'aria-controls': `test-set-detail-tabpanel-${index}`,
-  }));
+  const navTabs = TAB_KEYS.map((key, index) => {
+    const Icon = TAB_ICONS[key];
+    return {
+      key,
+      label: TAB_LABELS[key],
+      ...(Icon && { icon: <Icon /> }),
+      id: `test-set-detail-tab-${index}`,
+      'aria-controls': `test-set-detail-tabpanel-${index}`,
+    };
+  });
 
   const handleUpdate = useCallback(() => {
     router.refresh();

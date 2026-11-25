@@ -7,6 +7,8 @@ import CostTooltip from '../../test-runs/[identifier]/components/summary/CostToo
 import ModelLabel from '@/components/common/ModelLabel';
 import { spanTypeLabel } from '@/constants/span-types';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
+import { TextPlaceholder } from '@/components/loading/TextPlaceholder';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
 import {
@@ -58,9 +60,11 @@ export default function TraceMetricsSummary({
   refreshTrigger,
   costScope = 'project',
 }: TraceMetricsSummaryProps) {
+  const skeleton = useSkeletonMode();
   const [metrics, setMetrics] = useState<TraceMetricsResponse | null>(null);
 
   useEffect(() => {
+    if (skeleton) return;
     if (!projectId) {
       setMetrics(null);
       return;
@@ -105,7 +109,10 @@ export default function TraceMetricsSummary({
     startTimeAfter,
     startTimeBefore,
     refreshTrigger,
+    skeleton,
   ]);
+
+  if (skeleton) return <TraceMetricsSkeleton />;
 
   // Held back for a scope that has traced nothing: the table below says so in
   // its own empty state, and four tiles of zero say it less well.
@@ -209,6 +216,28 @@ export default function TraceMetricsSummary({
           range. The table below is narrowed further by the active filters.
         </Typography>
       )}
+    </Box>
+  );
+}
+
+const TILE_TITLES = ['Traces', 'Spans', 'Cost', 'Models'];
+
+/** The four tiles with their real titles; the figures wait for the data. */
+function TraceMetricsSkeleton() {
+  return (
+    <Box sx={{ mb: 3 }} aria-hidden>
+      <Grid container spacing={3}>
+        {TILE_TITLES.map(title => (
+          <Grid key={title} size={{ xs: 12, sm: 6, md: 3 }}>
+            <KpiCard
+              title={title}
+              // Blank: KpiCard draws its own value placeholder in skeleton mode.
+              value=""
+              subtitle={<TextPlaceholder />}
+            />
+          </Grid>
+        ))}
+      </Grid>
     </Box>
   );
 }

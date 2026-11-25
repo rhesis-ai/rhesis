@@ -39,6 +39,7 @@ import {
   sectionEditButtonSx,
 } from '@/components/common/SectionCardActions';
 import SourceTagsCard from './SourceTagsCard';
+import { InfoRow, SectionHeader, sourcePaperSx } from './SourceSectionParts';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -59,61 +60,6 @@ type EditableSectionType = 'general';
 interface EditData {
   title?: string;
   description?: string;
-}
-
-function SectionHeader({ title }: { title: string }) {
-  const theme = useTheme();
-  return (
-    <Typography
-      variant="h6"
-      sx={{
-        fontWeight: theme.typography.fontWeightMedium,
-        color: theme.palette.text.primary,
-      }}
-    >
-      {title}
-    </Typography>
-  );
-}
-
-function InfoRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  const theme = useTheme();
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing(1),
-        py: theme.spacing(1),
-      }}
-    >
-      <Typography
-        variant="subtitle2"
-        sx={{
-          color: theme.palette.text.secondary,
-          fontWeight: theme.typography.fontWeightMedium,
-          letterSpacing: '0.02em',
-        }}
-      >
-        {label}
-      </Typography>
-      <Box
-        sx={{
-          '& .MuiTypography-root': {
-            color: theme.palette.text.primary,
-          },
-        }}
-      >
-        {children}
-      </Box>
-    </Box>
-  );
 }
 
 /**
@@ -428,14 +374,7 @@ export default function SourcePreviewClientWrapper({
     >
       <Stack direction="column" spacing={3}>
         {/* Source Information Section - Single Paper */}
-        <Paper
-          sx={{
-            p: theme.spacing(3),
-            borderRadius: theme.spacing(1),
-            bgcolor: theme.palette.background.paper,
-            boxShadow: theme.shadows[1],
-          }}
-        >
+        <Paper sx={sourcePaperSx}>
           {/* Header */}
           <Box
             sx={{
@@ -647,14 +586,7 @@ export default function SourcePreviewClientWrapper({
 
         {/* Extracted Content Section */}
         {content && (
-          <Paper
-            sx={{
-              p: theme.spacing(3),
-              borderRadius: theme.spacing(1),
-              bgcolor: theme.palette.background.paper,
-              boxShadow: theme.shadows[1],
-            }}
-          >
+          <Paper sx={sourcePaperSx}>
             <Box
               sx={{
                 display: 'flex',

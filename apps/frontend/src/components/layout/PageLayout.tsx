@@ -6,6 +6,10 @@ import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
 import NextLink from 'next/link';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import {
+  PLACEHOLDER_TEXT,
+  TextPlaceholder,
+} from '@/components/loading/TextPlaceholder';
 import { FAB_GROUP_GAP, rem } from '@/styles/theme-constants';
 
 /** Below this width the title takes its own row and the actions wrap under it. */
@@ -30,6 +34,9 @@ export interface PageLayoutProps {
   /** When true the layout grows to fill the available flex height so child screens
    *  can pin a bottom ActionBar to the viewport edge without magic numbers. */
   fullHeight?: boolean;
+  /** Placeholder crumbs drawn after `breadcrumbs`, for a loading view whose
+   *  entity names aren't known yet. */
+  pendingCrumbs?: number;
 }
 
 export function BreadcrumbSeparator() {
@@ -115,11 +122,18 @@ export function PageBreadcrumbs({ items, pending }: PageBreadcrumbsProps) {
 }
 
 /** The page's h1, as PageLayout renders a string title. */
-export function PageTitle({ children }: { children: React.ReactNode }) {
+export function PageTitle({
+  children,
+  'aria-label': ariaLabel,
+}: {
+  children: React.ReactNode;
+  'aria-label'?: string;
+}) {
   return (
     <Typography
       variant="h4"
       component="h1"
+      aria-label={ariaLabel}
       sx={{
         flex: `1 1 ${TITLE_MIN_WIDTH}`,
         minWidth: 0,
@@ -129,6 +143,38 @@ export function PageTitle({ children }: { children: React.ReactNode }) {
       {children}
     </Typography>
   );
+}
+
+/** The page's h1 while its text waits for the record (skeleton mode). */
+export function PageTitlePlaceholder({
+  children = PLACEHOLDER_TEXT.title,
+}: {
+  children?: string;
+}) {
+  return (
+    // The placeholder is hidden from assistive tech, so the heading names itself.
+    <PageTitle aria-label="Loading">
+      <TextPlaceholder>{children}</TextPlaceholder>
+    </PageTitle>
+  );
+}
+
+/** Crumbs whose names wait for the record, in the trail's own type. */
+function pendingCrumbNodes(count: number): React.ReactNode {
+  if (count <= 0) return undefined;
+  const keys = Array.from({ length: count }, (_, idx) => `pending-${idx}`);
+  return keys.map((key, idx) => (
+    <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <Typography
+        variant="bodyMReg"
+        component="span"
+        sx={{ color: theme => theme.palette.greyscale.body }}
+      >
+        <TextPlaceholder>{PLACEHOLDER_TEXT.crumb}</TextPlaceholder>
+      </Typography>
+      {idx < count - 1 && <BreadcrumbSeparator />}
+    </Box>
+  ));
 }
 
 /** The line under the title, as PageLayout renders `description`. */
@@ -159,9 +205,10 @@ export function PageLayout({
   metadata,
   children,
   fullHeight = false,
+  pendingCrumbs = 0,
 }: PageLayoutProps) {
   const crumbItems = breadcrumbs?.filter(b => b.label?.trim()) ?? [];
-  const hasBreadcrumbs = crumbItems.length > 0;
+  const hasBreadcrumbs = crumbItems.length > 0 || pendingCrumbs > 0;
   const hasHeader = hasBreadcrumbs || title || description || actions;
 
   return (
@@ -185,7 +232,12 @@ export function PageLayout({
             mb: 5,
           }}
         >
-          {hasBreadcrumbs && <PageBreadcrumbs items={crumbItems} />}
+          {hasBreadcrumbs && (
+            <PageBreadcrumbs
+              items={crumbItems}
+              pending={pendingCrumbNodes(pendingCrumbs)}
+            />
+          )}
 
           {(title || description || actions || metadata) && (
             <Box

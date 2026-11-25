@@ -2,6 +2,11 @@
 
 import React from 'react';
 import { Box, LinearProgress, Typography } from '@mui/material';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
+import {
+  PLACEHOLDER_TEXT,
+  TextPlaceholder,
+} from '@/components/loading/TextPlaceholder';
 import { PassFailStats } from '@/utils/api-client/interfaces/test-results';
 import { formatInsightsSummaryDetail } from '../utils/insights-failed-tests';
 import { getReviewBand } from '@/constants/outcomes';
@@ -29,6 +34,8 @@ export default function InsightsSummaryBar({
   const total = summary?.total ?? 0;
   const failed = summary?.failed ?? 0;
   const barColor = progressColor(passRate);
+  // In a loading view the figures are placeholders and the bar an empty track.
+  const skeleton = useSkeletonMode();
 
   return (
     <Box
@@ -45,7 +52,9 @@ export default function InsightsSummaryBar({
         variant="body2"
         sx={{ mb: 0.75, lineHeight: 1.45, color: 'text.primary' }}
       >
-        {loading ? (
+        {skeleton ? (
+          <TextPlaceholder>{PLACEHOLDER_TEXT.long}</TextPlaceholder>
+        ) : loading ? (
           <Box component="span" sx={{ color: 'text.secondary' }}>
             Loading results…
           </Box>
@@ -69,8 +78,8 @@ export default function InsightsSummaryBar({
 
       <LinearProgress
         aria-label={loading ? 'Loading pass rate' : 'Pass rate'}
-        variant={loading ? 'indeterminate' : 'determinate'}
-        value={loading ? undefined : passRate}
+        variant={loading && !skeleton ? 'indeterminate' : 'determinate'}
+        value={skeleton ? 0 : loading ? undefined : passRate}
         color={loading ? 'primary' : barColor}
         sx={{
           height: 4,

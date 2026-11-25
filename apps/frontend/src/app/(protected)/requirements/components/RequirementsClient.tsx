@@ -32,7 +32,13 @@ import { TagsClient } from '@/utils/api-client/tags-client';
 import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
 import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
-import RequirementCard from './RequirementCard';
+import RequirementCard, {
+  RequirementCardPlaceholders,
+} from './RequirementCard';
+import {
+  SkeletonSlot,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 import RequirementDrawer, {
   type RequirementDetailsInput,
 } from './RequirementDrawer';
@@ -83,6 +89,8 @@ export default function RequirementsClient({
 }: RequirementsClientProps) {
   const router = useRouter();
   const notifications = useNotifications();
+  // As the route's loading view: no list fetch, cards drawn as placeholders.
+  const skeleton = useSkeletonMode();
   const canCreateRequirement = useCan(Capability.Requirement.CREATE);
   const canManageOptions = useCan(Capability.Requirement.UPDATE);
   const [optionsOpen, setOptionsOpen] = React.useState(false);
@@ -166,6 +174,7 @@ export default function RequirementsClient({
     gateNode,
   } = useList(requirementsList, {
     filters,
+    enabled: !skeleton,
     initialData,
     initialTotalCount,
     onData: data => {
@@ -532,7 +541,7 @@ export default function RequirementsClient({
 
   // First load — no data at all yet, show a full-page spinner
   const isInitialLoad =
-    isLoading && requirements.length === 0 && totalCount === 0;
+    !skeleton && isLoading && requirements.length === 0 && totalCount === 0;
 
   if (isInitialLoad) {
     return (
@@ -583,12 +592,14 @@ export default function RequirementsClient({
         {...directoryToolbarProps}
         leadingContent={
           canManageOptions && (
-            <FilterButton
-              icon={<SettingsIcon sx={{ fontSize: rem(20) }} />}
-              tooltip="Requirement options"
-              aria-label="Requirement options"
-              onClick={() => setOptionsOpen(true)}
-            />
+            <SkeletonSlot>
+              <FilterButton
+                icon={<SettingsIcon sx={{ fontSize: rem(20) }} />}
+                tooltip="Requirement options"
+                aria-label="Requirement options"
+                onClick={() => setOptionsOpen(true)}
+              />
+            </SkeletonSlot>
           )
         }
         middleContent={
@@ -600,24 +611,26 @@ export default function RequirementsClient({
         }
         // Same switch as the test run's Split/Table toggle.
         rightContent={
-          <ButtonGroup size="small" variant="outlined">
-            <Button
-              onClick={() => changeView('cards')}
-              variant={view === 'cards' ? 'contained' : 'outlined'}
-              startIcon={<ViewModuleIcon fontSize="small" />}
-              sx={toggleButtonSx}
-            >
-              Cards
-            </Button>
-            <Button
-              onClick={() => changeView('table')}
-              variant={view === 'table' ? 'contained' : 'outlined'}
-              startIcon={<TableRowsIcon fontSize="small" />}
-              sx={toggleButtonSx}
-            >
-              Table
-            </Button>
-          </ButtonGroup>
+          <SkeletonSlot>
+            <ButtonGroup size="small" variant="outlined">
+              <Button
+                onClick={() => changeView('cards')}
+                variant={view === 'cards' ? 'contained' : 'outlined'}
+                startIcon={<ViewModuleIcon fontSize="small" />}
+                sx={toggleButtonSx}
+              >
+                Cards
+              </Button>
+              <Button
+                onClick={() => changeView('table')}
+                variant={view === 'table' ? 'contained' : 'outlined'}
+                startIcon={<TableRowsIcon fontSize="small" />}
+                sx={toggleButtonSx}
+              >
+                Table
+              </Button>
+            </ButtonGroup>
+          </SkeletonSlot>
         }
       />
 
@@ -640,7 +653,7 @@ export default function RequirementsClient({
       />
 
       {/* Requirements grid / empty states */}
-      {requirements.length === 0 ? (
+      {requirements.length === 0 && !skeleton ? (
         hasActiveFilters ? (
           <EntityEmptyState
             icon={PsychologyIcon}
@@ -668,7 +681,7 @@ export default function RequirementsClient({
         <Box sx={{ mb: 4 }}>
           <RequirementsTable
             requirements={requirements}
-            loading={isLoading}
+            loading={skeleton || isLoading}
             totalCount={totalCount}
             page={page}
             rowsPerPage={rowsPerPage}
@@ -689,6 +702,7 @@ export default function RequirementsClient({
             mb: 4,
           })}
         >
+          {skeleton && <RequirementCardPlaceholders />}
           {requirements.map(requirement => (
             <RequirementCard
               key={requirement.id}

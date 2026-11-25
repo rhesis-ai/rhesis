@@ -3,6 +3,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { TextPlaceholder } from '@/components/loading/TextPlaceholder';
 import { rem } from '@/styles/theme-constants';
 
 interface ViewFieldProps {
@@ -76,7 +77,8 @@ export default function ViewField({
               ...(Array.isArray(inputSx) ? inputSx : inputSx ? [inputSx] : []),
             ]}
           >
-            {displayValue}
+            {/* The value itself outside skeleton mode. */}
+            <TextPlaceholder>{displayValue}</TextPlaceholder>
           </Typography>
         )}
       </Box>

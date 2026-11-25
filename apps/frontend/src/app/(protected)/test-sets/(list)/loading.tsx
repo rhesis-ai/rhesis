@@ -1,6 +1,13 @@
-import PageListSkeleton from '@/components/loading/PageListSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import TestSetsPageClient from '@/app/(protected)/test-sets/components/TestSetsPageClient';
+
+/** The Test Sets page itself, drawn as placeholders until its data arrives. */
 export default function TestSetsLoading() {
-  return <PageListSkeleton header={PAGE_HEADERS.testSets} />;
+  return (
+    <SkeletonMode>
+      <TestSetsPageClient />
+    </SkeletonMode>
+  );
 }

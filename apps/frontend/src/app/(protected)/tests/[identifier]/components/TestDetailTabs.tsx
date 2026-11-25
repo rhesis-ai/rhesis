@@ -1,6 +1,5 @@
 'use client';
 
-import LinkIcon from '@mui/icons-material/Link';
 import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -19,7 +18,7 @@ import TestMetadataCard from './TestMetadataCard';
 import TestTechnicalCard from './TestTechnicalCard';
 import TestFormElementsCard from './TestFormElementsCard';
 import TestInterpretationCard from './TestInterpretationCard';
-import { TAB_KEYS, TAB_LABELS } from './tabs';
+import { TAB_ICONS, TAB_KEYS, TAB_LABELS } from './tabs';
 
 interface TestDetailTabsProps {
   test: TestDetail;
@@ -50,13 +49,16 @@ export default function TestDetailTabs({
   const router = useRouter();
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
-  const navTabs = TAB_KEYS.map((key, index) => ({
-    key,
-    label: TAB_LABELS[key],
-    ...(key === 'linked' && { icon: <LinkIcon /> }),
-    id: `test-detail-tab-${index}`,
-    'aria-controls': `test-detail-tabpanel-${index}`,
-  }));
+  const navTabs = TAB_KEYS.map((key, index) => {
+    const Icon = TAB_ICONS[key];
+    return {
+      key,
+      label: TAB_LABELS[key],
+      ...(Icon && { icon: <Icon /> }),
+      id: `test-detail-tab-${index}`,
+      'aria-controls': `test-detail-tabpanel-${index}`,
+    };
+  });
 
   const handleTestUpdate = useCallback(() => {
     router.refresh();

@@ -19,6 +19,7 @@ import { escapeODataValue } from '@/utils/odata-filter';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
 import { endpointsList } from './list';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 import EndpointCaptures from './EndpointCaptures';
 import { getProjectIcon } from './endpoint-icon-utils';
 import EndpointFilterDrawer, {
@@ -79,6 +80,7 @@ export default function EndpointsGrid({
 }: EndpointsGridProps) {
   const theme = useTheme();
   const { status } = useSession();
+  const skeleton = useSkeletonMode();
 
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [loadingProjects, setLoadingProjects] = useState(true);
@@ -116,10 +118,11 @@ export default function EndpointsGrid({
       }
     };
 
-    if (isAuthenticated(status)) {
+    // The loading view leaves the fetch to the real page.
+    if (!skeleton && isAuthenticated(status)) {
       fetchProjects();
     }
-  }, [status]);
+  }, [status, skeleton]);
 
   const getRowUrl = useCallback(
     (row: Endpoint) =>

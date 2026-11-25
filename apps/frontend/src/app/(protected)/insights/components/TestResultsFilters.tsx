@@ -20,6 +20,10 @@ import InsightsFilterDrawer, {
   type InsightsDrawerFilters,
 } from './InsightsFilterDrawer';
 import { InsightsRequirementOption } from '../utils/insights-filter-utils';
+import {
+  SkeletonSlot,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 
 interface TestResultsFiltersProps {
   filters: InsightsFilters;
@@ -57,6 +61,7 @@ export default function TestResultsFilters({
   filterDrawerOpen: controlledDrawerOpen,
   onFilterDrawerOpenChange,
 }: TestResultsFiltersProps) {
+  const skeleton = useSkeletonMode();
   const isCompact = variant === 'compact';
   const [uncontrolledDrawerOpen, setUncontrolledDrawerOpen] = useState(false);
   const filterDrawerOpen = controlledDrawerOpen ?? uncontrolledDrawerOpen;
@@ -143,28 +148,33 @@ export default function TestResultsFilters({
                 {allExpanded ? 'Collapse all' : 'Expand all'}
               </Button>
             ) : null}
-            {hasActiveFilters ? (
-              <Button
-                size="small"
-                variant="text"
-                onClick={handleResetAllFilters}
-              >
-                Reset filters
-              </Button>
+            {/* The loaded page always has an endpoint selected, which counts as a filter. */}
+            {hasActiveFilters || skeleton ? (
+              <SkeletonSlot>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={handleResetAllFilters}
+                >
+                  Reset filters
+                </Button>
+              </SkeletonSlot>
             ) : null}
           </Box>
         }
       />
 
-      <InsightsFilterDrawer
-        open={filterDrawerOpen}
-        onClose={() => setFilterDrawerOpen(false)}
-        filters={drawerFilters}
-        projectEndpoints={projectEndpoints}
-        endpointsLoading={endpointsLoading}
-        requirementOptions={requirementOptions}
-        onApply={handleDrawerApply}
-      />
+      {!skeleton && (
+        <InsightsFilterDrawer
+          open={filterDrawerOpen}
+          onClose={() => setFilterDrawerOpen(false)}
+          filters={drawerFilters}
+          projectEndpoints={projectEndpoints}
+          endpointsLoading={endpointsLoading}
+          requirementOptions={requirementOptions}
+          onApply={handleDrawerApply}
+        />
+      )}
     </>
   );
 }

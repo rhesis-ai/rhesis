@@ -3,14 +3,14 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { requireSession } from '@/utils/require-session';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import type { Project } from '@/utils/api-client/interfaces/project';
-import ClientWrapper from './client-wrapper';
+import ClientWrapper from '../client-wrapper';
 import { prefetch } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
 import {
   fetchProjectEnvironments,
   fetchProjectTraceMetrics,
   projectTraceMetricIds,
-} from './components/project-data';
+} from '../components/project-data';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;

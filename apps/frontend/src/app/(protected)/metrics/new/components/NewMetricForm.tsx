@@ -53,6 +53,7 @@ import {
   PAGE_HEADERS,
   directoryCrumb,
 } from '@/constants/page-headers';
+import { NEW_METRIC_STEPS, newMetricTitle } from './new-metric-header';
 
 interface MetricFormData {
   name: string;
@@ -94,7 +95,7 @@ const initialFormData: MetricFormData = {
   metric_scope: [TEST_TYPES.SINGLE_TURN],
 };
 
-const steps = ['Metric Information and Criteria', 'Confirmation'];
+const steps = NEW_METRIC_STEPS;
 
 interface NewMetricFormProps {
   type: string;
@@ -1259,22 +1260,7 @@ export default function NewMetricForm({
     }
   };
 
-  const getTitle = () => {
-    switch (type) {
-      case 'grading':
-        return 'Create Grading Criteria Metric';
-      case 'api-call':
-        return 'Create API Call Metric';
-      case 'custom-code':
-        return 'Create Custom Code Metric';
-      case 'custom-prompt':
-        return 'Create Custom Prompt Metric';
-      case 'framework':
-        return 'Create Framework Metric';
-      default:
-        return 'Create New Metric';
-    }
-  };
+  const getTitle = () => newMetricTitle(type);
 
   useDocumentTitle(getTitle());
 

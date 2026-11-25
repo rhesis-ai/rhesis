@@ -10,6 +10,7 @@ import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
 import { useList } from '@/hooks/useList';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 import { useTypeLookups, useRequirements } from '@/hooks/useLookups';
 import { metricsList } from './list';
 import {
@@ -60,6 +61,8 @@ export default function MetricsClientComponent({
   const router = useRouter();
   const pathname = usePathname();
   const notifications = useNotifications();
+  // As the route's loading view: no list fetch and no URL writes.
+  const skeleton = useSkeletonMode();
 
   const assignMode = searchParams.get('assignMode') === 'true';
 
@@ -69,6 +72,7 @@ export default function MetricsClientComponent({
   );
 
   React.useEffect(() => {
+    if (skeleton) return;
     const current = new URLSearchParams(window.location.search);
     const next = withMetricUrlState(current, filters);
     if (next.toString() === current.toString()) return;
@@ -76,7 +80,7 @@ export default function MetricsClientComponent({
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
     });
-  }, [filters, pathname, router]);
+  }, [filters, pathname, router, skeleton]);
 
   const {
     data: metrics,
@@ -93,6 +97,7 @@ export default function MetricsClientComponent({
     gateNode,
   } = useList(metricsList, {
     filters,
+    enabled: !skeleton,
     initialData,
     initialTotalCount,
     onError: () => {

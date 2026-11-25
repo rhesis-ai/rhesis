@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { SectionCard } from '@/components/common/SectionCard';
+import { CARD_HEADINGS } from './tabs';
 import CurrencySelect, {
   FOLLOW_ORGANIZATION,
 } from '@/components/common/CurrencySelect';
@@ -66,8 +67,8 @@ export default function PreferencesForm({
 
   return (
     <SectionCard
-      title="Currency"
-      subtitle="The currency costs are shown in, across traces and test runs. This applies to you only, and overrides the organization's default."
+      title={CARD_HEADINGS.currency.title}
+      subtitle={CARD_HEADINGS.currency.subtitle}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <CurrencySelect

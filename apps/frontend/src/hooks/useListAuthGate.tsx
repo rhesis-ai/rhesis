@@ -9,6 +9,7 @@ import { useCanWithStatus } from '@/components/common/Can';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 
 interface UseListAuthGateOptions {
   /** A single capability, or two combined with OR (e.g. Annotations' TestResult.READ / Telemetry.READ). */
@@ -47,6 +48,10 @@ export function useListAuthGate({
 
   const canRead = secondary ? a.allowed || b.allowed : a.allowed;
   const permsLoading = secondary ? a.loading || b.loading : a.loading;
+  const skeleton = useSkeletonMode();
+
+  // A loading view draws the page itself; the real page applies this gate.
+  if (skeleton) return { ready: true };
 
   if (isSessionLoading(status)) {
     return {

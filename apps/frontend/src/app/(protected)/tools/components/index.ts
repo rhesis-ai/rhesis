@@ -1,4 +1,7 @@
-export { ConnectedToolCard } from './ConnectedToolCard';
+export {
+  ConnectedToolCard,
+  ConnectedToolCardPlaceholders,
+} from './ConnectedToolCard';
 export { ProviderPicker, buildProviderChoices } from './ProviderPicker';
 export type { ProviderChoice } from './ProviderPicker';
 export { ToolConnectionDrawer } from './ToolConnectionDrawer';

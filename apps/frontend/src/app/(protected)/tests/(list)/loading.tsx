@@ -1,6 +1,13 @@
-import PageListSkeleton from '@/components/loading/PageListSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import TestsPageClient from '../components/TestsPageClient';
+
+/** The Tests page itself, drawn as placeholders until its data arrives. */
 export default function TestsLoading() {
-  return <PageListSkeleton header={PAGE_HEADERS.tests} />;
+  return (
+    <SkeletonMode>
+      <TestsPageClient />
+    </SkeletonMode>
+  );
 }

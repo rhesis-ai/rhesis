@@ -8,6 +8,7 @@ import { RequirementInsightColumn } from '../utils/requirement-insights-utils';
 import InsightsSummaryBar from './InsightsSummaryBar';
 import RequirementColumn from './RequirementColumn';
 import RequirementInsightsRow from './RequirementInsightsRow';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 
 interface RequirementInsightsViewProps {
   filters: InsightsFilters;
@@ -39,11 +40,13 @@ export default function RequirementInsightsView({
   onRowToggle,
 }: RequirementInsightsViewProps) {
   const { summary, loading, error } = insights;
+  // A loading view has no endpoint yet but stands in for a page that has one.
+  const skeleton = useSkeletonMode();
 
   const isLoading = endpointsLoading || loading;
   const hasVisibleColumns = columnRows.some(row => row.length > 0);
 
-  if (!filters.endpointId) {
+  if (!filters.endpointId && !skeleton) {
     if (endpointsLoading) {
       return (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>

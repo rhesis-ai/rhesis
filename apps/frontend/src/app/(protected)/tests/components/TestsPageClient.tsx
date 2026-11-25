@@ -25,6 +25,7 @@ import { testKeys, testSetKeys } from '@/constants/query-keys';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { rem } from '@/styles/theme-constants';
 import { PAGE_HEADERS } from '@/constants/page-headers';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 
 interface TestsPageClientProps {
   /**
@@ -90,16 +91,21 @@ export default function TestsPageClient({
     tourParam === 'testCases' || activeTour === 'testCases';
   const shouldDisableAddButton = activeTour !== null && !isOnTestCasesTour;
 
+  // As a loading view, leave the URL-driven actions to the real page.
+  const skeleton = useSkeletonMode();
+
   React.useEffect(() => {
+    if (skeleton) return;
     if (tourParam === 'testCases') {
       const timeout = setTimeout(() => {
         startTour('testCases');
       }, 300);
       return () => clearTimeout(timeout);
     }
-  }, [tourParam, startTour]);
+  }, [skeleton, tourParam, startTour]);
 
   React.useEffect(() => {
+    if (skeleton) return;
     const openGeneration = searchParams?.get('openGeneration');
     if (openGeneration === 'true') {
       router.push('/test-sets/new-generated');
@@ -107,7 +113,7 @@ export default function TestsPageClient({
       newUrl.searchParams.delete('openGeneration');
       window.history.replaceState({}, '', newUrl.toString());
     }
-  }, [searchParams, router]);
+  }, [skeleton, searchParams, router]);
 
   const handleCreateManual = React.useCallback(() => {
     if (activeTour === 'testCases') return;

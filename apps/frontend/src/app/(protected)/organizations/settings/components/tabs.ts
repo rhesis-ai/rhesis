@@ -4,6 +4,16 @@
 import type { ComponentType } from 'react';
 import type { OrgSettingsTab } from '@/lib/extension-registries';
 
+export const ORG_SETTINGS_TITLE = 'Organization Settings';
+export const ORG_SETTINGS_DESCRIPTION =
+  "Manage your organization's profile, contact details, and security settings.";
+
+/** The trail after the organization's own crumb. */
+export const ORG_SETTINGS_CRUMB = {
+  label: ORG_SETTINGS_TITLE,
+  href: '/organizations/settings',
+};
+
 export interface BuiltInTab {
   id: string;
   label: string;

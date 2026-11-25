@@ -10,6 +10,7 @@ import GridToolbar, {
   ToolbarPillTabs,
   type ToolbarPillTab,
 } from '@/components/common/GridToolbar';
+import { SkeletonSlot } from '@/components/loading/SkeletonMode';
 import type { TraceView } from './trace-filter-params';
 
 const VIEW_TABS: ToolbarPillTab[] = [
@@ -77,9 +78,15 @@ export default function TracesToolbar() {
       }
       rightContent={
         <>
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
+          <SkeletonSlot>
+            <GridToolbarColumnsButton />
+          </SkeletonSlot>
+          <SkeletonSlot>
+            <GridToolbarDensitySelector />
+          </SkeletonSlot>
+          <SkeletonSlot>
+            <GridToolbarExport />
+          </SkeletonSlot>
         </>
       }
     />

@@ -1,8 +1,13 @@
-import PageCardGridSkeleton from '@/components/loading/PageCardGridSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
-// projects renders a grid of EntityCards, not a DataGrid, so the catch-all
-// table skeleton would be the wrong shape here.
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import ProjectsClientWrapper from '../components/ProjectsClientWrapper';
+
+/** The Projects page itself, drawn as placeholders until its data arrives. */
 export default function ProjectsLoading() {
-  return <PageCardGridSkeleton header={PAGE_HEADERS.projects} />;
+  return (
+    <SkeletonMode>
+      <ProjectsClientWrapper />
+    </SkeletonMode>
+  );
 }

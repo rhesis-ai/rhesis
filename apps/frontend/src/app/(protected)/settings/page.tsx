@@ -4,6 +4,7 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { requireSession } from '@/utils/require-session';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import SettingsTabs from './components/SettingsTabs';
+import { SETTINGS_HEADER } from './components/tabs';
 
 export const metadata: Metadata = { title: 'Settings' };
 
@@ -26,13 +27,11 @@ export default async function SettingsPage() {
     console.warn('[settings] failed to prefetch user settings:', err);
   }
 
-  const breadcrumbs = [{ label: 'Settings', href: '/settings' }];
-
   return (
     <PageLayout
-      title="Settings"
-      description="Manage your profile, account and notifications."
-      breadcrumbs={breadcrumbs}
+      title={SETTINGS_HEADER.title}
+      description={SETTINGS_HEADER.description}
+      breadcrumbs={SETTINGS_HEADER.breadcrumbs}
     >
       <SettingsTabs userSettings={userSettings} />
     </PageLayout>

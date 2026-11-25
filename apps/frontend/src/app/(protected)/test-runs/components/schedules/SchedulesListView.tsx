@@ -2,6 +2,7 @@
 
 import {
   Link as MuiLink,
+  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -13,6 +14,7 @@ import {
 import Link from 'next/link';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SectionEmptyState from '@/components/common/SectionEmptyState';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 import {
   formatRunTime,
   timeUntil,
@@ -47,6 +49,20 @@ export function sortSchedules(schedules: TestRunSchedule[]): TestRunSchedule[] {
   );
 }
 
+const COLUMNS = [
+  'Name',
+  'Status',
+  'Repeats',
+  'Next run',
+  'Last run',
+  'Test set',
+  'Endpoint',
+  'Owner',
+] as const;
+
+/** Placeholder rows drawn by the loading view. */
+const SKELETON_ROWS = Array.from({ length: 5 }, (_, i) => `row-${i}`);
+
 const percent = (rate: number | null) =>
   rate === null ? '' : ` · ${Math.round(rate * 100)}%`;
 
@@ -56,7 +72,8 @@ export default function SchedulesListView({
   onTakeOver,
   onDelete,
 }: Props) {
-  if (schedules.length === 0) {
+  const skeleton = useSkeletonMode();
+  if (schedules.length === 0 && !skeleton) {
     return (
       <SectionEmptyState
         icon={ScheduleIcon}
@@ -70,18 +87,24 @@ export default function SchedulesListView({
       <Table size="small" aria-label="Schedules">
         <TableHead>
           <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Status</TableCell>
-            <TableCell>Repeats</TableCell>
-            <TableCell>Next run</TableCell>
-            <TableCell>Last run</TableCell>
-            <TableCell>Test set</TableCell>
-            <TableCell>Endpoint</TableCell>
-            <TableCell>Owner</TableCell>
+            {COLUMNS.map(column => (
+              <TableCell key={column}>{column}</TableCell>
+            ))}
             <TableCell aria-label="Actions" />
           </TableRow>
         </TableHead>
         <TableBody>
+          {skeleton &&
+            SKELETON_ROWS.map(row => (
+              <TableRow key={row}>
+                {COLUMNS.map(column => (
+                  <TableCell key={column}>
+                    <Skeleton variant="text" />
+                  </TableCell>
+                ))}
+                <TableCell />
+              </TableRow>
+            ))}
           {sortSchedules(schedules).map(schedule => (
             <TableRow
               key={schedule.id}

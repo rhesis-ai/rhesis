@@ -3,7 +3,11 @@
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { rem } from '@/styles/theme-constants';
+import {
+  SkeletonSlot,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 
 const NARROW = '@media (max-width: 599px)';
 const NARROW_TAB_GAP = '24px';
@@ -51,6 +55,8 @@ export function DetailTabNav({
   sx,
 }: DetailTabNavProps) {
   const compact = size === 'compact';
+  // A loading view draws the real nav, inert, with its counts as placeholders.
+  const skeleton = useSkeletonMode();
   const tabRefs = React.useRef<(HTMLButtonElement | null)[]>([]);
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
@@ -72,6 +78,7 @@ export function DetailTabNav({
     <Box
       role="tablist"
       aria-label={ariaLabel}
+      inert={skeleton || undefined}
       sx={[
         {
           display: 'flex',
@@ -189,7 +196,15 @@ export function DetailTabNav({
               >
                 {tab.label}
               </Typography>
-              {tab.badge}
+              {skeleton && tab.badge ? (
+                <SkeletonSlot sx={{ borderRadius: BORDER_RADIUS.pill }}>
+                  <Box component="span" sx={{ display: 'inline-flex' }}>
+                    {tab.badge}
+                  </Box>
+                </SkeletonSlot>
+              ) : (
+                tab.badge
+              )}
             </Box>
             {selected && !compact ? (
               <Box

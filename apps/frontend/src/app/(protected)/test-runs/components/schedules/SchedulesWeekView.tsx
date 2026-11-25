@@ -17,6 +17,10 @@ import Link from 'next/link';
 import dayjs from 'dayjs';
 import { useQuery } from '@tanstack/react-query';
 import { browserTimeZone } from '@/components/common/run-drawer/schedule-form';
+import {
+  SkeletonSlot,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 import { scheduleKeys, testRunKeys } from '@/constants/query-keys';
 import {
   SCHEDULE_TRIGGER,
@@ -53,7 +57,7 @@ interface Props {
   viewToggle?: ReactNode;
 }
 
-function useWeekData(start: dayjs.Dayjs, zone: string) {
+function useWeekData(start: dayjs.Dayjs, zone: string, enabled: boolean) {
   const from = start.utc().toISOString();
   const to = dayAfter(start, 7, zone).utc().toISOString();
   const occurrences = useQuery({
@@ -63,6 +67,7 @@ function useWeekData(start: dayjs.Dayjs, zone: string) {
         .getTestRunSchedulesClient()
         .occurrences(new Date(from), new Date(to)),
     refetchInterval: SCHEDULES_REFETCH_MS,
+    enabled,
   });
   // A run starts at most an hour after its time, so look a little past the week.
   const runsTo = dayAfter(start, 7, zone).add(1, 'hour').utc().toISOString();
@@ -76,6 +81,7 @@ function useWeekData(start: dayjs.Dayjs, zone: string) {
         limit: 100,
       }),
     refetchInterval: SCHEDULES_REFETCH_MS,
+    enabled,
   });
   return { occurrences, runs };
 }
@@ -159,7 +165,12 @@ export default function SchedulesWeekView({
   const zone = useMemo(() => browserTimeZone(), []);
   const [anchor, setAnchor] = useState(() => dayjs().tz(zone));
   const start = weekStart(anchor);
-  const { occurrences, runs } = useWeekData(start, zone);
+  // As a route's loading view: the week's frame, placeholders for its runs.
+  const skeleton = useSkeletonMode();
+  const { occurrences, runs } = useWeekData(start, zone, !skeleton);
+  // A cached week from an earlier visit stays out of the loading view.
+  const occurrenceData = skeleton ? undefined : occurrences.data;
+  const runData = skeleton ? undefined : runs.data;
   const zones = useMemo(
     () => new Map(schedules.map(s => [s.id, s.timezone])),
     [schedules]
@@ -171,10 +182,10 @@ export default function SchedulesWeekView({
       buildWeek(
         start,
         zone,
-        (occurrences.data?.items ?? []).filter(
+        (occurrenceData?.items ?? []).filter(
           o => !scheduleIds || scheduleIds.has(o.schedule_id)
         ),
-        (runs.data?.data ?? []).filter(
+        (runData?.data ?? []).filter(
           r =>
             !scheduleIds ||
             scheduleIds.has(String(r.test_configuration?.id ?? ''))
@@ -182,34 +193,41 @@ export default function SchedulesWeekView({
         schedules
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start is derived from anchor
-    [anchor, zone, occurrences.data, runs.data, schedules, scheduleIds]
+    [anchor, zone, occurrenceData, runData, schedules, scheduleIds]
   );
-  const hourly = (occurrences.data?.hourly ?? []).filter(
+  const hourly = (occurrenceData?.hourly ?? []).filter(
     h => !scheduleIds || scheduleIds.has(h.id)
   );
   // Only planned runs gate the calendar: if past runs fail to load, it still shows what's planned.
-  const loading = occurrences.isLoading;
+  const loading = skeleton || occurrences.isLoading;
   const end = start.add(6, 'day');
 
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-        <IconButton
-          edge="start"
-          aria-label="Previous week"
-          onClick={() => setAnchor(a => a.subtract(1, 'week'))}
-        >
-          <ChevronLeftIcon />
-        </IconButton>
-        <IconButton
-          aria-label="Next week"
-          onClick={() => setAnchor(a => a.add(1, 'week'))}
-        >
-          <ChevronRightIcon />
-        </IconButton>
-        <Button size="small" onClick={() => setAnchor(dayjs().tz(zone))}>
-          Today
-        </Button>
+        {/* edge="start" pulls the button left; the placeholder takes the pull itself. */}
+        <SkeletonSlot variant="circular" sx={{ ml: -1.5 }}>
+          <IconButton
+            edge={skeleton ? false : 'start'}
+            aria-label="Previous week"
+            onClick={() => setAnchor(a => a.subtract(1, 'week'))}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+        </SkeletonSlot>
+        <SkeletonSlot variant="circular">
+          <IconButton
+            aria-label="Next week"
+            onClick={() => setAnchor(a => a.add(1, 'week'))}
+          >
+            <ChevronRightIcon />
+          </IconButton>
+        </SkeletonSlot>
+        <SkeletonSlot>
+          <Button size="small" onClick={() => setAnchor(dayjs().tz(zone))}>
+            Today
+          </Button>
+        </SkeletonSlot>
         <Typography variant="subtitle1">
           {start.format('D MMM')} – {end.format('D MMM YYYY')}
         </Typography>
@@ -322,7 +340,7 @@ export default function SchedulesWeekView({
                     +{hidden} more
                   </MuiLink>
                 )}
-                {canCreate && !day.past && (
+                {canCreate && !day.past && !skeleton && (
                   <ButtonBase
                     className="new-schedule"
                     onClick={() => onCreateOnDay(day.date)}

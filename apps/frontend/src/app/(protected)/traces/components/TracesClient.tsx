@@ -30,6 +30,7 @@ import {
 } from './trace-filter-params';
 import { withTraceUrlState } from './trace-url-state';
 import type { CostScope } from '@/utils/trace-utils';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 
 interface TracesClientProps {
   currentUserId?: string;
@@ -85,6 +86,8 @@ export default function TracesClient({
   initialData,
   initialTotalCount,
 }: TracesClientProps) {
+  // As the route's loading view: no fetch, no URL writes, the grid drawn loading.
+  const skeleton = useSkeletonMode();
   const router = useRouter();
   const pathname = usePathname();
   const { activeProject, loading: projectLoading } = useActiveProject();
@@ -116,7 +119,7 @@ export default function TracesClient({
   // The traces page keeps view and filters in the URL. A run's Traces tab doesn't:
   // that page's URL belongs to its own tabs.
   useEffect(() => {
-    if (fixedTestRunId) return;
+    if (fixedTestRunId || skeleton) return;
     const current = new URLSearchParams(window.location.search);
     const next = withTraceUrlState(current, view, drawerFilters);
     if (next.toString() === current.toString()) return;
@@ -124,7 +127,7 @@ export default function TracesClient({
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
     });
-  }, [view, drawerFilters, fixedTestRunId, pathname, router]);
+  }, [view, drawerFilters, fixedTestRunId, skeleton, pathname, router]);
 
   const tracesDescriptor = useMemo(
     () => tracesList(scopedProjectId),
@@ -160,7 +163,7 @@ export default function TracesClient({
     [searchQuery, drawerFilters]
   );
 
-  const listEnabled = !projectLoading && !!scopedProjectId;
+  const listEnabled = !skeleton && !projectLoading && !!scopedProjectId;
   const onListError = useCallback(() => setErrorDismissed(false), []);
 
   const traces = useList(tracesDescriptor, {
@@ -197,7 +200,7 @@ export default function TracesClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger]);
 
-  const listLoading = active.isLoading || projectLoading;
+  const listLoading = skeleton || active.isLoading || projectLoading;
 
   const filterScope = useMemo(
     () => ({
@@ -400,26 +403,30 @@ export default function TracesClient({
         )}
       </Paper>
 
-      <TraceFilterDrawer
-        open={filterDrawerOpen}
-        onClose={() => setFilterDrawerOpen(false)}
-        filters={drawerFilters}
-        onApply={handleApplyDrawerFilters}
-        fixedTestRunId={fixedTestRunId}
-        view={view}
-      />
+      {!skeleton && (
+        <>
+          <TraceFilterDrawer
+            open={filterDrawerOpen}
+            onClose={() => setFilterDrawerOpen(false)}
+            filters={drawerFilters}
+            onApply={handleApplyDrawerFilters}
+            fixedTestRunId={fixedTestRunId}
+            view={view}
+          />
 
-      <TraceDrawer
-        open={drawerOpen}
-        onClose={handleCloseDrawer}
-        traceId={selectedTraceId}
-        projectId={selectedProjectId || ''}
-        initialSpanId={selectedSpanId ?? undefined}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        currentUserPicture={currentUserPicture}
-        onTraceUpdated={refresh}
-      />
+          <TraceDrawer
+            open={drawerOpen}
+            onClose={handleCloseDrawer}
+            traceId={selectedTraceId}
+            projectId={selectedProjectId || ''}
+            initialSpanId={selectedSpanId ?? undefined}
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            currentUserPicture={currentUserPicture}
+            onTraceUpdated={refresh}
+          />
+        </>
+      )}
     </>
   );
 }

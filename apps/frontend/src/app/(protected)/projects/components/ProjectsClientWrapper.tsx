@@ -12,7 +12,8 @@ import { useSession } from 'next-auth/react';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Project, ProjectCreate } from '@/utils/api-client/interfaces/project';
-import ProjectCard from './ProjectCard';
+import ProjectCard, { ProjectCardPlaceholders } from './ProjectCard';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 import ProjectCreateDrawer from './ProjectCreateDrawer';
 import ProjectFilterDrawer, {
   type ProjectFilters,
@@ -57,6 +58,8 @@ export default function ProjectsClientWrapper({
   initialData,
 }: ProjectsClientWrapperProps) {
   const { status } = useSession();
+  // As the route's loading view: no fetches, cards drawn as placeholders.
+  const skeleton = useSkeletonMode();
   const [projects, setProjects] = useState<Project[]>(initialData ?? []);
   const [isLoading, setIsLoading] = useState(initialData === undefined);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +92,8 @@ export default function ProjectsClientWrapper({
   const isOnProjectTour = activeTour === 'project';
   const isProjectButtonDisabled = activeTour !== null && !isOnProjectTour;
 
-  useOnboardingTour('project');
+  // The tour starts on the loaded page, not on its loading view.
+  useOnboardingTour(skeleton ? undefined : 'project');
 
   const fetchProjects = useCallback(async () => {
     if (!isAuthenticated(status)) return;
@@ -111,8 +115,8 @@ export default function ProjectsClientWrapper({
   }, [status]);
 
   useEffect(() => {
-    if (initialData === undefined) fetchProjects();
-  }, [fetchProjects, initialData]);
+    if (!skeleton && initialData === undefined) fetchProjects();
+  }, [fetchProjects, initialData, skeleton]);
 
   const createProject = useCreateProject();
   const openNewProject = useOpenNewProject();
@@ -280,7 +284,7 @@ export default function ProjectsClientWrapper({
       />
 
       {/* Loading state */}
-      {isLoading && (
+      {isLoading && !skeleton && (
         <Box
           sx={{
             display: 'flex',
@@ -303,9 +307,9 @@ export default function ProjectsClientWrapper({
       )}
 
       {/* Projects grid */}
-      {!isLoading && !error && (
+      {(skeleton || (!isLoading && !error)) && (
         <>
-          {filteredProjects.length === 0 ? (
+          {filteredProjects.length === 0 && !skeleton ? (
             hasActiveFilters ? (
               <EntityEmptyState
                 icon={AppsIcon}
@@ -341,6 +345,9 @@ export default function ProjectsClientWrapper({
                 mb: 4,
               }}
             >
+              {skeleton && (
+                <ProjectCardPlaceholders canDelete={canUpdateProject} />
+              )}
               {paginatedProjects.map(project => (
                 <ProjectCard
                   key={project.id}
