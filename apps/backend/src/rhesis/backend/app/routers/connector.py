@@ -13,7 +13,7 @@ from typing import Any, Dict
 from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.principal import Principal
+from rhesis.backend.app.auth.principal import AuthKind, Principal
 from rhesis.backend.app.auth.user_utils import authenticate_websocket, require_current_user_or_token
 from rhesis.backend.app.crud import execution_trace as execution_trace_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
@@ -36,6 +36,7 @@ from rhesis.backend.app.services.connector.manager import connection_manager
 from rhesis.backend.app.services.connector.schemas import (
     WebSocketConnectionContext,
 )
+from rhesis.backend.app.services.websocket.credential_liveness import credential_from_bearer
 from rhesis.backend.app.services.websocket.membership import watch_membership
 from rhesis.backend.app.utils.rate_limit import PROBE_RATE_LIMIT
 
@@ -144,12 +145,17 @@ async def websocket_endpoint(
     def _drop_connection() -> None:
         connection_manager.disconnect_by_connection_id(context.connection_id)
 
+    # Close the socket if the token/session it opened with is later revoked.
+    bearer = websocket.headers.get("authorization", "").removeprefix("Bearer ").strip()
+    credential = credential_from_bearer(bearer, context.user_id, principal.kind == AuthKind.SESSION)
+
     membership_watch = asyncio.create_task(
         watch_membership(
             websocket,
             context.user_id,
             context.organization_id,
             on_close=_drop_connection,
+            credential=credential,
         )
     )
 

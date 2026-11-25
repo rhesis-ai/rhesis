@@ -33,9 +33,12 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.websocket import EventType, WebSocketMessage
 from rhesis.backend.app.services.websocket import get_ws_token_service, ws_manager
+from rhesis.backend.app.services.websocket.credential_liveness import (
+    SocketCredential,
+    credential_from_bearer,
+)
 from rhesis.backend.app.services.websocket.membership import (
-    close_for_membership,
-    membership_is_current,
+    enforce_connection_auth,
     watch_membership,
 )
 
@@ -98,15 +101,17 @@ def _load_ws_token_user(user_id: str) -> Optional[User]:
 async def authenticate_websocket_token(
     websocket: WebSocket,
     token: Optional[str] = None,
-) -> Optional[tuple[User, "Principal"]]:
+) -> Optional[tuple[User, "Principal", SocketCredential]]:
     """Authenticate WebSocket connection using token from query parameter.
 
     This function supports two authentication methods:
     1. Short-lived WebSocket tokens (preferred, more secure)
     2. Regular JWT/rh-* tokens (fallback for compatibility)
 
-    Returns a (User, Principal) pair so token scopes are preserved for
-    channel authorization (SP9).  Returns None if authentication fails.
+    Returns a (User, Principal, SocketCredential) triple: the principal preserves
+    token scopes for channel authorization (SP9), and the credential lets the
+    periodic re-check close the socket if the auth behind it is revoked.  Returns
+    None if authentication fails.
     """
     if not token:
         return None
@@ -121,8 +126,12 @@ async def authenticate_websocket_token(
             if user:
                 logger.debug(f"WebSocket auth via WS token for user {user.id}")
                 carry_auth_to_websocket(websocket, user)
-                # WS tokens are always issued from session auth — session principal.
-                return user, resolve_principal(user)
+                # A WS token is always minted from a session, so it is revoked by
+                # the same per-user logout mark; its iat is when the session held.
+                credential = SocketCredential(
+                    user_id=str(user.id), session_issued_at=int(ws_payload["iat"])
+                )
+                return user, resolve_principal(user), credential
         except Exception as e:
             logger.warning(f"WebSocket token user lookup failed: {e}")
 
@@ -149,7 +158,11 @@ async def authenticate_websocket_token(
         )
         if user:
             carry_auth_to_websocket(websocket, user, mock_request.state)
-            return user, resolve_principal_from_request(user, mock_request)
+            principal = resolve_principal_from_request(user, mock_request)
+            credential = credential_from_bearer(
+                token, str(user.id), principal.kind == AuthKind.SESSION
+            )
+            return user, principal, credential
         return None
     except Exception as e:
         logger.warning(f"WebSocket authentication failed: {e}")
@@ -185,7 +198,7 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.warning("WebSocket authentication failed - closing connection")
         await websocket.close(code=1008, reason="Authentication failed")
         return
-    user, principal = auth
+    user, principal, credential = auth
 
     # Accept the connection
     await websocket.accept()
@@ -199,8 +212,19 @@ async def websocket_endpoint(websocket: WebSocket):
     def _drop_connection() -> None:
         ws_manager.disconnect(conn_id)
 
+    async def _revalidate_channels() -> None:
+        # A role change inside the org drops channels this socket may now lack.
+        await ws_manager.revalidate_subscriptions(conn_id, user)
+
     membership_watch = asyncio.create_task(
-        watch_membership(websocket, user_id, org_id, on_close=_drop_connection)
+        watch_membership(
+            websocket,
+            user_id,
+            org_id,
+            on_close=_drop_connection,
+            credential=credential,
+            revalidate=_revalidate_channels,
+        )
     )
 
     # Send connected confirmation
@@ -248,11 +272,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Validate message
                 message = WebSocketMessage(**data)
 
-                # Anything but a ping acts as the user, so re-check membership first.
-                if message.type != EventType.PING and not await membership_is_current(
-                    user_id, org_id
+                # Anything but a ping acts as the user, so re-check membership and
+                # the credential first: a left org or a revoked session/token ends here.
+                if message.type != EventType.PING and await enforce_connection_auth(
+                    websocket, user_id, org_id, credential, _drop_connection
                 ):
-                    await close_for_membership(websocket, _drop_connection)
                     return
 
                 # Route to handler

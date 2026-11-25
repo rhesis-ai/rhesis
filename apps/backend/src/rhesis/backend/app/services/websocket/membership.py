@@ -10,12 +10,16 @@ import logging
 import math
 import os
 import random
-from typing import Callable
+from typing import Awaitable, Callable, Optional
 
 import anyio
 from fastapi import WebSocket
 
 from rhesis.backend.app.auth.user_utils import _load_user_by_id
+from rhesis.backend.app.services.websocket.credential_liveness import (
+    SocketCredential,
+    credential_is_current,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +43,7 @@ def _interval_from_env() -> float:
 MEMBERSHIP_CHECK_INTERVAL_SECONDS = _interval_from_env()
 MEMBERSHIP_CLOSE_CODE = 1008
 MEMBERSHIP_CLOSE_REASON = "Organization membership changed"
+AUTH_CLOSE_REASON = "Authentication revoked"
 
 
 def _is_member(user_id: str, organization_id: str) -> bool:
@@ -59,13 +64,43 @@ async def membership_is_current(user_id: str, organization_id: str) -> bool:
         return True
 
 
-async def close_for_membership(websocket: WebSocket, on_close: Callable[[], None]) -> None:
+async def close_for_membership(
+    websocket: WebSocket,
+    on_close: Callable[[], None],
+    reason: str = MEMBERSHIP_CLOSE_REASON,
+) -> None:
     """Drop the connection from its manager first, so no further events reach it."""
     on_close()
     try:
-        await websocket.close(code=MEMBERSHIP_CLOSE_CODE, reason=MEMBERSHIP_CLOSE_REASON)
+        await websocket.close(code=MEMBERSHIP_CLOSE_CODE, reason=reason)
     except Exception:
         pass  # Already closed by the client.
+
+
+async def enforce_connection_auth(
+    websocket: WebSocket,
+    user_id: str,
+    organization_id: str,
+    credential: Optional[SocketCredential],
+    on_close: Callable[[], None],
+) -> bool:
+    """Close the socket if its org membership ended or its credential was revoked.
+
+    Returns ``True`` when the socket was closed, so the caller can stop.
+    """
+    if not await membership_is_current(user_id, organization_id):
+        logger.info(
+            "Closing WebSocket for user %s: no longer in organization %s",
+            user_id,
+            organization_id,
+        )
+        await close_for_membership(websocket, on_close)
+        return True
+    if credential is not None and not await credential_is_current(credential):
+        logger.info("Closing WebSocket for user %s: credential no longer valid", user_id)
+        await close_for_membership(websocket, on_close, reason=AUTH_CLOSE_REASON)
+        return True
+    return False
 
 
 async def watch_membership(
@@ -73,18 +108,23 @@ async def watch_membership(
     user_id: str,
     organization_id: str,
     on_close: Callable[[], None],
+    *,
+    credential: Optional[SocketCredential] = None,
+    revalidate: Optional[Callable[[], Awaitable[None]]] = None,
 ) -> None:
-    """Re-check membership every interval and close the socket when it ends."""
+    """Re-check an open socket's authorization every interval.
+
+    Closes the socket when the user leaves the organization or the credential
+    that opened it is revoked (logout / token revocation). When ``revalidate`` is
+    given, also re-evaluates the channels the socket already subscribed to so a
+    role change inside the org drops any it may no longer access.
+    """
     period = MEMBERSHIP_CHECK_INTERVAL_SECONDS
     # Spread the first check so sockets reconnecting after a deploy don't poll in lockstep.
     await asyncio.sleep(random.uniform(0, period))
     while True:
-        if not await membership_is_current(user_id, organization_id):
-            logger.info(
-                "Closing WebSocket for user %s: no longer in organization %s",
-                user_id,
-                organization_id,
-            )
-            await close_for_membership(websocket, on_close)
+        if await enforce_connection_auth(websocket, user_id, organization_id, credential, on_close):
             return
+        if revalidate is not None:
+            await revalidate()
         await asyncio.sleep(period)

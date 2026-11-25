@@ -59,6 +59,9 @@ class WebSocketManager:
         self._registry = ConnectionRegistry()
         self._redis_listener_task: Optional[asyncio.Task] = None
         self._principals: dict[str, "Principal"] = {}
+        # conn_id -> {channel -> project_id hint used when it was authorized}, so
+        # a periodic re-check can reproduce the subscribe-time authorization.
+        self._subscription_project_hints: dict[str, dict[str, str]] = {}
 
     async def connect(self, websocket: WebSocket, user: User) -> str:
         """Register a new authenticated connection.
@@ -102,6 +105,7 @@ class WebSocketManager:
         """
         conn_info = self._registry.remove(conn_id)
         self._principals.pop(conn_id, None)
+        self._subscription_project_hints.pop(conn_id, None)
 
         # Clean up rate limiter tracking
         rate_limiter = get_rate_limiter()
@@ -147,6 +151,64 @@ class WebSocketManager:
             Set of channel names.
         """
         return self._registry.get_subscriptions(conn_id)
+
+    def _protected_subscriptions(self, conn_id: str) -> list[str]:
+        """Subscribed channels whose access is PDP-checked (so a role change can revoke)."""
+        prefixes = tuple(get_channel_authorizer().PROTECTED_RESOURCE_PREFIXES)
+        return [c for c in self.get_subscriptions(conn_id) if c.startswith(prefixes)]
+
+    async def revalidate_subscriptions(self, conn_id: str, user: User) -> None:
+        """Drop resource channels the connection may no longer access.
+
+        A socket authorizes each channel once, at subscribe. A role change inside
+        the org is not reflected until this re-runs the same authorization against
+        the caller's current roles and unsubscribes the channels that now fail.
+        A transient error leaves the subscription in place (fail safe: the next
+        interval re-checks), matching the membership re-check.
+        """
+        channels = self._protected_subscriptions(conn_id)
+        if not channels:
+            return
+
+        from rhesis.backend.app.database import get_db_with_tenant_variables
+
+        authorizer = get_channel_authorizer()
+        principal = self._principals.get(conn_id)
+        hints = self._subscription_project_hints.get(conn_id, {})
+
+        def _still_authorized(channel: str) -> bool:
+            with get_db_with_tenant_variables(
+                str(user.organization_id), str(user.id), hints.get(channel, "")
+            ) as db:
+                authorized, _ = authorizer.authorize_sync(user, channel, db=db, principal=principal)
+                return authorized
+
+        for channel in channels:
+            try:
+                keep = await anyio.to_thread.run_sync(_still_authorized, channel)
+            except Exception:
+                logger.exception(
+                    "Channel re-check failed for %s on %s — keeping subscription",
+                    channel,
+                    conn_id,
+                )
+                continue
+            if not keep:
+                await self._revoke_subscription(conn_id, channel)
+
+    async def _revoke_subscription(self, conn_id: str, channel: str) -> None:
+        """Unsubscribe a channel the caller lost access to and tell the client."""
+        self.unsubscribe(conn_id, channel)
+        self._subscription_project_hints.get(conn_id, {}).pop(channel, None)
+        logger.info("Revoked subscription %s on %s after re-check", channel, conn_id)
+        await self.broadcast(
+            WebSocketMessage(
+                type=EventType.SUBSCRIPTION_ERROR,
+                channel=channel,
+                payload={"channel": channel, "error": "Subscription revoked"},
+            ),
+            ConnectionTarget(connection_id=conn_id),
+        )
 
     async def broadcast(self, message: WebSocketMessage, target: Target) -> int:
         """Broadcast a message to a target.
@@ -342,6 +404,9 @@ class WebSocketManager:
 
         success = self.subscribe(conn_id, channel)
         if success:
+            # Remember the project hint so the periodic re-check can re-run the
+            # same authorization after a role change (see revalidate_subscriptions).
+            self._subscription_project_hints.setdefault(conn_id, {})[channel] = subscribe_project_id
             await self.broadcast(
                 WebSocketMessage(
                     type=EventType.SUBSCRIBED,
@@ -368,6 +433,7 @@ class WebSocketManager:
 
         success = self.unsubscribe(conn_id, channel)
         if success:
+            self._subscription_project_hints.get(conn_id, {}).pop(channel, None)
             await self.broadcast(
                 WebSocketMessage(
                     type=EventType.UNSUBSCRIBED,
