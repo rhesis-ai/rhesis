@@ -96,6 +96,7 @@ function SkeletonCrumb({ width, last }: { width: number; last: boolean }) {
   return (
     <Box
       sx={{ display: 'flex', alignItems: 'center', gap: BREADCRUMB.itemGap }}
+      aria-hidden
     >
       <Skeleton
         variant="text"

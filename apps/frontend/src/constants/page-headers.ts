@@ -117,9 +117,9 @@ export const PAGE_HEADERS = {
     description:
       'Executions of your test sets against AI endpoints. Track status, results, and history of each run.',
     href: '/test-runs',
-    // New Test Run on the Runs tab, New schedule (EXECUTE) on the Schedules tab;
-    // a loading view can't read the tab, so either counts.
-    actions: [[Capability.TestRun.CREATE, Capability.TestRun.EXECUTE]],
+    // The Runs tab's button; on the Schedules tab it is New schedule
+    // (TestRun.EXECUTE), which test-runs/loading.tsx picks from the URL.
+    actions: [Capability.TestRun.CREATE],
   },
   testSets: {
     title: 'Test Sets',

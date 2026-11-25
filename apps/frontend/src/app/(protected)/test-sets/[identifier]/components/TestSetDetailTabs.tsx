@@ -15,8 +15,7 @@ import TestSetDetailsCard from './TestSetDetailsCard';
 import TestSetTagsMetricsCard from './TestSetTagsMetricsCard';
 import TestSetLinkedTestsSection from './TestSetLinkedTestsSection';
 import TestSetRunsGrid from './TestSetRunsGrid';
-
-const TAB_KEYS = ['basic', 'linked', 'runs', 'tasks'] as const;
+import { TAB_KEYS, TAB_LABELS, type TestSetTabKey } from './tabs';
 
 interface TestSetDetailTabsProps {
   testSet: TestSet;
@@ -41,23 +40,14 @@ export default function TestSetDetailTabs({
   const router = useRouter();
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
-  const tabLabels: Record<(typeof TAB_KEYS)[number], string> = {
-    basic: 'Basic Information',
-    linked: 'Tests',
-    runs: 'Test Runs',
-    tasks: 'Tasks',
-  };
-
-  const tabIcons: Partial<
-    Record<(typeof TAB_KEYS)[number], React.ReactElement>
-  > = {
+  const tabIcons: Partial<Record<TestSetTabKey, React.ReactElement>> = {
     linked: <LinkIcon />,
     runs: <TestRunsIcon />,
   };
 
   const navTabs = TAB_KEYS.map((key, index) => ({
     key,
-    label: tabLabels[key],
+    label: TAB_LABELS[key],
     ...(tabIcons[key] && { icon: tabIcons[key] }),
     id: `test-set-detail-tab-${index}`,
     'aria-controls': `test-set-detail-tabpanel-${index}`,

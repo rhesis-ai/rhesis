@@ -14,46 +14,16 @@ import ProjectEndpoints from './ProjectEndpoints';
 import ProjectExperimentsTab from './ProjectExperimentsTab';
 import ProjectTracesTab from './ProjectTracesTab';
 import ProjectMembersTab from './ProjectMembersTab';
-
-const TAB_KEYS = [
-  'overview',
-  'members',
-  'endpoints',
-  'experiments',
-  'traces',
-] as const;
-type ProjectTabKey = (typeof TAB_KEYS)[number];
-
-const TAB_LABELS: Record<ProjectTabKey, string> = {
-  overview: 'Overview',
-  members: 'Members',
-  endpoints: 'Endpoints',
-  experiments: 'Experiments',
-  traces: 'Traces',
-};
-
-const LEGACY_TAB_MAP: Record<string, ProjectTabKey> = {
-  endpoints: 'endpoints',
-  traceMetrics: 'traces',
-  parameters: 'experiments',
-  environments: 'experiments',
-  configuration: 'experiments',
-  members: 'members',
-};
+import {
+  LEGACY_TAB_MAP,
+  normalizeTabParam,
+  TAB_KEYS,
+  TAB_LABELS,
+} from './tabs';
 
 const ENDPOINTS_ALERT =
   'Endpoints are the HTTP targets Rhesis calls when running tests against ' +
   'this project. Add an endpoint to point Rhesis at your application.';
-
-function normalizeTabParam(param: string | null): ProjectTabKey {
-  if (param && param in LEGACY_TAB_MAP) {
-    return LEGACY_TAB_MAP[param];
-  }
-  if (param && TAB_KEYS.includes(param as ProjectTabKey)) {
-    return param as ProjectTabKey;
-  }
-  return 'overview';
-}
 
 /** Server-prefetched tab data, threaded through from `page.tsx`. */
 export interface ProjectDetailInitialData {

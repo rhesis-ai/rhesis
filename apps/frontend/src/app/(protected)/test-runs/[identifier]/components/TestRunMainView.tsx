@@ -49,18 +49,10 @@ import {
   getEffectiveTestResultStatus,
   matchesStatusFilter,
 } from '@/utils/test-result-status';
-import { TAB_KEYS, TabKey, tabIndexFromKey } from '../utils/tab-key';
+import { TAB_KEYS, TAB_LABELS, tabIndexFromKey } from '../utils/tab-key';
 import TestRunAnnotationsTab from './TestRunAnnotationsTab';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
-
-const TAB_LABELS: Record<TabKey, string> = {
-  summary: 'Summary',
-  configuration: 'Configuration',
-  linked_entities: 'Tests',
-  traces: 'Traces',
-  annotations: 'Annotations',
-};
 
 interface TabPanelProps {
   children?: React.ReactNode;

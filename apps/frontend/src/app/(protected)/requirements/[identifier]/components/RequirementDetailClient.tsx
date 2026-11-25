@@ -8,10 +8,8 @@ import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { API_ENDPOINTS } from '@/utils/api-client/config';
-import RequirementDetailTabs, {
-  REQUIREMENT_TAB_KEYS,
-  type RequirementTabKey,
-} from './RequirementDetailTabs';
+import RequirementDetailTabs from './RequirementDetailTabs';
+import { REQUIREMENT_TAB_KEYS, type RequirementTabKey } from './tabs';
 import RequirementSuggestionsFab from './RequirementSuggestionsFab';
 import { SOURCES_CARD_ID } from './RequirementSourcesCard';
 import type { RuleHintId } from './requirement-suggestions';

@@ -11,14 +11,7 @@ import { Priority, Status, Task, TaskUpdate } from '@/types/tasks';
 import type { User } from '@/utils/api-client/interfaces/user';
 import TaskDetailsCard from './TaskDetailsCard';
 import TaskLinkedEntityTab from './TaskLinkedEntityTab';
-
-const TAB_KEYS = ['basic', 'linked', 'comments'] as const;
-
-const TAB_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
-  basic: 'Basic Information',
-  linked: 'Linked entities',
-  comments: 'Comments',
-};
+import { TAB_KEYS, TAB_LABELS } from './tabs';
 
 interface TaskDetailTabsProps {
   task: Task;

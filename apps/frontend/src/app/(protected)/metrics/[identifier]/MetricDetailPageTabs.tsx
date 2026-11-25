@@ -55,14 +55,7 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { rem } from '@/styles/theme-constants';
-
-const TAB_KEYS = ['basic', 'linked-requirements', 'tuning'] as const;
-
-const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
-  basic: 'Basic Information',
-  'linked-requirements': 'Requirements',
-  tuning: 'Tuning',
-};
+import { NAV_LABELS, TAB_KEYS } from './tabs';
 
 export default function MetricDetailPageTabs({
   metricId,

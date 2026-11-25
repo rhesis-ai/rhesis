@@ -11,14 +11,7 @@ import SecuritySection from './SecuritySection';
 import NotificationsForm from './NotificationsForm';
 import PreferencesForm from './PreferencesForm';
 import AccessibilityPreferenceForm from './AccessibilityPreferenceForm';
-
-const TABS = [
-  { id: 'profile', label: 'Profile' },
-  { id: 'preferences', label: 'Preferences' },
-  { id: 'notifications', label: 'Notifications' },
-] as const;
-
-const TAB_IDS = TABS.map(t => t.id);
+import { activeTabIndex, TABS } from './tabs';
 
 interface SettingsTabsProps {
   userSettings?: UserSettings;
@@ -28,11 +21,10 @@ export default function SettingsTabs({ userSettings }: SettingsTabsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const activeTab = useMemo(() => {
-    const param = searchParams.get('tab');
-    const idx = param ? TAB_IDS.indexOf(param as (typeof TAB_IDS)[number]) : -1;
-    return idx >= 0 ? idx : 0;
-  }, [searchParams]);
+  const activeTab = useMemo(
+    () => activeTabIndex(searchParams.get('tab')),
+    [searchParams]
+  );
 
   const handleTabChange = useCallback(
     (newIndex: number) => {

@@ -3,7 +3,7 @@
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 import { skeletonTextSx } from './skeletonText';
 
 /**
@@ -21,11 +21,25 @@ const CONTROL = {
   filterButtonSize: 36,
   searchWidth: 240,
   height: 38,
-  pillTabsWidth: 248,
+  pillTabsWidth: 261,
 } as const;
 
-/** Text links in the grid toolbar's right slot (Select / Columns / Density / Export). */
-const ACTION_WIDTHS = [76, 62, 56, 50];
+/**
+ * The grid toolbar's right slot, mirroring EntityGridToolbar: the selection
+ * toggle, then Columns, Density and Export, 31px tall at 4px gaps. Sized in rem
+ * like the real buttons, so they scale with the viewport the same way and the
+ * row wraps at the same width (on a laptop the slot drops below the search).
+ */
+const ACTIONS = {
+  height: rem(31),
+  gap: 0.5,
+  items: [
+    { key: 'select', width: rem(123) },
+    { key: 'columns', width: rem(90) },
+    { key: 'density', width: rem(83) },
+    { key: 'export', width: rem(78) },
+  ],
+} as const;
 
 export interface SkeletonToolbarProps {
   /**
@@ -58,7 +72,8 @@ export default function SkeletonToolbar({
   return (
     <Box
       sx={[
-        { display: 'flex', alignItems: 'center', gap },
+        // GridToolbar wraps too: a slot that doesn't fit moves to a new line.
+        { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap },
         ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
       ]}
       aria-hidden
@@ -94,14 +109,30 @@ export default function SkeletonToolbar({
       )}
 
       {rightSlot === 'actions' && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap, flexShrink: 0 }}>
-          {ACTION_WIDTHS.map(width => (
-            <Skeleton
-              key={width}
-              variant="text"
-              width={width}
-              sx={skeletonTextSx('bodyMReg')}
-            />
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: ACTIONS.gap,
+          }}
+        >
+          {ACTIONS.items.map(item => (
+            <Box
+              key={item.key}
+              sx={{
+                width: item.width,
+                height: ACTIONS.height,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <Skeleton
+                variant="text"
+                width="80%"
+                sx={skeletonTextSx('bodyMReg')}
+              />
+            </Box>
           ))}
         </Box>
       )}
