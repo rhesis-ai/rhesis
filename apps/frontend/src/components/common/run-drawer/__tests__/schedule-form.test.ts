@@ -131,6 +131,7 @@ describe('timeUntil', () => {
     ['2026-11-25T09:00:00Z', 'now'],
     ['2026-11-25T10:20:00Z', 'in 20 min'],
     ['2026-11-26T04:40:00Z', 'in 18 h 40 min'],
+    ['2026-11-27T04:00:00Z', 'in 1 day'],
     ['2026-11-28T10:00:00Z', 'in 3 days'],
   ])('%s reads %s', (iso, text) => {
     expect(timeUntil(iso, now)).toBe(text);

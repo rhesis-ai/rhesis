@@ -190,8 +190,9 @@ export function timeUntil(iso: string, now = dayjs()): string {
   if (minutes <= 0) return 'now';
   if (minutes < 60) return `in ${minutes} min`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 48) return `in ${hours} h ${minutes % 60} min`;
-  return `in ${Math.floor(hours / 24)} days`;
+  if (hours < 24) return `in ${hours} h ${minutes % 60} min`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'in 1 day' : `in ${days} days`;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
