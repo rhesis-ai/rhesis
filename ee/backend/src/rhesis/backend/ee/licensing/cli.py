@@ -60,6 +60,7 @@ import argparse
 import json
 import os
 import sys
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -124,6 +125,39 @@ def _parse_status(value: str) -> LicenseStatus:
             return status
     valid = ", ".join(s.value for s in mintable)
     raise argparse.ArgumentTypeError(f"Invalid status '{value}'. Choose from: {valid}")
+
+
+def _parse_jti(value: str) -> str:
+    try:
+        parsed = uuid.UUID(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid --jti '{value}': must be a UUID.") from None
+    if parsed.int == 0:
+        # What a placeholder or a zeroed-out CI value looks like; never a real id.
+        raise argparse.ArgumentTypeError("Invalid --jti: the nil UUID is not a token id.")
+    return str(parsed)
+
+
+def _parse_expires_at(value: str) -> datetime:
+    """``--expires-at``: an ISO date (midnight UTC) or a datetime in whole
+    seconds. A datetime without an offset is taken as UTC; ``Z`` is accepted.
+
+    Checked here, not only in :func:`mint_token`, so a bad value is an
+    argument error before anything is signed, written or delivered.
+    """
+    try:
+        parsed = datetime.fromisoformat(value.strip().upper())
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"Invalid --expires-at '{value}': use an ISO date or datetime, "
+            "e.g. 2028-01-15T00:00:00Z."
+        ) from None
+    parsed = parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    if parsed.microsecond:
+        raise argparse.ArgumentTypeError(f"Invalid --expires-at '{value}': use whole seconds.")
+    if parsed <= datetime.now(tz=timezone.utc):
+        raise argparse.ArgumentTypeError(f"Invalid --expires-at '{value}': it is in the past.")
+    return parsed
 
 
 def _require_private_key() -> None:
@@ -242,6 +276,8 @@ def cmd_mint(args: argparse.Namespace) -> None:
         custom_features=custom_features,
         custom_limits=custom_limits,
         custom_retention_days=args.retention_days,
+        jti=args.jti,
+        expires_at=args.expires_at,
     )
 
     if args.secret_name:
@@ -299,6 +335,8 @@ def cmd_issue(args: argparse.Namespace) -> None:
             custom_features=custom_features,
             custom_limits=custom_limits,
             custom_retention_days=args.retention_days,
+            jti=args.jti,
+            expires_at=args.expires_at,
         )
         _print_summary(args.org, args.kid, token, dry_run=True)
         return
@@ -328,6 +366,8 @@ def cmd_issue(args: argparse.Namespace) -> None:
             custom_features=custom_features,
             custom_limits=custom_limits,
             custom_retention_days=args.retention_days,
+            jti=args.jti,
+            expires_at=args.expires_at,
         )
         # Best-effort: the license write above already succeeded, so a lookup
         # failure here should degrade to an unlabeled summary, not fail the
@@ -441,12 +481,31 @@ def _build_parser() -> argparse.ArgumentParser:
             metavar="EDITION",
             help=f"License tier. One of: {', '.join(_sellable_editions())}.",
         )
-        p.add_argument(
+        validity = p.add_mutually_exclusive_group()
+        validity.add_argument(
             "--ttl-days",
             type=int,
             default=365,
             metavar="N",
             help="Validity period in days (default: 365).",
+        )
+        validity.add_argument(
+            "--expires-at",
+            type=_parse_expires_at,
+            default=None,
+            metavar="ISO_DATETIME",
+            help="Absolute expiry instead of --ttl-days, e.g. 2028-01-15T00:00:00Z.",
+        )
+        p.add_argument(
+            "--jti",
+            type=_parse_jti,
+            default=None,
+            metavar="UUID",
+            help=(
+                "Token id to use instead of a random one. Lets an external "
+                "license registry reserve the id before minting, so it can "
+                "record the grant without seeing the token."
+            ),
         )
         p.add_argument(
             "--status",
