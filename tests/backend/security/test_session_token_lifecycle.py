@@ -9,6 +9,9 @@
 - A WebSocket token is single-use across processes.
 """
 
+import base64
+import json
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
@@ -18,12 +21,14 @@ import jwt
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from itsdangerous import TimestampSigner
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.auth import session_invalidation
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
+from rhesis.backend.app.auth.session_utils import SESSION_ISSUED_AT_KEY
 from rhesis.backend.app.auth.token_utils import (
     create_email_verification_token,
     create_password_reset_token,
@@ -32,6 +37,8 @@ from rhesis.backend.app.auth.token_utils import (
     get_jwt_algorithm,
     get_secret_key,
 )
+from rhesis.backend.app.auth.url_utils import OAUTH_COOKIE_NAME
+from rhesis.backend.app.config.settings import get_auth_settings
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.schemas import UserCreate
 from rhesis.backend.app.services.websocket.token_service import WebSocketTokenService
@@ -78,6 +85,35 @@ def _api_ok(client: TestClient, token: str) -> int:
 
 def _logout(client: TestClient, token: str):
     return client.get("/auth/logout", headers={**_bearer(token), "Accept": "application/json"})
+
+
+def _cookie_session(user_id: str, *, age_seconds: int = 600) -> str:
+    """Sign a Starlette session cookie for ``user_id`` the way the backend does.
+
+    ``iat`` is aged so a revocation mark written now outranks it: the mark is at
+    second precision, so a same-second cookie would survive and the test would flake.
+    """
+    payload = {"user_id": user_id, SESSION_ISSUED_AT_KEY: int(time.time()) - age_seconds}
+    data = base64.b64encode(json.dumps(payload).encode())
+    return TimestampSigner(get_auth_settings().session_secret_key).sign(data).decode()
+
+
+def _cookie_api_ok(client: TestClient, cookie: str) -> int:
+    """Status of a cookie-authenticated request, leaving the jar clean afterwards."""
+    client.cookies.set(OAUTH_COOKIE_NAME, cookie)
+    try:
+        return client.get("/users/settings").status_code
+    finally:
+        client.cookies.clear()
+
+
+def _logout_cookie(client: TestClient, cookie: str):
+    """Browser logout: the session cookie only, no bearer token."""
+    client.cookies.set(OAUTH_COOKIE_NAME, cookie)
+    try:
+        return client.get("/auth/logout", headers={"Accept": "application/json"})
+    finally:
+        client.cookies.clear()
 
 
 def _refresh(client: TestClient, refresh_token: str) -> int:
@@ -195,6 +231,48 @@ class TestLogoutRevokesSessionJwts:
 
 @pytest.mark.unit
 @pytest.mark.security
+class TestLogoutInvalidatesCookieSession:
+    """A browser logout carries only the Starlette session cookie, no bearer token.
+
+    Logging out must invalidate that cookie session everywhere, the way a JWT logout
+    already does, so a copy of the cookie cannot outlive the logout.
+    """
+
+    def test_copied_cookie_is_rejected_after_a_browser_logout(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id)
+        cookie = _cookie_session(str(user.id))
+        with fake_redis_manager():
+            # The cookie authenticates browser requests.
+            assert _cookie_api_ok(client, cookie) == status.HTTP_200_OK
+
+            # Log out with the cookie only.
+            assert _logout_cookie(client, cookie).status_code == status.HTTP_200_OK
+
+            # A copy of the same cookie kept elsewhere no longer works.
+            assert _cookie_api_ok(client, cookie) == status.HTTP_401_UNAUTHORIZED
+
+    def test_cookie_logout_marks_the_user_revoked_in_redis(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id)
+        cookie = _cookie_session(str(user.id))
+        with fake_redis_manager() as redis:
+            _logout_cookie(client, cookie)
+        key = f"{session_invalidation.KEY_PREFIX}{user.id}"
+        assert key in redis.data
+        assert redis.ttls[key] > 0
+
+    def test_logout_without_a_session_still_succeeds(self, client: TestClient):
+        """No cookie and no bearer: logout is a no-op that still returns 200."""
+        with fake_redis_manager():
+            response = client.get("/auth/logout", headers={"Accept": "application/json"})
+        assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.unit
+@pytest.mark.security
 class TestPasswordResetAndChangeRevokeTokens:
     def test_reset_revokes_refresh_tokens_and_sessions(
         self, client: TestClient, test_db: Session, test_org_id: str
@@ -244,6 +322,44 @@ class TestPasswordResetAndChangeRevokeTokens:
             assert _api_ok(client, exchanged["session_token"]) == status.HTTP_200_OK
             assert _refresh(client, exchanged["refresh_token"]) == status.HTTP_200_OK
             assert _api_ok(client, body["session_token"]) == status.HTTP_200_OK
+
+    def test_reset_revokes_api_tokens(self, client: TestClient, test_db: Session, test_org_id: str):
+        """A reset follows a possible compromise, so the user's long-lived API tokens go too."""
+        user = _user(test_db, test_org_id)
+        api_token = create_test_api_token(test_db, user, name="ci").token
+        test_db.flush()
+        reset = create_password_reset_token(str(user.id), user.email)
+
+        with (
+            fake_redis_manager(),
+            patch(
+                "rhesis.backend.app.routers.auth.claim_token_jti",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            assert _api_ok(client, api_token) == status.HTTP_200_OK
+            response = client.post(
+                "/auth/reset-password", json={"token": reset, "new_password": NEW_PASSWORD}
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert _api_ok(client, api_token) == status.HTTP_401_UNAUTHORIZED
+
+    def test_change_keeps_api_tokens(self, client: TestClient, test_db: Session, test_org_id: str):
+        """A voluntary change is not a compromise signal, so SDK/CI keys keep working."""
+        user = _user(test_db, test_org_id)
+        api_token = create_test_api_token(test_db, user, name="ci").token
+        session = _aged(create_session_token(user))
+        test_db.flush()
+
+        with fake_redis_manager():
+            response = client.post(
+                "/auth/change-password",
+                headers=_bearer(session),
+                json={"current_password": PASSWORD, "new_password": NEW_PASSWORD},
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert _api_ok(client, api_token) == status.HTTP_200_OK
 
 
 @pytest.mark.unit

@@ -449,15 +449,26 @@ def _apply_password_reset(db: Session, user: User, new_password: str) -> None:
     if not user.is_email_verified:
         drop_credentials_of_unverified_account(db, user)
         user.is_email_verified = True
-    _store_new_password(db, user, new_password, PASSWORD_RESET)
+    # A reset is an account-recovery action, so also drop the user's long-lived
+    # API tokens. A voluntary change (below) keeps them so SDK/CI keys survive.
+    _store_new_password(db, user, new_password, PASSWORD_RESET, revoke_api_tokens=True)
 
 
-def _store_new_password(db: Session, user: User, new_password: str, action: str) -> str:
+def _store_new_password(
+    db: Session,
+    user: User,
+    new_password: str,
+    action: str,
+    *,
+    revoke_api_tokens: bool = False,
+) -> str:
     """Hash and persist a new password and revoke every refresh token.
 
     Returns the user's email for logging. ``action`` is the audit action:
-    ``password.reset`` or ``password.changed``.
+    ``password.reset`` or ``password.changed``. ``revoke_api_tokens`` also
+    revokes the user's API tokens, for the reset path.
     """
+    from rhesis.backend.app.crud.token import revoke_user_tokens
     from rhesis.backend.app.utils.encryption import hash_password
 
     user.password_hash = hash_password(new_password)
@@ -466,6 +477,8 @@ def _store_new_password(db: Session, user: User, new_password: str, action: str)
     if not user.provider_type:
         user.provider_type = AuthProviderType.EMAIL
     revoke_all_for_user(db, str(user.id))
+    if revoke_api_tokens:
+        revoke_user_tokens(db, user.id)
     record_user_event(action, user, db=db)
     db.commit()
     return user.email
@@ -1625,6 +1638,28 @@ def refresh_tokens(
 # =============================================================================
 
 
+def _revoke_cookie_session_on_logout(
+    db: Session, cookie_user_id: str | None, jwt_user_id: str | None
+) -> None:
+    """Invalidate the backend cookie session's user on a browser logout.
+
+    A browser logout carries only the Starlette session cookie, no bearer token,
+    so the JWT branch never runs for it. Setting the revocation mark here ends a
+    copy of the cookie everywhere, the way a JWT logout already does. Skipped when
+    the JWT branch already handled this user.
+    """
+    if not cookie_user_id or cookie_user_id == jwt_user_id:
+        return
+    try:
+        logger.info(f"Logout called for user {cookie_user_id} via session cookie")
+        revoke_all_for_user(db, cookie_user_id)
+        db.commit()
+        # This sync route runs in a worker thread; the Redis client lives on the loop.
+        anyio.from_thread.run(invalidate_user_sessions, cookie_user_id)
+    except Exception:
+        logger.exception("Error invalidating cookie session on logout")
+
+
 @router.get("/logout")
 def logout(
     request: Request,
@@ -1633,6 +1668,10 @@ def logout(
     db: Session = Depends(get_db_session),
 ):
     """Log out the user and clear their session"""
+    # Read the cookie session's user before clearing, so a browser logout (cookie
+    # only, no bearer token) can still revoke it everywhere.
+    cookie_user_id = request.session.get("user_id")
+    jwt_logged_out_user_id: str | None = None
     # Clear session data
     request.session.clear()
 
@@ -1655,6 +1694,7 @@ def logout(
 
             if user_id:
                 logger.info(f"Logout called for user {user_id} via JWT token")
+                jwt_logged_out_user_id = user_id
 
                 # Invalidate all sessions and refresh tokens
                 revoke_all_for_user(db, user_id)
@@ -1704,6 +1744,8 @@ def logout(
             logger.warning(f"Invalid session token during logout: {str(e)}")
         except Exception as e:
             logger.error(f"Error processing logout: {str(e)}")
+
+    _revoke_cookie_session_on_logout(db, cookie_user_id, jwt_logged_out_user_id)
 
     # Create response with cookie clearing headers
     accept_header = request.headers.get("accept", "")
