@@ -5,7 +5,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 Rhesis accepts traces from any standard OpenTelemetry exporter over OTLP/HTTP and translates the [OpenTelemetry semantic conventions for generative AI](https://github.com/open-telemetry/semantic-conventions-genai) into the Rhesis trace model. An agent that already exports these conventions, through an OpenTelemetry Collector, Grafana Alloy or an SDK's `OTLPSpanExporter`, can send its traces to Rhesis without the Rhesis SDK. They show up in the trace list, span details, conversation view and trace metrics like SDK-sent traces.
 
 <Callout type="info">
-  OTLP ingest is an Enterprise Edition feature. Without it, the endpoint answers `404`. Sending traces with the Rhesis SDK (`POST /telemetry/traces`) is available on every edition.
+  OTLP ingest is an Enterprise Edition feature. Without it, the endpoint answers `404`. Self-hosted deployments turn it on by installing the Enterprise package; see [Enterprise features](/self-hosting/docker-compose#enterprise-features). Sending traces with the Rhesis SDK (`POST /telemetry/traces`) is available on every edition.
 </Callout>
 
 Rhesis implements the conventions at release **v0.1.0** (commit `d0e74ba`). They are still in development status: attributes Rhesis does not recognize are stored unchanged.
@@ -76,6 +76,32 @@ otelcol.exporter.otlphttp "rhesis" {
 OTEL_EXPORTER_OTLP_TRACES_HEADERS="Authorization=Bearer <token>,X-Project-Id=<project id>"
 OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf`}
 </CodeBlock>
+
+## Check the connection
+
+Send one model call as OTLP JSON. Set `RHESIS_API_URL` to the API host, for example `https://api.rhesis.ai`:
+
+<CodeBlock filename="check-otlp.sh" language="bash">
+{`NOW=$(date +%s)
+curl -sS "$RHESIS_API_URL/telemetry/v1/traces" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN" \\
+  -H "X-Project-Id: $RHESIS_PROJECT_ID" \\
+  -H "Content-Type: application/json" \\
+  -d '{"resourceSpans": [{"scopeSpans": [{"spans": [{
+    "traceId": "'"$(openssl rand -hex 16)"'",
+    "spanId": "'"$(openssl rand -hex 8)"'",
+    "name": "chat gpt-4o-mini",
+    "startTimeUnixNano": "'"$NOW"'000000000",
+    "endTimeUnixNano": "'"$NOW"'500000000",
+    "attributes": [
+      {"key": "gen_ai.operation.name", "value": {"stringValue": "chat"}},
+      {"key": "gen_ai.request.model", "value": {"stringValue": "gpt-4o-mini"}},
+      {"key": "gen_ai.input.messages", "value": {"stringValue": "[{\\"role\\":\\"user\\",\\"parts\\":[{\\"type\\":\\"text\\",\\"content\\":\\"Hello\\"}]}]"}},
+      {"key": "gen_ai.output.messages", "value": {"stringValue": "[{\\"role\\":\\"assistant\\",\\"parts\\":[{\\"type\\":\\"text\\",\\"content\\":\\"Hi there\\"}]}]"}}
+    ]}]}]}]}'`}
+</CodeBlock>
+
+The answer is `{}`. A few seconds later the project's trace list shows an `ai.llm.invoke` trace with the input `Hello`. Any other answer is explained under [Responses and retries](#responses-and-retries).
 
 ## How spans are translated
 

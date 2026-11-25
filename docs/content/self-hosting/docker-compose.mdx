@@ -174,7 +174,7 @@ The variables above get a deployment running. Everything else is optional — se
 
 ### Enterprise Features
 
-Enterprise Edition features are discovered at runtime through `GET /features`; the frontend hides gated UI until a feature appears there. Without the Enterprise package, Rhesis runs in Community mode and all three are unavailable.
+Enterprise Edition features are discovered at runtime through `GET /features`; the frontend hides gated UI until a feature appears there. Without the Enterprise package, Rhesis runs in Community mode and none of them is available.
 
 Two features need their own secret — set it in `.env.docker` (see [Enterprise features](/self-hosting/environment-variables#enterprise-features) for how to generate each). The feature stays disabled until its secret is present and valid.
 
@@ -183,6 +183,7 @@ Two features need their own secret — set it in `.env.docker` (see [Enterprise 
 | Role-Based Access Control | `rbac` | — | [Roles & Permissions](/docs/organizations/roles) |
 | Single Sign-On | `sso` | `SSO_ENCRYPTION_KEY` | [Single Sign-On](/docs/organizations/sso) |
 | API Clients | `api_clients` | `AUDIT_HASH_KEY` | [API Clients](/docs/organizations/api-clients) |
+| OTLP trace ingest | `otlp_ingest` | — | [OTLP](/docs/tracing/otlp) |
 
 <Callout type="warning">
 Keep `SSO_ENCRYPTION_KEY` stable once set — like `DB_ENCRYPTION_KEY`, changing it makes already-stored SSO credentials undecryptable.

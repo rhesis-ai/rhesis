@@ -9,7 +9,7 @@ import { YouTubeEmbed } from "@/components/YouTubeEmbed";
 
 # Tracing
 
-Tracing gives your LLM applications OpenTelemetry-based observability: it captures traces of LLM calls, tool invocations, and retrieval operations through a semantic layer built for AI workloads. It runs in two modes — test mode (linked to test runs) and production mode (live monitoring) — supports auto-instrumentation for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK and Haystack, and provides convenience decorators for common AI operations.
+Tracing gives your LLM applications OpenTelemetry-based observability: it captures traces of LLM calls, tool invocations, and retrieval operations through a semantic layer built for AI workloads. It runs in two modes — test mode (linked to test runs) and production mode (live monitoring) — supports auto-instrumentation for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK and Haystack, and provides convenience decorators for common AI operations. An agent that already exports the OpenTelemetry GenAI conventions can send its traces over [OTLP](/docs/tracing/otlp) without the Rhesis SDK.
 
 <YouTubeEmbed videoId="KMB2vTMU7mY" title="Tracing walkthrough" />
 
@@ -158,4 +158,5 @@ Traces originate from **normal application operation**. They capture live behavi
 - [Trace Metrics](/docs/metrics/trace-metrics) - Automatic evaluation on live traces
 - [Traces & Spans](/sdk/entities/traces) - Read traces back from the SDK
 - [Token Costs](/docs/tracing/costs) - Check what a trace or test run cost
+- [OTLP](/docs/tracing/otlp) - Send traces from an OpenTelemetry Collector, Grafana Alloy or an OpenTelemetry SDK
 - [Connector](/sdk/connector) - Register functions as testable endpoints
