@@ -197,7 +197,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
               display: 'inline-flex',
               alignItems: 'center',
               gap: 0.875,
-              height: 34,
+              height: rem(34),
               px: 1.5,
               borderRadius: AUTH_SHAPE.button,
               bgcolor: t.chip,

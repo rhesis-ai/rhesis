@@ -5,7 +5,7 @@ import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 export const variableChipSx = {
   fontFamily: 'monospace',
   fontSize: rem(11),
-  height: 22,
+  height: rem(22),
   bgcolor: (t: Theme) => t.palette.greyscale.surface1,
   color: (t: Theme) => t.palette.greyscale?.body ?? t.palette.text.primary,
   border: 'none',

@@ -14,7 +14,7 @@ export const tagSurfaceSx: SxProps<Theme> = {
   borderRadius: BORDER_RADIUS.xs,
   px: '10px',
   py: '2px',
-  height: 26,
+  height: rem(26),
   maxWidth: 200,
   bgcolor: theme => theme.palette.greyscale.chipSurface,
   color: theme => theme.palette.greyscale.body,

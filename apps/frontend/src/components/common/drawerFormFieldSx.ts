@@ -137,7 +137,7 @@ export const drawerChipSx: SystemStyleObject<Theme> = {
 
 /** Compact chips for dense probe/category lists inside drawers. */
 export const drawerListChipSx: SystemStyleObject<Theme> = {
-  height: 20,
+  height: rem(20),
   fontSize: rem(11),
   fontWeight: 500,
   lineHeight: rem(16),

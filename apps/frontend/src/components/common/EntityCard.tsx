@@ -504,7 +504,7 @@ export default function EntityCard({
               <>
                 <Avatar
                   src={userAvatar}
-                  sx={{ width: 20, height: 20, fontSize: rem(11) }}
+                  sx={{ width: rem(20), height: rem(20), fontSize: rem(11) }}
                 >
                   {!userAvatar ? firstName[0].toUpperCase() : undefined}
                 </Avatar>

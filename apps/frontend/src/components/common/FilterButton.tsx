@@ -66,7 +66,7 @@ export function FilterButton({
             top: -6,
             right: -6,
             minWidth: 18,
-            height: 18,
+            height: rem(18),
             px: count > 9 ? '4px' : 0,
             borderRadius: '50%',
             bgcolor: 'background.paper',

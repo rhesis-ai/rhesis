@@ -136,7 +136,9 @@ const BASE_FONT_SIZE_PX = 16;
  * A px size as rem, so text follows the browser's font size setting.
  * Use for every font size and line height in `sx` and `style`.
  */
-export const rem = (px: number): string => `${px / BASE_FONT_SIZE_PX}rem`;
+export const rem = (px: number): string =>
+  // Rounded so float noise never reaches the CSS (e.g. 3.5999999999999996rem).
+  `${Number((px / BASE_FONT_SIZE_PX).toFixed(4))}rem`;
 
 /**
  * A px size scaled by the browser's font size setting, for APIs that only take

@@ -6,6 +6,11 @@ describe('rem', () => {
     expect(rem(14)).toBe('0.875rem');
     expect(rem(25)).toBe('1.5625rem');
   });
+
+  it('rounds to four decimals, so decimal px values give clean CSS', () => {
+    expect(rem(57.6)).toBe('3.6rem');
+    expect(rem(13.3)).toBe('0.8313rem');
+  });
 });
 
 describe('scaledPx', () => {

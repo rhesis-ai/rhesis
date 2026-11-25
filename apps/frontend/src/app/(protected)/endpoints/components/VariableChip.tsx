@@ -47,7 +47,7 @@ export default function VariableChip({
         ...(tone === 'primary' && {
           fontFamily: 'inherit',
           fontSize: rem(13),
-          height: 24,
+          height: rem(24),
           bgcolor: 'background.light2',
           color: 'greyscale.title',
         }),

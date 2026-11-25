@@ -649,7 +649,7 @@ export default function EmbeddingTestsPanel({
                               label={test.requirement.name}
                               size="small"
                               variant="outlined"
-                              sx={{ height: 18, fontSize: rem(10) }}
+                              sx={{ height: rem(18), fontSize: rem(10) }}
                             />
                           )}
                           {test.category?.name && (
@@ -657,7 +657,7 @@ export default function EmbeddingTestsPanel({
                               label={test.category.name}
                               size="small"
                               variant="outlined"
-                              sx={{ height: 18, fontSize: rem(10) }}
+                              sx={{ height: rem(18), fontSize: rem(10) }}
                             />
                           )}
                           {test.topic?.name && (
@@ -665,7 +665,7 @@ export default function EmbeddingTestsPanel({
                               label={test.topic.name}
                               size="small"
                               variant="outlined"
-                              sx={{ height: 18, fontSize: rem(10) }}
+                              sx={{ height: rem(18), fontSize: rem(10) }}
                             />
                           )}
                         </Stack>
