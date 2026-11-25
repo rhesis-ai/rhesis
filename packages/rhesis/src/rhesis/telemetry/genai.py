@@ -12,6 +12,7 @@ translation only ever *adds* ``ai.*`` / ``rhesis.*`` keys next to the originals.
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Any, Collection, Mapping, Optional
 
@@ -227,7 +228,6 @@ _DIRECT_ATTR_MAP: tuple[tuple[str, str], ...] = (
     (GEN_AI_SYSTEM, AIAttributes.MODEL_PROVIDER),
     (GEN_AI_REQUEST_TEMPERATURE, AIAttributes.LLM_TEMPERATURE),
     (GEN_AI_REQUEST_MAX_TOKENS, AIAttributes.LLM_MAX_TOKENS),
-    (GEN_AI_RESPONSE_FINISH_REASONS, AIAttributes.LLM_FINISH_REASON),
     (GEN_AI_TOOL_NAME, AIAttributes.TOOL_NAME),
     (GEN_AI_TOOL_TYPE, AIAttributes.TOOL_TYPE),
     (GEN_AI_TOOL_DESCRIPTION, AIAttributes.TOOL_DESCRIPTION),
@@ -240,13 +240,30 @@ _DIRECT_ATTR_MAP: tuple[tuple[str, str], ...] = (
 )
 
 
+def _finish_reason(value: Any) -> Optional[str]:
+    """One string, as the other integrations record it: the reasons joined with ", ".
+
+    Instrumentations send an array, or that array as a JSON string.
+    """
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except ValueError:
+            return value
+        value = decoded if isinstance(decoded, list) else value
+    if isinstance(value, (list, tuple)):
+        reasons = [str(v) for v in value if v is not None and v != ""]
+        return ", ".join(reasons) if reasons else None
+    return None if value is None else str(value)
+
+
 def _as_int(value: Any) -> Optional[int]:
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
         return value
     if isinstance(value, float):
-        return int(value)
+        return int(value) if math.isfinite(value) else None
     if isinstance(value, str):
         try:
             return int(value)
@@ -303,6 +320,13 @@ def translate_attributes(
     for src, dst in _DIRECT_ATTR_MAP:
         if src in attributes and dst not in translated:
             translated[dst] = attributes[src]
+    if (
+        GEN_AI_RESPONSE_FINISH_REASONS in attributes
+        and AIAttributes.LLM_FINISH_REASON not in attributes
+    ):
+        finish = _finish_reason(attributes[GEN_AI_RESPONSE_FINISH_REASONS])
+        if finish is not None:
+            translated[AIAttributes.LLM_FINISH_REASON] = finish
 
     operation = attributes.get(GEN_AI_OPERATION_NAME)
     if isinstance(operation, str) and operation in OPERATION_TO_AI_TYPE:
@@ -530,10 +554,18 @@ def synthesize_message_events(
 
     events: list[tuple[str, dict[str, Any]]] = []
 
+    input_messages = coerce_message_list(attributes.get(GEN_AI_INPUT_MESSAGES)) or []
     system_instructions = coerce_message_list(attributes.get(GEN_AI_SYSTEM_INSTRUCTIONS))
     if system_instructions:
         content = join_message_parts(system_instructions)
-        if content:
+        # Some instrumentations also repeat the instructions as a system message.
+        repeated = any(
+            isinstance(m, Mapping)
+            and m.get("role") == "system"
+            and join_message_parts(m.get("parts")) == content
+            for m in input_messages
+        )
+        if content and not repeated:
             events.append(
                 (
                     AIEvents.PROMPT,
@@ -541,7 +573,7 @@ def synthesize_message_events(
                 )
             )
 
-    for message in coerce_message_list(attributes.get(GEN_AI_INPUT_MESSAGES)) or ():
+    for message in input_messages:
         if not isinstance(message, Mapping):
             continue
         content = join_message_parts(message.get("parts"))

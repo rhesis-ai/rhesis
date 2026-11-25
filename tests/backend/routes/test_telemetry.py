@@ -237,6 +237,24 @@ class TestTraceIngestLimits:
         rows = test_db.query(models.Trace).filter(models.Trace.trace_id == spans[0]["trace_id"])
         assert rows.count() == 3
 
+    def test_test_context_of_the_wrong_type_is_stored_without_it(
+        self, authenticated_client: TestClient, test_db, db_project, inline_trace_ingest
+    ):
+        span = TraceDataFactory.minimal_data(project_id=str(db_project.id))
+        span["attributes"] = {
+            "rhesis.test.run_id": ["not", "a", "uuid"],
+            "rhesis.test.result_id": 42,
+            "rhesis.test.test_configuration_id": {"id": "x"},
+        }
+
+        response = authenticated_client.post("/telemetry/traces", json={"spans": [span]})
+
+        assert response.status_code == status.HTTP_200_OK
+        scope_to_project(test_db, db_project.id)
+        row = test_db.query(models.Trace).filter(models.Trace.trace_id == span["trace_id"]).one()
+        assert row.test_run_id is None and row.test_result_id is None
+        assert row.attributes["rhesis.test.run_id"] == ["not", "a", "uuid"]
+
 
 @pytest.mark.integration
 class TestLookupSpanCrossProject:

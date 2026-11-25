@@ -8,9 +8,10 @@ resource and scope, and per-span validation for ``partial_success``.
 import base64
 import json
 import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue, KeyValue
@@ -184,16 +185,6 @@ def _status(
     return code, message
 
 
-def _stamp_turn(attributes: Dict[str, Any], source: Mapping[str, Any]) -> None:
-    """Set the turn's conversation input/output from an invoke_* span's messages."""
-    turn_input = genai.agent_turn_input(source)
-    turn_output = genai.agent_turn_output(source)
-    if turn_input:
-        attributes.setdefault(genai.CONVERSATION_INPUT, turn_input)
-    if turn_output:
-        attributes.setdefault(genai.CONVERSATION_OUTPUT, turn_output)
-
-
 def translate_span(
     span: Span,
     resource: Mapping[str, Any],
@@ -220,8 +211,6 @@ def translate_span(
         attributes.setdefault(SCOPE_NAME, scope_name)
     if scope_version:
         attributes.setdefault(SCOPE_VERSION, scope_version)
-    if parent_span_id is None and genai.is_invoke_operation(raw.get(genai.GEN_AI_OPERATION_NAME)):
-        _stamp_turn(attributes, raw)
 
     start_time = _nanos_to_datetime(span.start_time_unix_nano)
     end_time = _nanos_to_datetime(span.end_time_unix_nano)
@@ -257,51 +246,99 @@ def translate_span(
     )
 
 
-def _promote_turn_to_roots(spans: List[OTELSpan]) -> None:
-    """Give a non-GenAI root span the turn text of its outermost invoke_* descendant.
+def _descendants(root: OTELSpan, children: Dict[tuple[str, str], List[OTELSpan]]) -> List[OTELSpan]:
+    found: List[OTELSpan] = []
+    seen = {root.span_id}
+    stack = list(children.get((root.trace_id, root.span_id), ()))
+    while stack:
+        span = stack.pop()
+        if span.span_id in seen:
+            continue  # a parent loop
+        seen.add(span.span_id)
+        found.append(span)
+        stack.extend(children.get((span.trace_id, span.span_id), ()))
+    return found
 
-    When an agent runs inside, say, an HTTP server span, that span is the trace
-    root the trace list and evaluator read. Only spans in the same request are
-    seen; an invoke_* span exported earlier than its root is not.
+
+def _first(spans: List[OTELSpan], read: Callable[[Mapping[str, Any]], Optional[str]]):
+    return next((text for span in spans if (text := read(span.attributes))), None)
+
+
+def _turn_io(root: OTELSpan, below: List[OTELSpan]) -> tuple[Optional[str], Optional[str]]:
+    """The turn's input and output: the root's, else its agents', else its model calls'.
+
+    Input comes from the earliest span that has it and output from the latest,
+    so a handoff turn gets the first agent's question and the last agent's answer.
     """
-    by_id = {(s.trace_id, s.span_id): s for s in spans}
 
-    def depth_to_root(span: OTELSpan) -> Optional[tuple[int, OTELSpan]]:
-        depth, current = 0, span
-        seen = {span.span_id}
-        while current.parent_span_id is not None:
-            parent = by_id.get((current.trace_id, current.parent_span_id))
-            # A parent loop (a span that is its own ancestor) has no root.
-            if parent is None or parent.span_id in seen:
-                return None
-            seen.add(parent.span_id)
-            current, depth = parent, depth + 1
-        return depth, current
+    def operation(span: OTELSpan) -> Any:
+        return span.attributes.get(genai.GEN_AI_OPERATION_NAME)
 
-    outermost: Dict[tuple[str, str], tuple[int, OTELSpan]] = {}
+    agents = [s for s in below if genai.is_invoke_operation(operation(s))]
+    models = [
+        s
+        for s in below
+        if isinstance(operation(s), str) and operation(s) in genai.INFERENCE_OPERATIONS
+    ]
+    by_start = [
+        root,
+        *sorted(agents, key=lambda s: s.start_time),
+        *sorted(models, key=lambda s: s.start_time),
+    ]
+    by_end = [root] + [
+        *sorted(agents, key=lambda s: s.end_time, reverse=True),
+        *sorted(models, key=lambda s: s.end_time, reverse=True),
+    ]
+    return _first(by_start, genai.agent_turn_input), _first(by_end, genai.agent_turn_output)
+
+
+def _outermost_agent(root: OTELSpan, below: List[OTELSpan]) -> Optional[OTELSpan]:
+    by_id = {s.span_id: s for s in below}
+
+    def depth(span: OTELSpan) -> int:
+        count, current, seen = 0, span, {span.span_id}
+        while current.parent_span_id in by_id and current.parent_span_id not in seen:
+            seen.add(current.parent_span_id)
+            current, count = by_id[current.parent_span_id], count + 1
+        return count
+
+    agents = [
+        s for s in below if genai.is_invoke_operation(s.attributes.get(genai.GEN_AI_OPERATION_NAME))
+    ]
+    return min(agents, key=lambda s: (depth(s), s.start_time), default=None)
+
+
+def _stamp_turns(spans: List[OTELSpan]) -> None:
+    """Give each root span the turn's input, output, agent and conversation.
+
+    The root is what the trace list, conversation view and evaluator read, but
+    the turn text often sits below it: an agent inside an HTTP server span, a
+    framework that records messages only on its model calls, or a handoff
+    between agents. Only spans in the same request are seen.
+    """
+    children: Dict[tuple[str, str], List[OTELSpan]] = defaultdict(list)
     for span in spans:
-        if span.parent_span_id is None:
-            continue
-        if not genai.is_invoke_operation(span.attributes.get(genai.GEN_AI_OPERATION_NAME)):
-            continue
-        found = depth_to_root(span)
-        if found is None:
-            continue
-        depth, root = found
-        key = (root.trace_id, root.span_id)
-        if key not in outermost or depth < outermost[key][0]:
-            outermost[key] = (depth, span)
+        if span.parent_span_id is not None:
+            children[(span.trace_id, span.parent_span_id)].append(span)
 
-    for (trace_id, span_id), (_, agent_span) in outermost.items():
-        root = by_id[(trace_id, span_id)]
-        if genai.CONVERSATION_INPUT not in root.attributes:
-            _stamp_turn(root.attributes, agent_span.attributes)
+    for root in spans:
+        if root.parent_span_id is not None:
+            continue
+        below = _descendants(root, children)
+        turn_input, turn_output = _turn_io(root, below)
+        if turn_input:
+            root.attributes.setdefault(genai.CONVERSATION_INPUT, turn_input)
+        if turn_output:
+            root.attributes.setdefault(genai.CONVERSATION_OUTPUT, turn_output)
+        agent = _outermost_agent(root, below)
+        if agent is None:
+            continue
         # The trace list's Agent column reads the root.
-        agent_name = agent_span.attributes.get(AIAttributes.AGENT_NAME)
+        agent_name = agent.attributes.get(AIAttributes.AGENT_NAME)
         if agent_name:
             root.attributes.setdefault(AIAttributes.AGENT_NAME, agent_name)
-        if root.conversation_id is None and agent_span.conversation_id:
-            root.conversation_id = agent_span.conversation_id
+        if root.conversation_id is None and agent.conversation_id:
+            root.conversation_id = agent.conversation_id
 
 
 def _link_handoffs(spans: List[OTELSpan]) -> None:
@@ -349,6 +386,6 @@ def translate_request(request: ExportTraceServiceRequest) -> TranslatedRequest:
                     # exporters do not retry.
                     logger.warning("Rejected OTLP span %r: %r", span.name, exc, exc_info=True)
                     result.reject(f"span {span.name or '<unnamed>'!r}: could not be translated")
-    _promote_turn_to_roots(result.spans)
+    _stamp_turns(result.spans)
     _link_handoffs(result.spans)
     return result

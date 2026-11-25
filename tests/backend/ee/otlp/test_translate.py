@@ -178,6 +178,14 @@ class TestAttributes:
         assert attributes["ai.llm.tokens.cache_write"] == 300
         assert attributes["ai.llm.tokens.input"] == 700
 
+    @pytest.mark.parametrize("count", [float("inf"), float("nan"), "lots", [1], None])
+    def test_unusable_token_counts_are_skipped(self, count):
+        attributes = genai.translate_attributes(
+            {"gen_ai.usage.input_tokens": count, "gen_ai.usage.output_tokens": 5}
+        )
+        assert "ai.llm.tokens.input" not in attributes
+        assert attributes["ai.llm.tokens.output"] == 5
+
     def test_tool_attributes_and_io_events(self):
         span = translate(fx.research_run().spans)["execute_tool web_search"]
         assert span.attributes["ai.tool.name"] == "web_search"
@@ -441,3 +449,109 @@ class TestSpanLimits:
 
         assert span.conversation_id == "conv-1"
         assert span.environment == "prod"
+
+
+def _roots(spans) -> list:
+    return [
+        s for s in translate_request(fx.export_request(spans)).spans if s.parent_span_id is None
+    ]
+
+
+class TestTurnText:
+    """Shapes real instrumentations produce, where the turn text is not on the root."""
+
+    def _record(self, build) -> list:
+        provider, exporter = fx._provider("project", None)
+        build(provider.get_tracer("t"))
+        return list(exporter.get_finished_spans())
+
+    @staticmethod
+    def _chat(tracer, inputs, outputs, **extra):
+        with tracer.start_as_current_span("chat model") as span:
+            span.set_attribute("gen_ai.operation.name", "chat")
+            span.set_attribute("gen_ai.input.messages", inputs)
+            span.set_attribute("gen_ai.output.messages", outputs)
+            for key, value in extra.items():
+                span.set_attribute(key, value)
+
+    def test_agent_span_without_messages_takes_them_from_its_model_calls(self):
+        """Pydantic AI records messages only on its chat spans."""
+
+        def build(tracer):
+            with tracer.start_as_current_span("invoke_agent helper") as agent:
+                agent.set_attribute("gen_ai.operation.name", "invoke_agent")
+                agent.set_attribute("gen_ai.agent.name", "helper")
+                call = fx.tool_call_message("lookup", {"q": "x"}, "c1")
+                self._chat(tracer, fx.messages(("user", "What is up?")), json.dumps([call]))
+                self._chat(
+                    tracer,
+                    fx.messages(("user", "What is up?"), ("assistant", "looking")),
+                    fx.messages(("assistant", "All good.")),
+                )
+
+        (root,) = _roots(self._record(build))
+        assert root.attributes["rhesis.conversation.input"] == "What is up?"
+        assert root.attributes["rhesis.conversation.output"] == "All good."
+
+    def test_a_model_call_as_the_root_is_a_turn(self):
+        """An app instrumented only with an LLM client library."""
+
+        def build(tracer):
+            self._chat(tracer, fx.messages(("user", "hi")), fx.messages(("assistant", "hello")))
+
+        (root,) = _roots(self._record(build))
+        assert root.attributes["rhesis.conversation.input"] == "hi"
+        assert root.attributes["rhesis.conversation.output"] == "hello"
+
+    def test_handoff_turn_takes_the_last_agents_answer(self):
+        """Two agents side by side under a workflow span: triage hands off to weather."""
+
+        def build(tracer):
+            with tracer.start_as_current_span("workflow.run"):
+                with tracer.start_as_current_span("invoke_agent triage") as triage:
+                    triage.set_attribute("gen_ai.operation.name", "invoke_agent")
+                    triage.set_attribute("gen_ai.agent.name", "triage")
+                    triage.set_attribute("gen_ai.input.messages", fx.messages(("user", "Rain?")))
+                    handoff = fx.tool_call_message("handoff_to_weather", {}, "h1")
+                    triage.set_attribute("gen_ai.output.messages", json.dumps([handoff]))
+                with tracer.start_as_current_span("invoke_agent weather") as weather:
+                    weather.set_attribute("gen_ai.operation.name", "invoke_agent")
+                    weather.set_attribute("gen_ai.agent.name", "weather")
+                    weather.set_attribute("gen_ai.input.messages", fx.messages(("user", "Rain?")))
+                    weather.set_attribute(
+                        "gen_ai.output.messages", fx.messages(("assistant", "No rain."))
+                    )
+
+        (root,) = _roots(self._record(build))
+        assert root.attributes["rhesis.conversation.input"] == "Rain?"
+        assert root.attributes["rhesis.conversation.output"] == "No rain."
+        assert root.attributes["ai.agent.name"] == "triage"
+
+    def test_instructions_repeated_as_a_system_message_give_one_prompt(self):
+        def build(tracer):
+            self._chat(
+                tracer,
+                fx.messages(("system", "Be brief."), ("user", "hi")),
+                fx.messages(("assistant", "hello")),
+                **{
+                    "gen_ai.system_instructions": json.dumps(
+                        [{"type": "text", "content": "Be brief."}]
+                    )
+                },
+            )
+
+        (root,) = _roots(self._record(build))
+        system = [
+            e
+            for e in root.events
+            if e.name == "ai.prompt" and e.attributes["ai.prompt.role"] == "system"
+        ]
+        assert len(system) == 1
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [('["tool_calls"]', "tool_calls"), (["stop", "length"], "stop, length"), ("stop", "stop")],
+    )
+    def test_finish_reasons_become_one_string(self, value, expected):
+        attributes = genai.translate_attributes({"gen_ai.response.finish_reasons": value})
+        assert attributes["ai.llm.finish_reason"] == expected

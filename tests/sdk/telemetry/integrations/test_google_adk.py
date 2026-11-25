@@ -677,7 +677,7 @@ class TestSingleAgentRun:
         assert attributes[AIAttributes.LLM_TOKENS_INPUT] == 11
         assert attributes[AIAttributes.LLM_TOKENS_OUTPUT] == 9
         assert attributes[AIAttributes.LLM_TOKENS_TOTAL] == 24
-        assert attributes[AIAttributes.LLM_FINISH_REASON] == ("stop",)
+        assert attributes[AIAttributes.LLM_FINISH_REASON] == "stop"
 
     @pytest.mark.asyncio
     async def test_prompts_and_completions_carry_real_text(self, captured_spans):

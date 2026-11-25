@@ -221,6 +221,10 @@ def _run_pre_store_hooks(db: Session, job: IngestJob) -> None:
         hook(db, job.spans, job.organization_id, job.project_id)
 
 
+def _str_or_none(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) and value else None
+
+
 def process_ingest_job(db: Session, job: IngestJob) -> StoredBatch:
     """Store a queued job's spans and commit. Does not dispatch post-processing.
 
@@ -273,6 +277,8 @@ def process_ingest_job(db: Session, job: IngestJob) -> StoredBatch:
             project_id=str(project_id),
             test_run_id=str(first.test_run_id) if first.test_run_id else None,
             test_id=str(first.test_id) if first.test_id else None,
-            test_configuration_id=first.attributes.get("rhesis.test.test_configuration_id"),
+            test_configuration_id=_str_or_none(
+                first.attributes.get("rhesis.test.test_configuration_id")
+            ),
         ),
     )

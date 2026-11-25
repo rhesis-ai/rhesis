@@ -371,8 +371,12 @@ def create_trace_spans(
     """
     from uuid import UUID as _UUID
 
-    def _safe_uuid(value: str | None, field_name: str) -> _UUID | None:
+    def _safe_uuid(value: Any, field_name: str) -> _UUID | None:
         if not value:
+            return None
+        if not isinstance(value, str):
+            # Attributes are exporter input: an array or number here must not fail the batch.
+            logger.warning(f"Non-string test context {field_name}: {value!r}")
             return None
         try:
             return _UUID(value)

@@ -24,7 +24,7 @@ Spans are queued and stored by a worker, so they appear in the trace list a few 
 
 ## What the agent has to record
 
-- **Message content on spans.** Rhesis reads prompts, answers and tool calls from `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.system_instructions`, `gen_ai.tool.call.arguments` and `gen_ai.tool.call.result`. Evaluation needs them. With the Python GenAI instrumentations, set `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `SPAN_ONLY` or `SPAN_AND_EVENT`. `EVENT_ONLY` sends content as OTLP logs, which Rhesis does not ingest.
+- **Message content on spans.** Rhesis reads prompts, answers and tool calls from `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.system_instructions`, `gen_ai.tool.call.arguments` and `gen_ai.tool.call.result`. Evaluation needs them. With the Python GenAI instrumentations (such as `opentelemetry-instrumentation-openai-v2`), set `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental` and `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `SPAN_ONLY` or `SPAN_AND_EVENT`. Without the first, or with `EVENT_ONLY`, content is sent as OTLP logs, which Rhesis does not ingest.
 - **`gen_ai.conversation.id` for multi-turn conversations.** Turns that share it become one conversation. Without it, each trace is a single turn. Rhesis never invents one.
 
 ## Configure the exporter
@@ -100,7 +100,7 @@ Every original attribute is kept, including `gen_ai.operation.name`, the resourc
 - **Agents and tools:** `ai.agent.name`, `.id`, `.description`, `.version` and `ai.tool.*`. A handoff span gets `ai.agent.handoff.to` from `gen_ai.transfer.target.name` and `ai.agent.handoff.from` from the agent span above it, so the span graph draws the handoff. The trace list shows the agent and can filter by it; when the root is another span, such as an HTTP server span, it takes the agent name of the outermost agent below it.
 - **Content:** prompt and completion events on model calls, input and output events on agent spans, and tool input and output events. The `*_ref` attributes are kept and shown; Rhesis does not fetch them.
 - **Errors:** span status and `error.type` set the span's status. The message of a `gen_ai.*.exception` event becomes its status message.
-- **Turns:** the root `invoke_*` span gets `rhesis.conversation.input` (the last user message) and `rhesis.conversation.output` (the final answer). These drive the trace list's Input column, the conversation view and [trace metrics](/docs/metrics/trace-metrics). When the root is another span, such as an HTTP server span, it takes them from the outermost agent below it, if both arrive in the same request.
+- **Turns:** the root span gets `rhesis.conversation.input` (the last user message) and `rhesis.conversation.output` (the final answer). These drive the trace list's Input column, the conversation view and [trace metrics](/docs/metrics/trace-metrics). They come from the root's own messages; when it has none, such as an HTTP server span or an agent that records messages only on its model calls, from the agent spans below it, else from the model calls below it. The input is the earliest one found and the output the latest, so a handoff between agents shows the first question and the last answer. Only spans in the same request as the root are read.
 
 ## Conversations
 
