@@ -134,6 +134,10 @@ config:
   # limits; Rhesis cloud overrides this to true in its per-env values files.
   usageQuotasEnabled: false
 
+  # Embedding generation for tests, results, traces and source chunks, plus the
+  # embedding UI. Read by the backend and the worker, which share this ConfigMap.
+  embeddingsEnabled: false
+
   # Platform-wide daily cap, in USD, on what the default (hosted) models cost us.
   # Empty means no cap. Can be changed live with Redis; see
   # apps/backend/src/rhesis/backend/app/quota/hosted_spend.py.
