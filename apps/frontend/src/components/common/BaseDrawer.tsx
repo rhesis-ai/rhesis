@@ -6,9 +6,13 @@ import {
   Box,
   Typography,
   Button,
+  ButtonGroup,
   Stack,
   CircularProgress,
+  Menu,
+  MenuItem,
 } from '@mui/material';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { BACKDROP_COLORS } from '@/styles/theme';
 import {
   drawerFooterCancelButtonSx,
@@ -35,6 +39,8 @@ export interface BaseDrawerProps {
   /** Id for a string `error`, so the field it's about can point at it. */
   errorId?: string;
   saveButtonText?: string;
+  /** Other ways to save, behind an arrow next to the save button (a split button). */
+  saveMenu?: { label: string; onClick: () => void }[];
   /** Optional data-tour attribute for onboarding (save button). */
   saveDataTour?: string;
   closeButtonText?: string;
@@ -89,6 +95,7 @@ export default function BaseDrawer({
   error,
   errorId,
   saveButtonText = 'Save Changes',
+  saveMenu,
   saveDataTour,
   closeButtonText = 'Cancel',
   onBack,
@@ -102,6 +109,7 @@ export default function BaseDrawer({
   disablePadding = false,
 }: BaseDrawerProps) {
   const hasFooter = !!(closeButtonText || onSave || onDelete || error);
+  const [menuAnchor, setMenuAnchor] = React.useState<HTMLElement | null>(null);
   const isFillLayout = contentLayout === 'fill';
   const paperRef = React.useRef<HTMLDivElement>(null);
 
@@ -118,6 +126,21 @@ export default function BaseDrawer({
         }, 0);
       }
     : undefined;
+
+  const saveButton = (
+    <Button
+      variant="contained"
+      onClick={handleSave}
+      disabled={loading || saveDisabled}
+      {...(saveDataTour ? { 'data-tour': saveDataTour } : {})}
+      startIcon={
+        loading ? <CircularProgress size={16} color="inherit" /> : undefined
+      }
+      sx={drawerFooterSaveButtonSx}
+    >
+      {loading ? 'Executing...' : saveButtonText}
+    </Button>
+  );
 
   return (
     <Drawer
@@ -234,21 +257,43 @@ export default function BaseDrawer({
                 Back
               </Button>
             )}
-            {onSave && (
-              <Button
-                variant="contained"
-                onClick={handleSave}
-                disabled={loading || saveDisabled}
-                {...(saveDataTour ? { 'data-tour': saveDataTour } : {})}
-                startIcon={
-                  loading ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : undefined
-                }
-                sx={drawerFooterSaveButtonSx}
+            {onSave &&
+              (saveMenu && saveMenu.length > 0 ? (
+                <ButtonGroup variant="contained" disableElevation>
+                  {saveButton}
+                  <Button
+                    size="small"
+                    aria-label="More ways to run"
+                    aria-haspopup="menu"
+                    disabled={loading}
+                    onClick={event => setMenuAnchor(event.currentTarget)}
+                  >
+                    <ArrowDropDownIcon />
+                  </Button>
+                </ButtonGroup>
+              ) : (
+                saveButton
+              ))}
+            {saveMenu && (
+              <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={() => setMenuAnchor(null)}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               >
-                {loading ? 'Executing...' : saveButtonText}
-              </Button>
+                {saveMenu.map(item => (
+                  <MenuItem
+                    key={item.label}
+                    onClick={() => {
+                      setMenuAnchor(null);
+                      item.onClick();
+                    }}
+                  >
+                    {item.label}
+                  </MenuItem>
+                ))}
+              </Menu>
             )}
           </Box>
         </Box>
