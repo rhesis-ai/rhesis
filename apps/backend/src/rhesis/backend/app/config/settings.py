@@ -174,7 +174,13 @@ class ApplicationSettings(BaseSettings):
 
     @property
     def allow_private_outbound(self) -> bool:
-        """Whether tenant-supplied URLs may target loopback or private networks."""
+        """Whether tenant-supplied URLs may target loopback or private networks.
+
+        Off by default outside local/development, so staging and production never
+        reach loopback or private targets on their own. A self-host operator can
+        still opt in with OUTBOUND_ALLOW_PRIVATE_NETWORKS to reach an on-prem IdP
+        (issue #3188); the hosted platform leaves it unset.
+        """
         if self.outbound_allow_private_networks is not None:
             return self.outbound_allow_private_networks
         return self.is_local_development
