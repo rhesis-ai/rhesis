@@ -5,8 +5,8 @@ block. That reset was described as belt-and-suspenders "before connection
 returns to pool", but the GUCs are set with ``is_local=true``, so the COMMIT the
 context manager already does discards them; the reset only opened a fresh
 transaction for ``close()`` to roll back. It cost two extra ``set_config`` round
-trips on every request. These tests pin the cheaper shape so it cannot creep
-back.
+trips on every request. Applying the scope also ran ``set_config`` twice. These
+tests pin the cheaper shape so it cannot creep back.
 """
 
 import pytest
@@ -41,18 +41,18 @@ class _StatementCounter:
 
 @pytest.mark.integration
 class TestTenantSessionOverhead:
-    def test_empty_session_spends_two_set_config_calls(self, test_org_id):
-        """One to apply the scope, one when the trailing COMMIT starts a new transaction.
+    def test_empty_session_spends_one_set_config_call(self, test_org_id):
+        """Applying the scope begins the transaction, and ``after_begin`` sets the GUCs.
 
-        Four before the reset was removed: the reset itself is a third, and the
-        ``after_begin`` listener re-applies on the transaction the reset opens,
-        making a fourth.
+        It used to be two: the apply also ran ``set_config`` itself, right after the
+        ``after_begin`` listener had run the same one on the transaction that apply
+        opened. Four before the reset was removed.
         """
         with _StatementCounter() as counter:
             with get_db_with_tenant_variables(str(test_org_id), str(test_org_id)):
                 pass
 
-        assert len(counter.set_config_calls) == 2, counter.statements
+        assert len(counter.set_config_calls) == 1, counter.statements
 
     def test_scope_is_never_blanked_on_the_way_out(self, test_org_id):
         """No ``set_config`` runs with empty ids -- that was the reset's signature."""
@@ -88,3 +88,16 @@ class TestTenantSessionOverhead:
             ).scalar()
 
         assert leaked in ("", None), f"tenant id leaked across sessions: {leaked!r}"
+
+    def test_a_scope_change_inside_a_transaction_is_applied_at_once(self, test_org_id):
+        """With a transaction already open, after_begin won't run again; apply sets it."""
+        from rhesis.backend.app.database import bind_scope_to_session
+
+        with get_db_with_tenant_variables() as db:
+            db.execute(text("SELECT 1"))
+            bind_scope_to_session(db, str(test_org_id), str(test_org_id))
+            current = db.execute(
+                text("SELECT current_setting('app.current_organization', true)")
+            ).scalar()
+
+        assert current == str(test_org_id)

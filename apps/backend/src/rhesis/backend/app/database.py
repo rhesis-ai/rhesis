@@ -91,6 +91,11 @@ def _apply_scope_variables(db: Session, scope) -> None:
     and is the single source the after_begin listener re-applies from, so no
     parallel ``_TENANT_VARS_KEY`` dict is needed here.
     """
+    if not db.in_transaction():
+        # Beginning the transaction fires after_begin, which sets the GUCs from the stored
+        # scope; setting them here as well would be a second, identical round trip.
+        db.connection()
+        return
     _execute_set_config(db, _scope_to_guc_params(scope))
 
 
@@ -218,10 +223,10 @@ def _reapply_tenant_vars(session: Session, transaction, connection) -> None:
         params = session.info.get(_TENANT_VARS_KEY)
     if not params:
         return
-    try:
-        connection.execute(_SET_CONFIG_SQL, params)
-    except Exception as e:
-        logger.debug(f"_reapply_tenant_vars failed (non-fatal): {e}")
+    # Same handling as an explicit apply: this is now how a request's first transaction
+    # gets its GUCs, so a real failure must surface rather than leave the transaction
+    # aborted behind a later, unrelated error.
+    _execute_set_config(connection, params)
 
 
 def get_database_url() -> str:
