@@ -16,6 +16,7 @@ import { tasksList } from './list';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { EntityType } from '@/types/tasks';
 import type { Task } from '@/utils/api-client/interfaces/task';
+import { rem } from '@/styles/theme-constants';
 
 interface TasksPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -97,7 +98,7 @@ export default function TasksPageClient({
             {bulkActionsVisible && (
               <Can capability={Capability.Task.DELETE}>
                 <Fab
-                  icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                  icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
                   tooltip="Delete Tasks"
                   aria-label="Delete Tasks"
                   onClick={onBulkDelete}

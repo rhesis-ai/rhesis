@@ -14,6 +14,7 @@ import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useBulkActionsBridge } from '@/hooks/useBulkActionsBridge';
+import { rem } from '@/styles/theme-constants';
 
 interface TokensPageClientProps {
   /** Server-fetched first page -- when present, skips the initial client fetch. */
@@ -90,7 +91,7 @@ export default function TokensPageClient({
           {bulkActionsVisible && (
             <Can capability={Capability.Token.DELETE}>
               <Fab
-                icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
                 tooltip="Delete Tokens"
                 aria-label="Delete Tokens"
                 onClick={onBulkDelete}

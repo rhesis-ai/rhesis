@@ -32,6 +32,7 @@ import {
   type TraceView,
 } from './trace-filter-params';
 import SpanFilterSections from './SpanFilterSections';
+import { rem } from '@/styles/theme-constants';
 
 export type { TraceDrawerFilters };
 export {
@@ -68,7 +69,7 @@ const ENV_OPTIONS = [
 const textFieldSx = {
   '& .MuiOutlinedInput-root': {
     borderRadius: BORDER_RADIUS.sm,
-    fontSize: 14,
+    fontSize: rem(14),
   },
   '& .MuiOutlinedInput-input': {
     padding: (theme: Theme) => theme.spacing(2.5, 1.75),

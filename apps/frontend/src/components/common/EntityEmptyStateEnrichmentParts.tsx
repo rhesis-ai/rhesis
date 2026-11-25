@@ -4,7 +4,7 @@ import React from 'react';
 import { Box, Button, Paper, Skeleton, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { ArrowOutwardIcon } from '@/components/icons';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
+import { BORDER_RADIUS, ELEVATION, rem } from '@/styles/theme-constants';
 import {
   emptyStateCardShellSx,
   emptyStateEnrichedActionSx,
@@ -222,8 +222,8 @@ export function EmptyStateArticleCard({
         <Typography
           sx={{
             fontWeight: 700,
-            fontSize: 14,
-            lineHeight: '22px',
+            fontSize: rem(14),
+            lineHeight: rem(22),
             color: theme => theme.palette.greyscale.title,
           }}
         >
@@ -232,8 +232,8 @@ export function EmptyStateArticleCard({
         {(loading || description) && (
           <Typography
             sx={{
-              fontSize: 12,
-              lineHeight: '18px',
+              fontSize: rem(12),
+              lineHeight: rem(18),
               color: theme => theme.palette.greyscale.body,
             }}
           >
@@ -296,8 +296,8 @@ function EmptyStateLinkCard({ card }: { card: EmptyStateLinkCard }) {
         <Typography
           sx={{
             fontWeight: 700,
-            fontSize: 16,
-            lineHeight: '24px',
+            fontSize: rem(16),
+            lineHeight: rem(24),
             color: theme => theme.palette.greyscale.title,
           }}
         >
@@ -305,8 +305,8 @@ function EmptyStateLinkCard({ card }: { card: EmptyStateLinkCard }) {
         </Typography>
         <Typography
           sx={{
-            fontSize: 14,
-            lineHeight: '22px',
+            fontSize: rem(14),
+            lineHeight: rem(22),
             color: theme => theme.palette.greyscale.body,
           }}
         >
@@ -326,8 +326,8 @@ function EmptyStateLinkCard({ card }: { card: EmptyStateLinkCard }) {
               color: 'primary.main',
             }}
           >
-            <ArrowOutwardIcon sx={{ fontSize: 22 }} />
-            <Typography sx={{ fontSize: 14, lineHeight: '22px' }}>
+            <ArrowOutwardIcon sx={{ fontSize: rem(22) }} />
+            <Typography sx={{ fontSize: rem(14), lineHeight: rem(22) }}>
               {card.linkLabel}
             </Typography>
           </Box>
@@ -366,8 +366,8 @@ export function EntityEmptyStateEnrichmentSections({
           <Typography
             sx={{
               fontWeight: 700,
-              fontSize: 16,
-              lineHeight: '24px',
+              fontSize: rem(16),
+              lineHeight: rem(24),
               color: 'primary.main',
             }}
           >
@@ -396,8 +396,8 @@ export function EntityEmptyStateEnrichmentSections({
           <Typography
             sx={{
               fontWeight: 700,
-              fontSize: 16,
-              lineHeight: '24px',
+              fontSize: rem(16),
+              lineHeight: rem(24),
               color: 'primary.main',
             }}
           >

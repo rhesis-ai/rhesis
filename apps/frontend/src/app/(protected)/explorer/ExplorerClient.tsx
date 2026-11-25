@@ -25,6 +25,7 @@ import ExplorerGrid, {
 import ExplorerCreateDialog from './components/ExplorerCreateDialog';
 import ImportExplorerTestSetDialog from './components/ImportExplorerTestSetDialog';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
+import { rem } from '@/styles/theme-constants';
 
 interface ExplorerClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -124,7 +125,7 @@ export default function ExplorerClient({
             {bulkActions.visible && (
               <Can capability={Capability.Explorer.DELETE}>
                 <Fab
-                  icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                  icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
                   tooltip="Delete sessions"
                   aria-label="Delete sessions"
                   onClick={bulkActions.onDelete}

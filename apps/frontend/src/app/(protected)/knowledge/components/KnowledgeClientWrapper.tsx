@@ -21,6 +21,7 @@ import UploadSourceDrawer from './UploadSourceDrawer';
 import ToolImportDrawer from './ToolImportDrawer';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import type { Source } from '@/utils/api-client/interfaces/source';
+import { rem } from '@/styles/theme-constants';
 
 interface KnowledgeClientWrapperProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -88,7 +89,7 @@ export default function KnowledgeClientWrapper({
             {bulkActionsVisible && (
               <Can capability={Capability.Source.DELETE}>
                 <Fab
-                  icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                  icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
                   tooltip="Delete Sources"
                   aria-label="Delete Sources"
                   onClick={onBulkDelete}

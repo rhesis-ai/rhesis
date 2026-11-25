@@ -8,6 +8,7 @@ import { DEFAULT_AUTHENTICATED_PATH } from '@/constants/paths';
 import type { OnboardingStepConfig } from './onboarding-steps';
 import { onboardingSidebarSx } from './onboarding-styles';
 import { scaledVh } from '@/styles/viewport-scaling';
+import { rem } from '@/styles/theme-constants';
 
 interface OnboardingSidebarProps {
   activeStep: number;
@@ -50,9 +51,9 @@ export default function OnboardingSidebar({
           </Box>
           <Typography
             sx={{
-              fontSize: 23,
+              fontSize: rem(23),
               fontWeight: 700,
-              lineHeight: '27.6px',
+              lineHeight: rem(27.6),
               color: 'primary.main',
             }}
           >
@@ -101,7 +102,7 @@ export default function OnboardingSidebar({
                 )}
                 <Icon
                   sx={{
-                    fontSize: 24,
+                    fontSize: rem(24),
                     color: theme =>
                       isActive
                         ? theme.palette.greyscale.title
@@ -115,9 +116,9 @@ export default function OnboardingSidebar({
                 <Box>
                   <Typography
                     sx={{
-                      fontSize: 18,
+                      fontSize: rem(18),
                       fontWeight: 700,
-                      lineHeight: '25px',
+                      lineHeight: rem(25),
                       color: theme =>
                         isActive
                           ? theme.palette.greyscale.title
@@ -128,8 +129,8 @@ export default function OnboardingSidebar({
                   </Typography>
                   <Typography
                     sx={{
-                      fontSize: 14,
-                      lineHeight: '22px',
+                      fontSize: rem(14),
+                      lineHeight: rem(22),
                       color: theme =>
                         isActive
                           ? theme.palette.greyscale.body
@@ -155,13 +156,13 @@ export default function OnboardingSidebar({
           gap: '2px',
           textDecoration: 'none',
           color: 'primary.main',
-          fontSize: 12,
-          lineHeight: '18px',
+          fontSize: rem(12),
+          lineHeight: rem(18),
           mt: { xs: 4, md: 0 },
           '&:hover': { textDecoration: 'underline' },
         }}
       >
-        <ArrowBackIcon sx={{ fontSize: 18 }} />
+        <ArrowBackIcon sx={{ fontSize: rem(18) }} />
         Back home
       </Box>
     </Box>

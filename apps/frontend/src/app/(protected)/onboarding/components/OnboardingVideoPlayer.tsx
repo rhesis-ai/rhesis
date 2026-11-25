@@ -3,7 +3,7 @@
 import * as React from 'react';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { Box, Typography } from '@mui/material';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 import {
   getOnboardingVideoEmbedUrl,
   getYouTubeThumbnailUrl,
@@ -103,7 +103,7 @@ export default function OnboardingVideoPlayer({
             justifyContent: 'center',
           }}
         >
-          <PlayArrowIcon sx={{ color: 'common.white', fontSize: 40 }} />
+          <PlayArrowIcon sx={{ color: 'common.white', fontSize: rem(40) }} />
         </Box>
       </Box>
     </Box>

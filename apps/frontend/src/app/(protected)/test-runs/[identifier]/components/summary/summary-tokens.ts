@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useTheme } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
 import type { CellState } from './verdict-model';
+import { rem } from '@/styles/theme-constants';
 
 export type DensityMode = 'numbers' | 'shape' | 'detail';
 
@@ -13,10 +14,12 @@ export type DensityMode = 'numbers' | 'shape' | 'detail';
 //
 // The status track is sized to hold "Needs Review" -- the longest band label
 // -- at the theme's chip padding without ellipsis.
+// rem, so the columns widen with the browser's font size along with their text.
+// The name column keeps a minimum; past that the table scrolls in its frame.
 export const COLUMN_TEMPLATES: Record<DensityMode, string> = {
-  numbers: '1fr 58px 66px 58px 78px 128px 0px',
-  shape: '1fr 0px 66px 58px 78px 128px 230px',
-  detail: '252px 0px 0px 52px 0px 0px 1fr',
+  numbers: `minmax(${rem(180)}, 1fr) ${rem(58)} ${rem(66)} ${rem(58)} ${rem(78)} ${rem(128)} 0px`,
+  shape: `minmax(${rem(180)}, 1fr) 0px ${rem(66)} ${rem(58)} ${rem(78)} ${rem(128)} ${rem(230)}`,
+  detail: `${rem(252)} 0px 0px ${rem(52)} 0px 0px 1fr`,
 };
 
 // Cells fill their strip's full height, so this also sets their aspect

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Box, Checkbox, Link, Typography } from '@mui/material';
 import { FilterSection } from '@/components/common/FilterDrawer';
+import { rem } from '@/styles/theme-constants';
 
 const DEFAULT_VISIBLE_COUNT = 5;
 
@@ -10,7 +11,7 @@ const checkboxSx = {
   p: '9px',
   mr: 0,
   '& .MuiSvgIcon-root': {
-    fontSize: 20,
+    fontSize: rem(20),
   },
 } as const;
 
@@ -51,8 +52,8 @@ function StatusCheckboxRow({
       />
       <Typography
         sx={{
-          fontSize: 14,
-          lineHeight: '22px',
+          fontSize: rem(14),
+          lineHeight: rem(22),
           color: theme => theme.palette.greyscale.title,
           wordBreak: 'break-word',
         }}
@@ -93,8 +94,8 @@ export default function InsightsStatusFilterSection({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <Typography
             sx={{
-              fontSize: 14,
-              lineHeight: '22px',
+              fontSize: rem(14),
+              lineHeight: rem(22),
               color: theme => theme.palette.greyscale.body,
             }}
           >
@@ -121,8 +122,8 @@ export default function InsightsStatusFilterSection({
             onClick={() => setShowAll(true)}
             sx={{
               alignSelf: 'flex-start',
-              fontSize: 14,
-              lineHeight: '22px',
+              fontSize: rem(14),
+              lineHeight: rem(22),
               color: theme => theme.palette.greyscale.body,
               cursor: 'pointer',
               textUnderlineOffset: '2px',

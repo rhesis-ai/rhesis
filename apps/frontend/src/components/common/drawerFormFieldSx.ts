@@ -1,6 +1,7 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { SystemStyleObject } from '@mui/system';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 /** Default drawer shell width — 518px content + 30px padding each side (Figma 1641:16598). */
 export const DRAWER_WIDTH = 578;
@@ -31,8 +32,8 @@ export const drawerOutlineButtonSx: SxProps<Theme> = {
   borderColor: 'primary.main',
   color: 'primary.main',
   fontWeight: 700,
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   borderRadius: BORDER_RADIUS.sm,
   px: '16px',
   py: '8px',
@@ -54,24 +55,24 @@ export const drawerOutlinedFieldSx: SxProps<Theme> = {
   },
   '& .MuiInputLabel-root.MuiInputLabel-shrink': {
     // MUI shrinks labels with scale(0.75); 16 → 12px visual (Figma Caption).
-    fontSize: 16,
-    lineHeight: '18px',
+    fontSize: rem(16),
+    lineHeight: rem(18),
     color: theme => theme.palette.greyscale.subtitle,
   },
   '& .MuiOutlinedInput-input': {
     padding: theme =>
       `${theme.spacing(2)} ${theme.spacing(1.5)} ${theme.spacing(2)} ${theme.spacing(2)} !important`,
     minHeight: '24px',
-    fontSize: 16,
-    lineHeight: '24px',
+    fontSize: rem(16),
+    lineHeight: rem(24),
     boxSizing: 'border-box',
   },
   '& .MuiSelect-select': {
     padding: theme =>
       `${theme.spacing(2)} ${theme.spacing(4)} ${theme.spacing(2)} ${theme.spacing(2)} !important`,
     minHeight: '24px !important',
-    fontSize: 16,
-    lineHeight: '24px',
+    fontSize: rem(16),
+    lineHeight: rem(24),
     display: 'flex',
     alignItems: 'center',
     boxSizing: 'border-box',
@@ -124,30 +125,30 @@ export const drawerDisabledFieldSx: SxProps<Theme> = {
  * For tag inputs inside form fields, not dense selection lists.
  */
 export const drawerChipSx: SystemStyleObject<Theme> = {
-  fontSize: 14,
+  fontSize: rem(14),
   fontWeight: 400,
-  lineHeight: '22px',
+  lineHeight: rem(22),
   height: 'auto',
   '& .MuiChip-label': {
-    fontSize: 14,
-    lineHeight: '22px',
+    fontSize: rem(14),
+    lineHeight: rem(22),
   },
 };
 
 /** Compact chips for dense probe/category lists inside drawers. */
 export const drawerListChipSx: SystemStyleObject<Theme> = {
-  height: 20,
-  fontSize: 11,
+  height: rem(20),
+  fontSize: rem(11),
   fontWeight: 500,
-  lineHeight: '16px',
+  lineHeight: rem(16),
   borderRadius: '4px',
   '& .MuiChip-label': {
     px: 0.75,
-    fontSize: 11,
-    lineHeight: '16px',
+    fontSize: rem(11),
+    lineHeight: rem(16),
   },
   '& .MuiChip-icon': {
-    fontSize: 12,
+    fontSize: rem(12),
     ml: 0.5,
     mr: -0.25,
   },
@@ -166,8 +167,8 @@ export const drawerTagFieldSx: SxProps<Theme> = {
   '& .MuiOutlinedInput-input': {
     padding: 0,
     minHeight: '24px',
-    fontSize: 16,
-    lineHeight: '24px',
+    fontSize: rem(16),
+    lineHeight: rem(24),
   },
   '& .MuiChip-root': {
     ...drawerChipSx,
@@ -180,8 +181,8 @@ export const drawerFooterCancelButtonSx: SxProps<Theme> = {
   borderColor: 'primary.main',
   color: 'primary.main',
   fontWeight: 700,
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   borderRadius: BORDER_RADIUS.sm,
   px: '16px',
   py: '8px',
@@ -207,8 +208,8 @@ export const drawerFooterSaveButtonSx: SxProps<Theme> = {
   px: '16px',
   py: '8px',
   fontWeight: 700,
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   textTransform: 'none',
   // The theme's containedPrimary rule unsets disabled colours and outranks a plain `&.Mui-disabled`.
   // Dark mode's greyscale.border nearly matches the drawer, so it uses the theme's disabled colours.

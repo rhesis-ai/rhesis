@@ -20,7 +20,7 @@ import {
   useFileContentUrl,
   useThumbnailObjectUrl,
 } from '@/hooks/useFileQueries';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 
@@ -75,10 +75,10 @@ function ThumbnailImage({
 
 function getFileTypeIcon(contentType: string) {
   if (contentType === 'application/pdf')
-    return <PictureAsPdfIcon sx={{ fontSize: 32 }} />;
+    return <PictureAsPdfIcon sx={{ fontSize: rem(32) }} />;
   if (contentType.startsWith('audio/'))
-    return <AudioFileIcon sx={{ fontSize: 32 }} />;
-  return <InsertDriveFileIcon sx={{ fontSize: 32 }} />;
+    return <AudioFileIcon sx={{ fontSize: rem(32) }} />;
+  return <InsertDriveFileIcon sx={{ fontSize: rem(32) }} />;
 }
 
 function FileRow({
@@ -126,8 +126,8 @@ function FileRow({
       <Box sx={{ flex: '1 0 0', minWidth: 0, p: '12px' }}>
         <Typography
           sx={{
-            fontSize: 14,
-            lineHeight: '22px',
+            fontSize: rem(14),
+            lineHeight: rem(22),
             color: theme => theme.palette.greyscale.body,
             wordBreak: 'break-word',
           }}
@@ -148,9 +148,9 @@ function FileRow({
       >
         <Typography
           sx={{
-            fontSize: 14,
+            fontSize: rem(14),
             fontWeight: 700,
-            lineHeight: '22px',
+            lineHeight: rem(22),
             color: theme => theme.palette.greyscale.body,
             whiteSpace: 'nowrap',
           }}

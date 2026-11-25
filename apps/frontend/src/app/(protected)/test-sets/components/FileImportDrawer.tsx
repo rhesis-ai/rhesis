@@ -46,6 +46,7 @@ import type {
 } from '@/utils/api-client/interfaces/import';
 import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
 import { BACKDROP_COLORS, BORDER_RADIUS } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 interface FileImportDrawerProps {
   open: boolean;
@@ -893,9 +894,9 @@ export default function FileImportDrawer({
         >
           <Typography
             sx={{
-              fontSize: 23,
+              fontSize: rem(23),
               fontWeight: 700,
-              lineHeight: '27.6px',
+              lineHeight: rem(27.6),
               color: theme => theme.palette.greyscale.title,
             }}
           >
@@ -961,7 +962,7 @@ export default function FileImportDrawer({
                 px: '16px',
                 py: '8px',
                 fontWeight: 700,
-                fontSize: 14,
+                fontSize: rem(14),
               }}
             >
               Done
@@ -977,7 +978,7 @@ export default function FileImportDrawer({
                   borderColor: 'primary.main',
                   color: 'primary.main',
                   fontWeight: 700,
-                  fontSize: 14,
+                  fontSize: rem(14),
                   borderRadius: BORDER_RADIUS.sm,
                   px: '16px',
                   py: '8px',
@@ -996,7 +997,7 @@ export default function FileImportDrawer({
                     borderColor: 'primary.main',
                     color: 'primary.main',
                     fontWeight: 700,
-                    fontSize: 14,
+                    fontSize: rem(14),
                     borderRadius: BORDER_RADIUS.sm,
                     px: '16px',
                     py: '8px',
@@ -1020,7 +1021,7 @@ export default function FileImportDrawer({
                   px: '16px',
                   py: '8px',
                   fontWeight: 700,
-                  fontSize: 14,
+                  fontSize: rem(14),
                   '&.Mui-disabled': {
                     bgcolor: theme => theme.palette.greyscale.border,
                     color: '#fff',

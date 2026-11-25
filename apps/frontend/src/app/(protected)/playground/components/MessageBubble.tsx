@@ -23,7 +23,7 @@ import { TracesIcon } from '@/components/icons';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
 import MessageContent from '@/components/common/MessageContent';
 import { stringifyMessageContent } from '@/utils/message-content';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 
 interface MessageBubbleProps {
   /** The chat message to display */
@@ -230,7 +230,7 @@ export default function MessageBubble({
                         },
                       }}
                     >
-                      <ScienceOutlinedIcon sx={{ fontSize: 16 }} />
+                      <ScienceOutlinedIcon sx={{ fontSize: rem(16) }} />
                     </IconButton>
                   </Tooltip>
                 )}
@@ -251,9 +251,9 @@ export default function MessageBubble({
                       }}
                     >
                       {copied ? (
-                        <CheckIcon sx={{ fontSize: 16 }} />
+                        <CheckIcon sx={{ fontSize: rem(16) }} />
                       ) : (
-                        <ContentCopyIcon sx={{ fontSize: 16 }} />
+                        <ContentCopyIcon sx={{ fontSize: rem(16) }} />
                       )}
                     </IconButton>
                   </Tooltip>
@@ -279,7 +279,7 @@ export default function MessageBubble({
                         },
                       }}
                     >
-                      <TracesIcon sx={{ fontSize: 16 }} />
+                      <TracesIcon sx={{ fontSize: rem(16) }} />
                     </IconButton>
                   </Tooltip>
                 )}

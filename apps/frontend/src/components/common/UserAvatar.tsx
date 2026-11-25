@@ -1,6 +1,7 @@
 import React from 'react';
 import { Avatar, AvatarProps } from '@mui/material';
 import { AVATAR_SIZES, AvatarSize } from '@/constants/avatar-sizes';
+import { rem } from '@/styles/theme-constants';
 
 interface UserAvatarProps extends Omit<AvatarProps, 'src' | 'alt'> {
   userName?: string;
@@ -20,8 +21,9 @@ export function UserAvatar({
       src={userPicture}
       alt={userName || 'User'}
       sx={{
-        width: size,
-        height: size,
+        // rem, so the avatar grows with its initial at larger font sizes.
+        width: rem(size),
+        height: rem(size),
         bgcolor: 'primary.main',
         flexShrink: 0,
         ...sx,

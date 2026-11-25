@@ -10,6 +10,7 @@ import {
   GRID_CARD_INSET,
   GRID_TOOLBAR_MIN_HEIGHT,
 } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 export interface ToolbarPillTab {
   label: string;
@@ -153,9 +154,9 @@ export function PrimarySegmentedPills({
                 gap: '4px',
                 px: '16px',
                 py: '8px',
-                fontSize: 14,
+                fontSize: rem(14),
                 fontWeight: 700,
-                lineHeight: '22px',
+                lineHeight: rem(22),
                 cursor: 'pointer',
                 border: 'none',
                 borderRadius: 0,
@@ -181,7 +182,7 @@ export function PrimarySegmentedPills({
                 },
                 whiteSpace: 'nowrap',
                 '& svg': {
-                  fontSize: 20,
+                  fontSize: rem(20),
                 },
               }}
             >
@@ -261,12 +262,12 @@ export const linkedDataGridRowSx: SxProps<Theme> = {
   '& .MuiDataGrid-cell': {
     minHeight: '48px !important',
     maxHeight: '48px !important',
-    fontSize: 14,
-    lineHeight: '22px',
+    fontSize: rem(14),
+    lineHeight: rem(22),
   },
   '& .MuiDataGrid-columnHeaderTitle': {
-    fontSize: 14,
-    lineHeight: '22px',
+    fontSize: rem(14),
+    lineHeight: rem(22),
   },
 };
 

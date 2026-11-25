@@ -15,6 +15,7 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useOrgSettings } from '@/contexts/OrgSettingsContext';
 import TeamInviteDrawer from '../../team/components/TeamInviteDrawer';
 import TeamMembersGrid from '../../team/components/TeamMembersGrid';
+import { rem } from '@/styles/theme-constants';
 
 export default function TeamTab() {
   const searchParams = useSearchParams();
@@ -61,7 +62,7 @@ export default function TeamTab() {
             <Button
               variant="outlined"
               size="small"
-              startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+              startIcon={<AddIcon sx={{ fontSize: rem(20) }} />}
               onClick={() => setInviteDrawerOpen(true)}
               disabled={isOnInviteTour}
               data-tour="invite-team-button"

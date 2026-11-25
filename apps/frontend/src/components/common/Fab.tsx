@@ -5,7 +5,11 @@ import { Box, CircularProgress, Fab as MuiFab, Tooltip } from '@mui/material';
 import type { BoxProps } from '@mui/material/Box';
 import type { FabProps as MuiFabProps } from '@mui/material/Fab';
 import { ELEVATION, FAB_GROUP_GAP, FAB_SIZE } from '@/styles/theme';
-import { FAB_COMPACT_BELOW, FAB_SIZE_COMPACT } from '@/styles/theme-constants';
+import {
+  FAB_COMPACT_BELOW,
+  FAB_SIZE_COMPACT,
+  rem,
+} from '@/styles/theme-constants';
 
 export { FAB_GROUP_GAP };
 export { default as FabAddIcon } from './FabAddIcon';
@@ -22,7 +26,7 @@ const fabIconSlotSx = {
   '& > .MuiSvgIcon-root': {
     width: 24,
     height: 24,
-    fontSize: 24,
+    fontSize: rem(24),
   },
 } as const;
 

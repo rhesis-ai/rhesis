@@ -25,6 +25,7 @@ import { ArchitectChatMessage, StreamingState } from '@/hooks/useArchitectChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import { rem } from '@/styles/theme-constants';
 
 interface ArchitectMessageBubbleProps {
   message: ArchitectChatMessage;
@@ -112,8 +113,8 @@ export default function ArchitectMessageBubble({
       ) : (
         <Box
           sx={{
-            width: AVATAR_SIZES.MEDIUM,
-            height: AVATAR_SIZES.MEDIUM,
+            width: rem(AVATAR_SIZES.MEDIUM),
+            height: rem(AVATAR_SIZES.MEDIUM),
             borderRadius: theme => theme.shape.circular,
             display: 'flex',
             alignItems: 'center',
@@ -125,9 +126,9 @@ export default function ArchitectMessageBubble({
           }}
         >
           {message.isError ? (
-            <ErrorOutlineIcon sx={{ fontSize: 18, color: 'error.main' }} />
+            <ErrorOutlineIcon sx={{ fontSize: rem(18), color: 'error.main' }} />
           ) : (
-            <EngineeringIcon sx={{ fontSize: 18 }} />
+            <EngineeringIcon sx={{ fontSize: rem(18) }} />
           )}
         </Box>
       )}
@@ -268,7 +269,11 @@ export default function ArchitectMessageBubble({
                 aria-live="polite"
               >
                 <CheckCircleOutlineIcon
-                  sx={{ fontSize: 12, color: 'success.main', opacity: 0.8 }}
+                  sx={{
+                    fontSize: rem(12),
+                    color: 'success.main',
+                    opacity: 0.8,
+                  }}
                 />
                 <Typography
                   variant="caption"
@@ -293,9 +298,9 @@ export default function ArchitectMessageBubble({
                 }}
               >
                 {copied ? (
-                  <CheckIcon sx={{ fontSize: 14 }} />
+                  <CheckIcon sx={{ fontSize: rem(14) }} />
                 ) : (
-                  <ContentCopyIcon sx={{ fontSize: 14 }} />
+                  <ContentCopyIcon sx={{ fontSize: rem(14) }} />
                 )}
               </IconButton>
             </Tooltip>
@@ -309,7 +314,7 @@ export default function ArchitectMessageBubble({
               size="small"
               variant="outlined"
               color="success"
-              startIcon={<CheckCircleOutlineIcon sx={{ fontSize: 16 }} />}
+              startIcon={<CheckCircleOutlineIcon sx={{ fontSize: rem(16) }} />}
               onClick={onAccept}
               sx={{ textTransform: 'none', borderRadius: 2, py: 0.25 }}
             >
@@ -319,7 +324,7 @@ export default function ArchitectMessageBubble({
               size="small"
               variant="outlined"
               color="inherit"
-              startIcon={<EditIcon sx={{ fontSize: 16 }} />}
+              startIcon={<EditIcon sx={{ fontSize: rem(16) }} />}
               onClick={onReject}
               sx={{ textTransform: 'none', borderRadius: 2, py: 0.25 }}
             >

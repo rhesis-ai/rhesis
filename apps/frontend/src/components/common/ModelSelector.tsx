@@ -19,6 +19,7 @@ import { PROVIDER_ICONS } from '@/config/model-providers';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useModels } from '@/hooks/useModels';
 import { generatesText, isEmbeddingModel } from '@/utils/model-capabilities';
+import { rem } from '@/styles/theme-constants';
 
 type ModelPurpose = 'generation' | 'evaluation' | 'execution' | 'embedding';
 
@@ -58,7 +59,7 @@ function ProviderIcon({ icon }: { icon?: string }) {
           flexShrink: 0,
         }}
       >
-        <SmartToyIcon sx={{ fontSize: 20 }} />
+        <SmartToyIcon sx={{ fontSize: rem(20) }} />
       </Box>
     );
   }

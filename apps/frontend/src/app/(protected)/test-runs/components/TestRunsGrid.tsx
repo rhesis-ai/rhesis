@@ -35,6 +35,7 @@ import { passRate } from '@/constants/outcomes';
 import { formatDate } from '@/utils/date';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { usageColumns, USAGE_COLUMNS_HIDDEN_BY_DEFAULT } from './usage-columns';
+import { rem } from '@/styles/theme-constants';
 
 interface TestRunsGridProps {
   canCreate?: boolean;
@@ -473,7 +474,7 @@ export default function TestRunsGrid({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <ChatIcon sx={{ fontSize: rem(16), color: 'text.secondary' }} />
               <Typography variant="body2">{count}</Typography>
             </Box>
           );
@@ -492,7 +493,9 @@ export default function TestRunsGrid({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <DescriptionIcon
+                sx={{ fontSize: rem(16), color: 'text.secondary' }}
+              />
               <Typography variant="body2">{count}</Typography>
             </Box>
           );

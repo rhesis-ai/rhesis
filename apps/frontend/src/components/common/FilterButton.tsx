@@ -5,6 +5,7 @@ import { Box, IconButton, Tooltip } from '@mui/material';
 import type { IconButtonProps } from '@mui/material/IconButton';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 export interface FilterButtonProps extends Omit<
   IconButtonProps,
@@ -55,7 +56,7 @@ export function FilterButton({
       }}
       {...props}
     >
-      {icon ?? <TuneOutlinedIcon sx={{ fontSize: 20 }} />}
+      {icon ?? <TuneOutlinedIcon sx={{ fontSize: rem(20) }} />}
       {showBadge && (
         <Box
           component="span"
@@ -65,14 +66,14 @@ export function FilterButton({
             top: -6,
             right: -6,
             minWidth: 18,
-            height: 18,
+            height: rem(18),
             px: count > 9 ? '4px' : 0,
             borderRadius: '50%',
             bgcolor: 'background.paper',
             color: 'primary.main',
-            fontSize: 11,
+            fontSize: rem(11),
             fontWeight: 700,
-            lineHeight: '18px',
+            lineHeight: rem(18),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

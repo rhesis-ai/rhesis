@@ -19,7 +19,7 @@ import {
 import EditableSection from '@/components/common/EditableSection';
 import { SectionCard } from '@/components/common/SectionCard';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { CODE_FONT_SIZE } from '@/styles/theme-constants';
+import { CODE_FONT_SIZE, rem } from '@/styles/theme-constants';
 import { AutoConfigureResult } from '@/utils/api-client/interfaces/endpoint';
 import { testEndpointMapping } from '@/actions/endpoints';
 import MappingEditor from '../../components/MappingEditor';
@@ -56,7 +56,7 @@ const codeSx = {
   overflow: 'auto',
   fontFamily: (theme: import('@mui/material/styles').Theme) =>
     theme.typography.fontFamilyCode,
-  fontSize: CODE_FONT_SIZE,
+  fontSize: rem(CODE_FONT_SIZE),
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word',
 };

@@ -13,6 +13,7 @@ import ProjectMembers from './ProjectMembers';
 import ProjectAddMemberDrawer from './ProjectAddMemberDrawer';
 import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { rem } from '@/styles/theme-constants';
 
 interface ProjectMembersTabProps {
   project: Project;
@@ -48,7 +49,7 @@ export default function ProjectMembersTab({
             <Button
               variant="outlined"
               size="small"
-              startIcon={<PersonAddIcon sx={{ fontSize: 20 }} />}
+              startIcon={<PersonAddIcon sx={{ fontSize: rem(20) }} />}
               onClick={() => setDrawerOpen(true)}
               sx={sectionEditButtonSx}
             >

@@ -2,13 +2,13 @@
 
 import { Box, Button, CircularProgress } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 
 /** Figma Button 1413:8164 — outlined Edit on section cards */
 export const sectionEditButtonSx = {
   fontWeight: 700,
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   px: '16px',
   py: '8px',
   borderRadius: BORDER_RADIUS.sm,
@@ -18,7 +18,7 @@ export const sectionEditButtonSx = {
   gap: '4px',
   '& .MuiButton-startIcon': {
     marginRight: '4px',
-    '& > *:nth-of-type(1)': { fontSize: 20 },
+    '& > *:nth-of-type(1)': { fontSize: rem(20) },
   },
   '&:hover': {
     borderWidth: 2,
@@ -29,8 +29,8 @@ export const sectionEditButtonSx = {
 
 export const sectionContainedButtonSx = {
   fontWeight: 700,
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   px: '16px',
   py: '8px',
   borderRadius: BORDER_RADIUS.sm,
@@ -55,7 +55,7 @@ export function SectionEditButton({
     <Button
       size="small"
       variant="outlined"
-      startIcon={<EditOutlinedIcon sx={{ fontSize: 20 }} />}
+      startIcon={<EditOutlinedIcon sx={{ fontSize: rem(20) }} />}
       onClick={onClick}
       disabled={disabled}
       sx={sectionEditButtonSx}

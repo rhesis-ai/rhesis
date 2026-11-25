@@ -5,6 +5,7 @@ import { Box, Chip } from '@mui/material';
 import { alpha, type Theme } from '@mui/material/styles';
 import { CheckIcon } from '@/components/icons';
 import { insertableVariableChipSx } from './endpoint-styles';
+import { rem } from '@/styles/theme-constants';
 
 interface VariableChipProps {
   label: string;
@@ -31,7 +32,7 @@ export default function VariableChip({
         isActive || trailingIcon ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <span>{label}</span>
-            {isActive && <CheckIcon sx={{ fontSize: 11 }} />}
+            {isActive && <CheckIcon sx={{ fontSize: rem(11) }} />}
             {trailingIcon}
           </Box>
         ) : (
@@ -45,8 +46,8 @@ export default function VariableChip({
         ...(alignSelf && { alignSelf }),
         ...(tone === 'primary' && {
           fontFamily: 'inherit',
-          fontSize: 13,
-          height: 24,
+          fontSize: rem(13),
+          height: rem(24),
           bgcolor: 'background.light2',
           color: 'greyscale.title',
         }),

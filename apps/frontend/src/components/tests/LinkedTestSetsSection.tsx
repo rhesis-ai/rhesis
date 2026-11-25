@@ -21,6 +21,7 @@ import { useList } from '@/hooks/useList';
 import { linkedTestSetsList } from './list';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { rem } from '@/styles/theme-constants';
 
 const NO_FILTERS = {};
 const SEARCH_DEBOUNCE_MS = 300;
@@ -241,7 +242,9 @@ export default function LinkedTestSetsSection({
               textAlign: 'center',
             }}
           >
-            <RouteOutlinedIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <RouteOutlinedIcon
+              sx={{ fontSize: rem(32), color: 'primary.main' }}
+            />
             <Typography
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}

@@ -49,6 +49,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import { experimentHref } from '@/utils/experiment-links';
 import type { SelectedExperiment } from '@/utils/test-run-batch';
+import { rem } from '@/styles/theme-constants';
 
 interface SelectExperimentsDrawerProps {
   open: boolean;
@@ -788,9 +789,9 @@ export default function SelectExperimentsDrawer({
       <Box sx={{ flexShrink: 0, px: 3, pt: 3, pb: 2 }}>
         <Typography
           sx={{
-            fontSize: 23,
+            fontSize: rem(23),
             fontWeight: 700,
-            lineHeight: '27.6px',
+            lineHeight: rem(27.6),
             color: theme => theme.palette.greyscale.title,
           }}
         >

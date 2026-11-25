@@ -1,5 +1,5 @@
 import type { SxProps, Theme } from '@mui/material/styles';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
+import { BORDER_RADIUS, ELEVATION, rem } from '@/styles/theme-constants';
 
 /**
  * Figma-aligned tokens for compact card empty states (node 1435:49277) and
@@ -32,8 +32,8 @@ export const EMPTY_STATE = {
 
 export const emptyStateCompactTitleSx: SxProps<Theme> = {
   fontWeight: 600,
-  fontSize: 20,
-  lineHeight: '24px',
+  fontSize: rem(20),
+  lineHeight: rem(24),
   color: 'primary.main',
 };
 
@@ -62,14 +62,14 @@ export function emptyStateDescriptionSx(options?: {
     maxWidth: options?.enriched
       ? EMPTY_STATE.enrichedMaxWidth
       : EMPTY_STATE.descriptionMaxWidth,
-    ...(options?.compact ? { lineHeight: '22px' } : {}),
+    ...(options?.compact ? { lineHeight: rem(22) } : {}),
   };
 }
 
 export const emptyStateOutlinedActionSx: SxProps<Theme> = {
   fontWeight: 700,
-  fontSize: 18,
-  lineHeight: '25px',
+  fontSize: rem(18),
+  lineHeight: rem(25),
   borderRadius: BORDER_RADIUS.md,
   textTransform: 'none',
   px: '20px',
@@ -80,8 +80,8 @@ export const emptyStateOutlinedActionSx: SxProps<Theme> = {
 
 export const emptyStateContainedActionSx: SxProps<Theme> = {
   fontWeight: 700,
-  fontSize: 18,
-  lineHeight: '25px',
+  fontSize: rem(18),
+  lineHeight: rem(25),
   borderRadius: BORDER_RADIUS.md,
   textTransform: 'none',
   px: '20px',
@@ -91,8 +91,8 @@ export const emptyStateContainedActionSx: SxProps<Theme> = {
 export const emptyStateStandaloneContainedActionSx: SxProps<Theme> = {
   mt: 1,
   fontWeight: 700,
-  fontSize: 18,
-  lineHeight: '25px',
+  fontSize: rem(18),
+  lineHeight: rem(25),
   borderRadius: BORDER_RADIUS.pill,
   textTransform: 'none',
   px: '20px',
@@ -102,8 +102,8 @@ export const emptyStateStandaloneContainedActionSx: SxProps<Theme> = {
 
 export const emptyStateEnrichedActionBaseSx: SxProps<Theme> = {
   fontWeight: 700,
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   borderRadius: BORDER_RADIUS.sm,
   textTransform: 'none',
   px: '16px',
@@ -120,8 +120,8 @@ export function emptyStateEnrichedActionSx(
 ): SxProps<Theme> {
   const base = {
     fontWeight: 700,
-    fontSize: 14,
-    lineHeight: '22px',
+    fontSize: rem(14),
+    lineHeight: rem(22),
     borderRadius: BORDER_RADIUS.sm,
     textTransform: 'none' as const,
     px: '16px',

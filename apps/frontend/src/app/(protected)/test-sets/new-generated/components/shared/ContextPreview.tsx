@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import DescriptionIcon from '@mui/icons-material/Description';
+import { rem } from '@/styles/theme-constants';
 
 interface ContextPreviewProps {
   context?: Array<{ name: string; content?: string }>;
@@ -49,7 +50,7 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
         <InfoOutlinedIcon
           onClick={handleClick}
           sx={{
-            fontSize: 14,
+            fontSize: rem(14),
             opacity: 0.7,
             cursor: 'help',
             '&:hover': { opacity: 1 },

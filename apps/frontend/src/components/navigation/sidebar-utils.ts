@@ -8,7 +8,7 @@ import {
   type NavigationActionItem,
 } from '@/types/navigation';
 import { alpha, type Theme } from '@mui/material/styles';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 
 // ── Shared nav sizing constants ───────────────────────────────────────────────
 
@@ -190,7 +190,7 @@ export const COUNT_BADGE_SX = {
   // Geometry, deliberately not from the variant: this matches the badge's own
   // 20px height so the number sits centred, where `captionBold`'s 18px would
   // not.
-  lineHeight: '20px',
+  lineHeight: rem(20),
   textAlign: 'center',
 } as const;
 

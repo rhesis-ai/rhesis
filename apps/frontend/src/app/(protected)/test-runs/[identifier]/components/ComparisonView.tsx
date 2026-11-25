@@ -48,6 +48,7 @@ import {
   BORDER_RADIUS,
   BACKDROP_COLORS,
   ELEVATION,
+  rem,
 } from '@/styles/theme-constants';
 import { scaledVh } from '@/styles/viewport-scaling';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
@@ -165,19 +166,24 @@ function MetricRow({
           <CheckCircleIcon
             sx={{
               color: 'success.main',
-              fontSize: 24,
+              fontSize: rem(24),
               flexShrink: 0,
               mt: '2px',
             }}
           />
         ) : (
           <CancelIcon
-            sx={{ color: 'error.main', fontSize: 24, flexShrink: 0, mt: '2px' }}
+            sx={{
+              color: 'error.main',
+              fontSize: rem(24),
+              flexShrink: 0,
+              mt: '2px',
+            }}
           />
         )}
         <Box sx={{ flex: 1 }}>
           <Typography
-            sx={{ fontWeight: 700, fontSize: 16, lineHeight: '24px' }}
+            sx={{ fontWeight: 700, fontSize: rem(16), lineHeight: rem(24) }}
           >
             {metricName}
           </Typography>
@@ -190,14 +196,14 @@ function MetricRow({
                   mb: 0.5,
                 }}
               >
-                <Typography sx={{ fontSize: 14, lineHeight: '22px' }}>
+                <Typography sx={{ fontSize: rem(14), lineHeight: rem(22) }}>
                   Score: {Number(result.score).toFixed(2)}
                 </Typography>
                 {result.threshold != null && (
                   <Typography
                     sx={{
-                      fontSize: 14,
-                      lineHeight: '22px',
+                      fontSize: rem(14),
+                      lineHeight: rem(22),
                       color: 'text.secondary',
                     }}
                   >
@@ -220,8 +226,8 @@ function MetricRow({
                 <Typography
                   sx={{
                     mt: 1,
-                    fontSize: 14,
-                    lineHeight: '22px',
+                    fontSize: rem(14),
+                    lineHeight: rem(22),
                     color: theme => theme.palette.greyscale.body,
                   }}
                 >
@@ -272,9 +278,9 @@ function RequirementSection({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <Typography
             sx={{
-              fontSize: 20,
+              fontSize: rem(20),
               fontWeight: 600,
-              lineHeight: '24px',
+              lineHeight: rem(24),
               color: theme => theme.palette.greyscale.title,
             }}
           >
@@ -333,8 +339,8 @@ function RunResponseBox({ response }: { response: string }) {
     >
       <Typography
         sx={{
-          fontSize: 14,
-          lineHeight: '22px',
+          fontSize: rem(14),
+          lineHeight: rem(22),
           color: theme => theme.palette.greyscale.body,
         }}
       >
@@ -574,7 +580,7 @@ export default function ComparisonView({
               px: '16px',
               py: '8px',
               fontWeight: 700,
-              fontSize: 14,
+              fontSize: rem(14),
               whiteSpace: 'nowrap',
               flexShrink: 0,
             }}
@@ -601,9 +607,9 @@ export default function ComparisonView({
           </Box>
           <Typography
             sx={{
-              fontSize: 28,
+              fontSize: rem(28),
               fontWeight: 700,
-              lineHeight: '33.6px',
+              lineHeight: rem(33.6),
               color: theme => theme.palette.greyscale.title,
             }}
           >
@@ -636,9 +642,9 @@ export default function ComparisonView({
           >
             <Typography
               sx={{
-                fontSize: 20,
+                fontSize: rem(20),
                 fontWeight: 600,
-                lineHeight: '24px',
+                lineHeight: rem(24),
                 color: theme => theme.palette.greyscale.title,
               }}
             >
@@ -744,7 +750,7 @@ export default function ComparisonView({
           >
             <CompareArrowsIcon
               sx={{
-                fontSize: 48,
+                fontSize: rem(48),
                 color: theme => theme.palette.greyscale.body,
               }}
             />
@@ -767,9 +773,9 @@ export default function ComparisonView({
           >
             <Typography
               sx={{
-                fontSize: 20,
+                fontSize: rem(20),
                 fontWeight: 600,
-                lineHeight: '24px',
+                lineHeight: rem(24),
                 color: theme => theme.palette.greyscale.title,
               }}
             >
@@ -783,7 +789,7 @@ export default function ComparisonView({
                 gap: 1,
               }}
             >
-              <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: rem(16) }}>
                 {currentTestRun.name || `Run #${currentTestRun.id.slice(0, 8)}`}
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -886,9 +892,9 @@ export default function ComparisonView({
             >
               <Typography
                 sx={{
-                  fontSize: 20,
+                  fontSize: rem(20),
                   fontWeight: 600,
-                  lineHeight: '24px',
+                  lineHeight: rem(24),
                   color: 'primary.main',
                 }}
               >
@@ -1132,7 +1138,7 @@ export default function ComparisonView({
                             {isImproved && (
                               <TrendingUpIcon
                                 sx={{
-                                  fontSize: 16,
+                                  fontSize: rem(16),
                                   color: theme.palette.success.main,
                                 }}
                               />
@@ -1140,7 +1146,7 @@ export default function ComparisonView({
                             {isRegressed && (
                               <TrendingDownIcon
                                 sx={{
-                                  fontSize: 16,
+                                  fontSize: rem(16),
                                   color: theme.palette.error.main,
                                 }}
                               />
@@ -1212,8 +1218,8 @@ export default function ComparisonView({
           </IconButton>
           <Typography
             sx={{
-              fontSize: 20,
-              lineHeight: '24px',
+              fontSize: rem(20),
+              lineHeight: rem(24),
               pr: '48px',
               color: theme.palette.greyscale.title,
             }}
@@ -1482,9 +1488,9 @@ export default function ComparisonView({
                     >
                       <Typography
                         sx={{
-                          fontSize: 23,
+                          fontSize: rem(23),
                           fontWeight: 700,
-                          lineHeight: '27.6px',
+                          lineHeight: rem(27.6),
                           color: theme.palette.greyscale.title,
                         }}
                       >
@@ -1522,9 +1528,9 @@ export default function ComparisonView({
                     >
                       <Typography
                         sx={{
-                          fontSize: 23,
+                          fontSize: rem(23),
                           fontWeight: 700,
-                          lineHeight: '27.6px',
+                          lineHeight: rem(27.6),
                           color: theme.palette.greyscale.title,
                         }}
                       >
@@ -1563,8 +1569,8 @@ export default function ComparisonView({
                       <Typography
                         sx={{
                           fontWeight: 700,
-                          fontSize: 16,
-                          lineHeight: '24px',
+                          fontSize: rem(16),
+                          lineHeight: rem(24),
                           color: theme.palette.greyscale.title,
                         }}
                       >
@@ -1588,8 +1594,8 @@ export default function ComparisonView({
                       <Typography
                         sx={{
                           fontWeight: 700,
-                          fontSize: 16,
-                          lineHeight: '24px',
+                          fontSize: rem(16),
+                          lineHeight: rem(24),
                           color: theme.palette.greyscale.title,
                         }}
                       >

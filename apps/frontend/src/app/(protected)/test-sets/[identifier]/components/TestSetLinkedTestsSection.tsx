@@ -20,6 +20,7 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import type { Theme } from '@mui/material/styles';
+import { rem } from '@/styles/theme-constants';
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -205,7 +206,9 @@ export default function TestSetLinkedTestsSection({
               textAlign: 'center',
             }}
           >
-            <PlaylistAddIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <PlaylistAddIcon
+              sx={{ fontSize: rem(32), color: 'primary.main' }}
+            />
             <Typography
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}
@@ -241,8 +244,8 @@ export default function TestSetLinkedTestsSection({
             <Typography
               sx={{
                 fontWeight: 600,
-                fontSize: 20,
-                lineHeight: '24px',
+                fontSize: rem(20),
+                lineHeight: rem(24),
                 color: 'primary.main',
               }}
             >

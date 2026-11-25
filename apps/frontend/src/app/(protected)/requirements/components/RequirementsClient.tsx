@@ -57,6 +57,7 @@ import RequirementFilterDrawer, {
 } from './RequirementFilterDrawer';
 import { useList } from '@/hooks/useList';
 import { requirementsList } from './list';
+import { rem } from '@/styles/theme-constants';
 
 interface RequirementsClientProps {
   organizationId: UUID;
@@ -582,7 +583,7 @@ export default function RequirementsClient({
         leadingContent={
           canManageOptions && (
             <FilterButton
-              icon={<SettingsIcon sx={{ fontSize: 20 }} />}
+              icon={<SettingsIcon sx={{ fontSize: rem(20) }} />}
               tooltip="Requirement options"
               aria-label="Requirement options"
               onClick={() => setOptionsOpen(true)}

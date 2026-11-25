@@ -36,6 +36,7 @@ import {
   getEffectiveTestResultStatus,
 } from '@/utils/test-result-status';
 import { EntityType } from '@/types/entity-type';
+import { rem } from '@/styles/theme-constants';
 
 export const TEST_RESULT_DRAWER_TAB = {
   conversation: 0,
@@ -134,7 +135,7 @@ function EmptyState() {
     >
       <InfoOutlinedIcon
         sx={{
-          fontSize: 64,
+          fontSize: rem(64),
           color: theme.palette.text.disabled,
           mb: 2,
         }}

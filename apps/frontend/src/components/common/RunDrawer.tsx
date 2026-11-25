@@ -84,6 +84,7 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { QuotaResource } from '@/constants/quota';
 import { useQuotaErrorHandler, useQuotaGate } from '@/hooks/useQuotaGate';
 import { useRunTestCount } from '@/hooks/useRunTestCount';
+import { rem } from '@/styles/theme-constants';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -265,8 +266,8 @@ const RERUN_OUTLINE_BUTTON_SX = {
   borderColor: 'primary.main',
   color: 'primary.main',
   fontWeight: 700,
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   borderRadius: BORDER_RADIUS.sm,
   px: '16px',
   py: '8px',
@@ -1908,8 +1909,8 @@ export default function RunDrawer(props: RunDrawerProps) {
           >
             <Typography
               sx={{
-                fontSize: 16,
-                lineHeight: '24px',
+                fontSize: rem(16),
+                lineHeight: rem(24),
                 color: theme => theme.palette.greyscale.title,
               }}
             >

@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { FilterSection } from '@/components/common/FilterDrawer';
 import { InsightsTestRunOption } from '../utils/insights-filter-utils';
+import { rem } from '@/styles/theme-constants';
 
 const DEFAULT_VISIBLE_COUNT = 5;
 
@@ -17,7 +18,7 @@ const checkboxSx = {
   p: '9px',
   mr: 0,
   '& .MuiSvgIcon-root': {
-    fontSize: 20,
+    fontSize: rem(20),
   },
 } as const;
 
@@ -58,8 +59,8 @@ function TestRunCheckboxRow({
       />
       <Typography
         sx={{
-          fontSize: 14,
-          lineHeight: '22px',
+          fontSize: rem(14),
+          lineHeight: rem(22),
           color: theme => theme.palette.greyscale.title,
           wordBreak: 'break-word',
         }}
@@ -98,8 +99,8 @@ export default function InsightsTestRunFilterSection({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <Typography
           sx={{
-            fontSize: 14,
-            lineHeight: '22px',
+            fontSize: rem(14),
+            lineHeight: rem(22),
             color: theme => theme.palette.greyscale.body,
           }}
         >
@@ -113,8 +114,8 @@ export default function InsightsTestRunFilterSection({
         ) : options.length === 0 ? (
           <Typography
             sx={{
-              fontSize: 14,
-              lineHeight: '22px',
+              fontSize: rem(14),
+              lineHeight: rem(22),
               color: 'text.secondary',
             }}
           >
@@ -148,8 +149,8 @@ export default function InsightsTestRunFilterSection({
           }}
           sx={{
             alignSelf: 'flex-start',
-            fontSize: 14,
-            lineHeight: '22px',
+            fontSize: rem(14),
+            lineHeight: rem(22),
             color: theme => theme.palette.greyscale.body,
             cursor: disabled ? 'default' : 'pointer',
             textUnderlineOffset: '2px',

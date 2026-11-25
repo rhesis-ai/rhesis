@@ -21,6 +21,7 @@ import CloseIcon from '@mui/icons-material/Close';
 
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { rem } from '@/styles/theme-constants';
 
 interface SourceSelectorProps {
   selectedSourceIds: string[];
@@ -220,7 +221,7 @@ export default function SourceSelector({
                 variant="outlined"
                 sx={{
                   '& .MuiChip-deleteIcon': {
-                    fontSize: 18,
+                    fontSize: rem(18),
                   },
                 }}
               />

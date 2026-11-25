@@ -14,6 +14,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { rem } from '@/styles/theme-constants';
 
 interface FilePreviewProps {
   /**
@@ -87,7 +88,7 @@ export default function FilePreview({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
           <InsertDriveFileOutlined
             sx={{
-              fontSize: 20,
+              fontSize: rem(20),
               color: 'text.secondary',
             }}
           />

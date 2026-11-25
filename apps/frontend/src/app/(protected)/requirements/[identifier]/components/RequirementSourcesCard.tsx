@@ -41,6 +41,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { BORDER_RADIUS } from '@/styles/theme';
 import UploadSourceDrawer from '../../../knowledge/components/UploadSourceDrawer';
 import type { UUID } from 'crypto';
+import { rem } from '@/styles/theme-constants';
 
 export const SOURCES_CARD_ID = 'requirement-sources';
 
@@ -152,7 +153,7 @@ export default function RequirementSourcesCard({
             <Button
               size="small"
               variant="outlined"
-              startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+              startIcon={<AddIcon sx={{ fontSize: rem(20) }} />}
               onClick={e => setAddAnchor(e.currentTarget)}
               aria-haspopup="menu"
               sx={sectionEditButtonSx}

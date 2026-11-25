@@ -14,6 +14,8 @@ export const GREYSCALE = {
     surface2: '#eef0f3',
     /** Figma Data Output Textfield fill (read-only ViewField) */
     fieldSurface: '#f9f9fa',
+    /** Fill of tag and badge chips */
+    chipSurface: '#f3f4f6',
   },
   dark: {
     title: '#e6edf3',
@@ -25,6 +27,8 @@ export const GREYSCALE = {
     surface2: '#0d1117',
     /** Figma dark read-only field fill */
     fieldSurface: '#2a2e36',
+    /** Fill of tag and badge chips */
+    chipSurface: '#161b22',
   },
 } as const;
 
@@ -124,6 +128,27 @@ export const BACKDROP_COLORS = {
 
 /** Font size for monospace / code blocks (px). */
 export const CODE_FONT_SIZE = 13;
+
+/** Browser default font size that the px values in this codebase are designed against. */
+const BASE_FONT_SIZE_PX = 16;
+
+/**
+ * A px size as rem, so text follows the browser's font size setting.
+ * Use for every font size and line height in `sx` and `style`.
+ */
+export const rem = (px: number): string =>
+  // Rounded so float noise never reaches the CSS (e.g. 3.5999999999999996rem).
+  `${Number((px / BASE_FONT_SIZE_PX).toFixed(4))}rem`;
+
+/**
+ * A px size scaled by the browser's font size setting, for APIs that only take
+ * pixels (the code editor). On the server it returns the size unchanged.
+ */
+export const scaledPx = (px: number): number => {
+  if (typeof document === 'undefined') return px;
+  const root = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  return Number.isFinite(root) ? (px * root) / BASE_FONT_SIZE_PX : px;
+};
 
 /** Horizontal gap between FAB buttons in a page-header action group (Figma) */
 export const FAB_GROUP_GAP = '20px';

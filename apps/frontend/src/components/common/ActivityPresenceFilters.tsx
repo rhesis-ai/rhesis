@@ -7,6 +7,7 @@ import type {
   ActivityPresenceFilters,
   PresenceFilterValue,
 } from './presence-filter';
+import { rem } from '@/styles/theme-constants';
 
 const PRESENCE_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -38,7 +39,7 @@ function PresenceFilterRow({
     >
       <Typography
         sx={{
-          fontSize: 14,
+          fontSize: rem(14),
           color: theme => theme.palette.greyscale.body,
           flexShrink: 0,
         }}
@@ -63,9 +64,9 @@ function PresenceFilterRow({
                 justifyContent: 'center',
                 px: '12px',
                 py: '6px',
-                fontSize: 13,
+                fontSize: rem(13),
                 fontWeight: 700,
-                lineHeight: '20px',
+                lineHeight: rem(20),
                 cursor: 'pointer',
                 border: '1px solid',
                 borderColor: 'primary.main',

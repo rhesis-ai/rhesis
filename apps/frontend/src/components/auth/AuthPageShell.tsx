@@ -14,6 +14,7 @@ import {
   getAuthTokens,
 } from './authTokens';
 import { scaledVh } from '@/styles/viewport-scaling';
+import { rem } from '@/styles/theme-constants';
 
 /**
  * The frame around every auth page: nav, message column, auth card, footer.
@@ -151,7 +152,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
           <Typography
             sx={{
               fontFamily: authFontDisplay(brandFont),
-              fontSize: 20,
+              fontSize: rem(20),
               fontWeight: 800,
               letterSpacing: '-0.01em',
               color: mode === 'dark' ? '#fff' : '#111827',
@@ -176,7 +177,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
               target="_blank"
               rel="noopener noreferrer"
               sx={{
-                fontSize: 14,
+                fontSize: rem(14),
                 fontWeight: 500,
                 color: t.muted,
                 textDecoration: 'none',
@@ -196,12 +197,12 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
               display: 'inline-flex',
               alignItems: 'center',
               gap: 0.875,
-              height: 34,
+              height: rem(34),
               px: 1.5,
               borderRadius: AUTH_SHAPE.button,
               bgcolor: t.chip,
               color: mode === 'dark' ? '#e5e7eb' : '#2c2c2c',
-              fontSize: 13,
+              fontSize: rem(13),
               fontWeight: 600,
               textDecoration: 'none',
               transition: 'opacity 0.15s',
@@ -263,7 +264,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
                 bgcolor: t.pill,
                 boxShadow:
                   mode === 'dark' ? 'none' : '0 2px 20px 0 rgba(21,21,22,0.07)',
-                fontSize: 12,
+                fontSize: rem(12),
                 fontWeight: 300,
                 textTransform: 'uppercase',
                 letterSpacing: '0.6px',
@@ -326,7 +327,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1.375,
-                    fontSize: 15.5,
+                    fontSize: rem(15.5),
                     fontWeight: 500,
                     color: t.ink,
                   }}
@@ -359,7 +360,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
                     border: `1px solid ${t.hairline}`,
                     bgcolor: t.badge,
                     fontFamily: AUTH_FONT_MONO,
-                    fontSize: 11,
+                    fontSize: rem(11),
                     color: t.muted,
                     whiteSpace: 'nowrap',
                   }}
@@ -397,7 +398,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
           zIndex: 10,
           textAlign: 'center',
           py: 2.25,
-          fontSize: 12,
+          fontSize: rem(12),
           color: t.muted,
         }}
       >

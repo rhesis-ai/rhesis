@@ -13,7 +13,7 @@ import { InfoIcon } from '@/components/icons';
 import dynamic from 'next/dynamic';
 import type { OnMount, BeforeMount } from '@monaco-editor/react';
 import { useTheme } from '@mui/material/styles';
-import { CODE_FONT_SIZE } from '@/styles/theme-constants';
+import { CODE_FONT_SIZE, rem, scaledPx } from '@/styles/theme-constants';
 import { editorContainerSx } from './endpoint-styles';
 import VariableChip from './VariableChip';
 import { SYSTEM_PROMPT_CHIP, SYSTEM_PROMPT_KEY } from './mapping-variables';
@@ -318,7 +318,7 @@ export default function RequestBodyEditor({
           scrollBeyondLastLine: false,
           automaticLayout: true,
           padding: { top: 8, bottom: 8 },
-          fontSize: CODE_FONT_SIZE,
+          fontSize: scaledPx(CODE_FONT_SIZE),
           wordWrap: 'on',
           tabSize: 2,
           formatOnType: true,
@@ -351,7 +351,7 @@ export default function RequestBodyEditor({
         {groupLabel && (
           <Typography
             variant="caption"
-            sx={{ color: 'text.secondary', fontSize: 11, fontWeight: 600 }}
+            sx={{ color: 'text.secondary', fontSize: rem(11), fontWeight: 600 }}
           >
             {groupLabel}
           </Typography>
@@ -370,7 +370,7 @@ export default function RequestBodyEditor({
         {(description || docsUrl) && (
           <Typography
             variant="caption"
-            sx={{ color: 'text.disabled', fontSize: 10, lineHeight: 1.4 }}
+            sx={{ color: 'text.disabled', fontSize: rem(10), lineHeight: 1.4 }}
           >
             {description}
             {docsUrl && (
@@ -424,7 +424,7 @@ export default function RequestBodyEditor({
                   variant="caption"
                   sx={{
                     color: 'text.secondary',
-                    fontSize: 10,
+                    fontSize: rem(10),
                     fontWeight: 600,
                     pl: 0.25,
                   }}
@@ -448,7 +448,7 @@ export default function RequestBodyEditor({
                   variant="caption"
                   sx={{
                     color: 'text.disabled',
-                    fontSize: 10,
+                    fontSize: rem(10),
                     lineHeight: 1.4,
                     pl: 0.25,
                   }}
@@ -539,7 +539,7 @@ export default function RequestBodyEditor({
                         label={chipDisplayLabel(name)}
                         isActive={isVarUsed(name)}
                         onClick={e => handleChipClick(name, e)}
-                        trailingIcon={<InfoIcon sx={{ fontSize: 13 }} />}
+                        trailingIcon={<InfoIcon sx={{ fontSize: rem(13) }} />}
                         tone="primary"
                       />
                     </span>
@@ -587,17 +587,17 @@ export default function RequestBodyEditor({
           <MenuItem
             key={label}
             onClick={() => insertValue('files', v)}
-            sx={{ fontSize: 12 }}
+            sx={{ fontSize: rem(12) }}
           >
             <Box>
-              <Typography variant="body2" sx={{ fontSize: 12 }}>
+              <Typography variant="body2" sx={{ fontSize: rem(12) }}>
                 {label}
               </Typography>
               <Typography
                 variant="caption"
                 sx={{
                   fontFamily: 'monospace',
-                  fontSize: 10,
+                  fontSize: rem(10),
                   color: 'text.disabled',
                   display: 'block',
                 }}
@@ -606,7 +606,7 @@ export default function RequestBodyEditor({
               </Typography>
               <Typography
                 variant="caption"
-                sx={{ fontSize: 10, color: 'text.disabled' }}
+                sx={{ fontSize: rem(10), color: 'text.disabled' }}
               >
                 {hint}
               </Typography>
@@ -642,17 +642,17 @@ export default function RequestBodyEditor({
               setMessagesAnchor(null);
               insertValue('messages', v);
             }}
-            sx={{ fontSize: 12 }}
+            sx={{ fontSize: rem(12) }}
           >
             <Box>
-              <Typography variant="body2" sx={{ fontSize: 12 }}>
+              <Typography variant="body2" sx={{ fontSize: rem(12) }}>
                 {label}
               </Typography>
               <Typography
                 variant="caption"
                 sx={{
                   fontFamily: 'monospace',
-                  fontSize: 10,
+                  fontSize: rem(10),
                   color: 'text.disabled',
                   display: 'block',
                 }}
@@ -661,7 +661,7 @@ export default function RequestBodyEditor({
               </Typography>
               <Typography
                 variant="caption"
-                sx={{ fontSize: 10, color: 'text.disabled' }}
+                sx={{ fontSize: rem(10), color: 'text.disabled' }}
               >
                 {hint}
               </Typography>

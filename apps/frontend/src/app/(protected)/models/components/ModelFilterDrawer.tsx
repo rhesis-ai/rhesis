@@ -9,6 +9,7 @@ import {
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
+import { rem } from '@/styles/theme-constants';
 
 export interface ModelFilters {
   providers: string[];
@@ -30,7 +31,7 @@ export function countActiveModelFilters(f: ModelFilters): number {
 
 const selectSx = {
   borderRadius: BORDER_RADIUS.sm,
-  fontSize: 14,
+  fontSize: rem(14),
   '& .MuiOutlinedInput-notchedOutline': {
     borderRadius: BORDER_RADIUS.sm,
   },

@@ -3,6 +3,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import { rem } from '@/styles/theme-constants';
 
 interface AccessDeniedProps {
   /** Human-readable name of the resource the caller lacks access to. */
@@ -48,7 +49,9 @@ export default function AccessDenied({ resource }: AccessDeniedProps) {
             justifyContent: 'center',
           }}
         >
-          <LockOutlinedIcon sx={{ fontSize: 32, color: 'text.secondary' }} />
+          <LockOutlinedIcon
+            sx={{ fontSize: rem(32), color: 'text.secondary' }}
+          />
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

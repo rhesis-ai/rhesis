@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { UserAvatar } from '../UserAvatar';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import { rem } from '@/styles/theme-constants';
 
 describe('UserAvatar', () => {
   it('renders with user name initial', () => {
@@ -39,8 +40,8 @@ describe('UserAvatar', () => {
     const { container } = render(<UserAvatar userName="A" />);
     const avatar = container.querySelector('.MuiAvatar-root');
     expect(avatar).toHaveStyle({
-      width: `${AVATAR_SIZES.LARGE}px`,
-      height: `${AVATAR_SIZES.LARGE}px`,
+      width: rem(AVATAR_SIZES.LARGE),
+      height: rem(AVATAR_SIZES.LARGE),
     });
   });
 
@@ -50,8 +51,8 @@ describe('UserAvatar', () => {
     );
     const avatar = container.querySelector('.MuiAvatar-root');
     expect(avatar).toHaveStyle({
-      width: `${AVATAR_SIZES.SMALL}px`,
-      height: `${AVATAR_SIZES.SMALL}px`,
+      width: rem(AVATAR_SIZES.SMALL),
+      height: rem(AVATAR_SIZES.SMALL),
     });
   });
 });

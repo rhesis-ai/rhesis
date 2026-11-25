@@ -63,6 +63,7 @@ import {
   projectTraceMetricIds,
 } from './project-data';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { rem } from '@/styles/theme-constants';
 
 interface ProjectTraceMetricsProps {
   project: Project;
@@ -336,7 +337,7 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
                     }}
                     aria-label={`Remove metric ${params.row.name}`}
                   >
-                    <DeleteIcon sx={{ fontSize: 18 }} />
+                    <DeleteIcon sx={{ fontSize: rem(18) }} />
                   </IconButton>
                 </Tooltip>
               )}

@@ -12,6 +12,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
 import { Can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { rem } from '@/styles/theme-constants';
 
 interface TestToTestSetProps {
   testId: string;
@@ -90,7 +91,7 @@ export default function TestToTestSet({
         {parentButton}
         <Can capability={Capability.Test.DELETE}>
           <Fab
-            icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+            icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
             tooltip="Delete test"
             onClick={() => setDeleteDialogOpen(true)}
             loading={isDeleting}
@@ -98,7 +99,7 @@ export default function TestToTestSet({
         </Can>
         <Can capability={Capability.Test.CREATE}>
           <Fab
-            icon={<FileCopyOutlinedIcon sx={{ fontSize: 28 }} />}
+            icon={<FileCopyOutlinedIcon sx={{ fontSize: rem(28) }} />}
             tooltip="Duplicate test"
             onClick={handleDuplicate}
             loading={isDuplicating}
@@ -106,7 +107,7 @@ export default function TestToTestSet({
         </Can>
         <Can capability={Capability.TestSet.EXECUTE}>
           <Fab
-            icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}
+            icon={<PlayArrowIcon sx={{ fontSize: rem(28) }} />}
             tooltip="Run test"
             onClick={() => setTrialDrawerOpen(true)}
           />

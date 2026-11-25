@@ -14,6 +14,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { getBaseUrl } from '@/utils/url-resolver';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import { useAuthStyles } from '@/components/auth/useAuthStyles';
+import { rem } from '@/styles/theme-constants';
 
 export default function ForgotPasswordPage() {
   const { tokens, heading, subheading, primaryButton, field } = useAuthStyles();
@@ -58,7 +59,7 @@ export default function ForgotPasswordPage() {
             alignItems: 'center',
           }}
         >
-          <EmailIcon sx={{ fontSize: 48, color: tokens.accent }} />
+          <EmailIcon sx={{ fontSize: rem(48), color: tokens.accent }} />
           <Typography sx={{ ...heading, textAlign: 'center' }}>
             Check your email
           </Typography>

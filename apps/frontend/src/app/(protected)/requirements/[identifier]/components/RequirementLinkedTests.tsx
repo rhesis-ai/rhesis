@@ -20,6 +20,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 import { requirementKeys } from '@/constants/query-keys';
 import { fetchRequirementLinkedTests } from './linked-tests';
+import { rem } from '@/styles/theme-constants';
 
 const EMPTY_TESTS: TestDetail[] = [];
 import {
@@ -164,7 +165,7 @@ export default function RequirementLinkedTests({
               textAlign: 'center',
             }}
           >
-            <ErrorIcon sx={{ fontSize: 32, color: 'error.main' }} />
+            <ErrorIcon sx={{ fontSize: rem(32), color: 'error.main' }} />
             <Typography
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}
@@ -187,7 +188,9 @@ export default function RequirementLinkedTests({
               textAlign: 'center',
             }}
           >
-            <DescriptionIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <DescriptionIcon
+              sx={{ fontSize: rem(32), color: 'primary.main' }}
+            />
             <Typography
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}

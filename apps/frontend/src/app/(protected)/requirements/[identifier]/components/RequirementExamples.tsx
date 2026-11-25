@@ -38,6 +38,7 @@ import { isPassedStatusName } from '@/utils/test-result-status';
 import { isTunableMetric } from '@/utils/metric-tunable';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
 import type { UUID } from 'crypto';
+import { rem } from '@/styles/theme-constants';
 
 export const EXAMPLES_EMPTY_TEXT =
   'An annotation becomes an example when you pick this requirement in the annotation drawer. That works on test results and traces, including Playground conversations.';
@@ -323,7 +324,7 @@ export default function RequirementExamples({
           }}
         >
           <RateReviewOutlinedIcon
-            sx={{ fontSize: 32, color: 'primary.main' }}
+            sx={{ fontSize: rem(32), color: 'primary.main' }}
           />
           <Typography
             variant="h6"

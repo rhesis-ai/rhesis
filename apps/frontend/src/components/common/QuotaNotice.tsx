@@ -7,7 +7,7 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { quotaCopy, type QuotaZone } from '@/utils/quota';
 import { UPGRADE_URL, type QuotaResource } from '@/constants/quota';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 
 export interface QuotaNoticeProps {
   resource: QuotaResource;
@@ -71,7 +71,7 @@ export function QuotaNotice(props: QuotaNoticeProps) {
       }}
     >
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-        <Icon sx={{ color, fontSize: 18, mt: '1px', flexShrink: 0 }} />
+        <Icon sx={{ color, fontSize: rem(18), mt: '1px', flexShrink: 0 }} />
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {sentence}
         </Typography>

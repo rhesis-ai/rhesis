@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Box, type BoxProps } from '@mui/material';
 import { BORDER_RADIUS } from '@/styles/theme';
 import type { Theme } from '@mui/material/styles';
+import { rem } from '@/styles/theme-constants';
 
 export type GridBadgeSize = 'grid' | 'detail';
 
@@ -11,8 +12,8 @@ const BADGE_SIZE_STYLES: Record<
   GridBadgeSize,
   { fontSize: string; lineHeight: string }
 > = {
-  grid: { fontSize: '12px', lineHeight: '18px' },
-  detail: { fontSize: '14px', lineHeight: '22px' },
+  grid: { fontSize: rem(12), lineHeight: rem(18) },
+  detail: { fontSize: rem(14), lineHeight: rem(22) },
 };
 
 /**
@@ -44,10 +45,7 @@ export function GridBadge({
           px: '10px',
           py: '2px',
           borderRadius: BORDER_RADIUS.pill,
-          bgcolor: (theme: Theme) =>
-            theme.palette.mode === 'light'
-              ? '#f3f4f6'
-              : theme.palette.greyscale.surface1,
+          bgcolor: (theme: Theme) => theme.palette.greyscale.chipSurface,
           color: (theme: Theme) => theme.palette.greyscale.body,
           fontSize: sizeStyles.fontSize,
           lineHeight: sizeStyles.lineHeight,
@@ -106,7 +104,7 @@ export function BadgeRow({
         <Box
           component="span"
           sx={{
-            fontSize: 14,
+            fontSize: rem(14),
             color: theme => theme.palette.greyscale.subtitle,
           }}
         >

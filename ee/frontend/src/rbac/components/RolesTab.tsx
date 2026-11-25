@@ -38,7 +38,7 @@ import {
   sectionCardGridTableInsetSx,
   sectionCardGridTableEdgeCellResetSx,
 } from '@/components/common/GridToolbar';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 import { RbacClient } from '../api/rbac-client';
 import { fetchRoles, invalidateRoles } from '../api/role-cache';
 import { getRoleChipSx } from '../role-display';
@@ -80,7 +80,7 @@ function CustomRoleRowActions({
             },
           }}
         >
-          <EditIcon sx={{ fontSize: 18 }} />
+          <EditIcon sx={{ fontSize: rem(18) }} />
         </IconButton>
       </Tooltip>
       {canManageRoles && (
@@ -97,7 +97,7 @@ function CustomRoleRowActions({
               },
             }}
           >
-            <DeleteIcon sx={{ fontSize: 18 }} />
+            <DeleteIcon sx={{ fontSize: rem(18) }} />
           </IconButton>
         </Tooltip>
       )}
@@ -133,7 +133,7 @@ function BuiltInRoleCard({
         <Chip
           label={role.display_name}
           size="small"
-          sx={{ ...getRoleChipSx(role), fontSize: 12, height: 24 }}
+          sx={{ ...getRoleChipSx(role), fontSize: rem(12), height: 24 }}
         />
       </Box>
       <Typography
@@ -167,7 +167,7 @@ function PrivilegeRail() {
     >
       <Typography
         sx={{
-          fontSize: 9,
+          fontSize: rem(9),
           fontWeight: 700,
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
@@ -191,7 +191,7 @@ function PrivilegeRail() {
       />
       <Typography
         sx={{
-          fontSize: 9,
+          fontSize: rem(9),
           fontWeight: 700,
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
@@ -358,7 +358,7 @@ export default function RolesTab() {
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+                startIcon={<AddIcon sx={{ fontSize: rem(20) }} />}
                 onClick={() => openDrawer('create')}
                 sx={sectionEditButtonSx}
               >
@@ -408,7 +408,7 @@ export default function RolesTab() {
                         <Chip
                           label={role.display_name}
                           size="small"
-                          sx={{ ...getRoleChipSx(role), fontSize: 12 }}
+                          sx={{ ...getRoleChipSx(role), fontSize: rem(12) }}
                         />
                       </TableCell>
                       <TableCell sx={sectionOverviewBodyCellSx}>

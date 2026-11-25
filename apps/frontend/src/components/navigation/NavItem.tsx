@@ -19,6 +19,7 @@ import {
   COUNT_BADGE_SX,
   NAV_FOCUS_RING_SX,
 } from './sidebar-utils';
+import { rem } from '@/styles/theme-constants';
 
 interface NavItemProps {
   item: NavigationPageItem;
@@ -121,9 +122,9 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
         <>
           <Typography
             sx={{
-              fontSize: 14,
+              fontSize: rem(14),
               fontWeight: active ? 600 : 400,
-              lineHeight: '22px',
+              lineHeight: rem(22),
               color: active
                 ? 'primary.contrastText'
                 : theme => theme.palette.greyscale.body,

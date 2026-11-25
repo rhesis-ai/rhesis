@@ -9,6 +9,7 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { formatDate } from '@/utils/date';
 import StatusChip from '@/components/common/StatusChip';
 import { TestExecutionHistoryRow } from './test-execution-history';
+import { rem } from '@/styles/theme-constants';
 
 interface TestExecutionHistoryTableProps {
   rows: TestExecutionHistoryRow[];
@@ -80,7 +81,7 @@ export default function TestExecutionHistoryTable({
                       {item.testRunName}
                     </Typography>
                     <OpenInNewIcon
-                      sx={{ fontSize: 14, color: 'text.disabled' }}
+                      sx={{ fontSize: rem(14), color: 'text.disabled' }}
                     />
                   </Box>
                 </Link>
@@ -97,7 +98,7 @@ export default function TestExecutionHistoryTable({
                   sx={{
                     borderColor: 'divider',
                     color: 'text.primary',
-                    fontSize: 12,
+                    fontSize: rem(12),
                   }}
                 />
               )}

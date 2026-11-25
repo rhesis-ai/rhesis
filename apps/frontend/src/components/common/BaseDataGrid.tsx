@@ -56,6 +56,7 @@ import {
 } from '@/components/common/createRowActionsColumn';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { HIGHLIGHTED_ROW_CLASS } from '@/constants/notifications';
+import { rem } from '@/styles/theme-constants';
 
 /**
  * Shared "grid card" look — the bordered, rounded, shadowed Paper every grid
@@ -467,7 +468,7 @@ function FigmaPaginationFooter() {
     '&:hover': {
       bgcolor: active ? 'rgba(0, 128, 175, 0.06)' : 'transparent',
     },
-    '& .MuiSvgIcon-root': { fontSize: 16 },
+    '& .MuiSvgIcon-root': { fontSize: rem(16) },
   });
 
   return (
@@ -485,7 +486,7 @@ function FigmaPaginationFooter() {
           <Typography
             id={rowsPerPageLabelId}
             sx={{
-              fontSize: 12,
+              fontSize: rem(12),
               fontWeight: 600,
               color: textColor,
               whiteSpace: 'nowrap',
@@ -505,7 +506,7 @@ function FigmaPaginationFooter() {
             variant="standard"
             disableUnderline
             sx={{
-              fontSize: 14,
+              fontSize: rem(14),
               fontWeight: 700,
               color: textColor,
               '& .MuiSelect-icon': { color: textColor },
@@ -518,7 +519,7 @@ function FigmaPaginationFooter() {
             }}
           >
             {pageSizeOptions.map(opt => (
-              <MenuItem key={opt} value={opt} sx={{ fontSize: 14 }}>
+              <MenuItem key={opt} value={opt} sx={{ fontSize: rem(14) }}>
                 {opt}
               </MenuItem>
             ))}
@@ -541,7 +542,7 @@ function FigmaPaginationFooter() {
 
         <Typography
           sx={{
-            fontSize: 12,
+            fontSize: rem(12),
             fontWeight: 600,
             color: textColor,
             whiteSpace: 'nowrap',

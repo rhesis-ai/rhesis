@@ -38,7 +38,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
+import { BORDER_RADIUS, ELEVATION, rem } from '@/styles/theme-constants';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Requirement } from '@/utils/api-client/interfaces/requirement';
@@ -1269,7 +1269,7 @@ export default function ManualTestWriter({
                               },
                             }}
                           >
-                            <DeleteIcon sx={{ fontSize: 18 }} />
+                            <DeleteIcon sx={{ fontSize: rem(18) }} />
                           </IconButton>
                         </Box>
                       </TableCell>

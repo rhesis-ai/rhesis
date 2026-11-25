@@ -16,6 +16,7 @@ import { TaskErrorBoundary } from './TaskErrorBoundary';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import { useList } from '@/hooks/useList';
 import { entityTasksList } from './list';
+import { rem } from '@/styles/theme-constants';
 
 const NO_FILTERS = {};
 
@@ -175,8 +176,8 @@ export function TasksSection({
             src={params.row.assignee?.picture}
             alt={params.row.assignee?.name || 'Unassigned'}
             sx={{
-              width: AVATAR_SIZES.SMALL,
-              height: AVATAR_SIZES.SMALL,
+              width: rem(AVATAR_SIZES.SMALL),
+              height: rem(AVATAR_SIZES.SMALL),
               bgcolor: 'primary.main',
             }}
           >
@@ -233,7 +234,7 @@ export function TasksSection({
               textAlign: 'center',
             }}
           >
-            <TasksIcon color="primary" sx={{ fontSize: 32 }} />
+            <TasksIcon color="primary" sx={{ fontSize: rem(32) }} />
             <Typography
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}

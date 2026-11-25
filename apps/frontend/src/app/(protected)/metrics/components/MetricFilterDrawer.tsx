@@ -9,6 +9,7 @@ import {
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 export interface MetricDrawerFilters {
   type: string[];
@@ -59,7 +60,7 @@ export interface MetricFilterOptions {
 
 const selectSx = {
   borderRadius: BORDER_RADIUS.sm,
-  fontSize: 14,
+  fontSize: rem(14),
   '& .MuiOutlinedInput-notchedOutline': {
     borderRadius: BORDER_RADIUS.sm,
   },

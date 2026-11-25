@@ -26,6 +26,7 @@ import {
   RUN_STATUS_LABEL,
   RUN_STATUS_ICON,
 } from '@/constants/test-runs';
+import { rem } from '@/styles/theme-constants';
 
 /**
  * The three pieces of this page's header, shaped to fill `PageLayout`'s
@@ -271,7 +272,7 @@ function ExperimentLink({ testRun }: { testRun: TestRunDetail }) {
           },
         }}
       >
-        <BiotechIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+        <BiotechIcon sx={{ fontSize: rem(16), color: 'text.secondary' }} />
         <Typography
           variant="body2"
           className="experiment-name"

@@ -5,6 +5,7 @@ import Box from '@mui/material/Box';
 import InputBase from '@mui/material/InputBase';
 import SearchIcon from '@mui/icons-material/SearchOutlined';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 export interface SearchPillProps {
   value: string;
@@ -61,7 +62,7 @@ export function SearchPill({
         placeholder={placeholder}
         sx={{
           flex: 1,
-          fontSize: 14,
+          fontSize: rem(14),
           color: theme => theme.palette.greyscale.body,
           '& input::placeholder': {
             color: theme =>
@@ -95,7 +96,7 @@ export function SearchPill({
           '&:hover': { bgcolor: 'primary.dark' },
         }}
       >
-        <SearchIcon sx={{ fontSize: 18 }} />
+        <SearchIcon sx={{ fontSize: rem(18) }} />
       </Box>
     </Box>
   );

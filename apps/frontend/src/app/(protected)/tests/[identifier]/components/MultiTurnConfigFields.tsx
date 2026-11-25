@@ -9,6 +9,7 @@ import {
   MultiTurnTestConfig,
   createEmptyMultiTurnConfig,
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
+import { rem } from '@/styles/theme-constants';
 
 export type MultiTurnDraft = MultiTurnTestConfig;
 
@@ -106,8 +107,8 @@ function EditableTextField({
       >
         <Typography
           sx={{
-            fontSize: 14,
-            lineHeight: '22px',
+            fontSize: rem(14),
+            lineHeight: rem(22),
             color: theme => theme.palette.greyscale.subtitle,
           }}
         >
@@ -137,8 +138,8 @@ function EditableTextField({
         helperText={helperLine}
         FormHelperTextProps={{
           sx: {
-            fontSize: 12,
-            lineHeight: '18px',
+            fontSize: rem(12),
+            lineHeight: rem(18),
             mx: '14px',
             mt: '3px',
             color: theme =>
@@ -300,8 +301,8 @@ function TurnConfigEditor({
       {/* Label — matches ViewField */}
       <Typography
         sx={{
-          fontSize: 14,
-          lineHeight: '22px',
+          fontSize: rem(14),
+          lineHeight: rem(22),
           color: theme => theme.palette.greyscale.subtitle,
           px: '14px',
           mb: '6px',
@@ -324,8 +325,8 @@ function TurnConfigEditor({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography
             sx={{
-              fontSize: 14,
-              lineHeight: '22px',
+              fontSize: rem(14),
+              lineHeight: rem(22),
               minWidth: 64,
               color: theme => theme.palette.greyscale.body,
             }}
@@ -357,8 +358,8 @@ function TurnConfigEditor({
           />
           <Typography
             sx={{
-              fontSize: 14,
-              lineHeight: '22px',
+              fontSize: rem(14),
+              lineHeight: rem(22),
               minWidth: 64,
               textAlign: 'right',
               color: theme => theme.palette.greyscale.body,
@@ -372,8 +373,8 @@ function TurnConfigEditor({
       {/* Helper text below — matches ViewField */}
       <Typography
         sx={{
-          fontSize: 12,
-          lineHeight: '18px',
+          fontSize: rem(12),
+          lineHeight: rem(18),
           color: theme => theme.palette.greyscale.subtitle,
           px: '14px',
           pt: '3px',

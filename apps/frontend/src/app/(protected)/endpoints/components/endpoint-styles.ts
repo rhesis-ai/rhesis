@@ -1,11 +1,11 @@
 import { alpha, type Theme } from '@mui/material/styles';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 
 // Chip for displaying template variable labels (read-only)
 export const variableChipSx = {
   fontFamily: 'monospace',
-  fontSize: 11,
-  height: 22,
+  fontSize: rem(11),
+  height: rem(22),
   bgcolor: (t: Theme) => t.palette.greyscale.surface1,
   color: (t: Theme) => t.palette.greyscale?.body ?? t.palette.text.primary,
   border: 'none',
@@ -36,7 +36,7 @@ export const fieldSurfaceBoxSx = {
 export const testPreviewSx = {
   ...fieldSurfaceBoxSx,
   fontFamily: 'monospace',
-  fontSize: 12,
+  fontSize: rem(12),
   color: (t: Theme) => t.palette.greyscale.body,
   whiteSpace: 'pre-wrap' as const,
   wordBreak: 'break-word' as const,

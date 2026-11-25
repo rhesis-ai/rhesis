@@ -21,6 +21,7 @@ import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useListAuthGate } from '@/hooks/useListAuthGate';
 import type { TestSet } from '@/utils/api-client/interfaces/test-set';
+import { rem } from '@/styles/theme-constants';
 
 interface TestSetsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -126,7 +127,7 @@ export default function TestSetsPageClient({
                 />
                 <Can capability={Capability.TestSet.DELETE}>
                   <Fab
-                    icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                    icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
                     tooltip="Delete Test Sets"
                     aria-label="Delete Test Sets"
                     onClick={() => bulkHandlersRef.current.onDelete()}

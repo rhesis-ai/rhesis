@@ -5,6 +5,7 @@ import { Box, Chip, Tooltip, type Theme } from '@mui/material';
 import type { SxProps } from '@mui/system';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { ChipConfig } from './types';
+import { rem } from '@/styles/theme-constants';
 
 interface ChipGroupProps {
   chips: ChipConfig[];
@@ -134,7 +135,7 @@ export default function ChipGroup({
             <Tooltip title={chip.description} arrow placement="top">
               <InfoOutlinedIcon
                 sx={{
-                  fontSize: 14,
+                  fontSize: rem(14),
                   opacity: 0.7,
                   cursor: 'help',
                 }}

@@ -39,6 +39,7 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { renderValuePreview } from './TypedValueEditor';
 import { formatDate } from '@/utils/date';
+import { rem } from '@/styles/theme-constants';
 
 interface DiffEntry {
   name: string;
@@ -336,7 +337,7 @@ function DrawerContent({
           <Box>
             <Typography
               sx={{
-                fontSize: 14,
+                fontSize: rem(14),
                 color: 'text.secondary',
                 px: '14px',
                 mb: '6px',

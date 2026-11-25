@@ -52,6 +52,7 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { MODEL_TYPES, type ModelType } from '@/constants/model-types';
+import { rem } from '@/styles/theme-constants';
 
 /** Ties each default-model switch to its visible label. */
 const defaultSwitchId = (label: string) =>
@@ -774,19 +775,19 @@ export const ConnectionForm = forwardRef<
               >
                 {testResult.success ? (
                   <CheckCircleOutlineIcon
-                    sx={{ fontSize: 22, mt: '7px', flexShrink: 0 }}
+                    sx={{ fontSize: rem(22), mt: '7px', flexShrink: 0 }}
                   />
                 ) : (
                   <ErrorOutlineIcon
-                    sx={{ fontSize: 22, mt: '7px', flexShrink: 0 }}
+                    sx={{ fontSize: rem(22), mt: '7px', flexShrink: 0 }}
                   />
                 )}
                 <Box sx={{ flex: 1, py: '8px' }}>
                   <Typography
                     sx={{
-                      fontSize: 18,
+                      fontSize: rem(18),
                       fontWeight: 700,
-                      lineHeight: '25px',
+                      lineHeight: rem(25),
                       color: 'inherit',
                     }}
                   >
@@ -796,8 +797,8 @@ export const ConnectionForm = forwardRef<
                   </Typography>
                   <Typography
                     sx={{
-                      fontSize: 16,
-                      lineHeight: '24px',
+                      fontSize: rem(16),
+                      lineHeight: rem(24),
                       color: 'inherit',
                       whiteSpace: 'pre-line',
                     }}
@@ -818,9 +819,9 @@ export const ConnectionForm = forwardRef<
                       >
                         <Typography
                           sx={{
-                            fontSize: 12,
+                            fontSize: rem(12),
                             fontWeight: 600,
-                            lineHeight: '18px',
+                            lineHeight: rem(18),
                             display: 'block',
                             mb: 1,
                             color: 'inherit',
@@ -831,8 +832,8 @@ export const ConnectionForm = forwardRef<
                         <Typography
                           component="pre"
                           sx={{
-                            fontSize: 12,
-                            lineHeight: '18px',
+                            fontSize: rem(12),
+                            lineHeight: rem(18),
                             color: 'inherit',
                             overflowX: 'auto',
                             whiteSpace: 'pre-wrap',
@@ -926,8 +927,8 @@ export const ConnectionForm = forwardRef<
                       component="label"
                       htmlFor={defaultSwitchId(label)}
                       sx={{
-                        fontSize: 16,
-                        lineHeight: '24px',
+                        fontSize: rem(16),
+                        lineHeight: rem(24),
                         color: theme => theme.palette.greyscale.title,
                         cursor: 'pointer',
                       }}
@@ -954,8 +955,8 @@ export const ConnectionForm = forwardRef<
             >
               <Typography
                 sx={{
-                  fontSize: 14,
-                  lineHeight: '22px',
+                  fontSize: rem(14),
+                  lineHeight: rem(22),
                   color: theme => theme.palette.greyscale.subtitle,
                 }}
               >

@@ -26,6 +26,7 @@ import {
 } from '../role-display';
 import { useActorAuthority } from '../hooks/useActorAuthority';
 import type { ProjectMemberRoleRead, RoleRead } from '../types';
+import { rem } from '@/styles/theme-constants';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -187,7 +188,7 @@ export default function ProjectRoleChip({
           roles.find(r => r.id === selected)?.display_name;
         return label ?? selected;
       }}
-      sx={{ minWidth: 120, fontSize: 13 }}
+      sx={{ minWidth: 120, fontSize: rem(13) }}
     >
       {extraCurrentRole && (
         <MenuItem

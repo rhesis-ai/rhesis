@@ -13,6 +13,7 @@ import { BORDER_RADIUS } from '@/styles/theme';
 import DiscordIcon from '@/components/DiscordIcon';
 import AppVersion from '@/components/common/AppVersion';
 import { publicEnv } from '@/config/runtime-config';
+import { rem } from '@/styles/theme-constants';
 
 interface SupportDrawerProps {
   open: boolean;
@@ -37,9 +38,9 @@ function SupportSection({ title, description, children }: SectionProps) {
       <Box>
         <Typography
           sx={{
-            fontSize: 18,
+            fontSize: rem(18),
             fontWeight: 700,
-            lineHeight: '25px',
+            lineHeight: rem(25),
             color: theme => theme.palette.greyscale.title,
           }}
         >
@@ -47,9 +48,9 @@ function SupportSection({ title, description, children }: SectionProps) {
         </Typography>
         <Typography
           sx={{
-            fontSize: 12,
+            fontSize: rem(12),
             fontWeight: 400,
-            lineHeight: '18px',
+            lineHeight: rem(18),
             color: theme => theme.palette.greyscale.subtitle,
             mt: '4px',
           }}
@@ -103,9 +104,9 @@ function CommunityLink({ icon, label, href }: CommunityLinkProps) {
       </Box>
       <Typography
         sx={{
-          fontSize: 14,
+          fontSize: rem(14),
           fontWeight: 400,
-          lineHeight: '22px',
+          lineHeight: rem(22),
           color: theme => theme.palette.greyscale.body,
           flex: 1,
         }}
@@ -114,7 +115,7 @@ function CommunityLink({ icon, label, href }: CommunityLinkProps) {
       </Typography>
       <OpenInNewIcon
         sx={{
-          fontSize: 14,
+          fontSize: rem(14),
           color: theme => theme.palette.greyscale.subtitle,
           flexShrink: 0,
         }}
@@ -156,7 +157,7 @@ export default function SupportDrawer({ open, onClose }: SupportDrawerProps) {
               borderColor: 'primary.main',
               color: 'primary.main',
               fontWeight: 700,
-              fontSize: 14,
+              fontSize: rem(14),
               borderRadius: BORDER_RADIUS.sm,
               px: '16px',
               py: '8px',
@@ -183,7 +184,7 @@ export default function SupportDrawer({ open, onClose }: SupportDrawerProps) {
               borderColor: 'primary.main',
               color: 'primary.main',
               fontWeight: 700,
-              fontSize: 14,
+              fontSize: rem(14),
               borderRadius: BORDER_RADIUS.sm,
               px: '16px',
               py: '8px',
@@ -216,7 +217,7 @@ export default function SupportDrawer({ open, onClose }: SupportDrawerProps) {
         <AppVersion
           sx={{
             mt: 'auto',
-            fontSize: 12,
+            fontSize: rem(12),
             color: theme => theme.palette.greyscale.subtitle,
           }}
         />

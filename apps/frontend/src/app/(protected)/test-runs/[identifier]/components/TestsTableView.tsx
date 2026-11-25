@@ -56,6 +56,7 @@ import {
 } from './test-run-results-grid-utils';
 import { resultHasAnyHumanAnnotation } from './result-annotations';
 import { EntityType } from '@/types/entity-type';
+import { rem } from '@/styles/theme-constants';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];
@@ -492,11 +493,11 @@ export default function TestsTableView({
           >
             Annotation
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-              <SmartToyOutlinedIcon sx={{ fontSize: 16 }} />
+              <SmartToyOutlinedIcon sx={{ fontSize: rem(16) }} />
               <Typography variant="caption" color="text.secondary">
                 /
               </Typography>
-              <PersonOutlineIcon sx={{ fontSize: 16 }} />
+              <PersonOutlineIcon sx={{ fontSize: rem(16) }} />
             </Box>
           </Box>
         ),
@@ -531,12 +532,12 @@ export default function TestsTableView({
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   {status.hasExecutionError ? (
                     <ErrorOutlineIcon
-                      sx={{ fontSize: 20, color: 'warning.main' }}
+                      sx={{ fontSize: rem(20), color: 'warning.main' }}
                     />
                   ) : status.automatedPassed ? (
                     <CheckIcon
                       sx={{
-                        fontSize: 20,
+                        fontSize: rem(20),
                         color: status.hasConflict
                           ? 'warning.main'
                           : 'success.main',
@@ -545,7 +546,7 @@ export default function TestsTableView({
                   ) : (
                     <CloseIcon
                       sx={{
-                        fontSize: 20,
+                        fontSize: rem(20),
                         color: status.hasConflict
                           ? 'warning.main'
                           : 'error.main',
@@ -612,7 +613,7 @@ export default function TestsTableView({
                     }}
                   >
                     <CommentOutlinedIcon
-                      sx={{ fontSize: 18, color: 'action.active' }}
+                      sx={{ fontSize: rem(18), color: 'action.active' }}
                     />
                     <Typography variant="caption" color="text.secondary">
                       {test.counts.comments}
@@ -639,7 +640,7 @@ export default function TestsTableView({
                     }}
                   >
                     <TaskAltOutlinedIcon
-                      sx={{ fontSize: 18, color: 'action.active' }}
+                      sx={{ fontSize: rem(18), color: 'action.active' }}
                     />
                     <Typography variant="caption" color="text.secondary">
                       {test.counts.tasks}
@@ -696,7 +697,7 @@ export default function TestsTableView({
                         },
                       }}
                     >
-                      <CheckIcon sx={{ fontSize: 20 }} />
+                      <CheckIcon sx={{ fontSize: rem(20) }} />
                     </IconButton>
                   </span>
                 </Tooltip>
@@ -714,7 +715,7 @@ export default function TestsTableView({
                     },
                   }}
                 >
-                  <RateReviewOutlinedIcon sx={{ fontSize: 20 }} />
+                  <RateReviewOutlinedIcon sx={{ fontSize: rem(20) }} />
                 </IconButton>
               </Tooltip>
             </Box>

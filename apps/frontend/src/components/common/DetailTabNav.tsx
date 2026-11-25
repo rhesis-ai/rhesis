@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { rem } from '@/styles/theme-constants';
 
 const NARROW = '@media (max-width: 599px)';
 const NARROW_TAB_GAP = '24px';
@@ -174,7 +175,11 @@ export function DetailTabNav({
                 sx={{
                   ...(compact
                     ? { fontWeight: 600 }
-                    : { fontSize: 18, fontWeight: 700, lineHeight: '25px' }),
+                    : {
+                        fontSize: rem(18),
+                        fontWeight: 700,
+                        lineHeight: rem(25),
+                      }),
                   color: theme =>
                     selected
                       ? theme.palette.greyscale.title

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Box, Typography } from '@mui/material';
+import { rem } from '@/styles/theme-constants';
 
 export interface FormSectionDividerProps {
   headline: string;
@@ -20,8 +21,8 @@ export default function FormSectionDivider({
     <Box>
       <Typography
         sx={{
-          fontSize: 18,
-          lineHeight: '25px',
+          fontSize: rem(18),
+          lineHeight: rem(25),
           fontWeight: 700,
           color: theme => theme.palette.greyscale.title,
         }}
@@ -31,8 +32,8 @@ export default function FormSectionDivider({
       {descriptiveText ? (
         <Typography
           sx={{
-            fontSize: 12,
-            lineHeight: '18px',
+            fontSize: rem(12),
+            lineHeight: rem(18),
             color: theme => theme.palette.greyscale.subtitle,
           }}
         >

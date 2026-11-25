@@ -11,6 +11,7 @@ import {
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { EMPTY_TEAM_FILTERS, type TeamFilters } from './list';
+import { rem } from '@/styles/theme-constants';
 
 export { EMPTY_TEAM_FILTERS, type TeamFilters };
 export { hasActiveTeamFilters } from './list';
@@ -49,7 +50,7 @@ export default function TeamFilterDrawer({
   const textFieldSx = {
     '& .MuiOutlinedInput-root': {
       borderRadius: BORDER_RADIUS.sm,
-      fontSize: 14,
+      fontSize: rem(14),
     },
     '& .MuiOutlinedInput-input': {
       padding: (theme: Theme) => theme.spacing(2.5, 1.75),

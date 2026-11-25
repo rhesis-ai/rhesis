@@ -12,15 +12,15 @@ import {
 import type { Theme } from '@mui/material/styles';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 import { overviewTableInnerSx } from '@/components/common/SectionCard';
 import { ROW_ACTIONS_CLASS } from '@/components/common/createRowActionsColumn';
 
 /** Figma node 1640:23151 — overview table header cell inside section cards. */
 export const sectionOverviewHeaderCellSx = {
   fontWeight: 700,
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   color: 'greyscale.body',
   height: 48,
   p: 0,
@@ -31,8 +31,8 @@ export const sectionOverviewHeaderCellSx = {
 
 /** Figma node 1640:23151 — overview table body cell inside section cards. */
 export const sectionOverviewBodyCellSx = {
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   color: 'greyscale.body',
   py: '12px',
   px: '12px',
@@ -94,8 +94,8 @@ export function SectionOverviewHeaderCell({
             component="span"
             sx={{
               fontWeight: 700,
-              fontSize: 14,
-              lineHeight: '22px',
+              fontSize: rem(14),
+              lineHeight: rem(22),
               color: 'greyscale.body',
             }}
           >
@@ -139,7 +139,7 @@ function paginationNavBtnSx(active: boolean): Record<string, unknown> {
     '&:hover': {
       bgcolor: active ? 'rgba(0, 128, 175, 0.06)' : 'transparent',
     },
-    '& .MuiSvgIcon-root': { fontSize: 16 },
+    '& .MuiSvgIcon-root': { fontSize: rem(16) },
   };
 }
 
@@ -172,7 +172,7 @@ export function SectionOverviewPagination({
         <Typography
           id={`${a11yId}-rows-per-page`}
           sx={{
-            fontSize: 12,
+            fontSize: rem(12),
             fontWeight: 600,
             color: 'greyscale.body',
             whiteSpace: 'nowrap',
@@ -187,14 +187,14 @@ export function SectionOverviewPagination({
           variant="standard"
           disableUnderline
           sx={{
-            fontSize: 14,
+            fontSize: rem(14),
             fontWeight: 700,
             color: 'greyscale.body',
             '& .MuiSelect-icon': { color: 'greyscale.body' },
           }}
         >
           {pageSizeOptions.map(opt => (
-            <MenuItem key={opt} value={opt} sx={{ fontSize: 14 }}>
+            <MenuItem key={opt} value={opt} sx={{ fontSize: rem(14) }}>
               {opt}
             </MenuItem>
           ))}
@@ -213,7 +213,7 @@ export function SectionOverviewPagination({
 
         <Typography
           sx={{
-            fontSize: 12,
+            fontSize: rem(12),
             fontWeight: 600,
             color: 'greyscale.body',
             whiteSpace: 'nowrap',

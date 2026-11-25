@@ -11,6 +11,7 @@ import {
 import { BORDER_RADIUS } from '@/styles/theme';
 import type { TaskStatus } from '@/types/tasks';
 import { usePriorities, useUsers } from '@/hooks/useLookups';
+import { rem } from '@/styles/theme-constants';
 
 export interface TaskFilters {
   status: string;
@@ -41,7 +42,7 @@ const STATUS_OPTIONS: { label: string; value: TaskStatus }[] = [
 
 const selectSx = {
   borderRadius: BORDER_RADIUS.sm,
-  fontSize: 14,
+  fontSize: rem(14),
   '& .MuiOutlinedInput-notchedOutline': {
     borderRadius: BORDER_RADIUS.sm,
   },

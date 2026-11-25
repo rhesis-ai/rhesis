@@ -19,6 +19,7 @@ import ImageIcon from '@mui/icons-material/Image';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import AudioFileIcon from '@mui/icons-material/AudioFile';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import { rem } from '@/styles/theme-constants';
 
 const ACCEPTED_MIME = 'image/*,application/pdf,audio/*';
 
@@ -216,13 +217,16 @@ export default function MultiFileUpload({
         component="div"
       >
         <CloudUploadIcon
-          sx={{ fontSize: 48, color: theme => theme.palette.greyscale.label }}
+          sx={{
+            fontSize: rem(48),
+            color: theme => theme.palette.greyscale.label,
+          }}
         />
         <Typography
           sx={{
-            fontSize: 18,
+            fontSize: rem(18),
             fontWeight: 700,
-            lineHeight: '25px',
+            lineHeight: rem(25),
             color: theme => theme.palette.greyscale.label,
             textAlign: 'center',
           }}
@@ -233,8 +237,8 @@ export default function MultiFileUpload({
         </Typography>
         <Typography
           sx={{
-            fontSize: 14,
-            lineHeight: '22px',
+            fontSize: rem(14),
+            lineHeight: rem(22),
             color: theme => theme.palette.greyscale.label,
             textAlign: 'center',
           }}

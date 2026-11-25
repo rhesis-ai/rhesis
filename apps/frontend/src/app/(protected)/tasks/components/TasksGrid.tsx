@@ -15,6 +15,7 @@ import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
 import { NotificationSection } from '@/constants/notifications';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import { rem } from '@/styles/theme-constants';
 import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
 import { tasksList } from './list';
 import TaskFilterDrawer, {
@@ -140,8 +141,8 @@ export default function TasksGrid({
                 src={params.row.assignee?.picture}
                 alt={params.row.assignee?.name}
                 sx={{
-                  width: AVATAR_SIZES.SMALL,
-                  height: AVATAR_SIZES.SMALL,
+                  width: rem(AVATAR_SIZES.SMALL),
+                  height: rem(AVATAR_SIZES.SMALL),
                   bgcolor: 'primary.main',
                 }}
               >

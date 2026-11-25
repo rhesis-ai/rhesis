@@ -13,6 +13,7 @@ import { Capability } from '@/constants/capabilities';
 import ProjectTraceMetrics, {
   type ProjectTraceMetricsHandle,
 } from './ProjectTraceMetrics';
+import { rem } from '@/styles/theme-constants';
 
 const TRACES_ALERT =
   'Trace metrics configure how this project evaluates traces.';
@@ -44,7 +45,7 @@ export default function ProjectTracesTab({
             <Button
               variant="outlined"
               size="small"
-              startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+              startIcon={<AddIcon sx={{ fontSize: rem(20) }} />}
               onClick={() => traceMetricsRef.current?.openAddDialog()}
               sx={sectionEditButtonSx}
             >

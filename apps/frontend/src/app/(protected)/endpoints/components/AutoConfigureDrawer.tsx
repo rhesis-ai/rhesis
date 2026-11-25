@@ -28,6 +28,7 @@ import {
   drawerFooterSaveButtonSx,
 } from '@/components/common/drawerFormFieldSx';
 import EditorKeyboardHint from '@/components/common/EditorKeyboardHint';
+import { rem } from '@/styles/theme-constants';
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -247,9 +248,9 @@ export default function AutoConfigureDrawer({
           <Typography
             id="auto-configure-drawer-title"
             sx={{
-              fontSize: 23,
+              fontSize: rem(23),
               fontWeight: 700,
-              lineHeight: '27.6px',
+              lineHeight: rem(27.6),
               color: t => t.palette.greyscale.title,
             }}
           >

@@ -4,9 +4,11 @@ import * as React from 'react';
 import { Box, Typography } from '@mui/material';
 import BaseTag, { type BaseTagProps } from '@/components/common/BaseTag';
 import Tag from '@/components/common/Tag';
+import { rem } from '@/styles/theme-constants';
 
 const readOnlyBoxSx = {
-  border: '1px solid #c1c7d1',
+  border: '1px solid',
+  borderColor: 'greyscale.border',
   borderRadius: '4px',
   pl: '16px',
   pr: '12px',
@@ -68,7 +70,11 @@ export function TagsField({
           tagNames.map(tag => <Tag key={tag} label={tag} />)
         ) : (
           <Typography
-            sx={{ fontSize: 16, lineHeight: '24px', color: '#545a65' }}
+            sx={{
+              fontSize: rem(16),
+              lineHeight: rem(24),
+              color: 'greyscale.label',
+            }}
           >
             {emptyLabel}
           </Typography>
@@ -77,8 +83,8 @@ export function TagsField({
       {helperText ? (
         <Typography
           sx={{
-            fontSize: 12,
-            lineHeight: '18px',
+            fontSize: rem(12),
+            lineHeight: rem(18),
             color: 'text.secondary',
             px: '14px',
             pt: '3px',

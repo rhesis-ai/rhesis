@@ -13,6 +13,7 @@ import ProjectParameters from './ProjectParameters';
 import ProjectEnvironments, {
   type ProjectEnvironmentsHandle,
 } from './ProjectEnvironments';
+import { rem } from '@/styles/theme-constants';
 
 const EXPERIMENTS_ALERT =
   'Parameters and environments configure how this project resolves ' +
@@ -45,7 +46,7 @@ export default function ProjectExperimentsTab({
             <Button
               variant="outlined"
               size="small"
-              startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+              startIcon={<AddIcon sx={{ fontSize: rem(20) }} />}
               onClick={() => environmentsRef.current?.openAddDrawer()}
               sx={sectionEditButtonSx}
             >

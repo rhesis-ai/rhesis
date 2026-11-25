@@ -16,6 +16,7 @@ import {
   navCardLabelSx,
   navCardRowSx,
 } from './sidebar-utils';
+import { rem } from '@/styles/theme-constants';
 
 interface NavLinkItemProps {
   item: NavigationLinkItem | NavigationActionItem;
@@ -57,7 +58,7 @@ export function NavLinkItem({ item, collapsed, onAction }: NavLinkItemProps) {
       {!isAction && (item as NavigationLinkItem).external && (
         <OpenInNewIcon
           sx={{
-            fontSize: 14,
+            fontSize: rem(14),
             color: (theme: Theme) => theme.palette.greyscale.subtitle,
             flexShrink: 0,
           }}
