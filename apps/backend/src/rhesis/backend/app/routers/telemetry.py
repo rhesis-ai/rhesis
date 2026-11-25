@@ -7,18 +7,25 @@ from typing import Callable, Iterator, List, Optional, TypeVar
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Request, status
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.quota_gates import require_backstop
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.constants import EnrichedDataKeys, EntityType, TestResultStatus
+from rhesis.backend.app.constants import (
+    AISpanAttributes,
+    EnrichedDataKeys,
+    EntityType,
+    TestResultStatus,
+)
 from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.crud.telemetry import (
-    create_trace_spans,
     get_trace_by_db_id,
     get_trace_by_id,
     get_trace_metrics_aggregated,
+    list_trace_agents,
     list_trace_providers,
     query_traces,
     validate_uuid_param,
@@ -32,6 +39,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.routers import telemetry_intake as intake
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
@@ -47,8 +55,13 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceSummary,
     TraceType,
 )
-from rhesis.backend.app.services.async_service import BROKER_ERRORS
 from rhesis.backend.app.services.project_membership import list_other_member_projects
+from rhesis.backend.app.services.telemetry.admission import IngestRejected
+from rhesis.backend.app.services.telemetry.ingest import (
+    IngestJob,
+    TooManySpans,
+    apply_span_limits,
+)
 from rhesis.backend.app.services.telemetry.span_list import get_span_facets, list_spans
 from rhesis.backend.app.services.telemetry.token_totals import (
     trace_cost_usd,
@@ -71,23 +84,50 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+def _parse_sdk_batch(body: bytes) -> OTELTraceBatch:
+    try:
+        return OTELTraceBatch.model_validate_json(body)
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors(include_url=False, include_context=False))
+
+
+def _sdk_project(
+    request: Request,
+    current_user: User,
+    trace_batch: OTELTraceBatch,
+    scope_project_id: Optional[str],
+) -> str:
+    """The span's project when it names one (access-checked), else the token/header scope."""
+    span_project_id = trace_batch.spans[0].project_id
+    if span_project_id and span_project_id != "unknown":
+        return intake.check_project_access(request, current_user, span_project_id)
+    if scope_project_id:
+        return scope_project_id
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=(
+            "No project_id could be resolved. Use a project-scoped token, "
+            "set RHESIS_PROJECT_ID, or pass X-Project-Id header."
+        ),
+    )
+
+
 # SDK span export; metered by the tracing quota instead of the default limit.
 @router.post("/traces", response_model=TraceResponse)
 @limiter.exempt
-def ingest_trace(
+async def ingest_trace(
     request: Request,
-    trace_batch: OTELTraceBatch,
-    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     scope_project_id: str | None = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
     _backstop: None = Depends(require_backstop(QuotaResource.TRACING_SPANS)),
 ) -> TraceResponse:
     """
-    Ingest OpenTelemetry traces from SDK.
+    Accept a batch of SDK spans (``OTELTraceBatch`` JSON) and queue it for storage.
 
-    This endpoint receives OTLP-formatted spans and stores them
-    for observability and analytics.
+    The spans are validated and queued, then stored by a worker, so they appear
+    in the trace list a moment after this returns. A resent batch is safe: spans
+    already stored (same trace and span id) are skipped.
 
     **Authentication**: Requires valid API key in Bearer token
 
@@ -97,154 +137,39 @@ def ingest_trace(
     only fires for runaway or abusive exporters. Fails open on lookup
     errors so a billing-side problem never breaks ingestion.
 
-    Args:
-        trace_batch: Batch of OTEL spans to ingest
-        db: Database session
-        tenant_context: Authenticated user/API key context
-
-    Returns:
-        TraceResponse with ingestion status
+    **Limits**: see ``TraceIngestSettings``. Over a rate or capacity limit the
+    response is 429 or 503 with ``Retry-After``; the SDK exporter retries both.
 
     Raises:
         401: Invalid or missing API key
         403: Project access denied
+        413: Body or span count over the limit
         422: Invalid trace format
-        500: Internal server error
+        429: Organization over its ingest rate
+        503: Ingest busy or unavailable
     """
     organization_id, user_id = tenant_context
+    limits = intake.settings()
+    try:
+        async with intake.admitted(organization_id, request, limits) as (body, _slot):
+            trace_batch = await intake.in_thread(_parse_sdk_batch, body)
+            await intake.in_thread(apply_span_limits, trace_batch.spans, limits)
+            project_id = await intake.in_thread(
+                _sdk_project, request, current_user, trace_batch, scope_project_id
+            )
+            job = IngestJob(trace_batch.spans, organization_id, user_id, str(project_id))
+            await intake.enqueue(job, limits)
+    except IngestRejected as exc:
+        raise intake.as_http_exception(exc.rejection)
+    except TooManySpans as exc:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc))
 
-    # Resolve project_id: prefer span value, fall back to token/header scope
-    span_project_id = trace_batch.spans[0].project_id if trace_batch.spans else None
-    if span_project_id and span_project_id != "unknown":
-        project_id = assert_project_access(request, current_user, span_project_id, db=db)
-        for span in trace_batch.spans:
-            span.project_id = project_id
-    elif scope_project_id:
-        project_id = scope_project_id
-        for span in trace_batch.spans:
-            span.project_id = scope_project_id
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "No project_id could be resolved. Use a project-scoped token, "
-                "set RHESIS_PROJECT_ID, or pass X-Project-Id header."
-            ),
-        )
-
-    # Log ingestion (summary only)
     trace_id = trace_batch.spans[0].trace_id
-    span_count = len(trace_batch.spans)
-
     logger.info(
-        f"📊 TRACE INGESTION | "
-        f"trace_id={trace_id} | "
-        f"spans={span_count} | "
-        f"project={project_id} | "
-        f"org={organization_id}"
+        f"📊 TRACE INGESTION | trace_id={trace_id} | spans={len(trace_batch.spans)} | "
+        f"project={project_id} | org={organization_id} | queued"
     )
-
-    # Pre-storage: inject any parked mapped output into span attributes.
-    # Must happen before storage because it mutates span attributes in-place.
-    from rhesis.backend.app.services.telemetry.conversation_linking import (
-        inject_pending_output,
-    )
-
-    try:
-        output_injected = inject_pending_output(trace_batch.spans, organization_id, str(project_id))
-        if output_injected > 0:
-            logger.info(
-                f"Injected mapped output into {output_injected} span(s) for trace_id={trace_id}"
-            )
-    except Exception as inject_error:
-        logger.warning(f"Failed to inject pending output for trace_id={trace_id}: {inject_error}")
-        logger.debug("Pending output injection traceback:", exc_info=True)
-
-    # Store spans, then enqueue linking + enrichment as a background task.
-    _stage = "span_storage"
-    try:
-        with temporary_project_scope(db, organization_id, user_id or "", project_id):
-            stored_spans = create_trace_spans(db, trace_batch.spans, organization_id)
-
-        if not stored_spans:
-            logger.warning(f"No spans were stored for trace_id={trace_id}")
-            return TraceResponse(status="received", span_count=0, trace_id=trace_id)
-
-        unique_trace_ids = list({s.trace_id for s in stored_spans})
-        stored_span_ids = [str(s.id) for s in stored_spans]
-        stored_count = len(stored_spans)
-
-        # Extract all data needed for async dispatch before releasing the DB
-        # connection.  ORM objects remain usable because expire_on_commit=False.
-        first_span = stored_spans[0]
-        dispatch_kwargs = dict(
-            stored_span_ids=stored_span_ids,
-            unique_trace_ids=unique_trace_ids,
-            organization_id=organization_id,
-            project_id=str(project_id),
-            test_run_id=(str(first_span.test_run_id) if first_span.test_run_id else None),
-            test_id=str(first_span.test_id) if first_span.test_id else None,
-            test_configuration_id=first_span.attributes.get("rhesis.test.test_configuration_id"),
-        )
-
-        logger.info(
-            f"Ingested {stored_count} spans from "
-            f"{len(unique_trace_ids)} trace(s) for trace_id={trace_id}"
-        )
-
-        # Commit and release the DB connection BEFORE dispatching to Celery.
-        # If delay() blocks (Redis contention), this prevents holding a
-        # database connection hostage and starving other endpoints.
-        _stage = "db_release"
-        db.commit()
-        db.close()
-
-        # Fire-and-forget: dispatch async post-processing.
-        # Spans are already persisted — enrichment is eventual-consistency.
-        # If the broker is unreachable, we log a warning and return success.
-        from rhesis.backend.jobs.telemetry.post_ingest import post_ingest_link
-
-        _stage = "async_dispatch"
-        try:
-            post_ingest_link.delay(**dispatch_kwargs)
-            logger.info(f"Dispatched post_ingest_link for trace_id={trace_id}")
-        except BROKER_ERRORS as broker_err:
-            logger.warning(
-                f"Broker unavailable for trace_id={trace_id}, "
-                f"post-processing deferred | "
-                f"error_type={type(broker_err).__name__} | "
-                f"error={broker_err}"
-            )
-        except Exception as broker_err:
-            logger.warning(
-                f"Failed to dispatch post_ingest_link for "
-                f"trace_id={trace_id}, post-processing deferred | "
-                f"error_type={type(broker_err).__name__} | "
-                f"error={broker_err}",
-                exc_info=True,
-            )
-
-        return TraceResponse(
-            status="received",
-            span_count=stored_count,
-            trace_id=trace_id,
-        )
-
-    except Exception as e:
-        logger.error(
-            f"Trace ingestion failed | "
-            f"stage={_stage} | "
-            f"trace_id={trace_id} | "
-            f"org={organization_id} | "
-            f"project={project_id} | "
-            f"error_type={type(e).__name__} | "
-            f"error={e}",
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to store trace spans",
-        )
+    return TraceResponse(status="received", span_count=len(trace_batch.spans), trace_id=trace_id)
 
 
 @router.get("/traces", response_model=TraceListResponse)
@@ -288,6 +213,13 @@ def list_traces(
             "Filter by LLM provider, repeatable. A trace matches when any of its priced "
             "calls was served by one of the named providers. Values come from "
             "GET /telemetry/providers; a trace enrichment has not priced yet matches none."
+        ),
+    ),
+    agent: Optional[List[str]] = Query(
+        None,
+        description=(
+            "Filter by agent name (`ai.agent.name`), repeatable. A trace matches when any of "
+            "its spans ran one of the named agents. Values come from GET /telemetry/agents."
         ),
     ),
     trace_source: TraceSource = Query(
@@ -394,6 +326,7 @@ def list_traces(
             test_id=test_id,
             conversation_id=conversation_id,
             providers=provider,
+            agents=agent,
             trace_metrics_status=(trace_metrics_status.value if trace_metrics_status else None),
             sort_by=sort_by,
             sort_order=sort_order,
@@ -444,6 +377,8 @@ def list_traces(
                 if raw_input is not None:
                     conversation_input = str(raw_input)
 
+            agent_name = (trace.attributes or {}).get(AISpanAttributes.AGENT_NAME)
+
             summary = TraceSummary(
                 trace_id=trace.trace_id,
                 project_id=str(trace.project_id),
@@ -454,6 +389,7 @@ def list_traces(
                 duration_ms=trace.duration_ms or 0.0,
                 span_count=row.span_count,
                 root_operation=trace.span_name,
+                agent_name=str(agent_name) if agent_name else None,
                 status_code=trace.status_code,
                 test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
                 test_result_id=str(trace.test_result_id) if trace.test_result_id else None,
@@ -548,6 +484,9 @@ def span_filter_params(
     provider: Optional[List[str]] = Query(
         None, description="LLM provider, repeatable; values from GET /telemetry/providers"
     ),
+    agent: Optional[List[str]] = Query(
+        None, description="Agent name (`ai.agent.name`), repeatable; matches the agent's spans"
+    ),
 ) -> SpanFilters:
     """Filters shared by the spans list and its facets."""
     for value, name in (
@@ -574,6 +513,7 @@ def span_filter_params(
         trace_source=trace_source,
         models=model,
         providers=provider,
+        agents=agent,
     )
 
 
@@ -1015,6 +955,34 @@ def get_providers(
 
     return list_trace_providers(
         db, organization_id=organization_id, project_id=effective_project_id
+    )
+
+
+@router.get("/agents", response_model=List[str])
+def get_agents(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
+    project_id: Optional[str] = Query(
+        None, description="Project ID. Defaults to the session project from X-Project-Id."
+    ),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    scope_project_id: Optional[str] = Depends(get_project_context),
+) -> List[str]:
+    """Agent names (`ai.agent.name`) appearing in this scope's traces, for the traces filter.
+
+    Scoped exactly as ``list_traces`` is.
+    """
+    return _in_requested_project(
+        request,
+        current_user,
+        db,
+        tenant_context,
+        project_id,
+        scope_project_id,
+        lambda organization_id, effective_project_id: list_trace_agents(
+            db, organization_id=organization_id, project_id=effective_project_id
+        ),
     )
 
 

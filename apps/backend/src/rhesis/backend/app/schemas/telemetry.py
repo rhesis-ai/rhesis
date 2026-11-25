@@ -109,6 +109,10 @@ class TraceSummary(BaseModel):
     duration_ms: float
     span_count: int
     root_operation: str
+    agent_name: Optional[str] = Field(
+        default=None,
+        description="Agent the trace's root span ran (`ai.agent.name`), when it is an agent run.",
+    )
     status_code: str
     total_tokens: Optional[int] = None
     total_input_tokens: Optional[int] = None
@@ -223,6 +227,7 @@ class SpanFilters:
     trace_source: TraceSource = TraceSource.ALL
     models: Optional[List[str]] = None
     providers: Optional[List[str]] = None
+    agents: Optional[List[str]] = None
 
 
 class SpanSummary(BaseModel):
@@ -285,6 +290,7 @@ class SpanFacetsResponse(BaseModel):
         default=False, description="More names exist than name_limit returned"
     )
     models: List[SpanFacetValue]
+    agents: List[SpanFacetValue] = Field(default_factory=list)
 
 
 class SpanNode(BaseModel):

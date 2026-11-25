@@ -659,6 +659,7 @@ class TestTraceTools:
     TRACE_TOOLS: ClassVar[set[str]] = {
         "list_traces",
         "list_trace_providers",
+        "list_trace_agents",
         "get_trace",
         "get_trace_metrics",
         "lookup_span",

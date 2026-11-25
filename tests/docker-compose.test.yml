@@ -166,6 +166,28 @@ services:
       - ../apps/backend/src:/app/apps/backend/src
       - ../apps/backend/start.sh:/app/apps/backend/start.sh
 
+  # Stores ingested trace spans: POST /telemetry/traces queues them for a worker.
+  sdk-test-worker:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile.dev
+    profiles: ["sdk"]
+    environment:
+      <<: [*sdk-database-config, *sdk-redis-config, *sdk-backend-config]
+    depends_on:
+      # The backend runs the migrations.
+      sdk-test-backend:
+        condition: service_healthy
+    networks:
+      - sdk-test-network
+    healthcheck:
+      disable: true
+    env_file: []
+    command: ["celery", "-A", "rhesis.backend.worker.app", "worker", "--pool", "threads", "--queues=trace-ingest", "--concurrency=2", "--loglevel=INFO"]
+    working_dir: /app/apps/backend
+    volumes:
+      - ../apps/backend/src:/app/apps/backend/src
+
   # ==========================================================================
   # Java SDK Integration Tests (--profile java)
   # Backend: 10003. Postgres and Redis are not published — the token seeding
@@ -228,6 +250,25 @@ services:
     networks:
       - java-test-network
     env_file: []
+
+  # Stores ingested trace spans: POST /telemetry/traces queues them for a worker.
+  java-test-worker:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile.dev
+    profiles: ["java"]
+    environment:
+      <<: [*java-database-config, *java-redis-config, *java-backend-config]
+    depends_on:
+      # The backend runs the migrations.
+      java-test-backend:
+        condition: service_healthy
+    networks:
+      - java-test-network
+    healthcheck:
+      disable: true
+    env_file: []
+    command: ["celery", "-A", "rhesis.backend.worker.app", "worker", "--pool", "threads", "--queues=trace-ingest", "--concurrency=2", "--loglevel=INFO"]
 
 networks:
   sdk-test-network:

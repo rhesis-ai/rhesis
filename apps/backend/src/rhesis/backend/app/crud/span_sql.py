@@ -37,6 +37,7 @@ SPAN_SORT_FIELDS = frozenset({"start_time", "duration_ms", "span_name", "total_t
 SKIP_SPAN_TYPE = "span_type"
 SKIP_SPAN_NAME = "span_name"
 SKIP_MODEL = "model"
+SKIP_AGENT = "agent"
 
 
 def span_breakdown_entry() -> Any:
@@ -214,6 +215,11 @@ def provider_clause(recorded: Collection[str], model_names: Collection[str]) -> 
     return or_(*clauses) if clauses else false()
 
 
+def span_agent_expr() -> Any:
+    """The agent a span ran, for agent spans (``ai.agent.name``)."""
+    return models.Trace.attributes[AISpanAttributes.AGENT_NAME].astext
+
+
 def span_filter_clauses(
     org_uuid,
     project_id: Optional[str],
@@ -230,6 +236,8 @@ def span_filter_clauses(
     clauses += _trace_clauses(org_uuid, project_id, filters)
     if filters.models and SKIP_MODEL not in skip:
         clauses.append(span_model_expr(span_breakdown_entry()).in_(filters.models))
+    if filters.agents and SKIP_AGENT not in skip:
+        clauses.append(span_agent_expr().in_(filters.agents))
     return clauses
 
 

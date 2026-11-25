@@ -469,6 +469,53 @@ class TraceRetentionSettings(BaseSettings):
     override_days: int | None = Field(default=None, alias="TRACE_RETENTION_DAYS", gt=0)
 
 
+class TraceIngestSettings(BaseSettings):
+    """Limits on trace ingest (``/telemetry/traces`` and ``/telemetry/v1/traces``).
+
+    Requests are admitted, validated and queued; workers store them. These caps
+    keep a busy or hostile exporter from exhausting memory, worker threads, the
+    queue or the database. Over a rate or capacity cap the API answers 429 or
+    503 with ``Retry-After``, which OTLP exporters and the SDK retry.
+    """
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    # Request size: on the wire, and after gunzip (a gzip bomb guard).
+    max_body_bytes: int = Field(default=16 * 1024 * 1024, alias="TRACE_INGEST_MAX_BODY_BYTES", ge=1)
+    max_decompressed_bytes: int = Field(
+        default=32 * 1024 * 1024, alias="TRACE_INGEST_MAX_DECOMPRESSED_BYTES", ge=1
+    )
+    max_spans_per_request: int = Field(
+        default=10_000, alias="TRACE_INGEST_MAX_SPANS_PER_REQUEST", ge=1
+    )
+    # Per span. Over-long string values are cut and listed in rhesis.truncated_attributes.
+    max_attributes_per_span: int = Field(
+        default=512, alias="TRACE_INGEST_MAX_ATTRIBUTES_PER_SPAN", ge=1
+    )
+    max_events_per_span: int = Field(default=512, alias="TRACE_INGEST_MAX_EVENTS_PER_SPAN", ge=1)
+    max_attribute_chars: int = Field(
+        default=128 * 1024, alias="TRACE_INGEST_MAX_ATTRIBUTE_CHARS", ge=1
+    )
+    # Per API process: requests being decoded at once, and their bytes in memory.
+    max_concurrent_requests: int = Field(
+        default=8, alias="TRACE_INGEST_MAX_CONCURRENT_REQUESTS", ge=1
+    )
+    max_inflight_bytes: int = Field(
+        default=256 * 1024 * 1024, alias="TRACE_INGEST_MAX_INFLIGHT_BYTES", ge=1
+    )
+    # Per organization, across all API processes (Redis). 0 turns it off.
+    org_bytes_per_minute: int = Field(
+        default=1024 * 1024 * 1024, alias="TRACE_INGEST_ORG_BYTES_PER_MINUTE", ge=0
+    )
+    # Queued ingest jobs waiting for a worker. 0 turns the check off.
+    max_queue_depth: int = Field(default=2_000, alias="TRACE_INGEST_MAX_QUEUE_DEPTH", ge=0)
+    # Compressed size of one queued message; bigger requests are split by span.
+    max_message_bytes: int = Field(
+        default=4 * 1024 * 1024, alias="TRACE_INGEST_MAX_MESSAGE_BYTES", ge=1024
+    )
+    retry_after_seconds: int = Field(default=30, alias="TRACE_INGEST_RETRY_AFTER_SECONDS", ge=1)
+
+
 # A test's time limit is at least this long, and the endpoint's timeout plus the margin.
 PER_TEST_TIMEOUT_FLOOR = 1800
 PER_TEST_TIMEOUT_MARGIN = 300
@@ -605,3 +652,8 @@ def get_trace_retention_settings() -> TraceRetentionSettings:
 @lru_cache
 def get_job_limit_settings() -> JobLimitSettings:
     return JobLimitSettings()
+
+
+@lru_cache
+def get_trace_ingest_settings() -> TraceIngestSettings:
+    return TraceIngestSettings()

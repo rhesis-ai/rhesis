@@ -18,6 +18,8 @@ from fastapi.testclient import TestClient
 from rhesis.backend.app import dependencies, models
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
+from rhesis.backend.app.routers import telemetry_intake
+from rhesis.backend.jobs.telemetry import ingest as ingest_jobs
 from tests.backend.fixtures.rls import scope_to_project
 from tests.backend.routes.fixtures.data_factories import TraceDataFactory
 
@@ -189,6 +191,51 @@ class TestTraceAuthentication:
         response = authenticated_client.post("/telemetry/traces", json=trace_batch)
 
         assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.integration
+class TestTraceIngestLimits:
+    """Span count cap, broker outage and resends on the SDK route."""
+
+    def _limit(self, monkeypatch, **changes):
+        limits = telemetry_intake.settings().model_copy(update=changes)
+        monkeypatch.setattr(telemetry_intake, "settings", lambda: limits)
+
+    def test_too_many_spans(self, authenticated_client: TestClient, monkeypatch, db_project):
+        self._limit(monkeypatch, max_spans_per_request=2)
+        spans = TraceDataFactory.batch_data(count=3, same_trace=True, project_id=str(db_project.id))
+
+        response = authenticated_client.post("/telemetry/traces", json={"spans": spans})
+
+        assert response.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+        assert "retry-after" not in response.headers
+
+    def test_broker_down_answers_503(
+        self, authenticated_client: TestClient, monkeypatch, db_project
+    ):
+        def broken(*_args):
+            raise ConnectionError("redis is down")
+
+        monkeypatch.setattr(ingest_jobs, "enqueue_ingest", broken)
+        span = TraceDataFactory.minimal_data(project_id=str(db_project.id))
+
+        response = authenticated_client.post("/telemetry/traces", json={"spans": [span]})
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert response.headers["retry-after"] == "30"
+
+    def test_resent_batch_is_stored_once(
+        self, authenticated_client: TestClient, test_db, db_project
+    ):
+        spans = TraceDataFactory.batch_data(count=3, same_trace=True, project_id=str(db_project.id))
+
+        for _ in range(2):
+            response = authenticated_client.post("/telemetry/traces", json={"spans": spans})
+            assert response.status_code == status.HTTP_200_OK
+
+        scope_to_project(test_db, db_project.id)
+        rows = test_db.query(models.Trace).filter(models.Trace.trace_id == spans[0]["trace_id"])
+        assert rows.count() == 3
 
 
 @pytest.mark.integration
