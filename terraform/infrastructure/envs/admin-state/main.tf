@@ -112,9 +112,21 @@ data "google_iam_policy" "state" {
     role    = "roles/storage.legacyBucketOwner"
     members = ["projectEditor:${var.project_id}", "projectOwner:${var.project_id}"]
   }
+  # The GCS backend enumerates workspaces with an objects.list over the whole bucket at
+  # init, and a per-prefix condition cannot satisfy it (list is authorized against the
+  # bucket, not a prefixed object). So the env SAs need an unconditioned list. legacyBucketReader
+  # is buckets.get + objects.list and, crucially, NOT objects.get: an SA can see that another
+  # env's state objects exist but still cannot read their contents, which the conditioned
+  # objectAdmin/objectViewer bindings below keep scoped. Folded in with the default
+  # projectViewer member so there is a single unconditioned legacyBucketReader binding.
   binding {
-    role    = "roles/storage.legacyBucketReader"
-    members = ["projectViewer:${var.project_id}"]
+    role = "roles/storage.legacyBucketReader"
+    members = [
+      "projectViewer:${var.project_id}",
+      "serviceAccount:${local.sa.dev}",
+      "serviceAccount:${local.sa.stg}",
+      "serviceAccount:${local.sa.prd}",
+    ]
   }
   binding {
     role    = "roles/storage.legacyObjectOwner"
