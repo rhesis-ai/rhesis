@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useContext, useRef } from 'react';
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Box from '@mui/material/Box';
@@ -233,6 +233,11 @@ export function Sidebar() {
   const user = session?.user as ExtendedUser | undefined;
   const { toggleColorMode, mode } = useContext(ColorModeContext);
   const router = useRouter();
+
+  // The org menu navigates with router.push, which prefetches nothing.
+  useEffect(() => {
+    router.prefetch('/organizations/settings');
+  }, [router]);
 
   // Org menu popover
   const [orgMenuAnchor, setOrgMenuAnchor] = useState<HTMLElement | null>(null);
