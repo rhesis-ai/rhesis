@@ -291,6 +291,119 @@ class TestAutoFilterWhenBound:
         assert own_org_prompt.id in loaded_prompt_ids
         assert len(loaded_prompt_ids) == 1
 
+    def test_bound_scope_filters_relationship_selectin_load(
+        self, test_db: Session, test_org_id, test_org2_id, bound_scope
+    ):
+        """A selectin eager load gets the active scope's criteria too."""
+        from sqlalchemy.orm import selectinload
+
+        from rhesis.backend.app.utils.crud_utils import create_item
+
+        requirement = create_item(
+            test_db,
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
+            organization_id=test_org_id,
+        )
+        own_org_prompt = create_item(
+            test_db,
+            models.Prompt,
+            {**PromptDataFactory.minimal_data(), "requirement_id": requirement.id},
+            organization_id=test_org_id,
+        )
+        with _rls_org(test_db, test_org2_id):
+            create_item(
+                test_db,
+                models.Prompt,
+                {**PromptDataFactory.minimal_data(), "requirement_id": requirement.id},
+                organization_id=test_org2_id,
+            )
+        test_db.expire_all()
+
+        with bound_scope(organization_id=test_org_id):
+            loaded = (
+                test_db.query(models.Requirement)
+                .options(selectinload(models.Requirement.prompts))
+                .filter(models.Requirement.id == requirement.id)
+                .one()
+            )
+            loaded_prompt_ids = {p.id for p in loaded.prompts}
+
+        assert loaded_prompt_ids == {own_org_prompt.id}
+
+
+@pytest.mark.unit
+class TestTenantOptionsCache:
+    """auto_filter builds its options once per scope and reuses them."""
+
+    def test_options_are_reused_per_scope(self):
+        from rhesis.backend.app.models.scope_events import _tenant_options
+
+        org, other_org, project = (str(uuid.uuid4()) for _ in range(3))
+
+        assert _tenant_options(org, project) is _tenant_options(org, project)
+        assert _tenant_options(org, None) is not _tenant_options(org, project)
+        assert _tenant_options(other_org, project) is not _tenant_options(org, project)
+
+    def test_a_new_mapping_drops_cached_options(self):
+        from rhesis.backend.app.models.scope_events import (
+            _invalidate_tenant_classes,
+            _tenant_options,
+        )
+
+        org = str(uuid.uuid4())
+        before = _tenant_options(org, None)
+        _invalidate_tenant_classes()
+
+        assert _tenant_options(org, None) is not before
+
+    def test_a_rebuild_overtaken_by_a_new_mapping_is_not_stored(self, monkeypatch):
+        """A class list built before a mapping arrived must not outlive the invalidation."""
+        from rhesis.backend.app.models import scope_events
+
+        real_build = scope_events._build_tenant_classes
+
+        def build_then_map_a_class():
+            classes = real_build()
+            scope_events._invalidate_tenant_classes()  # a mapping lands mid-build
+            return classes
+
+        scope_events._invalidate_tenant_classes()
+        monkeypatch.setattr(scope_events, "_build_tenant_classes", build_then_map_a_class)
+        scope_events.tenant_classes()
+
+        assert scope_events._tenant_classes is None
+
+    def test_switching_projects_keeps_each_scope_filtered(
+        self, test_db: Session, test_org_id, bound_scope
+    ):
+        """Cached options for one project must never serve another project's query."""
+        rows = {}
+        for name in ("a", "b"):
+            project = crud_utils.create_item(
+                test_db,
+                models.Project,
+                ProjectDataFactory.minimal_data(),
+                organization_id=test_org_id,
+            )
+            data = {**RequirementDataFactory.sample_data(), "project_id": str(project.id)}
+            with _rls_project(test_db, str(project.id)):
+                rows[name] = (
+                    str(project.id),
+                    crud_utils.create_item(
+                        test_db, models.Requirement, data, organization_id=test_org_id
+                    ).id,
+                )
+
+        for _ in range(2):  # the second pass runs on cached options
+            for name, other in (("a", "b"), ("b", "a")):
+                project_id, own = rows[name]
+                with _rls_project(test_db, project_id):
+                    with bound_scope(organization_id=test_org_id, project_id=project_id):
+                        ids = {r.id for r in test_db.query(models.Requirement).all()}
+                assert own in ids
+                assert rows[other][1] not in ids
+
 
 @pytest.mark.unit
 class TestBypassFiltering:

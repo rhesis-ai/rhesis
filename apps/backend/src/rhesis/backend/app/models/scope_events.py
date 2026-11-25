@@ -75,6 +75,8 @@ KNOWN LIMITATIONS
 
 import logging
 import os
+import threading
+from collections import OrderedDict
 
 from sqlalchemy import and_, event, or_
 from sqlalchemy.orm import Mapper, Session, with_loader_criteria
@@ -102,6 +104,14 @@ SHARED_ROW_TABLES = frozenset({"role"})
 
 # (model_cls, criteria kind) pairs; None until the first statement or after a new mapping.
 _tenant_classes = None
+
+# with_loader_criteria options per (organization_id, project_id). Building them costs a lambda
+# analysis per tenant class (~40) on every statement; reusing them costs nothing, since they
+# hold only the scope values. The generation drops options built from an older class list.
+_OPTIONS_CACHE_SIZE = 1024
+_options_by_scope: "OrderedDict[tuple, tuple]" = OrderedDict()
+_options_generation = 0
+_options_lock = threading.Lock()
 
 # Guard against duplicate listener registration (e.g. test reloads, hot-reload)
 _listeners_registered: bool = False
@@ -177,16 +187,26 @@ def _build_tenant_classes():
 
 
 def _invalidate_tenant_classes(*_args):
-    global _tenant_classes
-    _tenant_classes = None
+    global _tenant_classes, _options_generation
+    with _options_lock:
+        _tenant_classes = None
+        _options_generation += 1
+        _options_by_scope.clear()
 
 
 def tenant_classes():
     """The (model_cls, kind) pairs auto_filter applies, rebuilt after any new mapping."""
     global _tenant_classes
-    if _tenant_classes is None:
-        _tenant_classes = _build_tenant_classes()
-    return _tenant_classes
+    with _options_lock:
+        classes, generation = _tenant_classes, _options_generation
+    if classes is not None:
+        return classes
+    classes = _build_tenant_classes()
+    with _options_lock:
+        # A mapping added while this was building has invalidated it; don't store it.
+        if generation == _options_generation:
+            _tenant_classes = classes
+    return classes
 
 
 # ----------------------------------------------------------------------------
@@ -234,6 +254,44 @@ def _org_and_null_project_criteria(organization_id):
         )
 
     return _criteria
+
+
+def _build_tenant_options(organization_id, project_id) -> tuple:
+    # Project filtering is fail-closed: only reached with an org scope active, so
+    # org-less system/bootstrap sessions are never project-filtered.
+    #   - project set   -> rows in that project plus org-level (NULL) rows
+    #   - project unset -> org-level (NULL) rows only
+    if project_id:
+        project_criteria = _org_and_active_project_criteria(organization_id, project_id)
+    else:
+        project_criteria = _org_and_null_project_criteria(organization_id)
+    criteria_by_kind = {
+        "project": project_criteria,
+        "org": _org_only_criteria(organization_id),
+        "shared": _org_or_shared_criteria(organization_id),
+    }
+    return tuple(
+        with_loader_criteria(model_cls, criteria_by_kind[kind], include_aliases=True)
+        for model_cls, kind in tenant_classes()
+    )
+
+
+def _tenant_options(organization_id, project_id) -> tuple:
+    """The auto_filter options for one scope, built once and then reused."""
+    with _options_lock:
+        generation = _options_generation
+        key = (generation, organization_id, project_id or None)
+        options = _options_by_scope.get(key)
+        if options is not None:
+            _options_by_scope.move_to_end(key)
+            return options
+    options = _build_tenant_options(organization_id, project_id)
+    with _options_lock:
+        if generation == _options_generation:
+            _options_by_scope[key] = options
+            if len(_options_by_scope) > _OPTIONS_CACHE_SIZE:
+                _options_by_scope.popitem(last=False)
+    return options
 
 
 def setup_scope_listeners():
@@ -287,28 +345,8 @@ def setup_scope_listeners():
         if scope.organization_id is None:
             return
 
-        # Project filtering is fail-closed: we only reach this branch when an org
-        # scope is active (the check above returns early when organization_id is
-        # None, so org-less system/bootstrap sessions are never project-filtered).
-        #   - project set   -> rows in that project plus org-level (NULL) rows
-        #   - project unset -> org-level (NULL) rows only
-        if scope.project_id:
-            project_criteria = _org_and_active_project_criteria(
-                scope.organization_id, scope.project_id
-            )
-        else:
-            project_criteria = _org_and_null_project_criteria(scope.organization_id)
-        criteria_by_kind = {
-            "project": project_criteria,
-            "org": _org_only_criteria(scope.organization_id),
-            "shared": _org_or_shared_criteria(scope.organization_id),
-        }
-
-        stmt = orm_execute_state.statement
-        for model_cls, kind in tenant_classes():
-            criteria = criteria_by_kind[kind]
-            stmt = stmt.options(with_loader_criteria(model_cls, criteria, include_aliases=True))
-        orm_execute_state.statement = stmt
+        options = _tenant_options(scope.organization_id, scope.project_id)
+        orm_execute_state.statement = orm_execute_state.statement.options(*options)
 
     # Listener 2: auto_stamp - see module docstring for what it fills in.
     #
