@@ -230,6 +230,7 @@ export default function RoleMappingTab({
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [seen, setSeen] = useState<SeenClaims>({ groups: [], claims: [] });
+  const [seenFailed, setSeenFailed] = useState(false);
   const [preview, setPreview] = useState<RoleMappingPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [addAnchor, setAddAnchor] = useState<HTMLElement | null>(null);
@@ -266,12 +267,27 @@ export default function RoleMappingTab({
   }, []);
 
   const claimId = claimKey(value.claim);
+  // Some sign-ins were seen, but never with the configured claim: likely a setup mistake.
+  const claimPath = JSON.stringify(
+    Array.isArray(value.claim) ? value.claim : [value.claim]
+  );
+  const claimUnseen =
+    seen.claims.length > 0 &&
+    !seen.claims.some(c => JSON.stringify(c) === claimPath);
   useEffect(() => {
     let cancelled = false;
     new SSOClient()
       .getSeenClaims(organization.id, JSON.parse(claimId) as ClaimPath)
-      .then(s => !cancelled && setSeen(s))
-      .catch(() => !cancelled && setSeen({ groups: [], claims: [] }));
+      .then(s => {
+        if (cancelled) return;
+        setSeen(s);
+        setSeenFailed(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSeen({ groups: [], claims: [] });
+        setSeenFailed(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -451,6 +467,21 @@ export default function RoleMappingTab({
             <Typography variant="body2" color="text.secondary" sx={{ px: 0.5 }}>
               {provider.groups_hint}
             </Typography>
+            {seenFailed ? (
+              <Alert severity="warning">
+                Couldn’t load the groups people signed in with, so group
+                suggestions and “Seen for” counts are missing.
+              </Alert>
+            ) : (
+              claimUnseen && (
+                <Alert severity="warning">
+                  People have signed in with SSO, but none of them had a{' '}
+                  <b>{claimLabel(value.claim)}</b> claim. Check that your
+                  identity provider sends it, or under Advanced pick the claim
+                  it does send. Until then everyone counts as being in no group.
+                </Alert>
+              )
+            )}
             {mode === 'json' ? (
               <JsonEditor
                 text={jsonText}
