@@ -96,6 +96,29 @@ describe('TraceMetricsSummary', () => {
     expect(screen.queryByText('226')).not.toBeInTheDocument();
   });
 
+  it("drops the previous scope's figures while the next one loads", async () => {
+    getMetrics.mockResolvedValueOnce(metrics());
+    const { rerender } = renderTiles();
+    expect(await screen.findByText('226')).toBeInTheDocument();
+
+    getMetrics.mockReturnValue(new Promise(() => {}));
+    rerender(<TraceMetricsSummary projectId="project-1" environment="prod" />);
+
+    expect(screen.queryByText('226')).not.toBeInTheDocument();
+    expect(document.querySelector('.MuiSkeleton-root')).not.toBeNull();
+  });
+
+  it('keeps the figures on screen during a refresh', async () => {
+    getMetrics.mockResolvedValueOnce(metrics());
+    const { rerender } = renderTiles({ refreshTrigger: 0 });
+    expect(await screen.findByText('226')).toBeInTheDocument();
+
+    getMetrics.mockReturnValue(new Promise(() => {}));
+    rerender(<TraceMetricsSummary projectId="project-1" refreshTrigger={1} />);
+
+    expect(screen.getByText('226')).toBeInTheDocument();
+  });
+
   it('renders nothing without a project to scope to', () => {
     const { container } = renderTiles({ projectId: null });
 

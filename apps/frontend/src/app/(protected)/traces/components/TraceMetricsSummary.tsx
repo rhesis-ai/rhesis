@@ -65,15 +65,25 @@ export default function TraceMetricsSummary({
 }: TraceMetricsSummaryProps) {
   const skeleton = useSkeletonMode();
   const [metrics, setMetrics] = useState<TraceMetricsResponse | null>(null);
-  // Until the first answer the tiles keep their placeholders, so they don't
-  // vanish and come back between the loading view and the figures.
-  const [answered, setAnswered] = useState(false);
+  // Until the scope's first answer the tiles keep their placeholders, so they
+  // neither vanish and come back nor show the previous scope's figures. A
+  // refresh of the same scope keeps the figures on screen.
+  const scopeKey = [
+    projectId,
+    testRunId,
+    environment,
+    startTimeAfter,
+    startTimeBefore,
+  ].join('|');
+  const [answeredFor, setAnsweredFor] = useState<string | null>(null);
+  const answered = answeredFor === scopeKey;
 
   useEffect(() => {
     if (skeleton) return;
+    const setAnswered = () => setAnsweredFor(scopeKey);
     if (!projectId) {
       setMetrics(null);
-      setAnswered(true);
+      setAnswered();
       return;
     }
 
@@ -94,14 +104,14 @@ export default function TraceMetricsSummary({
         });
         if (!cancelled) {
           setMetrics(result);
-          setAnswered(true);
+          setAnswered();
         }
       } catch {
         // The tiles are supplementary; a failure here must not take the table
         // down with it, and the table surfaces its own errors.
         if (!cancelled) {
           setMetrics(null);
-          setAnswered(true);
+          setAnswered();
         }
       }
     };
@@ -118,6 +128,7 @@ export default function TraceMetricsSummary({
     startTimeAfter,
     startTimeBefore,
     refreshTrigger,
+    scopeKey,
     skeleton,
   ]);
 
