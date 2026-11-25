@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional
 
-from pydantic import UUID4, BaseModel, ConfigDict
+from pydantic import UUID4, BaseModel, ConfigDict, field_serializer
 
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
@@ -49,6 +49,13 @@ class TestRun(TestRunBase, WithPermittedActions, ServerIdentity):
     # __owner_attr__ defaults to "user_id", which is the creator column on TestRun.
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("attributes")
+    def _without_metric_plan(self, attributes: Optional[dict]) -> Optional[dict]:
+        # The worker's metric plan is internal and tens of KB per run; it stays in the database.
+        if attributes and "metric_plan" in attributes:
+            return {key: value for key, value in attributes.items() if key != "metric_plan"}
+        return attributes
 
 
 class TestRunBulkDeleteRequest(BaseModel):
