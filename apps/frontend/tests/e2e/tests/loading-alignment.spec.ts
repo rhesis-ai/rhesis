@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect, type Page } from '@playwright/test';
 
 /**
@@ -6,6 +7,9 @@ import { test, expect, type Page } from '@playwright/test';
  * Each route is opened from another section (where the loading view shows),
  * with the page's response held back, and landmark positions are compared
  * between the loading view and the loaded page.
+ *
+ * The loading view must also meet the accessibility rules the loaded pages
+ * are held to in a11y.spec.ts (axe, WCAG 2.2 AA, serious and critical).
  *
  * Only landmarks present in both are compared: CI data differs from local, and
  * a list that loads empty shows its empty state instead of the grid.
@@ -36,8 +40,9 @@ const ROUTES = [
   '/playground',
 ];
 
-/** How long the page's own response is held, so the loading view is visible. */
-const HOLD_MS = 2500;
+/** How long the page's own response is held: long enough to measure the
+ *  loading view and run axe on it. */
+const HOLD_MS = 5000;
 /** When the loading view is measured: after its placeholders have faded in. */
 const MEASURE_AT_MS = 600;
 /** No prefetch response for this long means the loading view is cached. */
@@ -45,6 +50,11 @@ const PREFETCH_QUIET_MS = 800;
 /** Time for the arrived page to render before it is measured. */
 const SETTLE_MS = 1500;
 const TOLERANCE_PX = 2;
+
+const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+const BLOCKING_IMPACTS = new Set(['serious', 'critical']);
+// As in a11y.spec.ts: stays until the default palette is AA.
+const KNOWN_VIOLATIONS = new Set<string>(['color-contrast']);
 
 const LANDMARKS = {
   title: 'main h1',
@@ -152,7 +162,21 @@ test.describe('Loading view alignment @sanity', () => {
       ).toBeVisible();
       await page.waitForTimeout(MEASURE_AT_MS);
       const loading = await measure(page);
+
+      const axe = await new AxeBuilder({ page })
+        .withTags(WCAG_TAGS)
+        .include('main')
+        .analyze();
+      // Still the loading view, so axe checked it and not the arrived page.
+      await expect(
+        page.locator('main .MuiSkeleton-root').first()
+      ).toBeVisible();
       hold = false;
+      const violations = axe.violations
+        .filter(v => BLOCKING_IMPACTS.has(v.impact ?? ''))
+        .filter(v => !KNOWN_VIOLATIONS.has(v.id))
+        .map(v => `${v.id} (${v.impact}, ${v.nodes.length}x): ${v.help}`);
+      expect(violations, 'accessibility of the loading view').toEqual([]);
 
       await pageArrived;
       await page.waitForTimeout(SETTLE_MS);
