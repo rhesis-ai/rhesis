@@ -7,9 +7,11 @@ terraform {
   }
 }
 
-# Registers this environment's GKE cluster with GKE Hub (Fleet) and creates a
-# dedicated, narrowly-scoped service account for rhesis-ee's licensing CI
-# workflows to reach it through Connect Gateway.
+# Registers this environment's GKE cluster with GKE Hub (Fleet) and creates
+# dedicated, narrowly-scoped service accounts for rhesis-ee's CI workflows to
+# reach it through Connect Gateway: license-ci-<env> (license issuance and
+# minting) and enterprise-ci-<env> (the Rhesis Enterprise licensing registry,
+# see the end of this file).
 #
 # Why this exists: dev/stg/prd clusters are private, with the API server
 # reachable only from the WireGuard VPN CIDR (see modules/kubernetes/gcp's
@@ -207,6 +209,73 @@ data "google_project" "this" {
 
 resource "google_service_account_iam_member" "ci_act_as_default_compute" {
   service_account_id = "projects/${var.project_id}/serviceAccounts/${data.google_project.this.number}-compute@developer.gserviceaccount.com"
-  role                = "roles/iam.serviceAccountUser"
-  member              = "serviceAccount:${google_service_account.license_ci.email}"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.license_ci.email}"
+}
+
+# rhesis-ee's Rhesis Enterprise back office (customers, subscriptions, license
+# grants) has its own identity, separate from license-ci: its workflows run
+# under an ungated GitHub Environment (routine bookkeeping shouldn't wait for
+# prd reviewers), so its key must not be able to read the signing key or touch
+# the "rhesis" namespace. It can only reach the cluster through Connect Gateway,
+# where its RoleBinding (kubernetes/clusters/<env>/rhesis-enterprise/
+# runner-rbac.yaml) lets it run Jobs in the "rhesis-enterprise" namespace,
+# which holds nothing but the registry's credentials; and push its CLI image.
+resource "google_service_account" "enterprise_ci" {
+  project      = var.project_id
+  account_id   = "enterprise-ci-${var.environment}"
+  display_name = "Rhesis Enterprise registry CI (rhesis-ee)"
+  description  = "Identity rhesis-ee's enterprise-*.yml workflows authenticate as via GCP_SA_KEY of GitHub Environment enterprise-<env>. Connect Gateway + its own namespace + its image repository only; no Secret Manager access."
+}
+
+resource "google_project_iam_member" "enterprise_ci_gateway_editor" {
+  project = var.project_id
+  role    = "roles/gkehub.gatewayEditor"
+  member  = "serviceAccount:${google_service_account.enterprise_ci.email}"
+
+  depends_on = [google_project_service.connectgateway]
+}
+
+resource "google_project_iam_member" "enterprise_ci_gkehub_viewer" {
+  project = var.project_id
+  role    = "roles/gkehub.viewer"
+  member  = "serviceAccount:${google_service_account.enterprise_ci.email}"
+
+  depends_on = [google_project_service.connectgateway]
+}
+
+# The rhesis-enterprise CLI image gets a dedicated repository, so pushing it
+# needs no write access to the "rhesis" repository the backend images live in.
+# GKE nodes pull it through their project-level artifactregistry.reader
+# (modules/kubernetes/gcp/service_account.tf).
+resource "google_artifact_registry_repository" "enterprise" {
+  project       = var.project_id
+  location      = var.registry_location
+  repository_id = "rhesis-enterprise"
+  format        = "DOCKER"
+  description   = "rhesis-ee's rhesis-enterprise CLI image (licensing registry)."
+
+  # Every build is pushed as :<sha> and :latest; keep the last 20 builds.
+  cleanup_policies {
+    id     = "keep-recent"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 20
+    }
+  }
+  cleanup_policies {
+    id     = "delete-old"
+    action = "DELETE"
+    condition {
+      older_than = "2592000s"
+    }
+  }
+}
+
+resource "google_artifact_registry_repository_iam_member" "enterprise_ci_writer" {
+  project    = var.project_id
+  location   = google_artifact_registry_repository.enterprise.location
+  repository = google_artifact_registry_repository.enterprise.repository_id
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.enterprise_ci.email}"
 }

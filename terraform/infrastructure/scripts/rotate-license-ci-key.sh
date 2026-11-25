@@ -22,17 +22,22 @@
 #   - gh CLI authenticated with permission to set secrets on rhesis-ai/rhesis-ee
 #   - terraform apply already run for the target environment (the SA must exist)
 #
-# Usage: ./rotate-license-ci-key.sh <dev|stg|prd>
+# The same script rotates the Rhesis Enterprise registry's identity,
+# enterprise-ci-<env>, into GitHub Environment "enterprise-<env>" (no reviewer
+# gate; that identity can't read the signing key or touch namespace "rhesis").
+#
+# Usage: ./rotate-license-ci-key.sh <dev|stg|prd> [license|enterprise]
 
 set -euo pipefail
 
 # ── Configuration ────────────────────────────────────────────────────
 
 ENVIRONMENT="${1:-}"
+IDENTITY="${2:-license}"
 EE_REPO="rhesis-ai/rhesis-ee"
 
 if [[ -z "$ENVIRONMENT" ]]; then
-  echo "Usage: $0 <dev|stg|prd>"
+  echo "Usage: $0 <dev|stg|prd> [license|enterprise]"
   exit 1
 fi
 
@@ -46,7 +51,20 @@ case "$ENVIRONMENT" in
     ;;
 esac
 
-SA_EMAIL="license-ci-${ENVIRONMENT}@${PROJECT_ID}.iam.gserviceaccount.com"
+case "$IDENTITY" in
+  license)
+    SA_EMAIL="license-ci-${ENVIRONMENT}@${PROJECT_ID}.iam.gserviceaccount.com"
+    GH_ENV="$ENVIRONMENT"
+    ;;
+  enterprise)
+    SA_EMAIL="enterprise-ci-${ENVIRONMENT}@${PROJECT_ID}.iam.gserviceaccount.com"
+    GH_ENV="enterprise-${ENVIRONMENT}"
+    ;;
+  *)
+    echo "Unknown identity '$IDENTITY' -- expected license or enterprise."
+    exit 1
+    ;;
+esac
 
 # ── Colors & helpers ─────────────────────────────────────────────────
 
@@ -70,6 +88,12 @@ if ! gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT_ID" &>
 fi
 log_success "$SA_EMAIL exists"
 
+# Before creating a key: a key that can't be stored is just one more to clean up.
+if ! gh api "repos/$EE_REPO/environments/$GH_ENV" &>/dev/null; then
+  log_error "GitHub Environment '$GH_ENV' not found in $EE_REPO (or no access). Create it first."
+  exit 1
+fi
+
 # Existing keys are a lingering risk (nothing prunes them automatically) --
 # surface the count so an operator notices if this has been rotated before
 # without the old key ever being deleted.
@@ -92,9 +116,9 @@ KEY_JSON=$(gcloud iam service-accounts keys create /dev/stdout \
   --project="$PROJECT_ID")
 log_success "Key generated"
 
-log_info "Pushing to $EE_REPO's '$ENVIRONMENT' GitHub Environment secret GCP_SA_KEY..."
-echo "$KEY_JSON" | gh secret set GCP_SA_KEY --repo "$EE_REPO" --env "$ENVIRONMENT"
+log_info "Pushing to $EE_REPO's '$GH_ENV' GitHub Environment secret GCP_SA_KEY..."
+echo "$KEY_JSON" | gh secret set GCP_SA_KEY --repo "$EE_REPO" --env "$GH_ENV"
 unset KEY_JSON
-log_success "GCP_SA_KEY updated for $EE_REPO environment '$ENVIRONMENT'"
+log_success "GCP_SA_KEY updated for $EE_REPO environment '$GH_ENV'"
 
 log_info "Done. The new key is live in GitHub; nothing was written to disk locally."

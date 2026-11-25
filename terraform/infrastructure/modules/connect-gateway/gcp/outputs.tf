@@ -12,3 +12,13 @@ output "ci_service_account_email" {
   description = "Email of the dedicated license-ci-<env> service account. Bind this (not terraform-<env>) as the RoleBinding subject in kubernetes/clusters/<env>/rhesis/license-issuer-rbac.yaml, and as rhesis-ee's GCP_SA_KEY secret for this environment (terraform/infrastructure/scripts/rotate-license-ci-key.sh generates and pushes the key)."
   value       = google_service_account.license_ci.email
 }
+
+output "enterprise_ci_service_account_email" {
+  description = "Email of the enterprise-ci-<env> service account: the RoleBinding subject in kubernetes/clusters/<env>/rhesis-enterprise/runner-rbac.yaml, and rhesis-ee's GCP_SA_KEY of GitHub Environment enterprise-<env> (terraform/infrastructure/scripts/rotate-license-ci-key.sh <env> enterprise)."
+  value       = google_service_account.enterprise_ci.email
+}
+
+output "enterprise_registry_repository" {
+  description = "Artifact Registry repository holding rhesis-ee's rhesis-enterprise image."
+  value       = google_artifact_registry_repository.enterprise.id
+}

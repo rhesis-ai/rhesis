@@ -46,6 +46,15 @@ Secret Manager entries per environment, resolve the latest image tag from
 Artifact Registry, and deploy/execute the self-hosted mint Cloud Run Job
 (see the module's `main.tf` for the exact role grants).
 
+The same module creates `enterprise-ci-<env>` for `rhesis-ee`'s Rhesis
+Enterprise licensing registry workflows. Those run under GitHub Environments
+without a reviewer gate, so that identity is scoped further: Connect Gateway,
+push access to the `rhesis-enterprise` Artifact Registry repository, and
+`kubernetes/clusters/<env>/rhesis-enterprise/runner-rbac.yaml`, which lets it run
+Jobs only in the `rhesis-enterprise` namespace. That namespace holds nothing but
+the registry's credentials, so a Job there can't mount app secrets. No Secret
+Manager access.
+
 ```bash
 gcloud container fleet memberships get-credentials <dev|stg|prd> --project=PROJECT_ID
 kubectl get pods -n rhesis   # ordinary kubectl from here on

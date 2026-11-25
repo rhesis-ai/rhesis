@@ -16,6 +16,9 @@ resources:
   # Reads the telemetry analytics DB instead of the application one, via the per-cluster
   # "* Analytics (RO)" datasource. Only source for deployment_type and login counts.
   - telemetry-dashboard.yaml
+  # EE licensing overview from the Rhesis Enterprise registry DB that the private
+  # rhesis-ee repo writes, via the per-cluster "* Enterprise" datasource.
+  - licensing-dashboard.yaml
   # Alerting: identical in every env. Each cluster's ExternalSecret (see
   # clusters/*/grafana-resources/discord-webhook-secret.yaml and
   # grafana-smtp-credentials.yaml) fills in the two things that differ — the Discord
@@ -26,6 +29,7 @@ resources:
   - notification-policy.yaml
   - basic-alerts.yaml
   - postgres-alerts.yaml
+  - licensing-alerts.yaml
 
 configMapGenerator:
   # Single source for the alert recipient/sender address, since it's the same in

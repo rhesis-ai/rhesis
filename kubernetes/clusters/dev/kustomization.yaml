@@ -28,5 +28,10 @@ resources:
   - rhesis/rhesis-application.yaml
   # RBAC for rhesis-ee's license-issue.yml workflow (arc-runner-dev -> one-off Jobs here)
   - rhesis/license-issuer-rbac.yaml
+  # rhesis-ee's Rhesis Enterprise registry: its own namespace, DB location and the
+  # Job-runner RBAC for enterprise-ci (credentials: external-secrets/).
+  - rhesis-enterprise/namespace.yaml
+  - rhesis-enterprise/config.yaml
+  - rhesis-enterprise/runner-rbac.yaml
   # ARC self-hosted runner: gives deploy jobs VPC-internal access to ArgoCD
   - arc.yaml

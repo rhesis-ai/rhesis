@@ -257,7 +257,7 @@ spec:
           "gridPos": { "h": 5, "w": 24, "x": 0, "y": 34 },
           "options": {
             "mode": "markdown",
-            "content": "**Limits are not shown.** Each tier's quota lives in the EE tier config and the org's signed license, neither of which is readable from SQL. An org's used-vs-limit view is on its own Usage page in the app.\n\n**seats, projects and endpoints are missing on purpose.** They are counted live off the `user`, `project` and `endpoint` tables rather than accrued into `usage`, so they have no history to chart.\n\n**Periods are UTC calendar months.** Each row covers one month, so panels above either pin to the current month or need a range of a month or more."
+            "content": "**Limits are not shown.** Each tier's quota lives in the EE tier config and the org's signed license, which SQL cannot read as structured data. The Rhesis Licensing dashboard shows each customer's edition and limit overrides. An org's used-vs-limit view is on its own Usage page in the app.\n\n**seats, projects and endpoints are missing on purpose.** They are counted live off the `user`, `project` and `endpoint` tables rather than accrued into `usage`, so they have no history to chart.\n\n**Periods are UTC calendar months.** Each row covers one month, so panels above either pin to the current month or need a range of a month or more."
           }
         }
       ]

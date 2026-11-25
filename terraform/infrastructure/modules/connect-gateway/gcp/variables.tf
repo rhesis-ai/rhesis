@@ -21,3 +21,9 @@ variable "cluster_id" {
   EOT
   type        = string
 }
+
+variable "registry_location" {
+  description = "Artifact Registry location of the rhesis-enterprise image repository."
+  type        = string
+  default     = "europe-west4"
+}

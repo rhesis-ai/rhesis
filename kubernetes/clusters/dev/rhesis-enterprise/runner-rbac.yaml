@@ -1,0 +1,36 @@
+# Lets rhesis-ee's enterprise-*.yml workflows (GCP identity enterprise-ci-dev, from
+# terraform/infrastructure/modules/connect-gateway/gcp, reaching the cluster through
+# Connect Gateway) run one-off rhesis-enterprise Jobs here and read their logs.
+#
+# No Secret permissions: the Jobs mount rhesis-enterprise-credentials by reference
+# (that needs no RBAC), and nothing else in this namespace is worth mounting.
+# Compare rhesis/license-issuer-rbac.yaml, whose identity is gated by prd reviewers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: enterprise-runner
+  namespace: rhesis-enterprise
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: enterprise-runner
+  namespace: rhesis-enterprise
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: enterprise-runner
+subjects:
+  - kind: User
+    name: enterprise-ci-dev@rhesis-dev-494712.iam.gserviceaccount.com
+    apiGroup: rbac.authorization.k8s.io
