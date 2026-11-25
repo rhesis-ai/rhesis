@@ -10,6 +10,9 @@ import {
   PLACEHOLDER_TEXT,
   TextPlaceholder,
 } from '@/components/loading/TextPlaceholder';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
+import { SKELETON_DELAY_MS } from '@/components/loading/DelayedReveal';
+import { useAnnounce } from '@/components/common/LiveAnnouncer';
 import { FAB_GROUP_GAP, rem } from '@/styles/theme-constants';
 
 /** Below this width the title takes its own row and the actions wrap under it. */
@@ -194,6 +197,23 @@ export function PageDescription({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * A loading view says so to screen readers (WCAG 4.1.3), after the same delay
+ * as its placeholders so a fast navigation stays quiet. The message goes
+ * through the app-wide live region, which is already mounted and so is read.
+ */
+function useLoadingAnnouncement(loading: boolean, title?: string) {
+  const announce = useAnnounce();
+  React.useEffect(() => {
+    if (!loading) return;
+    const timer = window.setTimeout(
+      () => announce(title ? `Loading ${title}` : 'Loading page'),
+      SKELETON_DELAY_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [loading, title, announce]);
+}
+
+/**
  * Standard page header + content wrapper.
  * Matches Figma Top 841:38534 and Section Text 841:38539.
  */
@@ -210,9 +230,15 @@ export function PageLayout({
   const crumbItems = breadcrumbs?.filter(b => b.label?.trim()) ?? [];
   const hasBreadcrumbs = crumbItems.length > 0 || pendingCrumbs > 0;
   const hasHeader = hasBreadcrumbs || title || description || actions;
+  const skeleton = useSkeletonMode();
+  useLoadingAnnouncement(
+    skeleton,
+    typeof title === 'string' ? title : undefined
+  );
 
   return (
     <Box
+      aria-busy={skeleton || undefined}
       sx={{
         width: '100%',
         ...(fullHeight && {
@@ -289,7 +315,11 @@ export function PageLayout({
               {description && <PageDescription>{description}</PageDescription>}
 
               {metadata && (
-                <Box sx={{ mt: description ? 1.5 : 0, width: '100%' }}>
+                <Box
+                  // Labels like "created by:" mean nothing without their values.
+                  inert={skeleton || undefined}
+                  sx={{ mt: description ? 1.5 : 0, width: '100%' }}
+                >
                   {metadata}
                 </Box>
               )}
