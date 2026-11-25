@@ -35,6 +35,7 @@ import logging
 from fastapi import Depends, Response
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import (
     get_current_organization,
     get_tenant_context,
@@ -109,8 +110,9 @@ def require_backstop(resource: QuotaResourceLike):
     ``get_current_organization`` that 403s on a missing org row -- or 500s
     on a transient failure in its own ``db.get`` -- would break ingestion
     from outside the ``try``, which is exactly what this gate exists to
-    prevent. Both dependencies below are already on the ingest route, so
-    FastAPI dedupes them and this adds no new pre-body failure mode.
+    prevent. It checks on a short session of its own (``backstop_session``)
+    rather than the request's, so the ingest routes hold no database
+    connection while they read and decode a body.
 
     Returns ``None`` (not the org) because the ingest route does not need
     the org from this dependency -- it already has it from its own
@@ -118,31 +120,15 @@ def require_backstop(resource: QuotaResourceLike):
     """
     resource = resource if isinstance(resource, QuotaResource) else QuotaResource(resource)
 
-    def _dep(
-        tenant_context: tuple = Depends(get_tenant_context),
-        db: Session = Depends(get_tenant_db_session),
-    ) -> None:
+    def _dep(tenant_context: tuple = Depends(get_tenant_context)) -> None:
         organization_id = None
         try:
-            organization_id, _user_id = tenant_context
+            organization_id, user_id = tenant_context
             if not organization_id:
                 # No org to attribute usage to; nothing to backstop.
                 return
-            org = db.get(Organization, organization_id)
-            if org is None:
-                # Bad org state, so fail open like any other lookup problem.
-                # Falling through with org=None would resolve the *community*
-                # policy and backstop a possibly-paid org at 10x the free
-                # tier -- a 402 on ingest caused purely by a billing-side
-                # lookup, which is what this gate exists to prevent.
-                logger.warning(
-                    "Backstop skipped: no organization row for %s (fail-open)",
-                    organization_id,
-                )
-                return
-            verdict = check_backstop(db, str(organization_id), org, resource)
-            if not verdict.allowed:
-                raise QuotaExceededError(verdict)
+            with backstop_session(organization_id, user_id) as db:
+                _check_backstop(db, organization_id, resource)
         except QuotaExceededError:
             raise
         except Exception:
@@ -153,6 +139,29 @@ def require_backstop(resource: QuotaResourceLike):
             )
 
     return _dep
+
+
+def backstop_session(organization_id: str, user_id: str):
+    """A short tenant session: the ingest routes hold none while they read a body."""
+    return get_db_with_tenant_variables(organization_id, user_id or "", "")
+
+
+def _check_backstop(db: Session, organization_id: str, resource: QuotaResource) -> None:
+    org = db.get(Organization, organization_id)
+    if org is None:
+        # Bad org state, so fail open like any other lookup problem.
+        # Falling through with org=None would resolve the *community*
+        # policy and backstop a possibly-paid org at 10x the free
+        # tier -- a 402 on ingest caused purely by a billing-side
+        # lookup, which is what this gate exists to prevent.
+        logger.warning(
+            "Backstop skipped: no organization row for %s (fail-open)",
+            organization_id,
+        )
+        return
+    verdict = check_backstop(db, str(organization_id), org, resource)
+    if not verdict.allowed:
+        raise QuotaExceededError(verdict)
 
 
 __all__ = ["QUOTA_WARNING_HEADER", "require_backstop", "require_job_capacity", "require_quota"]

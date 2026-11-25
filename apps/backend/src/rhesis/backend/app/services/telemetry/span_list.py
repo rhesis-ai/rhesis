@@ -112,4 +112,5 @@ def get_span_facets(
         span_names=values(facets.span_names),
         span_names_truncated=facets.span_names_truncated,
         models=values(facets.models),
+        agents=values(facets.agents),
     )

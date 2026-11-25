@@ -430,7 +430,8 @@ def translate_attributes(attributes: Mapping[str, Any]) -> dict[str, Any]:
     reports separately, a real ``ai.model.provider``, and removal of the raw
     content blobs whose payload we re-emit as span events.
     """
-    translated = _translate_genai_attributes(attributes)
+    # ADK reports input tokens without the cached ones, unlike the spec.
+    translated = _translate_genai_attributes(attributes, input_includes_cache=False)
 
     operation = attributes.get(GEN_AI_OPERATION_NAME)
     if operation == OP_GENERATE_CONTENT:

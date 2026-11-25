@@ -6796,10 +6796,18 @@ version = "0.7.0"
 source = { editable = "../../ee/backend" }
 dependencies = [
     { name = "google-cloud-secret-manager" },
+    { name = "googleapis-common-protos" },
+    { name = "opentelemetry-proto" },
+    { name = "protobuf" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "google-cloud-secret-manager", specifier = ">=2.20.0" }]
+requires-dist = [
+    { name = "google-cloud-secret-manager", specifier = ">=2.20.0" },
+    { name = "googleapis-common-protos", specifier = ">=1.56.0" },
+    { name = "opentelemetry-proto", specifier = ">=1.32.1" },
+    { name = "protobuf", specifier = ">=5.26.1" },
+]
 
 [[package]]
 name = "rhesis-penelope"

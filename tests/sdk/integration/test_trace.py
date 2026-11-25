@@ -5,6 +5,7 @@ filters match what the live routes actually return. Traces are ingested through
 the OTEL route, which is the only way one comes into being.
 """
 
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -70,7 +71,22 @@ def ingest_trace(
             ]
         },
     )
+    _wait_until_stored(trace_id, {root_span_id, child_span_id})
     return trace_id
+
+
+def _wait_until_stored(trace_id: str, span_ids: set, timeout: float = 30.0) -> None:
+    """Spans are queued and stored by a worker, so they appear a moment after ingest."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            stored = {s.span_id for s in Traces.pull(trace_id, project_id=TEST_PROJECT_ID).spans()}
+        except Exception:
+            stored = set()
+        if span_ids <= stored:
+            return
+        time.sleep(0.5)
+    raise AssertionError(f"Trace {trace_id} was not stored within {timeout}s")
 
 
 @pytest.fixture(scope="module")

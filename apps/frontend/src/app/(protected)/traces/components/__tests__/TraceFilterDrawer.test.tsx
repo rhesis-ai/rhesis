@@ -19,12 +19,14 @@ jest.mock('@/utils/active-project', () => ({
 }));
 
 const mockGetSpanFacets = jest.fn();
+const mockGetAgents = jest.fn();
 
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getProjectsClient: () => ({ getProjects: async () => [] }),
     getTelemetryClient: () => ({
       getProviders: async () => [],
+      getAgents: (...args: unknown[]) => mockGetAgents(...args),
       getSpanFacets: (...args: unknown[]) => mockGetSpanFacets(...args),
     }),
   })),
@@ -34,6 +36,8 @@ beforeEach(() => {
   mockReadActiveProjectId.mockReset();
   mockReadActiveProjectId.mockReturnValue(undefined);
   mockGetSpanFacets.mockReset();
+  mockGetAgents.mockReset();
+  mockGetAgents.mockResolvedValue([]);
   mockGetSpanFacets.mockResolvedValue({
     span_types: [
       { value: 'tool.invoke', count: 12 },
@@ -42,6 +46,7 @@ beforeEach(() => {
     span_names: [{ value: 'function.visit_prep_chat', count: 7 }],
     span_names_truncated: false,
     models: [],
+    agents: [],
   });
 });
 
@@ -92,6 +97,48 @@ describe('TraceFilterDrawer conversation filter', () => {
     expect(
       screen.queryByRole('button', { name: 'Single-Turn' })
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('TraceFilterDrawer agent filter', () => {
+  it('applies every ticked agent', async () => {
+    mockGetAgents.mockResolvedValue(['planner', 'researcher']);
+    const { onApply } = renderDrawer();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'planner' }));
+    fireEvent.click(screen.getByRole('button', { name: 'researcher' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({ agents: ['planner', 'researcher'] })
+    );
+  });
+
+  it('clears the filter when the last agent is unticked', async () => {
+    mockGetAgents.mockResolvedValue(['planner']);
+    const { onApply } = renderDrawer({
+      filters: { ...EMPTY_TRACE_DRAWER_FILTERS, agents: ['planner'] },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'planner' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(onApply.mock.calls[0][0].agents).toBeUndefined();
+  });
+
+  it('says so when there are no agents', async () => {
+    renderDrawer();
+
+    expect(await screen.findByText(/No agent runs yet/)).toBeInTheDocument();
+  });
+
+  it('scopes the list to the picked project only', async () => {
+    renderDrawer({
+      filters: { ...EMPTY_TRACE_DRAWER_FILTERS, projectId: 'proj-picked' },
+    });
+
+    await screen.findByText(/No agent runs yet/);
+    expect(mockGetAgents).toHaveBeenLastCalledWith('proj-picked');
   });
 });
 
@@ -215,6 +262,7 @@ describe('TraceFilterDrawer spans view', () => {
         span_names: [{ value: 'function.visit_prep_chat', count: 7 }],
         span_names_truncated: true,
         models: [],
+        agents: [],
       })
       .mockRejectedValueOnce(new Error('boom'));
     renderDrawer({ view: 'spans' });

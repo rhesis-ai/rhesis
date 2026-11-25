@@ -17,6 +17,7 @@ const full: TraceDrawerFilters = {
   traceSource: 'operation',
   traceMetricsStatus: 'Fail',
   providers: ['openai', 'gemini'],
+  agents: ['planner', 'researcher'],
   testRunId: 'run-1',
   testResultId: 'result-1',
   testId: 'test-1',

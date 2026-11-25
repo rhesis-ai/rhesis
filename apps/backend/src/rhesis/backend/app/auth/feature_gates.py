@@ -9,13 +9,14 @@ that need to branch on availability rather than reject.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import ContextManager, Optional
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_application_settings
+from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import (
     FeatureNameLike,
@@ -46,26 +47,46 @@ def _load_org(user: User, db: Session) -> Organization:
     return org
 
 
-def require_feature(name: FeatureNameLike):
+def _check(name: FeatureNameLike, current_user: User, db: Session) -> Organization:
+    org = _load_org(current_user, db)
+    if not FeatureRegistry.is_available(name, org):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Not available",
+        )
+    return org
+
+
+def short_session() -> ContextManager[Session]:
+    """A session closed as soon as the check is done; patched in tests."""
+    return get_db()
+
+
+def require_feature(name: FeatureNameLike, *, hold_session: bool = True):
     """Dependency factory: raise 404 if ``name`` is not available.
 
     Returning 404 (not 403) prevents feature enumeration -- from the
     outside an unlicensed feature is indistinguishable from a non-existent
     route. The dependency resolves the current user's organization and
     returns it so handlers can use it directly.
-    """
 
-    def _dep(
-        current_user: User = Depends(require_current_user_or_token),
-        db: Session = Depends(get_db_session),
-    ) -> Organization:
-        org = _load_org(current_user, db)
-        if not FeatureRegistry.is_available(name, org):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Not available",
-            )
-        return org
+    ``hold_session=False`` checks on a session of its own that is closed
+    before the handler runs, for routes that must not hold a database
+    connection while they read a large body (trace ingest).
+    """
+    if hold_session:
+
+        def _dep(
+            current_user: User = Depends(require_current_user_or_token),
+            db: Session = Depends(get_db_session),
+        ) -> Organization:
+            return _check(name, current_user, db)
+
+    else:
+
+        def _dep(current_user: User = Depends(require_current_user_or_token)) -> Organization:
+            with short_session() as db:
+                return _check(name, current_user, db)
 
     setattr(_dep, _FEATURE_ATTR, str(name))
     return _dep

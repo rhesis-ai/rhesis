@@ -124,6 +124,7 @@ EXEMPT_FUNCTIONS = [
     "rhesis.backend.app.main.health_check",
     "rhesis.backend.app.main.readiness_check",
     "rhesis.backend.app.routers.telemetry.ingest_trace",
+    "rhesis.backend.ee.otlp.router.ingest_otlp_traces",
 ]
 
 

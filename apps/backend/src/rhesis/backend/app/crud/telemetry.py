@@ -7,9 +7,10 @@ Import the functions directly::
 
 import logging
 import uuid
+import zlib
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
 from uuid import UUID
 
 from sqlalchemy import String, and_, asc, cast, desc, false, func, or_, select
@@ -22,11 +23,13 @@ from rhesis.backend.app.constants import (
     TestExecutionContext,
 )
 from rhesis.backend.app.crud.span_sql import (
+    SKIP_AGENT,
     SKIP_MODEL,
     SKIP_SPAN_NAME,
     SKIP_SPAN_TYPE,
     provider_clause,
     run_trace_clause,
+    span_agent_expr,
     span_breakdown_entry,
     span_cost_expr,
     span_filter_clauses,
@@ -257,6 +260,96 @@ def get_first_root_id(db: Session, trace_id: str) -> Optional[UUID]:
 # ============================================================================
 
 
+# Ingest locks hash keys into this many buckets per organization, so a batch
+# spanning thousands of traces takes a bounded number of locks. Advisory locks
+# share Postgres's lock table with every other session.
+INGEST_LOCK_BUCKETS = 256
+
+
+def lock_ingest_buckets(db: Session, namespace: str, keys: Iterable[str]) -> None:
+    """Hold, until the transaction ends, the advisory locks of ``keys``' buckets.
+
+    Taken in sorted order, so jobs locking overlapping buckets cannot deadlock.
+    """
+    buckets = {zlib.crc32(key.encode()) % INGEST_LOCK_BUCKETS for key in keys}
+    for bucket in sorted(buckets):
+        advisory_xact_lock(db, f"{namespace}:{bucket}")
+
+
+def lock_traces_for_ingest(db: Session, organization_id: str, trace_ids: Iterable[str]) -> None:
+    """Serialize ingest per trace until the transaction ends.
+
+    Ingest workers run in parallel and exporters retry, so two copies of a span
+    can be stored at once; each would pass the duplicate check before the other
+    commits. Locking the trace closes that window.
+    """
+    lock_ingest_buckets(db, f"trace-ingest:{organization_id}", trace_ids)
+
+
+def advisory_xact_lock(db: Session, key: str) -> None:
+    """Block until this transaction holds the advisory lock named ``key``."""
+    db.execute(select(func.pg_advisory_xact_lock(func.hashtextextended(key, 0))))
+
+
+def first_root_start_time(db: Session, trace_id: str) -> Optional[datetime]:
+    """When the earliest stored root span of a trace started, if it has one."""
+    return (
+        db.query(func.min(models.Trace.start_time))
+        .filter(models.Trace.trace_id == trace_id, models.Trace.parent_span_id.is_(None))
+        .scalar()
+    )
+
+
+def existing_span_keys(db: Session, keys: List[Tuple[str, str]]) -> set[Tuple[str, str]]:
+    """The ``(trace_id, span_id)`` pairs of ``keys`` already stored in the bound project."""
+    if not keys:
+        return set()
+    trace_ids = {trace_id for trace_id, _ in keys}
+    span_ids = {span_id for _, span_id in keys}
+    rows = (
+        db.query(models.Trace.trace_id, models.Trace.span_id)
+        .filter(models.Trace.trace_id.in_(trace_ids), models.Trace.span_id.in_(span_ids))
+        .all()
+    )
+    wanted = set(keys)
+    return {(row.trace_id, row.span_id) for row in rows} & wanted
+
+
+def move_spans_to_trace(
+    db: Session,
+    source_trace_id: str,
+    target_trace_id: str,
+    conversation_id: Optional[str],
+    source_attribute: str,
+) -> int:
+    """Re-file every stored span of ``source_trace_id`` under ``target_trace_id``.
+
+    Joins a conversation turn that arrived under its own trace id onto the
+    conversation's first trace. The old id is kept in ``source_attribute``,
+    unless the span already carries one from an earlier move.
+    Returns the number of spans moved.
+    """
+    values: Dict[Any, Any] = {
+        models.Trace.trace_id: target_trace_id,
+        # Left of ||, so a span already moved once keeps the id it first arrived under.
+        models.Trace.attributes: func.jsonb_build_object(
+            cast(source_attribute, String), cast(source_trace_id, String)
+        ).op("||")(models.Trace.attributes),
+        models.Trace.updated_at: datetime.now(timezone.utc),
+    }
+    if conversation_id:
+        values[models.Trace.conversation_id] = conversation_id
+    moved = bulk_update(
+        db,
+        models.Trace,
+        [models.Trace.trace_id == source_trace_id],
+        values,
+        synchronize_session=False,
+    )
+    db.flush()
+    return len(moved)
+
+
 def create_trace_spans(
     db: Session,
     spans: List[OTELSpanCreate],
@@ -278,8 +371,12 @@ def create_trace_spans(
     """
     from uuid import UUID as _UUID
 
-    def _safe_uuid(value: str | None, field_name: str) -> _UUID | None:
+    def _safe_uuid(value: Any, field_name: str) -> _UUID | None:
         if not value:
+            return None
+        if not isinstance(value, str):
+            # Attributes are exporter input: an array or number here must not fail the batch.
+            logger.warning(f"Non-string test context {field_name}: {value!r}")
             return None
         try:
             return _UUID(value)
@@ -288,8 +385,15 @@ def create_trace_spans(
             return None
 
     trace_models = []
+    # Exporters retry, so a batch can arrive twice. Skip spans already stored in
+    # this project and repeats within the batch itself.
+    seen = existing_span_keys(db, [(span.trace_id, span.span_id) for span in spans])
 
     for span in spans:
+        key = (span.trace_id, span.span_id)
+        if key in seen:
+            continue
+        seen.add(key)
         duration_ms = (span.end_time - span.start_time).total_seconds() * 1000
 
         test_run_id = span.attributes.get("rhesis.test.run_id")
@@ -303,8 +407,8 @@ def create_trace_spans(
             parent_span_id=span.parent_span_id,
             project_id=span.project_id,
             organization_id=organization_id,
-            environment=span.environment,
-            conversation_id=span.conversation_id,
+            environment=clean_strings_recursive(span.environment),
+            conversation_id=clean_strings_recursive(span.conversation_id),
             span_name=clean_strings_recursive(span.span_name),
             span_kind=span.span_kind.value,
             span_type=classify_span_type(span.attributes),
@@ -465,7 +569,55 @@ def _build_trace_search_conditions(pattern: str):
         attrs[EndpointAttributes.CONVERSATION_INPUT].as_string().ilike(pattern, escape=esc),
         attrs[EndpointAttributes.CONVERSATION_OUTPUT].as_string().ilike(pattern, escape=esc),
         attrs[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW].as_string().ilike(pattern, escape=esc),
+        attrs[AISpanAttributes.AGENT_NAME].as_string().ilike(pattern, escape=esc),
+        # A conversation turn joined from its own OTLP trace is still found by that id.
+        attrs[AISpanAttributes.SOURCE_TRACE_ID].as_string().ilike(pattern, escape=esc),
     )
+
+
+def _attribution_clauses(
+    db: Session,
+    org_uuid,
+    project_id: Optional[str],
+    providers: Optional[List[str]],
+    agents: Optional[List[str]],
+) -> list:
+    """Trace-list filters on who served or ran the trace: LLM providers and agents."""
+    clauses = []
+    if providers:
+        clauses.append(_provider_filter(db, org_uuid, project_id, providers))
+    if agents:
+        clauses.append(_agent_filter(org_uuid, project_id, agents))
+    return clauses
+
+
+def _agent_filter(org_uuid, project_id: Optional[str], agents: List[str]):
+    """Keep traces in which any span ran one of *agents*."""
+    scope = [
+        models.Trace.organization_id == org_uuid,
+        models.Trace.deleted_at.is_(None),
+        span_agent_expr().in_(agents),
+    ]
+    if project_id:
+        scope.append(models.Trace.project_id == project_id)
+    return models.Trace.trace_id.in_(select(models.Trace.trace_id).where(*scope))
+
+
+def list_trace_agents(
+    db: Session,
+    organization_id: str,
+    project_id: Optional[str] = None,
+) -> List[str]:
+    """Every agent name appearing in a scope's spans, for the traces filter."""
+    clauses = [
+        models.Trace.organization_id == UUID(str(organization_id)),
+        models.Trace.deleted_at.is_(None),
+        span_agent_expr().isnot(None),
+    ]
+    if project_id:
+        clauses.append(models.Trace.project_id == project_id)
+    rows = db.query(span_agent_expr()).filter(*clauses).distinct().all()
+    return sorted(row[0] for row in rows if row[0])
 
 
 def _provider_scope(db: Session, org_uuid, project_id: Optional[str]):
@@ -565,6 +717,7 @@ def query_traces(
     test_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
     providers: Optional[List[str]] = None,
+    agents: Optional[List[str]] = None,
     trace_metrics_status: Optional[str] = None,
     sort_by: Optional[str] = None,
     sort_order: str = "desc",
@@ -799,8 +952,7 @@ def query_traces(
     if conversation_id:
         query = query.filter(models.Trace.conversation_id == conversation_id)
 
-    if providers:
-        query = query.filter(_provider_filter(db, org_uuid, project_id, providers))
+    query = query.filter(*_attribution_clauses(db, org_uuid, project_id, providers, agents))
 
     # Trace type filter (single-turn vs multi-turn)
     if trace_type == TraceType.MULTI_TURN:
@@ -912,6 +1064,7 @@ class SpanFacetCounts(NamedTuple):
     span_names: list
     span_names_truncated: bool
     models: list
+    agents: list
 
 
 def _span_provider_clause(db: Session, org_uuid, project_id: Optional[str], providers: List[str]):
@@ -1103,6 +1256,7 @@ def span_facets(
         span_names=names[:name_limit],
         span_names_truncated=len(names) > name_limit,
         models=counts(span_model_expr(span_breakdown_entry()), SKIP_MODEL),
+        agents=counts(span_agent_expr(), SKIP_AGENT),
     )
 
 

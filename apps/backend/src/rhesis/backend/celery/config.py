@@ -65,6 +65,9 @@ CELERY_CONFIG = {
     # Task execution settings
     "task_routes": {
         "rhesis.backend.jobs.execution.*": {"queue": "execution"},
+        # Its own queue, so ingest admission measures only ingest and a backlog of
+        # trace evaluations cannot delay storing spans.
+        "rhesis.backend.jobs.telemetry.ingest.ingest_spans": {"queue": "trace-ingest"},
         "rhesis.backend.jobs.telemetry.*": {"queue": "telemetry"},
         "rhesis.backend.jobs.architect.*": {"queue": "architect"},
     },
@@ -114,6 +117,7 @@ CELERY_CONFIG = {
         "rhesis.backend.jobs.telemetry.enrich",
         "rhesis.backend.jobs.architect.chat",
         "rhesis.backend.jobs.telemetry.evaluate",
+        "rhesis.backend.jobs.telemetry.ingest",
         "rhesis.backend.jobs.telemetry.post_ingest",
         "rhesis.backend.jobs.retention",
         "rhesis.backend.jobs.trace_retention",

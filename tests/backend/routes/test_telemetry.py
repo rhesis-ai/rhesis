@@ -18,6 +18,9 @@ from fastapi.testclient import TestClient
 from rhesis.backend.app import dependencies, models
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
+from rhesis.backend.app.routers import telemetry_intake
+from rhesis.backend.app.services.telemetry import admission
+from rhesis.backend.jobs.telemetry import ingest as ingest_jobs
 from tests.backend.fixtures.rls import scope_to_project
 from tests.backend.routes.fixtures.data_factories import TraceDataFactory
 
@@ -189,6 +192,82 @@ class TestTraceAuthentication:
         response = authenticated_client.post("/telemetry/traces", json=trace_batch)
 
         assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.integration
+class TestTraceIngestLimits:
+    """Span count cap, broker outage and resends on the SDK route."""
+
+    def _limit(self, monkeypatch, **changes):
+        limits = telemetry_intake.settings().model_copy(update=changes)
+        monkeypatch.setattr(telemetry_intake, "settings", lambda: limits)
+
+    def test_too_many_spans(self, authenticated_client: TestClient, monkeypatch, db_project):
+        self._limit(monkeypatch, max_spans_per_request=2)
+        spans = TraceDataFactory.batch_data(count=3, same_trace=True, project_id=str(db_project.id))
+
+        response = authenticated_client.post("/telemetry/traces", json={"spans": spans})
+
+        assert response.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+        assert "retry-after" not in response.headers
+
+    def test_broker_down_answers_503(
+        self, authenticated_client: TestClient, monkeypatch, db_project
+    ):
+        def broken(*_args):
+            raise ConnectionError("redis is down")
+
+        monkeypatch.setattr(ingest_jobs, "enqueue_ingest", broken)
+        span = TraceDataFactory.minimal_data(project_id=str(db_project.id))
+
+        response = authenticated_client.post("/telemetry/traces", json={"spans": [span]})
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert response.headers["retry-after"] == "30"
+
+    def test_resent_batch_is_stored_once(
+        self, authenticated_client: TestClient, test_db, db_project
+    ):
+        spans = TraceDataFactory.batch_data(count=3, same_trace=True, project_id=str(db_project.id))
+
+        for _ in range(2):
+            response = authenticated_client.post("/telemetry/traces", json={"spans": spans})
+            assert response.status_code == status.HTTP_200_OK
+
+        scope_to_project(test_db, db_project.id)
+        rows = test_db.query(models.Trace).filter(models.Trace.trace_id == spans[0]["trace_id"])
+        assert rows.count() == 3
+
+    def test_a_busy_process_refuses_before_authenticating(self, client: TestClient, monkeypatch):
+        self._limit(monkeypatch, max_concurrent_requests=1)
+        monkeypatch.setattr(admission.inflight, "requests", 1)
+
+        response = client.post(
+            "/telemetry/traces",
+            json={"spans": []},
+            headers={"Authorization": "Bearer rh-not-a-token"},
+        )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert response.headers["retry-after"] == "30"
+
+    def test_test_context_of_the_wrong_type_is_stored_without_it(
+        self, authenticated_client: TestClient, test_db, db_project, inline_trace_ingest
+    ):
+        span = TraceDataFactory.minimal_data(project_id=str(db_project.id))
+        span["attributes"] = {
+            "rhesis.test.run_id": ["not", "a", "uuid"],
+            "rhesis.test.result_id": 42,
+            "rhesis.test.test_configuration_id": {"id": "x"},
+        }
+
+        response = authenticated_client.post("/telemetry/traces", json={"spans": [span]})
+
+        assert response.status_code == status.HTTP_200_OK
+        scope_to_project(test_db, db_project.id)
+        row = test_db.query(models.Trace).filter(models.Trace.trace_id == span["trace_id"]).one()
+        assert row.test_run_id is None and row.test_result_id is None
+        assert row.attributes["rhesis.test.run_id"] == ["not", "a", "uuid"]
 
 
 @pytest.mark.integration

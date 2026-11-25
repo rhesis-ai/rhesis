@@ -18,12 +18,15 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 1. Embeddings are now off by default. To keep generating them, set `EMBEDDINGS_ENABLED=true` on the backend and the worker, or `config.embeddingsEnabled: true` in the Helm chart.
 2. If you set `MAX_PER_TEST_TIMEOUT` or `EXECUTION_TIME_LIMIT`, consider removing them. Unset, they now follow the new `MAX_ENDPOINT_TIMEOUT` (default 7200): a test may take the endpoint timeout plus 300s, and a run that plus 900s. Values you set still win, and the backend logs a warning at startup when they are lower than the endpoint ceiling.
 3. If API clients call `Endpoint.invoke()` on endpoints slower than a minute, raise the read timeout on the proxy in front of the API host to at least `MAX_ENDPOINT_TIMEOUT`. ingress-nginx defaults to 60 seconds; set the `nginx.ingress.kubernetes.io/proxy-read-timeout` annotation on the backend ingress.
+4. Make sure a Celery worker consumes the new `trace-ingest` queue. The stock worker image (`apps/worker/start.sh`), docker-compose and the Helm chart already do. A worker started with its own `--queues` list must add `trace-ingest`; without it, traces are accepted but never stored.
 
 ### Added
 
 - SSO role mapping: organization and project roles can follow the groups your identity provider sends at sign-in, with a preview of who changes before you save and a JSON editor. The SSO settings are now split into Connection, Sign-in and Role mapping tabs, and the identity provider is recognised from the issuer URL.
 - A failed SSO sign-in now shows a page that explains what went wrong, with a reference the administrator can find in the backend log.
 - Scheduled test runs. Run a test set against an endpoint once at a set time or on a repeating schedule, from the run drawer or the new Schedules tab on Test Runs. Schedules have a week calendar, a page of their own, notifications, and MCP tools. Self-hosted deployments need no change: the existing `beat` service starts the runs. `SCHEDULE_MIN_INTERVAL_MINUTES` and `SCHEDULE_DISPATCH_ENABLED` are optional.
+- OTLP/HTTP trace ingest (Enterprise): `POST /telemetry/v1/traces` accepts traces from any OpenTelemetry exporter (Collector, Grafana Alloy, an SDK's `OTLPSpanExporter`) in protobuf or JSON, gzip or not, and translates the OpenTelemetry GenAI semantic conventions (v0.1.0) into the Rhesis trace model. Turns sharing `gen_ai.conversation.id` become one conversation. See Tracing → OTLP (GenAI Conventions).
+- The trace list shows each trace's agent and filters by agent name; `GET /telemetry/agents` lists the agents in a project, and the spans list and its facets filter by agent too.
 
 ### Changed
 
@@ -37,6 +40,8 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 - The pre-run connectivity check waits for the endpoint's timeout, up to 1 minute, and reports a slower endpoint as a warning instead of a failure.
 - The test button in the endpoint form and on the endpoint page says when it stops waiting before the endpoint's timeout. Test runs still wait the full timeout.
 - The Helm chart gives worker pods 9000 seconds to finish running jobs on shutdown (was the Kubernetes default of 30), which covers a test run at the default run time limit. Set `workers[].terminationGracePeriodSeconds` to change it. Docker Compose does the same for the worker service (was 10 seconds); set `WORKER_STOP_GRACE_PERIOD` to change it. `docker compose stop` now waits for running test runs.
+- Trace ingest no longer writes to the database during the request. `POST /telemetry/traces` validates the spans and queues them on a new `trace-ingest` Celery queue, so they appear a few seconds later, and a resent batch is no longer stored twice. Both ingest routes enforce size, rate and queue limits, answering 413, or 429/503 with `Retry-After`; the SDK exporter retries 429 and 503 within its export timeout. The limits are set with `TRACE_INGEST_*` environment variables (see Self-hosting → Environment variables → Trace ingest limits).
+- SDK integrations for Microsoft Agent Framework and Pydantic AI: `create_agent` spans are now `ai.agent.create` with `ai.operation.type` `agent.create` (were `ai.agent.invoke`), and `ai.llm.tokens.input` from GenAI-convention spans no longer includes cache reads and writes, which are reported in `ai.llm.tokens.cache_read` and `ai.llm.tokens.cache_write`.
 
 ### Fixed
 

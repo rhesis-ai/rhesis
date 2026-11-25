@@ -13,6 +13,7 @@ export const FeatureName = {
   RBAC: 'rbac',
   AUDIT_LOG: 'audit_log',
   ADVANCED_REPORTS: 'advanced_reports',
+  OTLP_INGEST: 'otlp_ingest',
 } as const;
 
 export type FeatureName = (typeof FeatureName)[keyof typeof FeatureName];

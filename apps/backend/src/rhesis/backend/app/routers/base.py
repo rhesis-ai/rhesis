@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from fastapi import APIRouter
 
@@ -34,3 +34,26 @@ class RhesisRouter(APIRouter):
             extra.setdefault("x-rhesis-resource", self._rhesis_resource)
             kwargs["openapi_extra"] = extra
         super().add_api_route(path, endpoint, **kwargs)
+
+
+_FIRST_DEPENDENCY_ATTR = "__rhesis_first_dependency__"
+
+
+def run_first(dependency: Callable[..., Any]):
+    """Mark an endpoint so ``dependency`` is solved before every other one, auth included.
+
+    For admission control that must turn a request away before it costs a
+    database connection; ``main.apply_first_dependencies`` does the insertion
+    once the auth backstops are in place. The endpoint can also declare
+    ``Depends(dependency)`` to receive its value: FastAPI solves it once per request.
+    """
+
+    def mark(endpoint):
+        setattr(endpoint, _FIRST_DEPENDENCY_ATTR, dependency)
+        return endpoint
+
+    return mark
+
+
+def first_dependency_of(endpoint: Any) -> Optional[Callable[..., Any]]:
+    return getattr(endpoint, _FIRST_DEPENDENCY_ATTR, None)

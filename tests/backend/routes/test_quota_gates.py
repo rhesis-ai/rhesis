@@ -921,7 +921,18 @@ class TestRequireBackstopFailsOpen:
     def _dep(self, resource=QuotaResource.TRACING_SPANS):
         return require_backstop(resource)
 
-    def test_a_missing_org_row_allows_the_request(self, test_db, test_org_id, clean_registry):
+    @staticmethod
+    def _session(monkeypatch, session):
+        """The backstop checks on a short session of its own; hand it ``session``."""
+        from contextlib import nullcontext
+
+        from rhesis.backend.app.auth import quota_gates
+
+        monkeypatch.setattr(quota_gates, "backstop_session", lambda *_args: nullcontext(session))
+
+    def test_a_missing_org_row_allows_the_request(
+        self, test_db, test_org_id, clean_registry, monkeypatch
+    ):
         """The regression this guards: falling through with ``org=None``
         resolves the *community* policy, so a possibly-paid org would be
         backstopped at 10x the free tier and 402 on ingest -- caused purely
@@ -933,16 +944,17 @@ class TestRequireBackstopFailsOpen:
             def get(self, *_args, **_kwargs):
                 return None
 
+        self._session(monkeypatch, _NoOrgSession())
         # Returns None (allows) rather than raising QuotaExceededError.
-        assert self._dep()(tenant_context=(test_org_id, None), db=_NoOrgSession()) is None
+        assert self._dep()(tenant_context=(test_org_id, None)) is None
 
     def test_no_org_in_context_allows_the_request(self, clean_registry):
         """Nothing to attribute usage to, so nothing to backstop."""
         _install(QuotaPolicy(limits={QuotaResource.TRACING_SPANS: 1}))
 
-        assert self._dep()(tenant_context=(None, None), db=None) is None
+        assert self._dep()(tenant_context=(None, None)) is None
 
-    def test_a_lookup_that_raises_allows_the_request(self, clean_registry):
+    def test_a_lookup_that_raises_allows_the_request(self, clean_registry, monkeypatch):
         """Fail-open covers the DB being unreachable, not just a null row."""
         _install(QuotaPolicy(limits={QuotaResource.TRACING_SPANS: 1}))
 
@@ -950,4 +962,5 @@ class TestRequireBackstopFailsOpen:
             def get(self, *_args, **_kwargs):
                 raise RuntimeError("connection reset")
 
-        assert self._dep()(tenant_context=("some-org", None), db=_BrokenSession()) is None
+        self._session(monkeypatch, _BrokenSession())
+        assert self._dep()(tenant_context=("some-org", None)) is None

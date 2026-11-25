@@ -10,6 +10,12 @@ dependencies = [
     # apps/backend/pyproject.toml so community installs (no [ee] extra)
     # don't pull it in for nothing.
     "google-cloud-secret-manager>=2.20.0",
+    # OTLP ingest (otlp/) decodes ExportTraceServiceRequest and answers with
+    # google.rpc.Status; imported directly, so declared rather than inherited
+    # from the OTLP exporter the core backend depends on.
+    "googleapis-common-protos>=1.56.0",
+    "opentelemetry-proto>=1.32.1",
+    "protobuf>=5.26.1",
 ]
 
 [tool.hatch.build.targets.wheel]

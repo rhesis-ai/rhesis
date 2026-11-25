@@ -231,7 +231,7 @@ echo "Starting Celery worker with full output..."
 
 # Two workers share the same hostname; -n gives each a unique node name so
 # they don't collide on the broker. %h expands to the container hostname.
-# CELERY_WORKER_CONCURRENCY           -> main worker  (celery, execution, telemetry)
+# CELERY_WORKER_CONCURRENCY           -> main worker  (celery, execution, telemetry, trace-ingest)
 # CELERY_ARCHITECT_CONCURRENCY        -> architect worker (architect queue only)
 # CELERY_WORKER_PREFETCH_MULTIPLIER   -> prefetch for main worker
 # CELERY_ARCHITECT_PREFETCH_MULTIPLIER -> prefetch for architect worker
@@ -241,12 +241,12 @@ echo "Starting Celery worker with full output..."
 # work (LLM API calls, DB queries). No -E: celery/config.py turns task events
 # off; add it via CELERY_WORKER_OPTS when Flower needs a live task view.
 
-MAIN_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n main@%h --queues=celery,execution,telemetry --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_WORKER_CONCURRENCY --prefetch-multiplier=$CELERY_WORKER_PREFETCH_MULTIPLIER --optimization=fair $CELERY_WORKER_OPTS"
+MAIN_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n main@%h --queues=celery,execution,telemetry,trace-ingest --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_WORKER_CONCURRENCY --prefetch-multiplier=$CELERY_WORKER_PREFETCH_MULTIPLIER --optimization=fair $CELERY_WORKER_OPTS"
 ARCHITECT_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n architect@%h --queues=architect --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_ARCHITECT_CONCURRENCY --prefetch-multiplier=$CELERY_ARCHITECT_PREFETCH_MULTIPLIER --optimization=fair $CELERY_WORKER_OPTS"
 
 echo "--- Main worker ---"
 echo "Command:     $MAIN_CMD"
-echo "Queues:      celery,execution,telemetry"
+echo "Queues:      celery,execution,telemetry,trace-ingest"
 echo "Concurrency: $CELERY_WORKER_CONCURRENCY"
 echo "Prefetch:    $CELERY_WORKER_PREFETCH_MULTIPLIER"
 echo ""

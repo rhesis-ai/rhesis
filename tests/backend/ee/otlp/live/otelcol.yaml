@@ -1,0 +1,30 @@
+# An OpenTelemetry Collector relaying OTLP to Rhesis, the way any
+# Collector or Grafana Alloy would. Used by test_live.py.
+#   RHESIS_OTLP_ENDPOINT  e.g. http://host.docker.internal:8220/telemetry
+#   RHESIS_API_TOKEN      a Rhesis API token
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+    send_batch_size: 8
+    timeout: 1s
+
+exporters:
+  otlphttp/rhesis:
+    endpoint: ${env:RHESIS_OTLP_ENDPOINT}
+    compression: gzip
+    headers:
+      Authorization: "Bearer ${env:RHESIS_API_TOKEN}"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/rhesis]

@@ -329,7 +329,7 @@ def _drain_spans(provider: TracerProvider, exporter: InMemorySpanExporter):
         (
             "create_agent assistant",
             {mapping.GEN_AI_OPERATION_NAME: "create_agent"},
-            "ai.agent.invoke",
+            "ai.agent.create",
         ),
         (
             "execute_tool calculator",

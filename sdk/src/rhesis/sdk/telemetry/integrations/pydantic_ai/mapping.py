@@ -62,7 +62,7 @@ MODEL_NAME = "model_name"
 _OPERATION_TO_SPAN_NAME: Mapping[str, str] = {
     OP_CHAT: AIOperationType.LLM_INVOKE,
     OP_INVOKE_AGENT: "ai.agent.invoke",
-    OP_CREATE_AGENT: "ai.agent.invoke",
+    OP_CREATE_AGENT: AIOperationType.AGENT_CREATE,
     OP_EXECUTE_TOOL: AIOperationType.TOOL_INVOKE,
 }
 

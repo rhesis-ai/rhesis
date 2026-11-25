@@ -747,7 +747,7 @@ Each id has its own field, and they are not interchangeable within one. `create_
 ### `list_traces`
 List traces, one row per trace by default (the root span).
 
-Returns per row, newest first: `trace_id`, `project_id`, `start_time`, `duration_ms`, `span_count`, `root_operation`, `status_code`, `has_errors`, `environment`, `conversation_id`, `trace_metrics_status`, `conversation_input` (the request that started it — how you tell traces apart without opening them), the token and cost totals (`total_tokens` and `total_cost_usd`, each also split input/output, plus `total_cost_eur`), `models`, `providers`, the run links (`test_run_id`, `test_result_id`, `test_id`, `endpoint_id`, `endpoint_name`), and the human verdict where there is one (`has_annotations`, `verdict`, `last_annotation`, `matches_annotation`).
+Returns per row, newest first: `trace_id`, `project_id`, `start_time`, `duration_ms`, `span_count`, `root_operation`, `agent_name` (the agent the root span ran, when it names one), `status_code`, `has_errors`, `environment`, `conversation_id`, `trace_metrics_status`, `conversation_input` (the request that started it — how you tell traces apart without opening them), the token and cost totals (`total_tokens` and `total_cost_usd`, each also split input/output, plus `total_cost_eur`), `models`, `providers`, the run links (`test_run_id`, `test_result_id`, `test_id`, `endpoint_id`, `endpoint_name`), and the human verdict where there is one (`has_annotations`, `verdict`, `last_annotation`, `matches_annotation`).
 
 **Key parameters:**
 - `test_run_id` — the traces one run produced, one per test execution. The usual entry point.
@@ -762,6 +762,7 @@ Returns per row, newest first: `trace_id`, `project_id`, `start_time`, `duration
 - `trace_source` — `"test"`, `"operation"` (production traffic) or `"all"`
 - `trace_type` — `"Single-Turn"`, `"Multi-Turn"` or `"all"`
 - `provider` — repeatable; a trace whose costs are not priced yet matches none, so this can hide recent traces
+- `agent` — repeatable; matches a trace in which any span ran one of the named agents (`ai.agent.name`), sub-agents included. Values come from `list_trace_agents`
 
 **Cost can be null, and null is not zero.** A null `total_cost_usd` means the call was not priced: no price is held for that model, or the span reported no model name. `0` means it was priced and the model really is free. Do not add nulls in as zero, and do not read `cost == 0` as unpriced. When reporting a total across traces, say how many of them carried a price, because a sum over the priced ones is a floor rather than the whole figure. The trace keeps its tokens and model names either way, so an unpriced trace is still worth reporting on.
 - `project_id` — omit to use the caller's scope
@@ -787,6 +788,17 @@ A provider that neither the trace nor its model name identifies is reported as `
 **Key parameters:** `project_id` (omit to use the caller's scope)
 
 **CHAIN:** `list_trace_providers` → `list_traces` with `provider`, the way `list_statuses` comes before `create_annotation`.
+
+---
+
+### `list_trace_agents`
+List the agent names (`ai.agent.name`) appearing in this scope's traces.
+
+These are the values `list_traces` accepts for `agent`. Get a name from here rather than guessing one: an unmatched agent returns an empty page rather than an error. Applications that don't name their agents contribute nothing, so an empty list means no span in scope named an agent.
+
+**Key parameters:** `project_id` (omit to use the caller's scope)
+
+**CHAIN:** `list_trace_agents` → `list_traces` with `agent`.
 
 ---
 

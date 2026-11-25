@@ -31,6 +31,7 @@ const SINGLE_KEYS = {
 
 const LIST_KEYS = {
   providers: 'provider',
+  agents: 'agent',
   spanTypes: 'span_type',
   spanNames: 'span_name',
 } as const satisfies Partial<Record<keyof TraceDrawerFilters, string>>;
