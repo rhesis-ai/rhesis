@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import DelayedReveal from './DelayedReveal';
-import SkeletonPageHeader from './SkeletonPageHeader';
+import SkeletonPageHeader, { type LoadingHeader } from './SkeletonPageHeader';
 import { skeletonBorder } from './skeletonSurface';
 import { skeletonTextSx } from './skeletonText';
 import SkeletonToolbar from './SkeletonToolbar';
@@ -54,10 +54,13 @@ const BREAKDOWN = {
 export interface PageDashboardSkeletonProps {
   /** FAB placeholders in the header, matching the page's action cluster. */
   actionCount?: number;
+  /** What the route knows about its header, drawn at once. */
+  header?: LoadingHeader;
 }
 
 export default function PageDashboardSkeleton({
   actionCount = 2,
+  header,
 }: PageDashboardSkeletonProps = {}) {
   const columnKeys = ['passed', 'failed', 'pending'];
   const rowKeys = Array.from({ length: BREAKDOWN.rows }, (_, i) => `row-${i}`);
@@ -67,100 +70,101 @@ export default function PageDashboardSkeleton({
   );
 
   return (
-    <DelayedReveal>
-      <SkeletonPageHeader actionCount={actionCount} />
-
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: BREAKDOWN.sectionGap,
-        }}
-        aria-hidden
-      >
-        {/* Compact filter bar */}
-        <SkeletonToolbar gap={FILTERS.gap} showTabs={false} />
-
-        {/* Pass-rate summary bar */}
-        <Box
-          sx={{
-            px: SUMMARY.paddingX,
-            py: SUMMARY.paddingY,
-            borderRadius: SUMMARY.radius,
-            border: skeletonBorder,
-            bgcolor: 'background.paper',
-          }}
-        >
-          <Skeleton
-            variant="text"
-            width={SUMMARY.labelWidth}
-            sx={skeletonTextSx('bodyMReg')}
-          />
-          <Skeleton
-            variant="rounded"
-            width="100%"
-            height={SUMMARY.barHeight}
-            sx={{ borderRadius: BORDER_RADIUS.pill }}
-          />
-        </Box>
-
-        {/* Three-column requirement breakdown */}
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: BREAKDOWN.columns,
-            gap: BREAKDOWN.sectionGap,
-          }}
-        >
-          {columnKeys.map(columnKey => (
-            <Box
-              key={columnKey}
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1,
-                border: skeletonBorder,
-                borderRadius: BORDER_RADIUS.md,
-                bgcolor: 'background.paper',
-                p: 2,
-              }}
-            >
-              <Skeleton
-                variant="text"
-                width={BREAKDOWN.columnHeadingWidth}
-                sx={skeletonTextSx('bodyMReg')}
-              />
-              {lineKeys.map((lineKey, idx) => (
-                <Skeleton
-                  key={lineKey}
-                  variant="text"
-                  width={idx % 2 === 0 ? '88%' : '64%'}
-                  sx={skeletonTextSx('bodySReg')}
-                />
-              ))}
-            </Box>
-          ))}
-        </Box>
-
-        {/* Per-requirement rows */}
+    <>
+      <SkeletonPageHeader actionCount={actionCount} {...header} />
+      <DelayedReveal>
         <Box
           sx={{
             display: 'flex',
             flexDirection: 'column',
-            gap: BREAKDOWN.rowGap,
+            gap: BREAKDOWN.sectionGap,
           }}
+          aria-hidden
         >
-          {rowKeys.map(rowKey => (
+          {/* Compact filter bar */}
+          <SkeletonToolbar gap={FILTERS.gap} showTabs={false} />
+
+          {/* Pass-rate summary bar */}
+          <Box
+            sx={{
+              px: SUMMARY.paddingX,
+              py: SUMMARY.paddingY,
+              borderRadius: SUMMARY.radius,
+              border: skeletonBorder,
+              bgcolor: 'background.paper',
+            }}
+          >
             <Skeleton
-              key={rowKey}
+              variant="text"
+              width={SUMMARY.labelWidth}
+              sx={skeletonTextSx('bodyMReg')}
+            />
+            <Skeleton
               variant="rounded"
               width="100%"
-              height={BREAKDOWN.rowHeight}
-              sx={{ borderRadius: BORDER_RADIUS.md }}
+              height={SUMMARY.barHeight}
+              sx={{ borderRadius: BORDER_RADIUS.pill }}
             />
-          ))}
+          </Box>
+
+          {/* Three-column requirement breakdown */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: BREAKDOWN.columns,
+              gap: BREAKDOWN.sectionGap,
+            }}
+          >
+            {columnKeys.map(columnKey => (
+              <Box
+                key={columnKey}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                  border: skeletonBorder,
+                  borderRadius: BORDER_RADIUS.md,
+                  bgcolor: 'background.paper',
+                  p: 2,
+                }}
+              >
+                <Skeleton
+                  variant="text"
+                  width={BREAKDOWN.columnHeadingWidth}
+                  sx={skeletonTextSx('bodyMReg')}
+                />
+                {lineKeys.map((lineKey, idx) => (
+                  <Skeleton
+                    key={lineKey}
+                    variant="text"
+                    width={idx % 2 === 0 ? '88%' : '64%'}
+                    sx={skeletonTextSx('bodySReg')}
+                  />
+                ))}
+              </Box>
+            ))}
+          </Box>
+
+          {/* Per-requirement rows */}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: BREAKDOWN.rowGap,
+            }}
+          >
+            {rowKeys.map(rowKey => (
+              <Skeleton
+                key={rowKey}
+                variant="rounded"
+                width="100%"
+                height={BREAKDOWN.rowHeight}
+                sx={{ borderRadius: BORDER_RADIUS.md }}
+              />
+            ))}
+          </Box>
         </Box>
-      </Box>
-    </DelayedReveal>
+      </DelayedReveal>
+    </>
   );
 }

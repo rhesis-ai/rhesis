@@ -1,16 +1,18 @@
 import PageLoadingState from '@/components/common/PageLoadingState';
 import DelayedReveal from '@/components/loading/DelayedReveal';
 import SkeletonPageHeader from '@/components/loading/SkeletonPageHeader';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 // Playground is a chat interface, so its body has no predictable shape to
-// skeleton: a spinner is the honest placeholder there. It does render a
-// PageLayout header with two FABs though, unlike architect, so the header is
-// worth drawing.
+// skeleton: a spinner is the honest placeholder there. Its header is fixed, so
+// it is drawn for real at once.
 export default function PlaygroundLoading() {
   return (
-    <DelayedReveal>
-      <SkeletonPageHeader actionCount={2} />
-      <PageLoadingState />
-    </DelayedReveal>
+    <>
+      <SkeletonPageHeader {...PAGE_HEADERS.playground} />
+      <DelayedReveal>
+        <PageLoadingState />
+      </DelayedReveal>
+    </>
   );
 }

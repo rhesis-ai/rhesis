@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import { BORDER_RADIUS, GRID_CARD_INSET } from '@/styles/theme-constants';
 import DelayedReveal from './DelayedReveal';
-import SkeletonPageHeader from './SkeletonPageHeader';
+import SkeletonPageHeader, { type LoadingHeader } from './SkeletonPageHeader';
 import { skeletonSurfaceSx } from './skeletonSurface';
 import { skeletonTextSx } from './skeletonText';
 import SkeletonToolbar from './SkeletonToolbar';
@@ -71,6 +71,8 @@ export interface PageCardGridSkeletonProps {
    * is the one card directory that gives GridToolbar no `middleContent`.
    */
   showTabs?: boolean;
+  /** What the route knows about its header, drawn at once. */
+  header?: LoadingHeader;
 }
 
 export default function PageCardGridSkeleton({
@@ -78,6 +80,7 @@ export default function PageCardGridSkeleton({
   cards = 6,
   showToolbar = true,
   showTabs = true,
+  header,
 }: PageCardGridSkeletonProps = {}) {
   const cardKeys = Array.from({ length: cards }, (_, i) => `card-${i}`);
   const descriptionKeys = Array.from(
@@ -86,116 +89,121 @@ export default function PageCardGridSkeleton({
   );
 
   return (
-    <DelayedReveal>
-      <SkeletonPageHeader actionCount={actionCount} />
+    <>
+      <SkeletonPageHeader actionCount={actionCount} {...header} />
+      <DelayedReveal>
+        {showToolbar && (
+          <SkeletonToolbar
+            gap={DIRECTORY_TOOLBAR.gap}
+            showTabs={showTabs}
+            sx={{ mb: DIRECTORY_TOOLBAR.marginBottom }}
+          />
+        )}
 
-      {showToolbar && (
-        <SkeletonToolbar
-          gap={DIRECTORY_TOOLBAR.gap}
-          showTabs={showTabs}
-          sx={{ mb: DIRECTORY_TOOLBAR.marginBottom }}
-        />
-      )}
-
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: CARD_GRID.columns,
-          gap: CARD_GRID.gap,
-          mb: CARD_GRID.marginBottom,
-        }}
-        aria-hidden
-      >
-        {cardKeys.map(cardKey => (
-          <Box
-            key={cardKey}
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: CARD.gap,
-              ...skeletonSurfaceSx,
-              p: GRID_CARD_INSET,
-            }}
-          >
-            {/* Context */}
-            <Skeleton
-              variant="text"
-              width={CARD.contextWidth}
-              sx={skeletonTextSx('bodyMReg')}
-            />
-
-            {/* Title row: icon plus name */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: CARD_GRID.columns,
+            gap: CARD_GRID.gap,
+            mb: CARD_GRID.marginBottom,
+          }}
+          aria-hidden
+        >
+          {cardKeys.map(cardKey => (
             <Box
-              sx={{ display: 'flex', alignItems: 'center', gap: CARD.titleGap }}
+              key={cardKey}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: CARD.gap,
+                ...skeletonSurfaceSx,
+                p: GRID_CARD_INSET,
+              }}
             >
-              <Skeleton
-                variant="circular"
-                width={CARD.iconSize}
-                height={CARD.iconSize}
-              />
+              {/* Context */}
               <Skeleton
                 variant="text"
-                width={CARD.titleWidth}
-                sx={skeletonTextSx('h6')}
-              />
-            </Box>
-
-            {/* Facts: kind chip plus one plain fact */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-              <Skeleton
-                variant="rounded"
-                width={CARD.chipWidth}
-                height={CARD.chipHeight}
-                sx={{ borderRadius: BORDER_RADIUS.pill }}
-              />
-              <Skeleton
-                variant="text"
-                width={CARD.factWidth}
+                width={CARD.contextWidth}
                 sx={skeletonTextSx('bodyMReg')}
               />
-            </Box>
 
-            <Box>
-              {descriptionKeys.map((lineKey, idx) => (
+              {/* Title row: icon plus name */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: CARD.titleGap,
+                }}
+              >
                 <Skeleton
-                  key={lineKey}
-                  variant="text"
-                  width={idx === CARD.descriptionLines - 1 ? '55%' : '100%'}
-                  height={CARD.descriptionLineHeight}
+                  variant="circular"
+                  width={CARD.iconSize}
+                  height={CARD.iconSize}
                 />
-              ))}
-            </Box>
-
-            <Box sx={{ height: '1px', bgcolor: 'divider' }} />
-
-            {/* Relations */}
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              {CARD.relationWidths.map(width => (
                 <Skeleton
-                  key={width}
                   variant="text"
-                  width={width}
+                  width={CARD.titleWidth}
+                  sx={skeletonTextSx('h6')}
+                />
+              </Box>
+
+              {/* Facts: kind chip plus one plain fact */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                <Skeleton
+                  variant="rounded"
+                  width={CARD.chipWidth}
+                  height={CARD.chipHeight}
+                  sx={{ borderRadius: BORDER_RADIUS.pill }}
+                />
+                <Skeleton
+                  variant="text"
+                  width={CARD.factWidth}
                   sx={skeletonTextSx('bodyMReg')}
                 />
-              ))}
-            </Box>
+              </Box>
 
-            {/* Footer: avatar plus name */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Skeleton
-                variant="circular"
-                width={CARD.avatarSize}
-                height={CARD.avatarSize}
-              />
-              <Skeleton
-                variant="text"
-                width={CARD.avatarLabelWidth}
-                sx={skeletonTextSx('bodyMReg')}
-              />
+              <Box>
+                {descriptionKeys.map((lineKey, idx) => (
+                  <Skeleton
+                    key={lineKey}
+                    variant="text"
+                    width={idx === CARD.descriptionLines - 1 ? '55%' : '100%'}
+                    height={CARD.descriptionLineHeight}
+                  />
+                ))}
+              </Box>
+
+              <Box sx={{ height: '1px', bgcolor: 'divider' }} />
+
+              {/* Relations */}
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                {CARD.relationWidths.map(width => (
+                  <Skeleton
+                    key={width}
+                    variant="text"
+                    width={width}
+                    sx={skeletonTextSx('bodyMReg')}
+                  />
+                ))}
+              </Box>
+
+              {/* Footer: avatar plus name */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Skeleton
+                  variant="circular"
+                  width={CARD.avatarSize}
+                  height={CARD.avatarSize}
+                />
+                <Skeleton
+                  variant="text"
+                  width={CARD.avatarLabelWidth}
+                  sx={skeletonTextSx('bodyMReg')}
+                />
+              </Box>
             </Box>
-          </Box>
-        ))}
-      </Box>
-    </DelayedReveal>
+          ))}
+        </Box>
+      </DelayedReveal>
+    </>
   );
 }

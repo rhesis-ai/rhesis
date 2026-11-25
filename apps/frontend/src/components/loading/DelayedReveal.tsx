@@ -13,17 +13,15 @@ import type { SxProps, Theme } from '@mui/material/styles';
  * fetch or serialize, so they are exactly the pages that resolve inside this
  * window and never show a skeleton at all.
  *
- * `nextjs-toploader` covers the window: the progress bar starts on click, so
- * a navigation shorter than the delay still gives immediate feedback.
+ * Page headers are not held: `SkeletonPageHeader` draws a route's known title
+ * and description at once, so the hold only covers what waits for data, and
+ * `nextjs-toploader` shows progress from the click.
  *
- * Suspense unmounts the fallback as soon as the page resolves, so a page
- * that settles before the delay elapses paints nothing in between.
- *
- * 500ms sits between the ~300ms floor below which users don't perceive a
- * delay and the 1s mark where they notice one (Nielsen's response-time
- * limits), and is meant to clear a backend round trip for an empty list.
- * TanStack Router defaults the same knob (`defaultPendingMs`) to 1000ms;
- * raise this if empty pages still flash a skeleton in production.
+ * 200ms is the common skeleton delay (long enough to skip a flash on a fast
+ * response, short enough that a slow page shows its shape almost at once).
+ * TanStack Router defaults the same knob (`defaultPendingMs`) to 1000ms for a
+ * whole route with no header of its own; raise this if empty pages still
+ * flash a skeleton in production.
  *
  * The complementary half of this pattern, a minimum display duration
  * (TanStack's `pendingMinMs`), is deliberately absent: React owns when it
@@ -32,7 +30,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
  * below softens that case instead, since a fallback unmounted mid-fade never
  * reached full opacity.
  */
-export const SKELETON_DELAY_MS = 500;
+export const SKELETON_DELAY_MS = 200;
 
 /** Fade length once the delay has elapsed. Short enough to feel immediate. */
 export const SKELETON_FADE_MS = 150;

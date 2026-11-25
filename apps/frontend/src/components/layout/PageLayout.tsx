@@ -32,7 +32,26 @@ export interface PageLayoutProps {
   fullHeight?: boolean;
 }
 
-function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
+export function BreadcrumbSeparator() {
+  return (
+    <ChevronRightIcon
+      sx={{
+        fontSize: rem(20),
+        color: theme => theme.palette.greyscale.subtitle,
+      }}
+      aria-hidden
+    />
+  );
+}
+
+export interface PageBreadcrumbsProps {
+  items: BreadcrumbItem[];
+  /** Placeholder crumbs drawn after `items` (a loading page's unknown names);
+   *  the last real item then stays a link. */
+  pending?: React.ReactNode;
+}
+
+export function PageBreadcrumbs({ items, pending }: PageBreadcrumbsProps) {
   return (
     <Box
       component="nav"
@@ -45,10 +64,10 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
       }}
     >
       {items.map((crumb, idx) => {
-        const isLast = idx === items.length - 1;
+        const isLast = idx === items.length - 1 && !pending;
         const text = crumb.label;
         const link = crumb.href;
-        const showSeparator = idx < items.length - 1;
+        const showSeparator = !isLast;
         const crumbKey = link ? `${link}|${text}` : text;
 
         return (
@@ -86,19 +105,45 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 {text}
               </Link>
             )}
-            {showSeparator && (
-              <ChevronRightIcon
-                sx={{
-                  fontSize: rem(20),
-                  color: theme => theme.palette.greyscale.subtitle,
-                }}
-                aria-hidden
-              />
-            )}
+            {showSeparator && <BreadcrumbSeparator />}
           </Box>
         );
       })}
+      {pending}
     </Box>
+  );
+}
+
+/** The page's h1, as PageLayout renders a string title. */
+export function PageTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      variant="h4"
+      component="h1"
+      sx={{
+        flex: `1 1 ${TITLE_MIN_WIDTH}`,
+        minWidth: 0,
+        color: theme => theme.palette.greyscale.title,
+      }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
+/** The line under the title, as PageLayout renders `description`. */
+export function PageDescription({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      variant="bodyLReg"
+      component="p"
+      sx={{
+        maxWidth: 800,
+        color: theme => theme.palette.greyscale.body,
+      }}
+    >
+      {children}
+    </Typography>
   );
 }
 
@@ -166,17 +211,7 @@ export function PageLayout({
                 >
                   {title &&
                     (typeof title === 'string' ? (
-                      <Typography
-                        variant="h4"
-                        component="h1"
-                        sx={{
-                          flex: `1 1 ${TITLE_MIN_WIDTH}`,
-                          minWidth: 0,
-                          color: theme => theme.palette.greyscale.title,
-                        }}
-                      >
-                        {title}
-                      </Typography>
+                      <PageTitle>{title}</PageTitle>
                     ) : (
                       <Box sx={{ flex: `1 1 ${TITLE_MIN_WIDTH}`, minWidth: 0 }}>
                         {title}
@@ -199,19 +234,7 @@ export function PageLayout({
                 </Box>
               )}
 
-              {description && (
-                <Typography
-                  variant="bodyLReg"
-                  component="p"
-                  sx={{
-                    mt: title || actions ? 0 : 0,
-                    maxWidth: 800,
-                    color: theme => theme.palette.greyscale.body,
-                  }}
-                >
-                  {description}
-                </Typography>
-              )}
+              {description && <PageDescription>{description}</PageDescription>}
 
               {metadata && (
                 <Box sx={{ mt: description ? 1.5 : 0, width: '100%' }}>

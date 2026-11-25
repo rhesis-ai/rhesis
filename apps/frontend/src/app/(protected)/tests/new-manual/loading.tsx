@@ -1,18 +1,32 @@
 import PageLoadingState from '@/components/common/PageLoadingState';
 import DelayedReveal from '@/components/loading/DelayedReveal';
 import SkeletonPageHeader from '@/components/loading/SkeletonPageHeader';
+import {
+  directoryCrumb,
+  MANUAL_TEST_WRITER_HEADER,
+  PAGE_HEADERS,
+} from '@/constants/page-headers';
 
-// Without this file the fallback is the catch-all list skeleton, now visible
-// while the page awaits its requirements, topics and categories. The writer
-// does render a PageLayout header (2-segment trail, three FABs: export, add,
-// save), but its table swaps between a 5- and an 8-column layout with the
-// test-type toggle, so there is no one row shape to draw: a spinner is the
-// honest placeholder there, as on playground.
+// The writer's header is fixed, so it is drawn for real at once. Its table
+// swaps between a 5- and an 8-column layout with the test-type toggle, so there
+// is no one row shape to draw: a spinner is the honest placeholder there, as
+// on playground.
 export default function ManualTestWriterLoading() {
   return (
-    <DelayedReveal>
-      <SkeletonPageHeader actionCount={3} breadcrumbCount={2} />
-      <PageLoadingState />
-    </DelayedReveal>
+    <>
+      <SkeletonPageHeader
+        breadcrumbCount={2}
+        crumbs={[
+          directoryCrumb(PAGE_HEADERS.tests),
+          { label: MANUAL_TEST_WRITER_HEADER.title },
+        ]}
+        title={MANUAL_TEST_WRITER_HEADER.title}
+        description={MANUAL_TEST_WRITER_HEADER.description}
+        actions={MANUAL_TEST_WRITER_HEADER.actions}
+      />
+      <DelayedReveal>
+        <PageLoadingState />
+      </DelayedReveal>
+    </>
   );
 }

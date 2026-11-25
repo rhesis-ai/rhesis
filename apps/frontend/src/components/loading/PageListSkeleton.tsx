@@ -8,7 +8,7 @@ import {
   GRID_TOOLBAR_MIN_HEIGHT,
 } from '@/styles/theme-constants';
 import DelayedReveal from './DelayedReveal';
-import SkeletonPageHeader from './SkeletonPageHeader';
+import SkeletonPageHeader, { type LoadingHeader } from './SkeletonPageHeader';
 import { skeletonBorder, skeletonSurfaceSx } from './skeletonSurface';
 import { skeletonTextSx } from './skeletonText';
 import SkeletonToolbar from './SkeletonToolbar';
@@ -66,12 +66,15 @@ export interface PageListSkeletonProps {
   rows?: number;
   /** Render the search + filter + tabs toolbar row. */
   showToolbar?: boolean;
+  /** What the route knows about its header, drawn at once. */
+  header?: LoadingHeader;
 }
 
 export default function PageListSkeleton({
   actionCount = 2,
   rows = 6,
   showToolbar = true,
+  header,
 }: PageListSkeletonProps = {}) {
   const rowKeys = Array.from({ length: rows }, (_, i) => `row-${i}`);
 
@@ -82,59 +85,34 @@ export default function PageListSkeleton({
   });
 
   return (
-    <DelayedReveal>
+    <>
       <SkeletonPageHeader
         actionCount={actionCount}
         titleWidth={HEADER.titleWidth}
         descriptionWidth={HEADER.descriptionWidth}
+        {...header}
       />
 
-      <Box sx={{ width: '100%', ...skeletonSurfaceSx, overflow: 'hidden' }}>
-        {showToolbar && (
-          <SkeletonToolbar
-            rightSlot="actions"
-            sx={{
-              px: GRID_CARD_INSET,
-              py: GRID_CARD_INSET,
-              minHeight: GRID_TOOLBAR_MIN_HEIGHT,
-            }}
-          />
-        )}
+      <DelayedReveal>
+        <Box sx={{ width: '100%', ...skeletonSurfaceSx, overflow: 'hidden' }}>
+          {showToolbar && (
+            <SkeletonToolbar
+              rightSlot="actions"
+              sx={{
+                px: GRID_CARD_INSET,
+                py: GRID_CARD_INSET,
+                minHeight: GRID_TOOLBAR_MIN_HEIGHT,
+              }}
+            />
+          )}
 
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            height: GRID.headerHeight,
-            borderTop: skeletonBorder,
-            borderBottom: skeletonBorder,
-          }}
-          aria-hidden
-        >
-          {COLUMNS.map((col, idx) => (
-            <Box
-              key={col.key}
-              sx={{ width: col.width, flexShrink: 0, ...cellInsetSx(idx) }}
-            >
-              <Skeleton
-                variant="text"
-                width={col.header}
-                sx={skeletonTextSx('bodyMReg')}
-              />
-            </Box>
-          ))}
-        </Box>
-
-        {rowKeys.map((rowKey, rowIdx) => (
           <Box
-            key={rowKey}
             sx={{
               display: 'flex',
               alignItems: 'center',
-              height: GRID.rowHeight,
-              ...(rowIdx < rowKeys.length - 1 && {
-                borderBottom: skeletonBorder,
-              }),
+              height: GRID.headerHeight,
+              borderTop: skeletonBorder,
+              borderBottom: skeletonBorder,
             }}
             aria-hidden
           >
@@ -143,54 +121,82 @@ export default function PageListSkeleton({
                 key={col.key}
                 sx={{ width: col.width, flexShrink: 0, ...cellInsetSx(idx) }}
               >
-                {col.kind === 'chip' ? (
-                  <Skeleton
-                    variant="rounded"
-                    width={col.cell}
-                    height={GRID.chipHeight}
-                    sx={{ borderRadius: BORDER_RADIUS.pill }}
-                  />
-                ) : (
-                  <Skeleton
-                    variant="text"
-                    width={col.cell}
-                    sx={skeletonTextSx('bodyMReg')}
-                  />
-                )}
+                <Skeleton
+                  variant="text"
+                  width={col.header}
+                  sx={skeletonTextSx('bodyMReg')}
+                />
               </Box>
             ))}
           </Box>
-        ))}
 
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: GRID.footerGap,
-            height: GRID.footerHeight,
-            px: GRID_CARD_INSET,
-            borderTop: skeletonBorder,
-          }}
-          aria-hidden
-        >
-          <Skeleton
-            variant="circular"
-            width={GRID.paginationButtonSize}
-            height={GRID.paginationButtonSize}
-          />
-          <Skeleton
-            variant="text"
-            width={GRID.paginationLabelWidth}
-            sx={skeletonTextSx('bodyMReg')}
-          />
-          <Skeleton
-            variant="circular"
-            width={GRID.paginationButtonSize}
-            height={GRID.paginationButtonSize}
-          />
+          {rowKeys.map((rowKey, rowIdx) => (
+            <Box
+              key={rowKey}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                height: GRID.rowHeight,
+                ...(rowIdx < rowKeys.length - 1 && {
+                  borderBottom: skeletonBorder,
+                }),
+              }}
+              aria-hidden
+            >
+              {COLUMNS.map((col, idx) => (
+                <Box
+                  key={col.key}
+                  sx={{ width: col.width, flexShrink: 0, ...cellInsetSx(idx) }}
+                >
+                  {col.kind === 'chip' ? (
+                    <Skeleton
+                      variant="rounded"
+                      width={col.cell}
+                      height={GRID.chipHeight}
+                      sx={{ borderRadius: BORDER_RADIUS.pill }}
+                    />
+                  ) : (
+                    <Skeleton
+                      variant="text"
+                      width={col.cell}
+                      sx={skeletonTextSx('bodyMReg')}
+                    />
+                  )}
+                </Box>
+              ))}
+            </Box>
+          ))}
+
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: GRID.footerGap,
+              height: GRID.footerHeight,
+              px: GRID_CARD_INSET,
+              borderTop: skeletonBorder,
+            }}
+            aria-hidden
+          >
+            <Skeleton
+              variant="circular"
+              width={GRID.paginationButtonSize}
+              height={GRID.paginationButtonSize}
+            />
+            <Skeleton
+              variant="text"
+              width={GRID.paginationLabelWidth}
+              sx={skeletonTextSx('bodyMReg')}
+            />
+            <Skeleton
+              variant="circular"
+              width={GRID.paginationButtonSize}
+              height={GRID.paginationButtonSize}
+            />
+          </Box>
         </Box>
-      </Box>
-    </DelayedReveal>
+      </DelayedReveal>
+    </>
   );
 }
