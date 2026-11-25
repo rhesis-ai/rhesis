@@ -17,10 +17,30 @@ from rhesis.backend.app.error_handlers import reraise_model_refusal
 logger = logging.getLogger(__name__)
 
 
+# Postgres SQLSTATE for a foreign-key violation.
+_FK_VIOLATION_SQLSTATE = "23503"
+
+
 def is_foreign_key_violation(error: Exception) -> bool:
-    """True when *error* is a Postgres foreign-key constraint violation."""
+    """True when *error* is a Postgres foreign-key constraint violation.
+
+    Prefer the SQLSTATE on the driver exception (``23503``); it is stable across driver
+    versions and locales. Fall back to matching the message text only when no code is
+    exposed.
+    """
+    orig = getattr(error, "orig", None)
+    sqlstate = getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None)
+    if sqlstate is not None:
+        return sqlstate == _FK_VIOLATION_SQLSTATE
     error_msg = str(error).lower()
     return "foreign key constraint" in error_msg or "violates foreign key" in error_msg
+
+
+def foreign_key_message(field: Optional[str]) -> Optional[str]:
+    """The default user-facing message for a foreign-key *field*, if one is defined."""
+    if field is None:
+        return None
+    return DatabaseExceptionHandler.FOREIGN_KEY_FIELD_MESSAGES.get(field)
 
 
 class DatabaseExceptionHandler:

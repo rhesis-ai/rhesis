@@ -5,6 +5,7 @@ The ``user`` table has no RLS and is skipped by the ORM filter, and Postgres FK 
 ignore RLS, so an unchecked id lets a row point at another org's user or project.
 """
 
+import logging
 import uuid
 from functools import lru_cache
 from typing import Any, Mapping, Optional
@@ -13,6 +14,8 @@ from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
+
+logger = logging.getLogger(__name__)
 
 # Memo of ids already checked in this session, so bulk writes do not re-query.
 _CHECKED_KEY = "_checked_foreign_refs"
@@ -30,8 +33,8 @@ _VALIDATED_TABLES = frozenset({"user", "project"}) | _ORG_CATALOG_TABLES
 class ForeignReferenceError(ValueError):
     """A foreign id in the payload is not usable by the caller (HTTP 400)."""
 
-    def __init__(self, field: str):
-        super().__init__(f"Invalid {field}: not found in your organization")
+    def __init__(self, field: str, message: Optional[str] = None):
+        super().__init__(message or f"Invalid {field}: not found in your organization")
         self.field = field
 
 
@@ -102,9 +105,13 @@ def _catalog_row_in_org(db: Session, table: str, row_id: uuid.UUID, organization
 
     model = _model_for_table(table)
     if model is None:
-        return True  # Unknown target: let the write-boundary FK guard decide.
-    # bypass_tenant_filter drops the ORM auto-filter; the explicit org filter and
-    # Postgres RLS still confine the read to the caller's org.
+        # A catalog table with no mapped model means the table name drifted; surface it
+        # so it is noticed. The write-boundary FK guard still backstops the reference.
+        logger.warning("No model mapped for catalog table %r; skipping pre-write check", table)
+        return True
+    # bypass_tenant_filter drops the ORM auto-filter, but Postgres RLS stays in force: it,
+    # together with the explicit organization_id predicate in _row_in_org, is the hard
+    # boundary that keeps this read inside the caller's org.
     with bypass_tenant_filter():
         return _row_in_org(db, model, row_id, organization_id)
 

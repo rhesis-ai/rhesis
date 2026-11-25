@@ -21,6 +21,7 @@ from rhesis.backend.app.models import Category, Model, Requirement, Status, Topi
 from rhesis.backend.app.utils.database_exceptions import (
     ItemDeletedException,
     ItemNotFoundException,
+    foreign_key_message,
     is_foreign_key_violation,
 )
 from rhesis.backend.app.utils.foreign_refs import (
@@ -240,7 +241,9 @@ def _flush_with_fk_guard(db: Session, model: Type[T]) -> None:
 
     Postgres checks FKs regardless of RLS, so a bad id would otherwise surface as a raw
     IntegrityError whose presence tells the caller whether that id exists elsewhere. The
-    savepoint keeps the surrounding transaction usable after the rollback.
+    savepoint keeps the surrounding transaction usable after the rollback. The per-field
+    message from DatabaseExceptionHandler is reused so a routed write keeps the same text
+    it had when the error was caught at the router instead.
     """
     try:
         with db.begin_nested():
@@ -248,8 +251,8 @@ def _flush_with_fk_guard(db: Session, model: Type[T]) -> None:
     except IntegrityError as error:
         if not is_foreign_key_violation(error):
             raise
-        field = field_from_integrity_error(error, model) or "reference"
-        raise ForeignReferenceError(field) from None
+        field = field_from_integrity_error(error, model)
+        raise ForeignReferenceError(field or "reference", foreign_key_message(field)) from None
 
 
 def _create_db_item_with_transaction(
