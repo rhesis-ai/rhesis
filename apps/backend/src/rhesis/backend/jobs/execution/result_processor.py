@@ -46,7 +46,7 @@ def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
         db.query(
             models.TestResult.execution,
             models.TestResult.verdict,
-            func.count(models.TestResult.id).label("count"),
+            func.count().label("count"),
         )
         .filter(*base_filters)
         .group_by(models.TestResult.execution, models.TestResult.verdict)
@@ -69,7 +69,7 @@ def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
         # unrecognized status name used to.
 
     # Get total count efficiently
-    total_tests = (db.query(func.count(models.TestResult.id)).filter(*base_filters).scalar()) or 0
+    total_tests = (db.query(func.count()).filter(*base_filters).scalar()) or 0
 
     return total_tests, tests_passed, tests_failed, execution_errors
 
@@ -130,7 +130,7 @@ def get_test_statistics_for_runs(
             models.TestResult.test_run_id.label("run_id"),
             models.TestResult.execution,
             models.TestResult.verdict,
-            func.count(models.TestResult.id).label("count"),
+            func.count().label("count"),
         )
         .filter(*filters)
         .group_by(

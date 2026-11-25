@@ -2,6 +2,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     ForeignKey,
+    Index,
     Text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -52,12 +53,25 @@ class TestResult(
             "(execution = 'ok') = (verdict IS NOT NULL)",
             name="ck_test_result_verdict_requires_ok",
         ),
+        # Covers the per-run outcome counts (result_processor.get_test_statistics*) and the
+        # tenant filters, so they read the index alone instead of the wide JSONB rows.
+        Index(
+            "ix_test_result_run_outcomes",
+            "test_run_id",
+            postgresql_include=[
+                "execution",
+                "verdict",
+                "organization_id",
+                "project_id",
+                "deleted_at",
+            ],
+        ),
     )
 
     _annotations_entity_type = AnnotationTarget.TEST_RESULT
 
     test_configuration_id = Column(GUID(), ForeignKey("test_configuration.id"))
-    test_run_id = Column(GUID(), ForeignKey("test_run.id"), index=True)
+    test_run_id = Column(GUID(), ForeignKey("test_run.id"))
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))
     test_id = Column(GUID(), ForeignKey("test.id"), index=True)
     status_id = Column(GUID(), ForeignKey("status.id"), index=True)
