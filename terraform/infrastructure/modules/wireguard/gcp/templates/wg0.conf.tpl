@@ -16,9 +16,11 @@ PostDown = iptables -t nat -D POSTROUTING -s ${peer_cidr} -j MASQUERADE
 # connects but TLS stalls. A fixed MSS is required here, not --clamp-mss-to-pmtu, which
 # only sees wg0's own 1420 and clamps to 1380 (still too big). SYN,RST SYN matches both
 # the SYN and the SYN-ACK, so both directions are capped regardless of client MTU. 1340
-# leaves ~20 bytes of margin for any extra encapsulation on the path.
-PostUp = iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1340
-PostDown = iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1340
+# leaves ~20 bytes of margin for any extra encapsulation on the path. The tcpmss match
+# (1341:65535) makes this clamp downward only, so a client already on a smaller MTU keeps
+# its lower MSS instead of being raised back up into the blackhole.
+PostUp = iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss 1341:65535 -j TCPMSS --set-mss 1340
+PostDown = iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss 1341:65535 -j TCPMSS --set-mss 1340
 
 # Allow VPN clients to reach the server itself (e.g. ping 10.0.0.1)
 PostUp = iptables -A INPUT -s ${peer_cidr} -j ACCEPT
