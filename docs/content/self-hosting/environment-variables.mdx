@@ -352,9 +352,10 @@ rejected.
 
 ## Scheduled test runs
 
-Scheduled test runs are started by `celery beat`, which checks for due schedules every minute. Docker
-Compose runs it as the `beat` service and the Helm chart as the `celery-beat` Deployment. Without
-beat, no scheduled run starts and the app shows those runs as overdue.
+`celery beat` queues a check for due schedules every minute and a worker runs it. Docker Compose runs
+beat as the `beat` service and the Helm chart as the `celery-beat` Deployment. Without beat, no
+scheduled run starts and the app shows those runs as overdue. Set these variables on the backend and
+the worker.
 
 | Variable | Description | Default |
 |---|---|---|
