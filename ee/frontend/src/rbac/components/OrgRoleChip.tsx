@@ -4,8 +4,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Chip from '@mui/material/Chip';
 import MenuItem from '@mui/material/MenuItem';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
+import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import SyncLockIcon from '@mui/icons-material/SyncLock';
 import { can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useFeature } from '@/contexts/FeaturesContext';
@@ -148,12 +151,34 @@ export default function OrgRoleChip({
         </Typography>
       );
     }
-    return (
+    const chip = (
       <Chip
         label={member.role.display_name}
         size="small"
         sx={getRoleChipSx(member.role)}
       />
+    );
+    const ssoGroup = member.managed_by_sso_group;
+    if (ssoGroup === undefined || ssoGroup === null) return chip;
+    return (
+      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+        {chip}
+        <Tooltip
+          arrow
+          title={
+            ssoGroup
+              ? `Set by the SSO group "${ssoGroup}". Change it in your identity provider.`
+              : 'Set by SSO for people in no mapped group. Change it in your identity provider.'
+          }
+        >
+          <SyncLockIcon
+            fontSize="small"
+            tabIndex={0}
+            aria-label="Role managed by SSO"
+            sx={{ color: 'text.secondary' }}
+          />
+        </Tooltip>
+      </Box>
     );
   }
 

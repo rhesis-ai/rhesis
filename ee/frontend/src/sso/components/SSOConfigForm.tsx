@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -11,6 +17,9 @@ import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
+import Link from '@mui/material/Link';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
@@ -27,8 +36,18 @@ import {
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useOrgSettings } from '@/contexts/OrgSettingsContext';
 import { getBaseUrl } from '@/utils/url-resolver';
+import { DetailTabNav } from '@/components/common/DetailTabNav';
 import { SSOClient } from '../api/sso-client';
-import type { SSOConfig, SSOTestResult } from '../types';
+import type {
+  MappingRule,
+  ProviderInfo,
+  RoleMapping,
+  SSOConfig,
+  SSOTestResult,
+} from '../types';
+import { EMPTY_ROLE_MAPPING } from '../role-mapping/mapping-json';
+import { findProvider, GENERIC_PROVIDER } from '../role-mapping/providers';
+import RoleMappingTab from '../role-mapping/RoleMappingTab';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 
@@ -44,7 +63,24 @@ const DEFAULT_SSO_CONFIG: SSOConfig = {
   allowed_auth_methods: null,
   allow_insecure_tls: false,
   slug: '',
+  provider: GENERIC_PROVIDER.key,
 };
+
+const TAB_LABELS = ['Connection', 'Sign-in', 'Role mapping'];
+const DETECT_DELAY_MS = 300;
+// Which saved fields live on which tab, for the unsaved-changes dot.
+const TAB_FIELDS: (keyof SSOConfig)[][] = [
+  [
+    'slug',
+    'issuer_url',
+    'client_id',
+    'client_secret',
+    'scopes',
+    'allow_insecure_tls',
+    'provider',
+  ],
+  ['auto_provision_users', 'allowed_domains'],
+];
 
 function CopyableUrl({
   label,
@@ -113,10 +149,67 @@ export default function SSOConfigForm() {
   const [testResult, setTestResult] = useState<SSOTestResult | null>(null);
   const [hasExistingConfig, setHasExistingConfig] = useState(false);
   const [domainInput, setDomainInput] = useState('');
+  const [roleMapping, setRoleMapping] =
+    useState<RoleMapping>(EMPTY_ROLE_MAPPING);
+  const [initialMapping, setInitialMapping] = useState(
+    JSON.stringify(EMPTY_ROLE_MAPPING)
+  );
+  const [mappingJsonErrors, setMappingJsonErrors] = useState(false);
+  const [ssoTab, setSsoTab] = useState(0);
+  const [providerAnchor, setProviderAnchor] = useState<HTMLElement | null>(
+    null
+  );
 
   const hasChanges = useMemo(() => {
-    return JSON.stringify(formData) !== initialData;
-  }, [formData, initialData]);
+    return (
+      JSON.stringify(formData) !== initialData ||
+      JSON.stringify(roleMapping) !== initialMapping
+    );
+  }, [formData, initialData, roleMapping, initialMapping]);
+  const isComplete = (r: MappingRule) =>
+    Boolean(r.role_id) || r.projects.length > 0;
+  const incompleteRule =
+    roleMapping.enabled && !roleMapping.rules.every(isComplete);
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [detected, setDetected] = useState<string | null>(null);
+  // Set when the admin edits the issuer, so the next detection replaces the stored
+  // provider; a provider loaded from the server keeps any earlier correction.
+  const issuerEdited = useRef(false);
+  const provider = findProvider(providers, formData.provider);
+
+  useEffect(() => {
+    new SSOClient()
+      .getProviders(organization.id)
+      .then(setProviders)
+      .catch(() => setProviders([]));
+  }, [organization.id]);
+
+  // The backend owns the detection rules; ask it shortly after the last keystroke.
+  useEffect(() => {
+    const issuer = formData.issuer_url.trim();
+    if (!issuer) {
+      setDetected(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      new SSOClient()
+        .detectProvider(organization.id, issuer)
+        .then(key => {
+          if (cancelled) return;
+          setDetected(key);
+          if (issuerEdited.current) {
+            issuerEdited.current = false;
+            setFormData(f => ({ ...f, provider: key ?? GENERIC_PROVIDER.key }));
+          }
+        })
+        .catch(() => !cancelled && setDetected(null));
+    }, DETECT_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [organization.id, formData.issuer_url]);
 
   const loadSSOConfig = useCallback(async () => {
     try {
@@ -129,8 +222,12 @@ export default function SSOConfigForm() {
           client_secret: '',
           slug: config.slug || '',
         };
+        delete loaded.role_mapping;
+        const mapping = config.role_mapping ?? EMPTY_ROLE_MAPPING;
         setFormData(loaded);
         setInitialData(JSON.stringify(loaded));
+        setRoleMapping(mapping);
+        setInitialMapping(JSON.stringify(mapping));
         setHasExistingConfig(true);
       } else {
         setInitialData(JSON.stringify(DEFAULT_SSO_CONFIG));
@@ -148,7 +245,10 @@ export default function SSOConfigForm() {
 
   const handleChange =
     (field: keyof SSOConfig) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData({ ...formData, [field]: e.target.value });
+      const next = { ...formData, [field]: e.target.value };
+      // A new issuer replaces any earlier guess or correction.
+      if (field === 'issuer_url') issuerEdited.current = true;
+      setFormData(next);
       setError(null);
       setTestResult(null);
     };
@@ -197,10 +297,19 @@ export default function SSOConfigForm() {
     try {
       const client = new SSOClient();
 
+      // While mapping is off its rules are hidden, so half-made ones are dropped.
+      const mappingToSave = {
+        ...roleMapping,
+        rules: roleMapping.rules.filter(isComplete),
+      };
       const configToSave: Partial<SSOConfig> = {
         ...formData,
         client_secret: formData.client_secret || undefined,
         slug: formData.slug || undefined,
+        role_mapping:
+          roleMapping.enabled || mappingToSave.rules.length
+            ? mappingToSave
+            : null,
       };
 
       if (hasExistingConfig && !formData.client_secret) {
@@ -220,6 +329,7 @@ export default function SSOConfigForm() {
       };
       setInitialData(JSON.stringify(loaded));
       setFormData(loaded);
+      setInitialMapping(JSON.stringify(roleMapping));
       setHasExistingConfig(true);
       onUpdate();
     } catch (err: unknown) {
@@ -243,6 +353,13 @@ export default function SSOConfigForm() {
       const client = new SSOClient();
       const result = await client.testSSOConnection(organization.id);
       setTestResult(result);
+      // Discovery catches custom domains the URL alone can't; never override a correction.
+      const discovered = result.provider;
+      if (
+        discovered &&
+        formData.provider === (detected ?? GENERIC_PROVIDER.key)
+      )
+        setFormData(f => ({ ...f, provider: discovered }));
     } catch {
       setTestResult({ success: false, message: 'Connection test failed' });
     } finally {
@@ -263,6 +380,8 @@ export default function SSOConfigForm() {
       });
       setFormData(DEFAULT_SSO_CONFIG);
       setInitialData(JSON.stringify(DEFAULT_SSO_CONFIG));
+      setRoleMapping(EMPTY_ROLE_MAPPING);
+      setInitialMapping(JSON.stringify(EMPTY_ROLE_MAPPING));
       setHasExistingConfig(false);
       setTestResult(null);
       onUpdate();
@@ -289,6 +408,73 @@ export default function SSOConfigForm() {
     );
   }
 
+  const initialParsed = initialData
+    ? (JSON.parse(initialData) as SSOConfig)
+    : formData;
+  const tabDirty = [
+    ...TAB_FIELDS.map(fields =>
+      fields.some(
+        f => JSON.stringify(formData[f]) !== JSON.stringify(initialParsed[f])
+      )
+    ),
+    JSON.stringify(roleMapping) !== initialMapping,
+  ];
+  const tabs = TAB_LABELS.map((label, i) => ({
+    key: label,
+    label,
+    id: `sso-tab-${i}`,
+    'aria-controls': `sso-tabpanel-${i}`,
+    badge: tabDirty[i] ? (
+      <Box
+        component="span"
+        aria-label="Unsaved changes"
+        sx={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          bgcolor: 'warning.main',
+          flexShrink: 0,
+        }}
+      />
+    ) : undefined,
+  }));
+  const dirtyTabs = TAB_LABELS.filter((_, i) => tabDirty[i]);
+  const corrected = !!detected && formData.provider !== detected;
+  const issuerHelper = !detected ? (
+    'The issuer address from your identity provider. Rhesis recognises the provider from it.'
+  ) : (
+    <Box
+      component="span"
+      sx={{
+        display: 'inline-flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        columnGap: 0.5,
+      }}
+    >
+      <SuccessIcon
+        color={provider.supports_groups ? 'success' : 'warning'}
+        sx={{ fontSize: 'inherit' }}
+      />
+      <span>
+        {provider.key === GENERIC_PROVIDER.key
+          ? 'Standard OIDC provider.'
+          : `${corrected ? 'Set to' : 'Detected'} ${provider.title}.`}
+        {provider.supports_groups
+          ? ''
+          : ' It doesn’t send groups, so role mapping isn’t available.'}
+      </span>
+      <Link
+        component="button"
+        type="button"
+        variant="caption"
+        onClick={e => setProviderAnchor(e.currentTarget)}
+      >
+        Not right?
+      </Link>
+    </Box>
+  );
+
   return (
     <Box component="form" onSubmit={handleSave}>
       {error && (
@@ -297,265 +483,345 @@ export default function SSOConfigForm() {
         </Alert>
       )}
 
-      <Grid container spacing={2}>
-        <Grid size={12}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={formData.enabled}
-                onChange={handleToggle('enabled')}
-                color="primary"
-              />
-            }
-            label="Enable SSO"
+      <FormControlLabel
+        control={
+          <Switch
+            checked={formData.enabled}
+            onChange={handleToggle('enabled')}
+            color="primary"
           />
-        </Grid>
+        }
+        label="Enable SSO"
+      />
 
-        <Collapse in={formData.enabled} sx={{ width: '100%' }}>
-          <Grid container spacing={2} sx={{ px: 2, pt: 1 }}>
-            <Grid size={12}>
-              <TextField
-                fullWidth
-                label="SSO Slug"
-                placeholder="acme-corp"
-                value={formData.slug || ''}
-                onChange={handleChange('slug')}
-                helperText="Used in the SSO login URL. Lowercase letters, numbers, and hyphens (3-50 chars)."
-                slotProps={{
-                  htmlInput: {
-                    pattern: '[a-z0-9][a-z0-9-]*[a-z0-9]',
-                    maxLength: 50,
-                  },
-                }}
-              />
-            </Grid>
+      <Collapse in={formData.enabled}>
+        <Box
+          sx={{
+            mt: 2,
+            height: theme => theme.spacing(5.5),
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <DetailTabNav
+            tabs={tabs}
+            activeIndex={ssoTab}
+            onChange={setSsoTab}
+            aria-label="SSO settings sections"
+            tabGap="32px"
+            size="compact"
+            sx={{ height: '100%' }}
+          />
+        </Box>
 
-            {formData.slug && (
+        <Box
+          role="tabpanel"
+          id={`sso-tabpanel-${ssoTab}`}
+          aria-labelledby={`sso-tab-${ssoTab}`}
+          sx={{ pt: 3 }}
+        >
+          {ssoTab === 0 && (
+            <Grid container spacing={2}>
+              <Grid size={12}>
+                <TextField
+                  fullWidth
+                  label="SSO Slug"
+                  placeholder="acme-corp"
+                  value={formData.slug || ''}
+                  onChange={handleChange('slug')}
+                  helperText="Used in the SSO login URL. Lowercase letters, numbers, and hyphens (3-50 chars)."
+                  slotProps={{
+                    htmlInput: {
+                      pattern: '[a-z0-9][a-z0-9\\-]*[a-z0-9]',
+                      maxLength: 50,
+                    },
+                  }}
+                />
+              </Grid>
+
+              {formData.slug && (
+                <Grid size={12}>
+                  <CopyableUrl
+                    label="SSO Login URL:"
+                    url={`${ssoBaseUrl}/auth/sso/${formData.slug}`}
+                    onCopied={showCopied}
+                  />
+                </Grid>
+              )}
+
               <Grid size={12}>
                 <CopyableUrl
-                  label="SSO Login URL:"
-                  url={`${ssoBaseUrl}/auth/sso/${formData.slug}`}
+                  label="Redirect URI:"
+                  url={`${ssoBaseUrl}/auth/sso/callback`}
                   onCopied={showCopied}
                 />
               </Grid>
-            )}
 
-            <Grid size={12}>
-              <CopyableUrl
-                label="Redirect URI:"
-                url={`${ssoBaseUrl}/auth/sso/callback`}
-                onCopied={showCopied}
-              />
-            </Grid>
-
-            <Grid size={12}>
-              <Divider sx={{ my: 1 }} />
-            </Grid>
-
-            <Grid size={12}>
-              <TextField
-                fullWidth
-                label="Issuer URL"
-                placeholder="https://your-idp.example.com/realms/your-realm"
-                value={formData.issuer_url}
-                onChange={handleChange('issuer_url')}
-                helperText="The OIDC issuer URL from your identity provider"
-                required={formData.enabled}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Client ID"
-                value={formData.client_id}
-                onChange={handleChange('client_id')}
-                required={formData.enabled}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Client Secret"
-                type="password"
-                value={formData.client_secret}
-                onChange={handleChange('client_secret')}
-                placeholder={hasExistingConfig ? '(unchanged)' : ''}
-                required={!hasExistingConfig && formData.enabled}
-                helperText={
-                  hasExistingConfig
-                    ? 'Leave empty to keep current secret'
-                    : 'Client secret from your identity provider'
-                }
-              />
-            </Grid>
-
-            <Grid size={12}>
-              <TextField
-                fullWidth
-                label="Scopes"
-                value={formData.scopes}
-                onChange={handleChange('scopes')}
-                helperText="Space-separated OIDC scopes"
-              />
-            </Grid>
-
-            <Grid size={12}>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>
-                User Provisioning
-              </Typography>
-            </Grid>
-
-            <Grid size={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.auto_provision_users}
-                    onChange={handleToggle('auto_provision_users')}
-                    color="primary"
-                  />
-                }
-                label="Auto-provision new users on first SSO login"
-              />
-            </Grid>
-
-            <Grid size={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.allow_insecure_tls}
-                    onChange={handleToggle('allow_insecure_tls')}
-                    color="warning"
-                  />
-                }
-                label="Allow self-signed / untrusted TLS certificates (use only for on-premise IdPs)"
-              />
-            </Grid>
-
-            <Grid size={12}>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>
-                Allowed Email Domains
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                If set, only users with email addresses from these domains can
-                sign in via SSO.
-              </Typography>
-            </Grid>
-
-            <Grid size={12}>
-              <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                <TextField
-                  size="small"
-                  placeholder="example.com"
-                  slotProps={{ htmlInput: { 'aria-label': 'Allowed domain' } }}
-                  value={domainInput}
-                  onChange={e => setDomainInput(e.target.value)}
-                  onKeyDown={handleDomainKeyDown}
-                  sx={{ flexGrow: 1 }}
-                />
-                <IconButton
-                  aria-label="Add domain"
-                  size="small"
-                  onClick={handleAddDomain}
-                  disabled={!domainInput.trim()}
-                >
-                  <AddIcon />
-                </IconButton>
-              </Box>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {(formData.allowed_domains || []).map(domain => (
-                  <Chip
-                    key={domain}
-                    label={domain}
-                    size="small"
-                    onDelete={() => handleRemoveDomain(domain)}
-                  />
-                ))}
-              </Box>
-            </Grid>
-
-            {hasExistingConfig && (
               <Grid size={12}>
                 <Divider sx={{ my: 1 }} />
-                <Box
-                  sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}
+              </Grid>
+
+              <Grid size={12}>
+                <TextField
+                  fullWidth
+                  label="Issuer URL"
+                  placeholder="https://your-idp.example.com/realms/your-realm"
+                  value={formData.issuer_url}
+                  onChange={handleChange('issuer_url')}
+                  helperText={issuerHelper}
+                  required={formData.enabled}
+                />
+                <Menu
+                  anchorEl={providerAnchor}
+                  open={!!providerAnchor}
+                  onClose={() => setProviderAnchor(null)}
                 >
-                  <Button
-                    variant="outlined"
-                    startIcon={
-                      testing ? <CircularProgress size={16} /> : <TestIcon />
-                    }
-                    onClick={handleTest}
-                    disabled={testing || !hasExistingConfig}
-                  >
-                    Test Connection
-                  </Button>
-                  {testResult && (
-                    <Box
-                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                  {providers.map(({ key: k, title }) => (
+                    <MenuItem
+                      key={k}
+                      selected={k === formData.provider}
+                      onClick={() => {
+                        setFormData({ ...formData, provider: k });
+                        setProviderAnchor(null);
+                      }}
                     >
-                      {testResult.success ? (
-                        <SuccessIcon color="success" fontSize="small" />
-                      ) : (
-                        <ErrorIcon color="error" fontSize="small" />
-                      )}
-                      <Typography
-                        variant="body2"
-                        color={
-                          testResult.success ? 'success.main' : 'error.main'
-                        }
+                      {title}
+                    </MenuItem>
+                  ))}
+                </Menu>
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Client ID"
+                  value={formData.client_id}
+                  onChange={handleChange('client_id')}
+                  required={formData.enabled}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Client Secret"
+                  type="password"
+                  value={formData.client_secret}
+                  onChange={handleChange('client_secret')}
+                  placeholder={hasExistingConfig ? '(unchanged)' : ''}
+                  required={!hasExistingConfig && formData.enabled}
+                  helperText={
+                    hasExistingConfig
+                      ? 'Leave empty to keep current secret'
+                      : 'Client secret from your identity provider'
+                  }
+                />
+              </Grid>
+
+              <Grid size={12}>
+                <TextField
+                  fullWidth
+                  label="Scopes"
+                  value={formData.scopes}
+                  onChange={handleChange('scopes')}
+                  helperText="Space-separated OIDC scopes"
+                />
+              </Grid>
+
+              <Grid size={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={formData.allow_insecure_tls}
+                      onChange={handleToggle('allow_insecure_tls')}
+                      color="warning"
+                    />
+                  }
+                  label="Allow self-signed / untrusted TLS certificates (use only for on-premise IdPs)"
+                />
+              </Grid>
+
+              {hasExistingConfig && (
+                <Grid size={12}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      mt: 1,
+                    }}
+                  >
+                    <Button
+                      variant="outlined"
+                      startIcon={
+                        testing ? <CircularProgress size={16} /> : <TestIcon />
+                      }
+                      onClick={handleTest}
+                      disabled={testing || !hasExistingConfig}
+                    >
+                      Test Connection
+                    </Button>
+                    {testResult && (
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
                       >
-                        {testResult.message}
-                      </Typography>
-                    </Box>
-                  )}
+                        {testResult.success ? (
+                          <SuccessIcon color="success" fontSize="small" />
+                        ) : (
+                          <ErrorIcon color="error" fontSize="small" />
+                        )}
+                        <Typography
+                          variant="body2"
+                          color={
+                            testResult.success ? 'success.main' : 'error.main'
+                          }
+                        >
+                          {testResult.message}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </Grid>
+              )}
+            </Grid>
+          )}
+          {ssoTab === 1 && (
+            <Grid container spacing={2}>
+              <Grid size={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={formData.auto_provision_users}
+                      onChange={handleToggle('auto_provision_users')}
+                      color="primary"
+                    />
+                  }
+                  label="Auto-provision new users on first SSO login"
+                />
+              </Grid>
+
+              <Grid size={12}>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>
+                  Allowed Email Domains
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 1 }}
+                >
+                  If set, only users with email addresses from these domains can
+                  sign in via SSO.
+                </Typography>
+              </Grid>
+
+              <Grid size={12}>
+                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                  <TextField
+                    size="small"
+                    placeholder="example.com"
+                    slotProps={{
+                      htmlInput: { 'aria-label': 'Allowed domain' },
+                    }}
+                    value={domainInput}
+                    onChange={e => setDomainInput(e.target.value)}
+                    onKeyDown={handleDomainKeyDown}
+                    sx={{ flexGrow: 1 }}
+                  />
+                  <IconButton
+                    aria-label="Add domain"
+                    size="small"
+                    onClick={handleAddDomain}
+                    disabled={!domainInput.trim()}
+                  >
+                    <AddIcon />
+                  </IconButton>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {(formData.allowed_domains || []).map(domain => (
+                    <Chip
+                      key={domain}
+                      label={domain}
+                      size="small"
+                      onDelete={() => handleRemoveDomain(domain)}
+                    />
+                  ))}
                 </Box>
               </Grid>
-            )}
-          </Grid>
-        </Collapse>
+            </Grid>
+          )}
+          {ssoTab === 2 && (
+            <RoleMappingTab
+              value={roleMapping}
+              onChange={setRoleMapping}
+              provider={provider}
+              onJsonErrors={setMappingJsonErrors}
+            />
+          )}
+        </Box>
+      </Collapse>
 
-        <Grid size={12}>
-          <Divider sx={{ my: 2 }} />
-          <Box
-            sx={{ display: 'flex', gap: 2, justifyContent: 'space-between' }}
-          >
-            <Box>
-              {hasExistingConfig && (
-                <Tooltip title="Remove SSO configuration entirely">
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={
-                      deleting ? <CircularProgress size={16} /> : <DeleteIcon />
-                    }
-                    // Removing SSO can lock members out; confirm first (3.3.4).
-                    onClick={
-                      accessibilityMode
-                        ? () => setConfirmRemoveOpen(true)
-                        : handleDelete
-                    }
-                    disabled={deleting || saving}
-                  >
-                    Remove SSO
-                  </Button>
-                </Tooltip>
-              )}
-            </Box>
+      <Box>
+        <Divider sx={{ my: 2 }} />
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+          }}
+        >
+          <Box>
+            {hasExistingConfig && (
+              <Tooltip title="Remove SSO configuration entirely">
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={
+                    deleting ? <CircularProgress size={16} /> : <DeleteIcon />
+                  }
+                  // Removing SSO can lock members out; confirm first (3.3.4).
+                  onClick={
+                    accessibilityMode
+                      ? () => setConfirmRemoveOpen(true)
+                      : handleDelete
+                  }
+                  disabled={deleting || saving}
+                >
+                  Remove SSO
+                </Button>
+              </Tooltip>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {hasChanges && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                aria-live="polite"
+              >
+                {mappingJsonErrors
+                  ? 'Fix the role mapping JSON to save'
+                  : incompleteRule
+                    ? 'Each group needs a role or a project'
+                    : dirtyTabs.length
+                      ? `Unsaved changes in ${dirtyTabs.join(', ')}`
+                      : ''}
+              </Typography>
+            )}
             <Button
               type="submit"
               variant="contained"
               startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
-              disabled={saving || !hasChanges}
+              disabled={
+                saving || !hasChanges || mappingJsonErrors || incompleteRule
+              }
             >
               Save
             </Button>
           </Box>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
       <DeleteModal
         open={confirmRemoveOpen}
         onClose={() => setConfirmRemoveOpen(false)}
