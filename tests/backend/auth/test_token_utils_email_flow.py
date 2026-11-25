@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from rhesis.backend.app.auth.token_utils import (
     create_email_verification_token,
     create_magic_link_token,
+    create_organization_invitation_token,
     create_password_reset_token,
     get_jwt_algorithm,
     verify_email_flow_token,
@@ -69,6 +70,26 @@ class TestEmailFlowTokenCreation:
         )
         assert payload["type"] == "magic_link"
         assert payload["email"] == "link@example.com"
+        assert "jti" in payload
+
+    @patch("rhesis.backend.app.auth.token_utils.get_secret_key", return_value=SECRET)
+    def test_create_organization_invitation_token_carries_org(self, mock_secret):
+        """Invitation token carries the target org and is single-use."""
+        token = create_organization_invitation_token(
+            user_id="user-abc",
+            email="invitee@example.com",
+            organization_id="org-xyz",
+        )
+        payload = jwt.decode(
+            token,
+            SECRET,
+            algorithms=[get_jwt_algorithm()],
+            options={"verify_exp": False},
+        )
+        assert payload["type"] == "organization_invitation"
+        assert payload["sub"] == "user-abc"
+        assert payload["email"] == "invitee@example.com"
+        assert payload["organization_id"] == "org-xyz"
         assert "jti" in payload
 
 

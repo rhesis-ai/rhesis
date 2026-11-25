@@ -50,6 +50,7 @@ PUBLIC_ROUTES: list[str] = [
     "/auth/reset-password",
     "/auth/magic-link",
     "/auth/magic-link/verify",
+    "/auth/accept-invitation",
     "/auth/exchange-code",
     "/auth/refresh",
     "/auth/verify",

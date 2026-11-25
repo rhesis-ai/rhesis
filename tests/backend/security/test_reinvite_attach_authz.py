@@ -165,8 +165,13 @@ def test_member_cannot_reinvite_without_active_project(client, ctx):
     assert _org_of(ctx["db"], ctx["returning"].id) is None
 
 
-def test_owner_can_reinvite(client, ctx):
-    """The owner may still attach a returning account (no over-blocking)."""
+def test_owner_reinvite_allowed_but_no_immediate_attach(client, ctx):
+    """The owner may invite a returning account, but it is not attached on the spot.
+
+    Membership now waits on the invited person accepting from their own mailbox
+    (POST /auth/accept-invitation), so the owner's request is accepted without
+    pulling the org-less account in.
+    """
     with _active(ctx["db"], ctx["org_id"], ctx["owner"], None):
         resp = client.post(
             "/users/",
@@ -175,4 +180,4 @@ def test_owner_can_reinvite(client, ctx):
         )
 
     assert resp.status_code == 200, resp.text
-    assert str(_org_of(ctx["db"], ctx["returning"].id)) == str(ctx["org_id"])
+    assert _org_of(ctx["db"], ctx["returning"].id) is None

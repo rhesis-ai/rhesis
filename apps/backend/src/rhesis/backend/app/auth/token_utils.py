@@ -22,6 +22,7 @@ EMAIL_VERIFICATION_EXPIRE_MINUTES = 60 * 24  # 24 hours
 PASSWORD_RESET_EXPIRE_MINUTES = 60  # 1 hour
 MAGIC_LINK_EXPIRE_MINUTES = 15  # 15 minutes
 AUTH_CODE_EXPIRE_MINUTES = 1  # 60 seconds, for OAuth callback redirect
+ORGANIZATION_INVITATION_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 #: Audience claim stamped on token-exchange-issued JWTs and enforced by
 #: :func:`verify_jwt_token` whenever ``azp`` is present. Configurable via
@@ -396,6 +397,30 @@ def create_magic_link_token(
         email=email,
         token_type="magic_link",
         expire_minutes=expire_minutes,
+        with_jti=True,
+    )
+
+
+def create_organization_invitation_token(
+    user_id: str,
+    email: str,
+    organization_id: str,
+    expire_minutes: int = ORGANIZATION_INVITATION_EXPIRE_MINUTES,
+) -> str:
+    """Create a single-use token that lets an existing account join an organization.
+
+    The target organization travels in an ``organization_id`` claim. Possessing
+    the token proves control of the mailbox it was sent to, so consuming it is
+    the invited person's acceptance — membership is granted only then, never at
+    invitation time. Defaults to a 7-day lifetime so the link survives the days
+    before the recipient opens the email.
+    """
+    return _create_email_flow_token(
+        user_id=user_id,
+        email=email,
+        token_type="organization_invitation",
+        expire_minutes=expire_minutes,
+        extra_claims={"organization_id": str(organization_id)},
         with_jti=True,
     )
 

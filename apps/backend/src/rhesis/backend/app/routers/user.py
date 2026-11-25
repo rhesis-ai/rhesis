@@ -146,6 +146,24 @@ def _user_settings_read_payload(
     }
 
 
+def _build_invitation_accept_url(user: User, organization_id) -> str:
+    """Mint an invitation token for *user* and build the accept link for the email.
+
+    The token carries the target *organization_id*; the invited person joins only
+    by opening this link from their own mailbox (see POST /auth/accept-invitation).
+    """
+    from rhesis.backend.app.auth.token_utils import create_organization_invitation_token
+    from rhesis.backend.app.config.settings import get_frontend_settings
+
+    token = create_organization_invitation_token(
+        user_id=str(user.id),
+        email=user.email,
+        organization_id=str(organization_id),
+    )
+    fe_url = get_frontend_settings().url
+    return f"{fe_url.rstrip('/')}/auth/accept-invitation?token={token}"
+
+
 router = RhesisRouter(
     prefix="/users",
     tags=["users"],
@@ -186,6 +204,11 @@ def create_user(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    # The invited person joins only by accepting; nothing below attaches an
+    # account to the org on its own. For an existing org-less account we issue
+    # an invitation and hand its accept link to the email block below.
+    invitation_action_url = None
+
     # Check for existing user with the same email
     existing_user = user_crud.get_user_by_email(db, user.email)
     if existing_user:
@@ -198,28 +221,17 @@ def create_user(
                 "They must leave their current organization before joining yours.",
             )
 
-        # User exists but has no organization (previously left/removed)
-        # Re-invite them by updating their organization_id
-        existing_user.organization_id = current_user.organization_id
-
-        # Update other fields from the invitation if provided
-        if user.name:
-            existing_user.name = user.name
-        if user.given_name:
-            existing_user.given_name = user.given_name
-        if user.family_name:
-            existing_user.family_name = user.family_name
-
-        db.flush()
-
-        # Re-assign the default org-role (EE) for the rejoining user so they are
-        # not locked out once RBAC is enabled. No-op in community / RBAC-off.
-        from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
-
-        on_user_org_assigned(db, existing_user.id, current_user.organization_id)
-
+        # User exists but has no organization (previously left/removed). Attaching
+        # them by email alone would pull the account in without its owner's say-so,
+        # so instead invite them: membership is granted only when they accept from
+        # their own mailbox (POST /auth/accept-invitation). The profile fields are
+        # not overwritten here — that is the invited person's own account to edit.
         created_user = existing_user
         send_invite = user.send_invite
+        if send_invite:
+            invitation_action_url = _build_invitation_accept_url(
+                existing_user, current_user.organization_id
+            )
     else:
         # New user - create them
         # Extract send_invite flag before creating user (since it's not part of the model)
@@ -256,13 +268,15 @@ def create_user(
                 or "Team Member"
             )
 
-            # Mint a magic link so the "Get started" button logs the
-            # invitee in directly. 7-day TTL — invitation emails are
-            # often opened hours or days after they arrive. Failures
-            # fall through to magic_link_url=None so the email still
-            # sends with the generic sign-in copy.
-            magic_link_url = None
-            if not _org_sso_enabled(organization):
+            # The "Get started" button. For an existing org-less account it
+            # carries the invitation accept link (set above); the recipient
+            # joins the org by opening it. For a brand-new account there is
+            # nothing to accept, so it mints a magic link that logs them in
+            # directly. 7-day TTL — invitation emails are often opened hours or
+            # days after they arrive. Failures fall through to the generic
+            # sign-in copy.
+            magic_link_url = invitation_action_url
+            if magic_link_url is None and not _org_sso_enabled(organization):
                 try:
                     from rhesis.backend.app.auth.token_utils import create_magic_link_token
                     from rhesis.backend.app.config.settings import get_frontend_settings

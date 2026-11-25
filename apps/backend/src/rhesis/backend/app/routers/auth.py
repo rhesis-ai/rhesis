@@ -40,6 +40,7 @@ from rhesis.backend.app.auth.terms import (
 from rhesis.backend.app.auth.token_utils import (
     EMAIL_VERIFICATION_EXPIRE_MINUTES,
     MAGIC_LINK_EXPIRE_MINUTES,
+    ORGANIZATION_INVITATION_EXPIRE_MINUTES,
     PASSWORD_RESET_EXPIRE_MINUTES,
     create_auth_code,
     create_email_verification_token,
@@ -218,6 +219,12 @@ class TermsStatusResponse(BaseModel):
 
 class MagicLinkVerifyRequest(BaseModel):
     """Request body for magic link verification."""
+
+    token: str
+
+
+class AcceptInvitationRequest(BaseModel):
+    """Request body for accepting an organization invitation."""
 
     token: str
 
@@ -1344,6 +1351,125 @@ async def verify_magic_link(
             login_method="magic_link",
             auth_provider="email",
         )
+
+    return {
+        "success": True,
+        "auth_code": auth_code,
+        "user": user_info,
+    }
+
+
+def _accept_invitation(db: Session, email: str, organization_id: str) -> tuple[User, str]:
+    """Attach the invited account to the organization it accepted.
+
+    This is the only place organization membership is granted for an invited
+    existing account: ``POST /users/`` merely issues the invitation. Clicking
+    the emailed link proves ownership of the address, so the account is marked
+    verified here as the magic-link flow does.
+    """
+    from datetime import datetime, timezone
+
+    from rhesis.backend.app.auth.org_membership_hook import on_user_org_assigned
+    from rhesis.backend.app.crud import user as user_crud
+    from rhesis.backend.app.database import set_session_variables
+    from rhesis.backend.app.models.organization import Organization
+
+    user = user_crud.get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid invitation",
+        )
+
+    # Already in an org: a second use of the same link lands here (the first use
+    # set the org), as does an account that joined elsewhere meanwhile. This is
+    # the deterministic single-use guard beyond the jti claim.
+    if user.organization_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This account already belongs to an organization.",
+        )
+
+    organization = db.query(Organization).filter(Organization.id == organization_id).first()
+    if organization is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This invitation is no longer valid.",
+        )
+
+    current_time = datetime.now(timezone.utc)
+    if not user.is_email_verified:
+        drop_credentials_of_unverified_account(db, user)
+        user.is_email_verified = True
+    user.organization_id = organization.id
+    user.last_login_at = current_time
+    db.flush()
+
+    # organization_member RLS needs the org bound explicitly on this
+    # unauthenticated session (mirrors the onboarding attach in the users router).
+    set_session_variables(db, str(organization.id), str(user.id))
+    on_user_org_assigned(db, user.id, organization.id)
+    mark_user_joined_if_needed(user, when=current_time)
+    db.commit()
+    return user, str(user.id)
+
+
+@router.post("/accept-invitation")
+@limiter.limit(AUTH_MAGIC_LINK_VERIFY_LIMIT)
+async def accept_invitation(
+    request: Request,
+    body: AcceptInvitationRequest,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+):
+    """Join the organization named in an invitation token.
+
+    The token is proof the invitee controls the mailbox it was sent to, so
+    consuming it both records their acceptance and signs them in. Single-use
+    and expiring.
+    """
+    payload = verify_email_flow_token(body.token, "organization_invitation")
+    jti = payload.get("jti")
+    organization_id = payload.get("organization_id")
+    email = payload.get("email")
+    if not jti or not organization_id or not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid invitation",
+        )
+
+    from datetime import datetime, timezone
+
+    # Derive the jti TTL from the token's own expiry so the single-use mark
+    # lives exactly as long as the invitation can be accepted.
+    exp = payload.get("exp")
+    if exp is not None:
+        remaining = int(exp - datetime.now(timezone.utc).timestamp())
+        ttl_seconds = max(remaining, 60)
+    else:
+        ttl_seconds = ORGANIZATION_INVITATION_EXPIRE_MINUTES * 60
+    try:
+        claimed = await claim_token_jti(jti, ttl_seconds)
+    except TokenStoreUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service temporarily unavailable. Please try again later.",
+        )
+    if not claimed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation already used or expired",
+        )
+
+    user, user_id = await anyio.to_thread.run_sync(_accept_invitation, db, email, organization_id)
+
+    # Set up session and tokens exactly as the magic-link flow does.
+    set_session_user(request, user_id)
+    access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
+        _issue_login_tokens, db, user
+    )
+    auth_code = await create_auth_code(access_token, refresh_tok)
+
+    await anyio.to_thread.run_sync(_maybe_notify_password_not_set, db, user)
 
     return {
         "success": True,
