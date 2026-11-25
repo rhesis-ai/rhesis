@@ -102,7 +102,10 @@ class IngestJob:
         )
 
     def messages(self, max_message_bytes: int) -> List[Dict[str, Any]]:
-        """This job as messages of at most ``max_message_bytes`` (compressed), split by span.
+        """This job as messages whose spans take at most ``max_message_bytes`` on the broker.
+
+        The size counted is the compressed, base64-encoded spans, which is what
+        the message carries. Split by span.
 
         A single span bigger than the limit still travels on its own: it already
         passed the per-attribute and request size caps.

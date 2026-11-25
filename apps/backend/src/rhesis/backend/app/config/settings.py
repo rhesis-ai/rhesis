@@ -509,7 +509,7 @@ class TraceIngestSettings(BaseSettings):
     )
     # Queued ingest jobs waiting for a worker. 0 turns the check off.
     max_queue_depth: int = Field(default=2_000, alias="TRACE_INGEST_MAX_QUEUE_DEPTH", ge=0)
-    # Compressed size of one queued message; bigger requests are split by span.
+    # Size of one queued message's spans (gzip, then base64); bigger requests are split by span.
     max_message_bytes: int = Field(
         default=4 * 1024 * 1024, alias="TRACE_INGEST_MAX_MESSAGE_BYTES", ge=1024
     )

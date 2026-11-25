@@ -29,6 +29,10 @@ logger = logging.getLogger(__name__)
 # Routed in celery/config.py; only ingest jobs, so its depth is the ingest backlog.
 INGEST_QUEUE = "trace-ingest"
 
+# Kombu's Redis transport keeps a queue as a list under its name, and messages
+# sent with a priority in lists named "<queue>\x06\x16<step>" (PRIORITY_STEPS).
+_QUEUE_KEYS = (INGEST_QUEUE, *(f"{INGEST_QUEUE}\x06\x16{step}" for step in (3, 6, 9)))
+
 _ORG_KEY = "trace-ingest:v1:bytes:"
 _QUEUE_DEPTH_CACHE_SECONDS = 1.0
 _REDIS_TIMEOUT_SECONDS = 0.5
@@ -188,8 +192,10 @@ class _QueueDepth:
             self._value = None
             return None
         try:
-            # Celery's Redis transport keeps a queue as a list under its name.
-            self._value = int(client.llen(INGEST_QUEUE))
+            pipe = client.pipeline()
+            for key in _QUEUE_KEYS:
+                pipe.llen(key)
+            self._value = sum(int(n) for n in pipe.execute())
         except Exception as exc:
             logger.warning(f"Trace ingest queue depth check failed ({exc}); allowing")
             _redis.failed(RedisDatabase.CELERY_BROKER)
