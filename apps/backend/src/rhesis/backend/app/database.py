@@ -279,11 +279,15 @@ CONNECT_ARGS = {
     "options": f"-c idle_in_transaction_session_timeout={IDLE_IN_TRANSACTION_TIMEOUT_MS}",
 }
 
+# Per process. Each worker class sets its own from its concurrency (apps/worker/start.sh),
+# so replicas x processes x (size + overflow) stays under Postgres max_connections.
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
+
 engine = create_engine(
     DATABASE_URL,
-    # More conservative pool settings
-    pool_size=10,  # Adjust based on concurrent load
-    max_overflow=20,  # Total max: 20 connections per instance
+    pool_size=DB_POOL_SIZE,
+    max_overflow=DB_MAX_OVERFLOW,
     pool_pre_ping=True,  # Keep this
     pool_recycle=3600,  # 1 hour instead of 30 min
     pool_timeout=10,  # Slightly shorter timeout
