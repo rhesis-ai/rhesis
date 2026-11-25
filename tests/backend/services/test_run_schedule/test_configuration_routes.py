@@ -35,18 +35,20 @@ def test_put_keeps_the_schedule(
     assert attributes["schedule"] == stored
 
 
-def test_put_that_changes_the_schedule_is_refused(
+def test_put_ignores_a_schedule_in_the_body(
     authenticated_client, test_db, authenticated_user, schedule_test_set, schedule_endpoint
 ):
+    """A read-then-write client must not fail when the dispatcher moved next_run_at."""
     config = _scheduled(test_db, authenticated_user, schedule_test_set, schedule_endpoint)
+    stored = dict(config.attributes["schedule"])
 
     response = authenticated_client.put(
         f"/test_configurations/{config.id}",
         json={"attributes": {"schedule": {"cron": "* * * * *"}}},
     )
 
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "test_run_schedules" in response.json()["detail"]
+    assert response.status_code == status.HTTP_200_OK, response.text
+    assert response.json()["attributes"]["schedule"] == stored
 
 
 def test_delete_clears_the_schedule(

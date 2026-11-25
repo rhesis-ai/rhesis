@@ -190,6 +190,19 @@ class TestUpdate:
         assert service.status_of(config) == service.SCHEDULED
         assert _next(config) == later
 
+    def test_a_new_end_keeps_skipped_runs(self, test_db, create):
+        config = create()
+        first = _next(config)
+        service.skip_next(test_db, config)
+        service.update_schedule(test_db, config, ScheduleUpdate(max_runs=10))
+        assert {"occurrence": first.isoformat(), "skip": True} in _schedule(config)["exceptions"]
+        assert _next(config) == first + timedelta(days=1)
+
+    def test_an_unknown_endpoint_is_refused(self, test_db, create):
+        config = create()
+        with pytest.raises(ScheduleValidationError, match="Endpoint not found"):
+            service.update_schedule(test_db, config, ScheduleUpdate(endpoint_id=uuid.uuid4()))
+
 
 class TestOccurrences:
     def test_moving_one_run_writes_an_exception(self, test_db, create):
@@ -287,6 +300,61 @@ class TestOccurrences:
         service.skip_next(test_db, config)
         assert _next(config) == first + timedelta(days=1)
 
+    def _upcoming(self, config, until):
+        return [
+            o.at
+            for o in timing.occurrences(
+                timing.ScheduleTiming.from_dict(_schedule(config)),
+                datetime.now(timezone.utc),
+                until,
+                _schedule(config)["exceptions"],
+            )
+        ]
+
+    def test_following_drops_a_later_run_moved_before_the_edit(self, test_db, create):
+        """A run moved earlier than the edit point belongs to the new timetable: no double."""
+        config = create()
+        first = _next(config)
+        day2, day3, day4 = (first + timedelta(days=d) for d in (1, 2, 3))
+        service.edit_occurrence(
+            test_db, config, day4, "one", OccurrenceEdit(move_to=day2.replace(hour=15))
+        )
+        service.edit_occurrence(
+            test_db, config, day3, "following", OccurrenceEdit(move_to=day3.replace(hour=10))
+        )
+        assert self._upcoming(config, day4 + timedelta(hours=12)) == [
+            first,
+            day2,
+            day3.replace(hour=10),
+            day4.replace(hour=10),
+        ]
+
+    def test_following_from_a_moved_run_does_not_keep_its_old_time(self, test_db, create):
+        config = create()
+        first = _next(config)
+        day2, day3 = first + timedelta(days=1), first + timedelta(days=2)
+        service.edit_occurrence(
+            test_db, config, day2, "one", OccurrenceEdit(move_to=day2.replace(hour=7))
+        )
+        service.edit_occurrence(
+            test_db, config, day2, "following", OccurrenceEdit(cron="0 10 * * *")
+        )
+        assert self._upcoming(config, day3 + timedelta(hours=12)) == [
+            first,
+            day2.replace(hour=10),
+            day3.replace(hour=10),
+        ]
+
+    def test_delete_following_keeps_a_run_moved_before_the_cut(self, test_db, create):
+        config = create()
+        first = _next(config)
+        day2, day4 = first + timedelta(days=1), first + timedelta(days=3)
+        service.edit_occurrence(
+            test_db, config, day4, "one", OccurrenceEdit(move_to=first.replace(hour=15))
+        )
+        service.delete_occurrence(test_db, config, day2, "following")
+        assert self._upcoming(config, day4 + timedelta(days=1)) == [first, first.replace(hour=15)]
+
 
 class TestState:
     def test_pause_and_resume(self, test_db, create):
@@ -312,6 +380,15 @@ class TestState:
         assert config.status_id is None
         with pytest.raises(ScheduleNotFound):
             service.load_schedule(test_db, config.id)
+
+    def test_pausing_again_keeps_the_needs_owner_reason(self, test_db, create):
+        """Otherwise Pause then Resume would get past Take over."""
+        config = create()
+        service.pause(test_db, config, reason=service.CREATOR_ACCESS)
+        service.pause(test_db, config)
+        assert _schedule(config)["paused_reason"] == service.CREATOR_ACCESS
+        with pytest.raises(ScheduleValidationError, match="Take it over"):
+            service.resume(test_db, config)
 
 
 _AUTHORIZE = "rhesis.backend.app.services.test_run_schedule.service.authorize"

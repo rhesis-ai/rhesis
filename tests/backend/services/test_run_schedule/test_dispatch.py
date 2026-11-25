@@ -189,6 +189,20 @@ class TestSkips:
         assert service.schedule_of(config)["quota_skip_notified"] is True
         assert notify.call_count == 1
 
+    def test_a_quota_skip_does_not_use_up_max_runs(self, test_db, make, launched):
+        config = make(ScheduleSpecIn(name="Once more", cron="0 9 * * *", max_runs=1))
+        with (
+            patch(
+                "rhesis.backend.app.services.test_set.enforce_test_run_quota",
+                side_effect=QuotaExceededError(MagicMock()),
+            ),
+            patch(f"{_OUTCOMES}.notify"),
+        ):
+            assert _fire(config) == dispatch.FireResult.QUOTA
+        config = _reload(test_db, config)
+        assert service.status_of(config) == service.SCHEDULED
+        assert service.schedule_of(config)["next_run_at"] is not None
+
 
 class TestPauses:
     def _assert_paused(self, test_db, config, reason):
@@ -283,3 +297,23 @@ class TestBeatJob:
         entry = CELERY_CONFIG["beat_schedule"]["test-run-schedule-dispatch"]
         assert entry["schedule"] == 60.0
         assert "rhesis.backend.jobs.test_run_schedules" in CELERY_CONFIG["include"]
+
+    def test_one_broken_schedule_does_not_stop_the_rest(self):
+        from rhesis.backend.jobs.test_run_schedules import dispatch_due_schedules
+
+        with (
+            patch(
+                "rhesis.backend.jobs.test_run_schedules.all_organization_ids",
+                return_value=["a"],
+            ),
+            patch(
+                "rhesis.backend.jobs.test_run_schedules.due_in_org",
+                return_value=[("broken", None), ("fine", None)],
+            ),
+            patch(
+                "rhesis.backend.jobs.test_run_schedules.fire_due_schedule",
+                side_effect=[RuntimeError("bad data"), dispatch.FireResult.FIRED],
+            ),
+        ):
+            counts = dispatch_due_schedules.run()
+        assert counts == {"due": 2, "error": 1, "fired": 1}

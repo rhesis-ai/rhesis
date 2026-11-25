@@ -1,6 +1,7 @@
 """The /test_run_schedules API: shapes, statuses, permissions and the runs list Source filter."""
 
 import contextlib
+import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -142,6 +143,31 @@ class TestPreviewAndWindow:
         response = authenticated_client.get(
             f"{BASE}/occurrences",
             params={"from": now.isoformat(), "to": (now + timedelta(days=60)).isoformat()},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_occurrences_need_an_offset(self, authenticated_client):
+        response = authenticated_client.get(
+            f"{BASE}/occurrences",
+            params={"from": "2030-01-01T00:00:00", "to": "2030-01-10T00:00:00"},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_occurrences_stop_at_max_runs(self, authenticated_client, body):
+        body["schedule"] = {"name": "Three times", "cron": "0 9 * * *", "max_runs": 3}
+        authenticated_client.post(f"{BASE}/", json=body)
+        now = datetime.now(timezone.utc)
+        response = authenticated_client.get(
+            f"{BASE}/occurrences",
+            params={"from": now.isoformat(), "to": (now + timedelta(days=14)).isoformat()},
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text
+        names = [item["name"] for item in response.json()["items"]]
+        assert names.count("Three times") == 3
+
+    def test_patch_with_an_unknown_endpoint_is_422(self, authenticated_client, created):
+        response = authenticated_client.patch(
+            f"{BASE}/{created['id']}", json={"endpoint_id": str(uuid.uuid4())}
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
