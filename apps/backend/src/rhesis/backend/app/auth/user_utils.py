@@ -245,11 +245,9 @@ def _load_user_for_api_token(token_value: str) -> Optional[_ApiTokenAuth]:
     after it closes.
     """
     with get_db() as db:
-        is_valid, _ = validate_token(token_value, db=db)
-        if not is_valid:
-            return None
         token = get_token_by_value(db, token_value)
-        if not token:
+        is_valid, _ = validate_token(token, db=db)
+        if not is_valid:
             return None
         user = user_crud.get_user_by_id(db, token.user_id)
         if not user:
