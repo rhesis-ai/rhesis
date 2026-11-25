@@ -46,6 +46,26 @@ const LONG_RUNNING_PATH_SUFFIXES = [
 
 const LONG_RUNNING_TIMEOUT_MS = LONG_REQUEST_LIMIT_SECONDS * 1000;
 
+/**
+ * Responses the browser may keep. Everything else is `no-store`: most of the API
+ * is per-user and changes as people work. Exchange rates are global and the
+ * backend already caches them for a day, yet the shell asked for them on every
+ * full page load.
+ */
+const BROWSER_CACHEABLE: Record<string, string> = {
+  '/services/exchange-rates': 'private, max-age=3600',
+};
+
+/** The `Cache-Control` the proxy sends back for a backend response. */
+export function cacheControlFor(
+  method: string,
+  pathname: string,
+  status: number
+): string {
+  if (method !== 'GET' || status !== 200) return 'no-store';
+  return BROWSER_CACHEABLE[pathname] ?? 'no-store';
+}
+
 /** Pick the timeout budget for a given backend-relative pathname. */
 export function resolveTimeoutMs(pathname: string): number {
   const isLongRunning =
@@ -261,7 +281,11 @@ export async function proxyToBackend(
     }
 
     const responseHeaders: Record<string, string> = {
-      'cache-control': 'no-store',
+      'cache-control': cacheControlFor(
+        request.method,
+        pathname,
+        upstream.status
+      ),
     };
     for (const name of FORWARDED_RESPONSE_HEADERS) {
       const value = upstream.headers.get(name);
