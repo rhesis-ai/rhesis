@@ -15,17 +15,24 @@ from fastapi.routing import APIRoute, request_response
 SELECT_PARAM = "$select"
 
 
+def selected_fields(select: str | None) -> set[str] | None:
+    """The top-level fields a ``$select`` keeps (``id`` included), or ``None`` for all."""
+    if not select:
+        return None
+    fields = {f.strip() for f in select.split(",") if f.strip()}
+    fields.add("id")
+    return fields
+
+
 def apply_select(data: Any, select: str | None) -> Any:
     """Keep only the selected top-level fields of serialized JSON. ``id`` is always kept.
 
     *data* is already-serialized JSON (a dict, or a list of them). Anything that is not
     a dict is returned unchanged.
     """
-    if not select:
+    fields = selected_fields(select)
+    if fields is None:
         return data
-
-    fields = {f.strip() for f in select.split(",") if f.strip()}
-    fields.add("id")
 
     def pick(item: Any) -> Any:
         if not isinstance(item, dict):
