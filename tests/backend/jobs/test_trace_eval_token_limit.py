@@ -51,8 +51,8 @@ def at_the_limit():
     with (
         patch(f"{EVALUATE}.SessionLocal", return_value=MagicMock(spec=Session)),
         patch(f"{EVALUATE}.bind_scope_to_session"),
-        patch(f"{EVALUATE}._load_evaluation_config", return_value=(MagicMock(), {})),
-        patch(f"{EVALUATE}._load_project_trace_metrics", return_value=[MagicMock()]) as metrics,
+        patch(f"{EVALUATE}._load_evaluation_config", return_value={"metric_ids": ["m1"]}),
+        patch(f"{EVALUATE}._metric_configs", return_value=[MagicMock()]) as metrics,
         patch(f"{EVALUATE}._build_evaluator", side_effect=_exceeded()),
         patch(f"{EVALUATE}.get_or_create_status", return_value=status) as get_status,
         patch(f"{EVALUATE}._schedule_debounced_conversation_eval") as schedule,

@@ -1,4 +1,4 @@
-"""Celery task that stores queued trace spans, then starts their post-processing."""
+"""Celery task that stores queued trace spans, then links and queues their evaluation."""
 
 import logging
 from typing import Any, Dict
@@ -13,26 +13,27 @@ from rhesis.backend.app.services.telemetry.ingest import (
     UnstorableSpans,
     process_ingest_job,
 )
+from rhesis.backend.app.services.telemetry.post_ingest import process_stored_spans
 from rhesis.backend.celery.core import app
-from rhesis.backend.jobs.telemetry.post_ingest import post_ingest_link
 
 logger = logging.getLogger(__name__)
 
 
-def dispatch_post_ingest(batch: StoredBatch) -> None:
-    """Queue linking, enrichment and span metering for a stored batch.
+def finish_stored_batch(db, batch: StoredBatch, job: IngestJob) -> None:
+    """Link, queue evaluations for, and meter the batch just stored, on this session.
 
-    The spans are committed, so a broker hiccup here is logged, not retried:
-    retrying the ingest would re-run storage for nothing.
+    The spans are committed, so a failure here is logged, not retried: retrying the
+    ingest would re-run storage for nothing.
     """
-    if not batch.dispatch_kwargs:
+    if not batch.spans:
         return
     try:
-        post_ingest_link.delay(**batch.dispatch_kwargs)
+        process_stored_spans(db, batch.spans, batch.trace_ids, job.organization_id, job.project_id)
     except Exception as exc:
+        db.rollback()
         logger.warning(
-            f"Failed to dispatch post_ingest_link, post-processing deferred | "
-            f"traces={batch.trace_ids} | error_type={type(exc).__name__} | error={exc}",
+            f"Post-ingest processing failed | traces={batch.trace_ids} | "
+            f"error_type={type(exc).__name__} | error={exc}",
             exc_info=True,
         )
 
@@ -47,21 +48,22 @@ def ingest_spans(self, message: Dict[str, Any]) -> Dict[str, Any]:
     db = SessionLocal()
     try:
         bind_scope_to_session(db, job.organization_id, job.user_id or "", job.project_id)
-        batch = process_ingest_job(db, job)
-    except UnstorableSpans:
-        # Logged by process_ingest_job; the same values would fail every retry.
-        return {"stored": 0, "received": len(job.spans), "trace_ids": []}
-    except (SpanStorageError, OperationalError, InterfaceError) as exc:
-        # InterfaceError/OperationalError: the database was unreachable before storage began.
-        raise self.retry(exc=exc, countdown=min(10 * 2**self.request.retries, 300))
+        try:
+            batch = process_ingest_job(db, job)
+        except UnstorableSpans:
+            # Logged by process_ingest_job; the same values would fail every retry.
+            return {"stored": 0, "received": len(job.spans), "trace_ids": []}
+        except (SpanStorageError, OperationalError, InterfaceError) as exc:
+            # InterfaceError/OperationalError: the database was unreachable before storage.
+            raise self.retry(exc=exc, countdown=min(10 * 2**self.request.retries, 300))
+
+        logger.info(
+            f"Ingested {batch.span_count} of {len(job.spans)} span(s) | "
+            f"traces={batch.trace_ids} | org={job.organization_id} | project={job.project_id}"
+        )
+        finish_stored_batch(db, batch, job)
     finally:
         db.close()
-
-    logger.info(
-        f"Ingested {batch.span_count} of {len(job.spans)} span(s) | "
-        f"traces={batch.trace_ids} | org={job.organization_id} | project={job.project_id}"
-    )
-    dispatch_post_ingest(batch)
     return {"stored": batch.span_count, "received": len(job.spans), "trace_ids": batch.trace_ids}
 
 

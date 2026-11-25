@@ -14,8 +14,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
-from rhesis.backend.app.quota import QuotaResource
-from rhesis.backend.app.services.usage import dispatch_accrual
+from rhesis.backend.app.services.telemetry.post_ingest import process_stored_spans
 from rhesis.backend.celery.core import app
 
 logger = logging.getLogger(__name__)
@@ -32,7 +31,10 @@ def post_ingest_link(
     test_id: Optional[str] = None,
     test_configuration_id: Optional[str] = None,
 ) -> dict:
-    """Link ingested spans and dispatch enrichment.
+    """Link ingested spans and queue their evaluations.
+
+    Batches stored by this release are processed inline by ``ingest_spans``; this
+    task remains for messages the previous release queued.
 
     Args:
         stored_span_ids: Database primary keys of the stored spans.
@@ -56,116 +58,10 @@ def post_ingest_link(
             )
             return {"status": "no_spans", "trace_ids": unique_trace_ids}
 
-        linked_count = 0
-        conversation_linked = 0
-        files_created = 0
-
-        # 1. Test-result linking
-        from rhesis.backend.app.services.telemetry.linking_service import (
-            TraceLinkingService,
+        result = process_stored_spans(
+            db, stored_spans, unique_trace_ids, organization_id, project_id
         )
-
-        linking_service = TraceLinkingService(db)
-        try:
-            linked_count = linking_service.link_traces_for_incoming_batch(
-                spans=stored_spans,
-                organization_id=organization_id,
-            )
-            if linked_count > 0:
-                logger.info(
-                    f"Linked {linked_count} traces to test result (traces={unique_trace_ids})"
-                )
-        except Exception as link_error:
-            logger.warning(f"Failed to link traces (traces={unique_trace_ids}): {link_error}")
-            logger.debug("Trace linking traceback:", exc_info=True)
-
-        # 2. Conversation-id linking
-        from rhesis.backend.app.services.telemetry.conversation_linking import (
-            apply_pending_conversation_links,
-            apply_pending_files,
-        )
-
-        try:
-            conversation_linked = apply_pending_conversation_links(db, stored_spans)
-            if conversation_linked > 0:
-                logger.info(
-                    f"Applied {conversation_linked} pending conversation "
-                    f"links (traces={unique_trace_ids})"
-                )
-        except Exception as conversation_error:
-            logger.warning(
-                f"Failed to apply conversation links "
-                f"(traces={unique_trace_ids}): {conversation_error}"
-            )
-            logger.debug("Conversation linking traceback:", exc_info=True)
-
-        # 3. Input file linking
-        try:
-            files_created = apply_pending_files(db, stored_spans)
-            if files_created > 0:
-                logger.info(f"Created {files_created} pending file(s) (traces={unique_trace_ids})")
-        except Exception as file_error:
-            logger.warning(
-                f"Failed to apply pending files (traces={unique_trace_ids}): {file_error}"
-            )
-            logger.debug("File linking traceback:", exc_info=True)
-
-        # 4. Dispatch enrichment pipeline per root span so each turn in a
-        #    multi-turn conversation gets its own evaluation task keyed by
-        #    the root span's DB primary key.
-        from rhesis.backend.app.services.telemetry.enrichment import (
-            build_enrichment_chain,
-        )
-        from rhesis.backend.jobs.telemetry.enrich import enrich_trace_async
-
-        root_spans_in_batch = [s for s in stored_spans if s.parent_span_id is None]
-        dispatched_traces: set[str] = set()
-
-        for root_span in root_spans_in_batch:
-            try:
-                workflow = build_enrichment_chain(
-                    root_span.trace_id,
-                    project_id,
-                    organization_id,
-                    root_span_id=str(root_span.id),
-                )
-                workflow.apply_async()
-                dispatched_traces.add(root_span.trace_id)
-            except Exception as enrich_error:
-                logger.warning(
-                    f"Failed to enqueue enrichment for root span "
-                    f"{root_span.id} (trace {root_span.trace_id}): {enrich_error}"
-                )
-
-        for trace_id in unique_trace_ids:
-            if trace_id not in dispatched_traces:
-                try:
-                    enrich_trace_async.delay(trace_id, project_id, organization_id)
-                except Exception as enrich_error:
-                    logger.warning(
-                        f"Failed to enqueue enrichment for trace {trace_id}: {enrich_error}"
-                    )
-
-        # Accrue on definite success, not at the top of the function: this
-        # task retries the *entire* body on exception (see the except block
-        # below), so accruing early would double- (or triple-) count a
-        # batch that fails after linking but succeeds on retry. Placed here,
-        # accrual fires exactly once per successfully processed batch.
-        # Counts stored_spans (rows actually found/persisted), not
-        # stored_span_ids (ids requested -- some may not exist).
-        #
-        # Queued rather than written on `db`: a raised counter write inside
-        # this try block would be caught below and retry the whole body,
-        # re-dispatching enrichment for spans already linked above.
-        dispatch_accrual(organization_id, QuotaResource.TRACING_SPANS, len(stored_spans))
-
-        return {
-            "status": "success",
-            "trace_ids": unique_trace_ids,
-            "linked": linked_count,
-            "conversation_linked": conversation_linked,
-            "files_created": files_created,
-        }
+        return {"status": "success", "trace_ids": unique_trace_ids, **result}
 
     except Exception as e:
         logger.error(

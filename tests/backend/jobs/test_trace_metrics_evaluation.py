@@ -3,7 +3,7 @@
 These tests mock ``SessionLocal`` and do not require a migrated database.
 If Alembic session setup fails locally (e.g. multiple heads), run with::
 
-    RHESIS_SKIP_MIGRATIONS=1 uv run pytest ../../tests/backend/tasks/test_trace_metrics_evaluation.py -v
+    RHESIS_SKIP_MIGRATIONS=1 uv run pytest ../../tests/backend/jobs/test_trace_metrics_evaluation.py
 """
 
 from __future__ import annotations
@@ -16,10 +16,10 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.schemas.metric import MetricScope
+from rhesis.backend.app.services.telemetry.trace_metrics_config import trace_metrics_config
 from rhesis.backend.jobs.telemetry.evaluate import (
     CONVERSATION_INPUT_KEY,
     CONVERSATION_OUTPUT_KEY,
-    _get_trace_metrics_config,
     _schedule_debounced_conversation_eval,
     _turn_trace_loader,
     evaluate_conversation_trace_metrics,
@@ -151,29 +151,29 @@ def _mock_metric_model(name: str = "m1") -> MagicMock:
 
 @pytest.mark.unit
 class TestGetTraceMetricsConfig:
-    """Tests for _get_trace_metrics_config normalising different storage formats."""
+    """Tests for trace_metrics_config normalising different storage formats."""
 
     def test_dict_config_returned_as_is(self):
         project = _mock_project({"enabled": True, "sampling_rate": 0.5})
-        config = _get_trace_metrics_config(project)
+        config = trace_metrics_config(project)
         assert config == {"enabled": True, "sampling_rate": 0.5}
 
     def test_list_of_metric_ids_normalised_to_dict(self):
         project = MagicMock()
         project.attributes = {"trace_metrics": ["id-1", "id-2"]}
-        config = _get_trace_metrics_config(project)
+        config = trace_metrics_config(project)
         assert config == {"metric_ids": ["id-1", "id-2"]}
 
     def test_missing_trace_metrics_returns_empty_dict(self):
         project = MagicMock()
         project.attributes = {}
-        config = _get_trace_metrics_config(project)
+        config = trace_metrics_config(project)
         assert config == {}
 
     def test_none_attributes_returns_empty_dict(self):
         project = MagicMock()
         project.attributes = None
-        config = _get_trace_metrics_config(project)
+        config = trace_metrics_config(project)
         assert config == {}
 
 
@@ -219,6 +219,49 @@ class TestEvaluateTurnTraceMetrics:
         assert "metrics" in utm["turn_metrics"]
         assert utm["turn_metrics"]["metrics"] == eval_results
         db.close.assert_called_once()
+
+    def _run_turn(self):
+        """Run the turn task, recording the order of commits and the judge call."""
+        project = _mock_project()
+        root = _mock_root_span(conversation_id=None)
+        db = _db_mock_turn(project, root, _mock_status_row("pass-status-id"))
+        order = []
+        db.commit.side_effect = lambda: order.append("commit")
+
+        def evaluate(metrics, trace):
+            order.append(("evaluate", type(metrics[0]).__name__))
+            return {"m1": {"is_successful": True, "score": 1.0}}
+
+        with (
+            patch("rhesis.backend.jobs.telemetry.evaluate.SessionLocal", return_value=db),
+            patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
+            patch(
+                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                return_value=[_mock_metric_model()],
+            ) as load,
+            patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics"),
+            patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_conversation_metrics"),
+            patch("rhesis.backend.metrics.evaluator.MetricEvaluator") as mock_eval_cls,
+        ):
+            mock_eval_cls.return_value.evaluate.side_effect = evaluate
+            out = evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
+            second = evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
+        return out, second, order, load
+
+    def test_judges_run_after_the_commit_with_plain_configs(self):
+        # An ORM metric read after the commit would reopen a transaction that then
+        # stays open, holding a pooled connection, for the whole judge call.
+        _, _, order, _ = self._run_turn()
+
+        evaluate_at = next(i for i, step in enumerate(order) if isinstance(step, tuple))
+        assert order[evaluate_at - 1] == "commit"
+        assert order[evaluate_at] == ("evaluate", "MetricConfig")
+
+    def test_a_projects_metrics_are_loaded_once_per_ttl(self):
+        out, second, _, load = self._run_turn()
+
+        assert out["status"] == second["status"] == "success"
+        load.assert_called_once()
 
     def test_trace_metrics_as_list_of_ids(self):
         """Reproduce the production bug: trace_metrics stored as a plain list of IDs."""
@@ -686,7 +729,8 @@ class TestEvaluateConversationTraceMetrics:
         assert ucm["trace_id"] == TRACE_ID
         assert ucm["conversation_metrics"]["metrics"] == eval_results
         metrics, trace = mock_eval_cls.return_value.evaluate.call_args.args
-        assert metrics == [mock_metric]
+        # Plain configs, built before the commit so no lazy load reopens a transaction.
+        assert [m.id for m in metrics] == [mock_metric.id]
         assert trace.is_conversation
         messages = trace.messages().to_dict_list()
         assert [(m["role"], m["content"]) for m in messages] == [

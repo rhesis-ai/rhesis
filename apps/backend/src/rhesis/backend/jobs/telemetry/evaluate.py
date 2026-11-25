@@ -20,12 +20,20 @@ from rhesis.backend.app.crud.telemetry import (
     update_trace_turn_metrics,
 )
 from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
-from rhesis.backend.app.quota.enforcement import QuotaExceededError
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, enforce_quota
 from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.services.telemetry.evaluation_trace import load_evaluation_trace
+from rhesis.backend.app.services.telemetry.trace_metrics_config import (
+    context_ttl_seconds,
+    evaluation_enabled,
+    project_trace_metrics_config,
+)
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
+from rhesis.backend.app.utils.ttl_cache import TTLCache
 from rhesis.backend.celery.core import app
 from rhesis.backend.metrics.inputs import ResponseTrace, TraceLoader
+from rhesis.backend.metrics.metric_config import MetricConfig, normalize_config
 from rhesis.sdk.entities.trace import Trace
 
 logger = logging.getLogger(__name__)
@@ -33,29 +41,15 @@ logger = logging.getLogger(__name__)
 CONVERSATION_INPUT_KEY = "rhesis.conversation.input"
 CONVERSATION_OUTPUT_KEY = "rhesis.conversation.output"
 
-
-def _get_trace_metrics_config(project: models.Project) -> Dict[str, Any]:
-    """Extract trace_metrics config from project attributes.
-
-    The frontend stores ``trace_metrics`` as a plain list of metric-ID
-    strings while the evaluation pipeline expects a config dict with
-    optional keys ``enabled``, ``sampling_rate``, and ``metric_ids``.
-    This function normalises both representations into a config dict.
-
-    Returns defaults when attributes are absent or incomplete.
-    """
-    attrs = project.attributes or {}
-    raw = attrs.get("trace_metrics", {})
-    if isinstance(raw, list):
-        return {"metric_ids": raw}
-    if not isinstance(raw, dict):
-        return {}
-    return raw
+# Per-project lookups every evaluation repeated; see trace_metrics_config for the TTL.
+_metric_config_cache = TTLCache(context_ttl_seconds)
+_judge_model_cache = TTLCache(context_ttl_seconds)
+_status_ids = TTLCache(context_ttl_seconds)
 
 
-def _should_evaluate(config: Dict[str, Any]) -> bool:
+def _should_evaluate(config: Optional[Dict[str, Any]]) -> bool:
     """Check if the project assigned trace metrics, has evaluation on, and passes sampling."""
-    if not config.get("metric_ids") or config.get("enabled") is False:
+    if not evaluation_enabled(config):
         return False
 
     sampling_rate = config.get("sampling_rate", 1.0)
@@ -161,16 +155,20 @@ def _resolve_status_id(
     TestResult has produced one, and this must not silently drop the
     trace's status in that case.
     """
-    from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
-    status = get_or_create_status(db, status_name, "TestResult", organization_id=organization_id)
-    if not status:
+    def load() -> Optional[str]:
+        status = get_or_create_status(
+            db, status_name, "TestResult", organization_id=organization_id
+        )
+        return str(status.id) if status else None
+
+    status_id = _status_ids.get_or_load((str(organization_id), status_name), load)
+    if status_id is None:
         logger.warning(
             f"Status '{status_name}' not found for org {organization_id}; "
             f"trace_metrics_status will not be set"
         )
-        return None
-    return str(status.id)
+    return status_id
 
 
 def _turn_root_span(db: Session, trace_id: str, root_span_id: Optional[str]):
@@ -211,27 +209,44 @@ def _mark_skipped_at_token_limit(db: Session, organization_id: str, spans) -> No
     db.commit()
 
 
-def _load_evaluation_config(db: Session, trace_id: str, project_id: str):
-    """The project and its trace metrics config, or None when evaluation is off."""
-    project = db.query(models.Project).filter(models.Project.id == project_id).first()
-    if not project:
+def _load_evaluation_config(
+    db: Session, trace_id: str, organization_id: str, project_id: str
+) -> Optional[Dict[str, Any]]:
+    """The project's trace metrics config, or None when evaluation is off (or sampled out)."""
+    config = project_trace_metrics_config(db, organization_id, project_id)
+    if config is None:
         logger.warning(f"Project {project_id} not found for trace {trace_id}")
         return None
-
-    config = _get_trace_metrics_config(project)
     if not _should_evaluate(config):
         return None
-    return project, config
+    return config
 
 
-def _build_evaluator(db: Session, project, trace_id: str, organization_id: str):
-    """The evaluator with the project's evaluation model.
+def _metric_configs(
+    db: Session, organization_id: str, project_id: str, config: Dict[str, Any], phase: str
+) -> List[MetricConfig]:
+    """The project's metrics for *phase* as plain configs, cached with the project config.
 
-    Built only once there is something to evaluate, so the quota check below runs
-    only for a phase that would really call the model.
+    Plain configs, not ORM rows: they are shared across threads and sessions, and
+    building one reads the metric's lazy relationships, which must happen here, inside
+    the read transaction, not during the judge calls.
+    """
+
+    def load() -> List[MetricConfig]:
+        metrics = _load_project_trace_metrics(db, organization_id, config, phase=phase)
+        return [normalize_config(metric) for metric in metrics]
+
+    key = (str(organization_id), str(project_id), phase, tuple(config.get("metric_ids") or ()))
+    return _metric_config_cache.get_or_load(key, load)
+
+
+def _judge_models(db: Session, organization_id: str, project_id: str, trace_id: str):
+    """The project's ``(evaluation model, text model)``, cached per project.
+
+    Resolving them reads the project, its owner, the model row and decrypts the key.
 
     Raises:
-        QuotaExceededError: the organization is at its model token limit.
+        QuotaExceededError: the organization is at its model token limit (never cached).
     """
     from rhesis.backend.app.config.settings import get_model_settings
     from rhesis.backend.app.utils.user_model_utils import (
@@ -239,23 +254,47 @@ def _build_evaluator(db: Session, project, trace_id: str, organization_id: str):
         resolve_model,
         text_model_for,
     )
+
+    def load():
+        project = db.query(models.Project).filter(models.Project.id == project_id).first()
+        project_user = (project.owner or project.user) if project else None
+        try:
+            if project_user:
+                default_model = resolve_model(db, project_user, "evaluation")
+                return default_model, text_model_for(db, project_user, default_model)
+            return (
+                resolve_default_hosted_model(
+                    get_model_settings().evaluation_model, db, organization_id
+                ),
+                None,
+            )
+        except QuotaExceededError:
+            raise  # The caller marks the trace skipped.
+        except Exception as e:
+            logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
+            return None, None
+
+    return _judge_model_cache.get_or_load((str(organization_id), str(project_id)), load)
+
+
+def _build_evaluator(db: Session, project_id: str, trace_id: str, organization_id: str):
+    """The evaluator with the project's evaluation model.
+
+    Built only once there is something to evaluate, so the quota check below runs
+    only for a phase that would really call the model. The models are cached, so the
+    token-limit check for a hosted model runs here on every trace, not only on a miss.
+
+    Raises:
+        QuotaExceededError: the organization is at its model token limit.
+    """
     from rhesis.backend.metrics.evaluator import MetricEvaluator
 
-    default_model = None
-    text_model = None
-    project_user = project.owner or project.user
-    try:
-        if project_user:
-            default_model = resolve_model(db, project_user, "evaluation")
-            text_model = text_model_for(db, project_user, default_model)
-        else:
-            default_model = resolve_default_hosted_model(
-                get_model_settings().evaluation_model, db, organization_id
-            )
-    except QuotaExceededError:
-        raise  # The caller marks the trace skipped.
-    except Exception as e:
-        logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
+    default_model, text_model = _judge_models(db, organization_id, project_id, trace_id)
+    if getattr(default_model, "usage_metered", None) is True:
+        organization = (
+            db.query(models.Organization).filter(models.Organization.id == organization_id).first()
+        )
+        enforce_quota(db, str(organization_id), organization, QuotaResource.MODEL_TOKENS)
 
     # require_model: without a resolved judge the SDK would build its own default
     # model, which carries no usage stamp.
@@ -292,10 +331,11 @@ def evaluate_turn_trace_metrics(
     organization_id: str,
     root_span_id: Optional[str] = None,
 ) -> dict:
-    """Phase 1: Immediate per-turn trace metrics evaluation.
+    """Phase 1: evaluate one stored turn's trace metrics.
 
-    Runs after every enrichment. For turns with conversation_id,
-    also schedules a debounced conversation-level evaluation.
+    Queued once per root span, only for projects with trace metrics, by
+    ``EnrichmentService.dispatch_for_spans`` (the spans were enriched when stored). For
+    turns with a conversation_id, also schedules a debounced conversation-level evaluation.
 
     Args:
         root_span_id: DB primary key of the root span to evaluate.
@@ -310,10 +350,9 @@ def evaluate_turn_trace_metrics(
     try:
         bind_scope_to_session(db, organization_id, "", project_id)
 
-        loaded = _load_evaluation_config(db, trace_id, project_id)
-        if loaded is None:
+        config = _load_evaluation_config(db, trace_id, organization_id, project_id)
+        if config is None:
             return {"status": "skipped", "trace_id": trace_id}
-        project, config = loaded
 
         root_span = _turn_root_span(db, trace_id, root_span_id)
         if not root_span:
@@ -340,16 +379,16 @@ def evaluate_turn_trace_metrics(
             return {"status": "no_io", "trace_id": trace_id}
 
         has_conversation = bool(root_span.conversation_id)
-        metrics = _load_project_trace_metrics(db, organization_id, config, phase="turn")
+        metric_configs = _metric_configs(db, organization_id, project_id, config, "turn")
 
-        if not metrics:
+        if not metric_configs:
             logger.info(f"No project trace metrics apply to trace {trace_id}")
             if has_conversation:
                 _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
             return {"status": "no_metrics", "trace_id": trace_id}
 
         try:
-            evaluator = _build_evaluator(db, project, trace_id, organization_id)
+            evaluator = _build_evaluator(db, project_id, trace_id, organization_id)
         except QuotaExceededError as e:
             logger.info(f"Skipping trace {trace_id} evaluation: {e}")
             _mark_skipped_at_token_limit(db, organization_id, [root_span])
@@ -364,8 +403,11 @@ def evaluate_turn_trace_metrics(
                 trace_id, str(root_span.span_id), organization_id, project_id
             ),
         )
+        # End the read transaction so the connection goes back to the pool for the
+        # judge calls; the writes below open a new one (GUCs re-applied on begin).
+        db.commit()
         start_time = time.time()
-        results = evaluator.evaluate(metrics, trace)
+        results = evaluator.evaluate(metric_configs, trace)
         execution_time = (time.time() - start_time) * 1000
 
         turn_metrics = {
@@ -430,13 +472,12 @@ def evaluate_conversation_trace_metrics(
     try:
         bind_scope_to_session(db, organization_id, "", project_id)
 
-        loaded = _load_evaluation_config(db, trace_id, project_id)
-        if loaded is None:
+        config = _load_evaluation_config(db, trace_id, organization_id, project_id)
+        if config is None:
             return {"status": "skipped", "trace_id": trace_id}
-        project, config = loaded
 
-        metrics = _load_project_trace_metrics(db, organization_id, config, phase="conversation")
-        if not metrics:
+        metric_configs = _metric_configs(db, organization_id, project_id, config, "conversation")
+        if not metric_configs:
             logger.info(f"No Multi-Turn project trace metrics for trace {trace_id}")
             return {"status": "no_metrics", "trace_id": trace_id}
 
@@ -450,14 +491,17 @@ def evaluate_conversation_trace_metrics(
         trace.conversation_id = root_spans[0].conversation_id
 
         try:
-            evaluator = _build_evaluator(db, project, trace_id, organization_id)
+            evaluator = _build_evaluator(db, project_id, trace_id, organization_id)
         except QuotaExceededError as e:
             logger.info(f"Skipping conversation {trace_id} evaluation: {e}")
             _mark_skipped_at_token_limit(db, organization_id, root_spans)
             return {"status": "quota_exceeded", "trace_id": trace_id}
 
+        # End the read transaction so the connection goes back to the pool for the
+        # judge calls; the writes below open a new one (GUCs re-applied on begin).
+        db.commit()
         start_time = time.time()
-        results = evaluator.evaluate(metrics, trace)
+        results = evaluator.evaluate(metric_configs, trace)
         execution_time = (time.time() - start_time) * 1000
 
         conversation_metrics = {

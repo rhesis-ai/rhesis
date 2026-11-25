@@ -89,7 +89,7 @@ class TraceEnricher:
 
         # Calculate enrichment (returns Pydantic model)
         logger.debug(f"Enriching trace {trace_id}")
-        enriched_model = self._calculate_enrichment(spans)
+        enriched_model = calculate_enrichment(spans)
 
         # Convert to dict for database storage only
         enriched_data = enriched_model.model_dump(mode="json", exclude_none=True)
@@ -100,39 +100,43 @@ class TraceEnricher:
         # Return the Pydantic model (not the dict)
         return enriched_model
 
-    def _calculate_enrichment(self, spans: List[Trace]) -> EnrichedTraceData:
-        """
-        Calculate enrichment for trace spans.
 
-        Args:
-            spans: List of spans in the trace
+def calculate_enrichment(spans: List[Trace]) -> EnrichedTraceData:
+    """
+    Calculate enrichment for a trace's spans: costs, anomalies, metadata, metrics.
 
-        Returns:
-            EnrichedTraceData Pydantic model
-        """
-        # Calculate costs (returns TokenCosts model or None)
-        cost_data = calculate_token_costs(spans)
+    Pure: no database access. Ingest runs it over the stored and incoming spans of a
+    trace before inserting (``span_storage.store_spans``).
 
-        # Detect anomalies (returns List[Anomaly] or None)
-        anomalies = detect_anomalies(spans)
+    Args:
+        spans: List of spans in the trace
 
-        # Extract metadata (returns dict)
-        metadata = extract_metadata(spans)
+    Returns:
+        EnrichedTraceData Pydantic model
+    """
+    # Calculate costs (returns TokenCosts model or None)
+    cost_data = calculate_token_costs(spans)
 
-        # Calculate trace-level metrics (use semantic layer constant for status)
-        metrics = TraceMetrics(
-            total_duration_ms=sum(span.duration_ms for span in spans if span.duration_ms),
-            span_count=len(spans),
-            error_count=sum(1 for span in spans if span.status_code == StatusCode.ERROR.value),
-        )
+    # Detect anomalies (returns List[Anomaly] or None)
+    anomalies = detect_anomalies(spans)
 
-        # Build EnrichedTraceData model
-        return EnrichedTraceData(
-            costs=cost_data,
-            anomalies=anomalies,
-            metrics=metrics,
-            models_used=metadata.get("models_used"),
-            tools_used=metadata.get("tools_used"),
-            operation_types=metadata.get("operation_types"),
-            root_operation=metadata.get("root_operation"),
-        )
+    # Extract metadata (returns dict)
+    metadata = extract_metadata(spans)
+
+    # Calculate trace-level metrics (use semantic layer constant for status)
+    metrics = TraceMetrics(
+        total_duration_ms=sum(span.duration_ms for span in spans if span.duration_ms),
+        span_count=len(spans),
+        error_count=sum(1 for span in spans if span.status_code == StatusCode.ERROR.value),
+    )
+
+    # Build EnrichedTraceData model
+    return EnrichedTraceData(
+        costs=cost_data,
+        anomalies=anomalies,
+        metrics=metrics,
+        models_used=metadata.get("models_used"),
+        tools_used=metadata.get("tools_used"),
+        operation_types=metadata.get("operation_types"),
+        root_operation=metadata.get("root_operation"),
+    )

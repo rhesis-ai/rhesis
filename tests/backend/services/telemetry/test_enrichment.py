@@ -13,6 +13,7 @@ from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.enrichment import TokenCosts
 from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate
 from rhesis.backend.app.services.telemetry.enrichment import (
+    calculate_enrichment,
     calculate_token_costs,
     detect_anomalies,
     extract_metadata,
@@ -1081,9 +1082,7 @@ class TestTraceEnricher:
         )
 
     def test_calculate_enrichment_combines_all_data(self, mocker):
-        """Test that _calculate_enrichment combines costs, anomalies, and metadata."""
-        mock_db = Mock()
-        enricher = TraceEnricher(mock_db)
+        """calculate_enrichment combines costs, anomalies, and metadata."""
 
         # Create realistic mock spans
         spans = [
@@ -1103,7 +1102,7 @@ class TestTraceEnricher:
             )
         ]
 
-        result = enricher._calculate_enrichment(spans)
+        result = calculate_enrichment(spans)
 
         # Should include costs (from LLM span) - returns EnrichedTraceData model
         assert result.costs is not None

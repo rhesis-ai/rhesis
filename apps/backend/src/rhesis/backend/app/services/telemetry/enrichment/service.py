@@ -1,17 +1,24 @@
-"""Enrichment orchestration service.
+"""Queueing the evaluation of freshly stored traces.
 
-Handles the coordination between async and sync enrichment strategies.
+Two paths store spans: queued ingest (``post_ingest.process_stored_spans``, for the
+SDK and OTLP routes) and the endpoint invoker during test runs
+(``create_and_enrich_spans``). Both enrich the spans as they store them
+(``span_storage.store_spans``), so what is left is one evaluation task per root span,
+and only for projects that assigned trace metrics.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, List, Set
+from typing import TYPE_CHECKING, Any, List
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.services import usage_coalescer
 from rhesis.backend.app.services.async_service import AsyncService
-from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
-from rhesis.backend.app.services.usage import dispatch_accrual
+from rhesis.backend.app.services.telemetry.trace_metrics_config import (
+    evaluation_enabled,
+    project_trace_metrics_config,
+)
 from rhesis.sdk.telemetry.reported_spans import REPORTED, SOURCE_ATTRIBUTE
 
 if TYPE_CHECKING:
@@ -21,11 +28,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class EnrichmentService(AsyncService[dict | None]):
-    """Service for orchestrating trace enrichment with async/sync fallback."""
+class EnrichmentService(AsyncService[None]):
+    """Stores and enriches spans, and queues their turn evaluations."""
 
     def __init__(self, db: Session):
-        """Initialize the enrichment service."""
         super().__init__()
         self.db = db
 
@@ -35,33 +41,12 @@ class EnrichmentService(AsyncService[dict | None]):
         project_id: str,
         organization_id: str,
         root_span_id: str | None = None,
-    ) -> dict | None:
-        """
-        Synchronous enrichment (development fallback).
-
-        Metric evaluation (LLM calls) is skipped — it requires Celery workers
-        and should never run in-process.
-
-        Args:
-            trace_id: Trace ID to enrich
-            project_id: Project ID for access control
-            organization_id: Organization ID for multi-tenant security
-            root_span_id: Unused in sync path; accepted for interface compatibility
-
-        Returns:
-            Enriched trace data or None if enrichment failed
-        """
-        enricher = TraceEnricher(self.db)
-        enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
-        if enriched_data:
-            logger.info(f"Completed sync enrichment for trace {trace_id}")
-            logger.warning(
-                f"Trace metrics evaluation skipped for {trace_id} "
-                f"(requires Celery workers for async processing)"
-            )
-        else:
-            logger.warning(f"Sync enrichment returned no data for trace {trace_id}")
-        return enriched_data
+    ) -> None:
+        """Broker unreachable: evaluation makes LLM calls, so it never runs in-process."""
+        logger.warning(
+            f"Trace metrics evaluation skipped for {trace_id} (broker unavailable; "
+            f"the spans are stored and enriched)"
+        )
 
     def _enqueue_async(
         self,
@@ -70,76 +55,57 @@ class EnrichmentService(AsyncService[dict | None]):
         organization_id: str,
         root_span_id: str | None = None,
     ) -> Any:
-        """
-        Enqueue async enrichment + evaluation chain.
-
-        Args:
-            trace_id: Trace ID to enrich
-            project_id: Project ID for access control
-            organization_id: Organization ID for multi-tenant security
-            root_span_id: DB primary key of the root span passed through to
-                ``evaluate_turn_trace_metrics`` for multi-turn conversation accuracy
-
-        Returns:
-            Celery AsyncResult
-        """
-        workflow = build_enrichment_chain(
-            trace_id,
-            project_id,
-            organization_id,
-            root_span_id=root_span_id,
-        )
-        result = workflow.apply_async()
-        logger.debug(
-            f"Enqueued async pipeline (enrich -> evaluate) for trace {trace_id} (task: {result.id})"
-        )
+        result = build_turn_evaluation(
+            trace_id, project_id, organization_id, root_span_id=root_span_id
+        ).apply_async()
+        logger.debug(f"Enqueued evaluation for trace {trace_id} (task: {result.id})")
         return result
 
-    def enqueue_enrichment(
+    def enqueue_evaluation(
         self,
         trace_id: str,
         project_id: str,
         organization_id: str,
         root_span_id: str | None = None,
     ) -> bool:
-        """
-        Enqueue enrichment: try async, fall back to sync on broker errors.
-
-        Returns:
-            True if async task was enqueued, False if sync fallback was used
-        """
+        """Queue one turn's evaluation. False when the broker was unreachable."""
         try:
             was_async, _ = self.execute_with_fallback(
-                trace_id,
-                project_id,
-                organization_id,
-                root_span_id=root_span_id,
+                trace_id, project_id, organization_id, root_span_id=root_span_id
             )
             return was_async
         except Exception as e:
-            logger.error(f"Enrichment failed for trace {trace_id}: {e}", exc_info=True)
+            logger.error(f"Queueing evaluation failed for trace {trace_id}: {e}", exc_info=True)
             return False
 
-    def enrich_traces(
+    def dispatch_for_spans(
         self,
-        trace_ids: Set[str],
+        stored_spans: List["models.Trace"],
         project_id: str,
         organization_id: str,
     ) -> tuple[int, int]:
-        """
-        Enrich multiple traces: try async, fall back to sync per-item.
+        """Queue an evaluation per root span. Returns ``(queued, not_queued)``.
 
-        Returns:
-            Tuple of (async_count, sync_count)
+        One task per root span, keyed by its primary key, so each turn of a
+        conversation is evaluated on its own. Nothing is queued for a project
+        without trace metrics: that task would only have found nothing to do.
         """
-        if not trace_ids:
+        root_spans = [s for s in stored_spans if s.parent_span_id is None]
+        if not root_spans:
+            return 0, 0
+        config = project_trace_metrics_config(self.db, organization_id, project_id)
+        if not evaluation_enabled(config):
             return 0, 0
 
-        items = [((trace_id, project_id, organization_id), {}) for trace_id in trace_ids]
-        return self.batch_execute(
-            items,
-            swallow_exceptions=True,
-        )
+        queued = not_queued = 0
+        for root_span in root_spans:
+            if self.enqueue_evaluation(
+                root_span.trace_id, project_id, organization_id, root_span_id=str(root_span.id)
+            ):
+                queued += 1
+            else:
+                not_queued += 1
+        return queued, not_queued
 
     def create_and_enrich_spans(
         self,
@@ -147,115 +113,53 @@ class EnrichmentService(AsyncService[dict | None]):
         organization_id: str,
         project_id: str,
     ) -> tuple[List["models.Trace"], int, int]:
-        """
-        Create trace spans and automatically trigger enrichment.
-
-        Used by the endpoint invocation path (``services/invokers/tracing.py``),
-        **not** by the main telemetry ingestion router which handles storage and
-        enrichment dispatch separately.
-
-        Dispatches one enrichment chain **per root span** so that each turn
-        in a multi-turn conversation gets its own evaluation task keyed by
-        the root span's DB primary key.  Trace IDs that only contain child
-        spans in this batch still get an enrichment-only dispatch.
-
-        Args:
-            spans: List of OTEL spans to create
-            organization_id: Organization ID for tenant isolation
-            project_id: Project ID for access control
+        """Store spans from the endpoint invoker, enriched, and queue their evaluations.
 
         Returns:
-            Tuple of (stored_spans, async_count, sync_count)
+            Tuple of (stored_spans, queued, not_queued)
         """
-        from rhesis.backend.app.crud.telemetry import create_trace_spans
+        # Imported here: span_storage imports this package's processor, and this module
+        # is loaded by the package __init__.
+        from rhesis.backend.app.services.telemetry.span_storage import store_spans
 
-        stored_spans = create_trace_spans(self.db, spans, organization_id)
+        stored_spans = store_spans(self.db, spans, organization_id)
 
         if not stored_spans:
             logger.warning("No spans were stored")
             return [], 0, 0
 
-        # Accrued here as well as in ``post_ingest_link``: these are the two
-        # paths that create Trace rows, and metering only the ingestion
-        # router would miss every span Rhesis itself produces while invoking
-        # an endpoint during a test run -- the primary product flow. The two
-        # paths are disjoint (this one is the invoker, that one is inbound
-        # OTLP), so no span is counted twice.
-        #
-        # Placed right after the rows are persisted rather than at the end
-        # of the function: unlike ``post_ingest_link`` there is no retrying
-        # task wrapper here, so there is no double-count to guard against,
-        # and storing the spans is what makes them billable -- a failure to
-        # dispatch enrichment below should not silently drop the count.
-        # Spans made from what a response reported are Rhesis's own derivation, not the
-        # endpoint's telemetry, so they are not metered.
+        # Metered here as well as in queued ingest: these are the two paths that create
+        # Trace rows, and they are disjoint (this one is the invoker, that one inbound
+        # telemetry), so no span is counted twice. Placed right after the rows are
+        # persisted: storing them is what makes them billable, and a failure to queue
+        # an evaluation below should not drop the count. Spans made from what a
+        # response reported are Rhesis's own derivation, not the endpoint's telemetry,
+        # so they are not metered.
         metered = [
             span
             for span in stored_spans
             if (span.attributes or {}).get(SOURCE_ATTRIBUTE) != REPORTED
         ]
-        dispatch_accrual(organization_id, QuotaResource.TRACING_SPANS, len(metered))
+        usage_coalescer.add(organization_id, QuotaResource.TRACING_SPANS, len(metered))
 
-        async_count = 0
-        sync_count = 0
-        dispatched_traces: Set[str] = set()
-
-        root_spans = [s for s in stored_spans if s.parent_span_id is None]
-        for root_span in root_spans:
-            if self.enqueue_enrichment(
-                root_span.trace_id,
-                project_id,
-                organization_id,
-                root_span_id=str(root_span.id),
-            ):
-                async_count += 1
-            else:
-                sync_count += 1
-            dispatched_traces.add(root_span.trace_id)
-
-        child_only_traces = {s.trace_id for s in stored_spans} - dispatched_traces
-        for trace_id in child_only_traces:
-            if self.enqueue_enrichment(trace_id, project_id, organization_id):
-                async_count += 1
-            else:
-                sync_count += 1
-
-        logger.debug(
-            f"Created {len(stored_spans)} spans, dispatched "
-            f"{len(root_spans)} root-span chains + "
-            f"{len(child_only_traces)} child-only enrichments "
-            f"(async: {async_count}, sync: {sync_count})"
-        )
-
-        return stored_spans, async_count, sync_count
+        queued, not_queued = self.dispatch_for_spans(stored_spans, project_id, organization_id)
+        return stored_spans, queued, not_queued
 
 
-def build_enrichment_chain(
+def build_turn_evaluation(
     trace_id: str,
     project_id: str,
     organization_id: str,
     root_span_id: str | None = None,
 ):
-    """Build the Celery chain for trace enrichment followed by metric evaluation.
+    """The task signature that evaluates one stored turn.
 
     Args:
-        root_span_id: DB primary key of the root span to evaluate.
-            Threaded through to ``evaluate_turn_trace_metrics`` so it
-            targets the exact span rather than querying for the latest
-            root span by ``trace_id`` (which causes missed turns in
-            multi-turn conversations).
+        root_span_id: DB primary key of the root span to evaluate, so the task targets
+            that exact turn rather than the latest root span of the trace.
     """
-    from celery import chain
-
-    from rhesis.backend.jobs.telemetry.enrich import enrich_trace_async
     from rhesis.backend.jobs.telemetry.evaluate import evaluate_turn_trace_metrics
 
-    return chain(
-        enrich_trace_async.si(trace_id, project_id, organization_id),
-        evaluate_turn_trace_metrics.si(
-            trace_id,
-            project_id,
-            organization_id,
-            root_span_id=root_span_id,
-        ),
+    return evaluate_turn_trace_metrics.si(
+        trace_id, project_id, organization_id, root_span_id=root_span_id
     )

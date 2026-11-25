@@ -612,7 +612,7 @@ class TestIngestTask:
         def refuse(*_args):
             raise DataError("INSERT ...", {}, ValueError("invalid byte sequence"))
 
-        monkeypatch.setattr(ingest_service, "create_trace_spans", refuse)
+        monkeypatch.setattr(ingest_service, "store_spans", refuse)
         monkeypatch.setattr(ingest_jobs.ingest_spans, "retry", self._no_retry)
 
         result = ingest_jobs.ingest_spans.run(message)
@@ -630,7 +630,7 @@ class TestIngestTask:
             retried.append(exc)
             return Retry()
 
-        monkeypatch.setattr(ingest_service, "create_trace_spans", fail)
+        monkeypatch.setattr(ingest_service, "store_spans", fail)
         monkeypatch.setattr(ingest_jobs.ingest_spans, "retry", retry)
 
         with pytest.raises(Retry):

@@ -215,6 +215,17 @@ _apply_test_env()
 
 
 @pytest.fixture(autouse=True)
+def _empty_ttl_caches():
+    """Per-project lookups are cached per process (app/utils/ttl_cache.py); a value one
+    test loaded must not answer the next."""
+    from rhesis.backend.app.utils.ttl_cache import clear_all
+
+    clear_all()
+    yield
+    clear_all()
+
+
+@pytest.fixture(autouse=True)
 def _enable_usage_quotas(monkeypatch):
     """Run the entire test suite with USAGE_QUOTAS_ENABLED=true.
 
@@ -704,24 +715,23 @@ def forbid_implicit_lazy_loads():
 @pytest.fixture(autouse=True)
 def disable_enrichment(request, monkeypatch):
     """
-    Disable trace enrichment for all tests by default.
+    Never queue trace evaluations from tests by default.
 
-    Enrichment is expensive and tested separately in test_enrichment*.py files.
-    This fixture makes enrichment a no-op for tests that don't explicitly need it.
-
-    Tests in enrichment test modules are automatically excluded from this mock.
+    Storing spans enriches them inline (pure computation); evaluation is a Celery task
+    that would need a broker. Tested separately in test_enrichment*.py, which are
+    excluded from this mock.
     """
     test_module = request.node.fspath.basename
     if "test_enrichment" in test_module:
         yield
         return
 
-    def mock_enqueue_enrichment(self, trace_id, project_id, organization_id, root_span_id=None):
+    def mock_enqueue_evaluation(self, trace_id, project_id, organization_id, root_span_id=None):
         return False
 
     monkeypatch.setattr(
-        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService.enqueue_enrichment",
-        mock_enqueue_enrichment,
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService.enqueue_evaluation",
+        mock_enqueue_evaluation,
     )
 
     yield
