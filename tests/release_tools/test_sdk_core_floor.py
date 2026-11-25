@@ -18,9 +18,9 @@ pytestmark = pytest.mark.unit
 
 def _floor(text: str) -> str:
     _, pattern = SDK_CORE_REQUIREMENT
-    matches = re.findall(r'"rhesis\[telemetry\]>=([^"]+)"', text)
-    assert re.search(pattern, text) and len(matches) == 1
-    return matches[0]
+    matches = re.findall(pattern, text)
+    assert len(matches) == 1
+    return matches[0][1]
 
 
 def test_the_floor_is_the_current_sdk_version(repo_root):
@@ -60,3 +60,16 @@ def test_pinning_fails_without_the_requirement(tmp_path):
     (tmp_path / rel_path).write_text('[project]\nname = "rhesis-sdk"\n')
 
     assert not pin_sdk_core_floor("9.8.7", tmp_path)
+
+
+def test_a_missing_requirement_fails_before_the_version_changes(tmp_path, monkeypatch):
+    rel_path, _ = SDK_CORE_REQUIREMENT
+    (tmp_path / "sdk").mkdir()
+    (tmp_path / rel_path).write_text('[project]\nname = "rhesis-sdk"\nversion = "1.0.0"\n')
+    bumped = []
+    monkeypatch.setattr(
+        version, "_update_pyproject_version", lambda path, new: bumped.append(new) or True
+    )
+
+    assert not version.update_version_file("sdk", "9.8.7", tmp_path)
+    assert not bumped

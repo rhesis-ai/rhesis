@@ -126,6 +126,9 @@ def update_version_file(
         return True
 
     if config.config_type == "pyproject":
+        # Checked first so a missing requirement fails before any file changes.
+        if component == "sdk" and not _sdk_core_floor_found(repo_root):
+            return False
         if not _update_pyproject_version(config_path, new_version):
             return False
         return component != "sdk" or pin_sdk_core_floor(new_version, repo_root)
@@ -165,17 +168,23 @@ def pin_platform_files(new_version: str, repo_root: Path) -> bool:
     return True
 
 
-def pin_sdk_core_floor(new_version: str, repo_root: Path) -> bool:
-    """Raise the SDK's requirement on the core package to the version being released"""
+def _sdk_core_floor_found(repo_root: Path) -> bool:
     rel_path, pattern = SDK_CORE_REQUIREMENT
-    path = repo_root / rel_path
-    text, count = re.subn(
-        pattern, lambda m: f"{m.group(1)}{new_version}{m.group(2)}", path.read_text()
-    )
+    count = len(re.findall(pattern, (repo_root / rel_path).read_text()))
     if count != 1:
         error(f"Expected one rhesis[telemetry] requirement in {rel_path}, found {count}")
+    return count == 1
+
+
+def pin_sdk_core_floor(new_version: str, repo_root: Path) -> bool:
+    """Raise the SDK's requirement on the core package to the version being released"""
+    if not _sdk_core_floor_found(repo_root):
         return False
-    path.write_text(text)
+    rel_path, pattern = SDK_CORE_REQUIREMENT
+    path = repo_root / rel_path
+    path.write_text(
+        re.sub(pattern, lambda m: f"{m.group(1)}{new_version}{m.group(3)}", path.read_text())
+    )
     success(f"Raised the rhesis requirement in {rel_path} to: >={new_version}")
     return True
 

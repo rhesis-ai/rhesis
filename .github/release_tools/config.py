@@ -74,7 +74,7 @@ PLATFORM_PINNED_FILES = {
 # The SDK requires the core `rhesis` package, which is built with the SDK's version and published
 # just before it. Each SDK release raises this floor to its own version, so an SDK never installs
 # next to an older core that lacks modules it imports.
-SDK_CORE_REQUIREMENT = ("sdk/pyproject.toml", r'("rhesis\[telemetry\]>=)[^"]+(")')
+SDK_CORE_REQUIREMENT = ("sdk/pyproject.toml", r'("rhesis\[telemetry\]>=)([^"]+)(")')
 
 
 def follows_platform(component: str) -> bool:
