@@ -97,7 +97,9 @@ export function EntityGridToolbarSlot() {
       rightContent={
         <>
           {selection && (
-            <SkeletonSlot>
+            // As tall as the grid buttons beside it: the switch is shorter,
+            // and a short bar among taller ones reads as a misfit.
+            <SkeletonSlot sx={{ alignSelf: 'stretch' }}>
               <SelectionModeToggle
                 checked={selection.checked}
                 onChange={selection.onChange}
