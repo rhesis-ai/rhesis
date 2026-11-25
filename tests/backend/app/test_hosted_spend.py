@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 import litellm
 import pytest
 
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.quota import hosted_pricing
 from rhesis.backend.app.quota import hosted_spend as module
@@ -744,6 +745,18 @@ class TestErrorSurfaces:
         capped = authenticated_client.post("/services/generate/embedding", json={"text": "hi"})
         assert capped.status_code == 503
         assert capped.json()["error"] == "hosted_model_at_capacity"
+
+    def test_embedding_route_is_not_available_when_embeddings_are_off(
+        self, authenticated_client, monkeypatch
+    ):
+        resolve = MagicMock()
+        monkeypatch.setattr("rhesis.backend.app.utils.user_model_utils.resolve_embedder", resolve)
+        monkeypatch.setattr(get_application_settings(), "embeddings_enabled", False)
+
+        response = authenticated_client.post("/services/generate/embedding", json={"text": "hi"})
+
+        assert response.status_code == 404
+        resolve.assert_not_called()
 
     def test_oversized_embedding_text_and_schema_are_rejected(self, authenticated_client):
         too_long = authenticated_client.post(
