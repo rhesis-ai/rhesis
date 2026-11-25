@@ -33,6 +33,7 @@ from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import model_setup_http_exception
 from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
 from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT
+from rhesis.backend.app.utils.select_projection import selected_fields
 from rhesis.backend.jobs.enums import RunStatus
 
 router = RhesisRouter(
@@ -142,22 +143,36 @@ def read_test_runs(
 
     run_ids = [run.id for run in results]
     organization_id = str(current_user.organization_id)
-    run_stats = get_test_statistics_for_runs(db, run_ids, organization_id=organization_id)
-    annotation_stats = get_annotation_statistics_for_runs(db, run_ids)
-    usage_stats = test_run_crud.get_usage_statistics_for_runs(
-        db, run_ids, organization_id=organization_id
+    # $select drops unselected fields after this returns, so don't compute them.
+    fields = selected_fields(select)
+    wants_stats = fields is None or "stats" in fields
+    wants_usage = fields is None or "usage" in fields
+    wants_counts = fields is None or "counts" in fields
+    run_stats = (
+        get_test_statistics_for_runs(db, run_ids, organization_id=organization_id)
+        if wants_stats
+        else {}
+    )
+    usage_stats = (
+        test_run_crud.get_usage_statistics_for_runs(db, run_ids, organization_id=organization_id)
+        if wants_usage
+        else {}
     )
     serialized = []
     for run in results:
         item = schemas.TestRunDetail.model_validate(run).model_dump(mode="json")
         run_id = str(item.get("id"))
-        item["stats"] = run_stats.get(
-            run_id,
-            {"total": 0, "passed": 0, "failed": 0, "errors": 0},
-        )
-        item["usage"] = usage_stats.get(run_id, test_run_crud.empty_usage())
+        if wants_stats:
+            item["stats"] = run_stats.get(
+                run_id,
+                {"total": 0, "passed": 0, "failed": 0, "errors": 0},
+            )
+        if wants_usage:
+            item["usage"] = usage_stats.get(run_id, test_run_crud.empty_usage())
         serialized.append(item)
-    inject_annotation_counts_into_serialized_runs(serialized, annotation_stats)
+    if wants_counts:
+        annotation_stats = get_annotation_statistics_for_runs(db, run_ids)
+        inject_annotation_counts_into_serialized_runs(serialized, annotation_stats)
     return JSONResponse(content=serialized)
 
 
