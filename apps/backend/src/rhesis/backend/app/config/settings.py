@@ -501,7 +501,7 @@ class TraceIngestSettings(BaseSettings):
         default=8, alias="TRACE_INGEST_MAX_CONCURRENT_REQUESTS", ge=1
     )
     max_inflight_bytes: int = Field(
-        default=256 * 1024 * 1024, alias="TRACE_INGEST_MAX_INFLIGHT_BYTES", ge=1
+        default=128 * 1024 * 1024, alias="TRACE_INGEST_MAX_INFLIGHT_BYTES", ge=1
     )
     # Per organization, across all API processes (Redis). 0 turns it off.
     org_bytes_per_minute: int = Field(
@@ -514,6 +514,18 @@ class TraceIngestSettings(BaseSettings):
         default=4 * 1024 * 1024, alias="TRACE_INGEST_MAX_MESSAGE_BYTES", ge=1024
     )
     retry_after_seconds: int = Field(default=30, alias="TRACE_INGEST_RETRY_AFTER_SECONDS", ge=1)
+
+    @model_validator(mode="after")
+    def _one_gzip_request_fits(self) -> "TraceIngestSettings":
+        # A gzip body holds its compressed bytes plus its decompressed allowance.
+        needed = self.max_body_bytes + self.max_decompressed_bytes
+        if self.max_inflight_bytes < needed:
+            raise ValueError(
+                f"TRACE_INGEST_MAX_INFLIGHT_BYTES ({self.max_inflight_bytes}) must be at least "
+                f"TRACE_INGEST_MAX_BODY_BYTES + TRACE_INGEST_MAX_DECOMPRESSED_BYTES ({needed}), "
+                "or no gzip request could be admitted"
+            )
+        return self
 
 
 # A test's time limit is at least this long, and the endpoint's timeout plus the margin.

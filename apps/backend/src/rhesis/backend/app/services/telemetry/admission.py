@@ -65,8 +65,11 @@ class InflightSlot:
         self.bytes = 0
 
     def add(self, size: int) -> None:
-        """Count ``size`` more bytes held by this request. Raises :class:`IngestRejected` (503)."""
-        if self._limiter.bytes + size > self._settings.max_inflight_bytes:
+        """Count ``size`` more bytes held by this request (negative to give some back).
+
+        Raises :class:`IngestRejected` (503) when growing past the process's cap.
+        """
+        if size > 0 and self._limiter.bytes + size > self._settings.max_inflight_bytes:
             raise IngestRejected(
                 Rejection(
                     503, "Trace ingest is busy; retry later", self._settings.retry_after_seconds
@@ -79,28 +82,35 @@ class InflightSlot:
 class InflightLimiter:
     """Bounds concurrent requests and the bytes they hold in one process.
 
-    A slot is taken before the body is read, and bytes are counted as they
-    arrive and again once decompressed. Only touched from the event loop,
-    between awaits, so it needs no lock.
+    A slot is taken before the request is authenticated or its body read, and
+    bytes are counted as they arrive and again once decompressed. Only touched
+    from the event loop, between awaits, so it needs no lock.
     """
 
     def __init__(self) -> None:
         self.requests = 0
         self.bytes = 0
 
-    @asynccontextmanager
-    async def admit(self, settings: TraceIngestSettings) -> AsyncIterator[InflightSlot]:
+    def acquire(self, settings: TraceIngestSettings) -> InflightSlot:
+        """Take a slot. Raises :class:`IngestRejected` (503) when all are taken."""
         if self.requests >= settings.max_concurrent_requests:
             raise IngestRejected(
                 Rejection(503, "Trace ingest is busy; retry later", settings.retry_after_seconds)
             )
         self.requests += 1
-        slot = InflightSlot(self, settings)
+        return InflightSlot(self, settings)
+
+    def release(self, slot: InflightSlot) -> None:
+        self.requests -= 1
+        self.bytes -= slot.bytes
+
+    @asynccontextmanager
+    async def admit(self, settings: TraceIngestSettings) -> AsyncIterator[InflightSlot]:
+        slot = self.acquire(settings)
         try:
             yield slot
         finally:
-            self.requests -= 1
-            self.bytes -= slot.bytes
+            self.release(slot)
 
 
 inflight = InflightLimiter()

@@ -61,6 +61,7 @@ from rhesis.backend.app.provenance import ProvenanceMiddleware
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, quota_exceeded_response_body
 from rhesis.backend.app.quota.hosted_spend import seconds_until_reset
 from rhesis.backend.app.routers import routers
+from rhesis.backend.app.routers.base import first_dependency_of
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.foreign_refs import ForeignReferenceError
 from rhesis.backend.app.utils.git_utils import get_version_info
@@ -99,6 +100,14 @@ def _inject_route_dependency(route: APIRoute, dependency) -> None:
     sub_dependant = get_parameterless_sub_dependant(depends=dependency, path=route.path_format)
     route.dependant.dependencies.insert(0, sub_dependant)
     route.dependencies.insert(0, dependency)
+
+
+def apply_first_dependencies(app: FastAPI) -> None:
+    """Insert each marked endpoint's first dependency at the head of its route."""
+    for route in app.routes:
+        dependency = first_dependency_of(getattr(route, "endpoint", None))
+        if isinstance(route, APIRoute) and dependency is not None:
+            _inject_route_dependency(route, Depends(dependency))
 
 
 def apply_authz_backstop(app: FastAPI) -> None:
@@ -1090,6 +1099,9 @@ apply_authz_backstop(app)
 # carries WithPermittedActions, so object-level permitted_actions populate
 # automatically during serialization. Runs after all routers are registered.
 apply_affordance_backstop(app)
+
+# Ahead of the auth and authz dependencies inserted above.
+apply_first_dependencies(app)
 
 # $select on every route that declares it, applied to the serialized response. Runs
 # last: it rebuilds each route's handler, which must see the dependencies added above.

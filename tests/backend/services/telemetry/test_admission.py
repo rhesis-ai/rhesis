@@ -35,3 +35,14 @@ def test_queue_depth_counts_messages_in_every_priority_list(monkeypatch):
         assert admission._QueueDepth().get() == 3
     finally:
         client.delete(*admission._QUEUE_KEYS)
+
+
+def test_settings_refuse_an_inflight_cap_no_gzip_request_fits(monkeypatch):
+    import pytest
+    from pydantic import ValidationError
+
+    from rhesis.backend.app.config.settings import TraceIngestSettings
+
+    monkeypatch.setenv("TRACE_INGEST_MAX_INFLIGHT_BYTES", str(1024 * 1024))
+    with pytest.raises(ValidationError, match="TRACE_INGEST_MAX_INFLIGHT_BYTES"):
+        TraceIngestSettings()

@@ -26,8 +26,8 @@ from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers import telemetry_intake as intake
-from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.services.telemetry.admission import IngestRejected
+from rhesis.backend.app.routers.base import RhesisRouter, run_first
+from rhesis.backend.app.services.telemetry.admission import InflightSlot, IngestRejected
 from rhesis.backend.app.services.telemetry.ingest import (
     IngestJob,
     TooManySpans,
@@ -89,6 +89,12 @@ def _translate(raw: bytes, encoding: OTLPEncoding, limits) -> TranslatedRequest:
         request = parse_request(raw, encoding)
     except OTLPDecodeError as exc:
         raise OTLPBadRequest(400, str(exc)) from exc
+    # Counted before translating, which costs far more than parsing.
+    count = sum(len(s.spans) for r in request.resource_spans for s in r.scope_spans)
+    if count > limits.max_spans_per_request:
+        raise OTLPBadRequest(
+            413, f"{count} spans in one request; the limit is {limits.max_spans_per_request}"
+        )
     translated = translate_request(request)
     try:
         apply_span_limits(translated.spans, limits)
@@ -145,24 +151,26 @@ async def _ingest(
     tenant_context,
     scope_project_id: Optional[str],
     limits: TraceIngestSettings,
+    slot: InflightSlot,
 ) -> Response:
-    async with intake.admitted(tenant_context[0], request, limits) as (body, slot):
-        raw, encoding = await intake.in_thread(
-            _decode,
-            body,
-            request.headers.get("content-type"),
-            request.headers.get("content-encoding"),
-            limits,
-        )
-        if raw is not body:
-            slot.add(len(raw))
-        translated = await intake.in_thread(_translate, raw, encoding, limits)
-        del raw
-        jobs = await intake.in_thread(
-            _jobs, request, current_user, tenant_context, translated.spans, scope_project_id
-        )
-        for job in jobs:
-            await intake.enqueue(job, limits)
+    body = await intake.admitted_body(tenant_context[0], request, limits, slot)
+    content_encoding = request.headers.get("content-encoding")
+    # Reserve the most a body may inflate to before inflating it, so concurrent
+    # gzip bombs cannot overshoot the in-flight cap; shrink to the real size after.
+    compressed = (content_encoding or "").strip().lower() not in ("", "identity")
+    reserved = limits.max_decompressed_bytes if compressed else 0
+    slot.add(reserved)
+    raw, encoding = await intake.in_thread(
+        _decode, body, request.headers.get("content-type"), content_encoding, limits
+    )
+    slot.add((len(raw) if raw is not body else 0) - reserved)
+    translated = await intake.in_thread(_translate, raw, encoding, limits)
+    del raw, body
+    jobs = await intake.in_thread(
+        _jobs, request, current_user, tenant_context, translated.spans, scope_project_id
+    )
+    for job in jobs:
+        await intake.enqueue(job, limits)
 
     logger.info(
         f"OTLP TRACE INGESTION | spans={len(translated.spans)} | rejected={translated.rejected} | "
@@ -186,12 +194,14 @@ async def _ingest(
 )
 # Metered by the tracing quota and the ingest limits instead of the default limit.
 @limiter.exempt
+@run_first(intake.ingest_slot)
 async def ingest_otlp_traces(
     request: Request,
+    slot: InflightSlot = Depends(intake.ingest_slot),
     tenant_context=Depends(get_tenant_context),
     scope_project_id: Optional[str] = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
-    _feature=Depends(require_feature(FeatureName.OTLP_INGEST)),
+    _feature=Depends(require_feature(FeatureName.OTLP_INGEST, hold_session=False)),
     _backstop: None = Depends(require_backstop(QuotaResource.TRACING_SPANS)),
 ) -> Response:
     """Accept an OTLP ``ExportTraceServiceRequest`` (protobuf or JSON, optionally gzip).
@@ -202,7 +212,7 @@ async def ingest_otlp_traces(
     """
     limits = intake.settings()
     try:
-        return await _ingest(request, current_user, tenant_context, scope_project_id, limits)
+        return await _ingest(request, current_user, tenant_context, scope_project_id, limits, slot)
     except IngestRejected as exc:
         rejection = exc.rejection
         retry_after = rejection.retry_after if rejection.status_code != 413 else None

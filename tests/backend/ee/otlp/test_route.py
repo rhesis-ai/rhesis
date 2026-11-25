@@ -489,6 +489,46 @@ class TestLimits:
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert response.headers["retry-after"] == "30"
 
+    def test_a_busy_process_refuses_before_authenticating(self, client, monkeypatch):
+        """The slot is taken first, so a burst never reaches the database-backed auth."""
+        limit(monkeypatch, max_concurrent_requests=1)
+        monkeypatch.setattr(admission.inflight, "requests", 1)
+
+        response = post(client, b"", Authorization="Bearer rh-not-a-token")
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert rpc_status(response).code == 14  # UNAVAILABLE
+        assert admission.inflight.requests == 1
+
+    def test_the_slot_is_released_after_each_request(self, authenticated_client, db_project):
+        before = admission.inflight.requests
+        trace = fx.research_run(project_id=str(db_project.id))
+
+        post(authenticated_client, fx.protobuf_body(trace.spans))
+        post(authenticated_client, b"not protobuf")
+        post(authenticated_client, b"", Authorization="Bearer rh-not-a-token")
+
+        assert admission.inflight.requests == before
+        assert admission.inflight.bytes == 0
+
+    def test_a_gzip_body_reserves_its_decompressed_allowance(
+        self, authenticated_client, monkeypatch, db_project
+    ):
+        """A small gzip body still counts as the most it may inflate to, until inflated."""
+        limit(
+            monkeypatch,
+            max_inflight_bytes=40 * 1024 * 1024,
+            max_decompressed_bytes=32 * 1024 * 1024,
+        )
+        monkeypatch.setattr(admission.inflight, "bytes", 10 * 1024 * 1024)
+        trace = fx.research_run(project_id=str(db_project.id))
+
+        gzip = post(authenticated_client, fx.gzip_body(trace.spans), encoding="gzip")
+        plain = post(authenticated_client, fx.protobuf_body(trace.spans))
+
+        assert gzip.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert plain.status_code == status.HTTP_200_OK
+
     def test_inflight_bytes_count_the_decompressed_body(
         self, authenticated_client, monkeypatch, db_project
     ):

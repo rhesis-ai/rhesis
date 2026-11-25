@@ -12,6 +12,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def inline_trace_ingest(request, monkeypatch):
+    from rhesis.backend.app.auth import feature_gates, quota_gates
     from rhesis.backend.app.config.settings import get_trace_ingest_settings
     from rhesis.backend.app.routers import telemetry_intake
     from rhesis.backend.app.services.telemetry.ingest import IngestJob, process_ingest_job
@@ -44,6 +45,14 @@ def inline_trace_ingest(request, monkeypatch):
         with _yield_fresh_session(request.getfixturevalue("test_db")) as db:
             return assert_project_access(http_request, current_user, project_id, db=db)
 
+    def test_db_session(*_args):
+        from tests.backend.fixtures.database import _yield_fresh_session
+
+        return _yield_fresh_session(request.getfixturevalue("test_db"))
+
+    # The ingest gates check on short sessions of their own; point them at the test connection.
+    monkeypatch.setattr(feature_gates, "short_session", test_db_session)
+    monkeypatch.setattr(quota_gates, "backstop_session", test_db_session)
     monkeypatch.setattr(ingest_jobs, "enqueue_ingest", enqueue_inline)
     monkeypatch.setattr(telemetry_intake, "check_project_access", check_project_access_on_test_db)
     # The shared Redis checks are off by default here: the test broker's queue

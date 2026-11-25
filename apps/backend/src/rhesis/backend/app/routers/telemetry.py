@@ -40,7 +40,7 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers import telemetry_intake as intake
-from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.routers.base import RhesisRouter, run_first
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
     SpanFacetsResponse,
@@ -56,7 +56,7 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceType,
 )
 from rhesis.backend.app.services.project_membership import list_other_member_projects
-from rhesis.backend.app.services.telemetry.admission import IngestRejected
+from rhesis.backend.app.services.telemetry.admission import InflightSlot, IngestRejected
 from rhesis.backend.app.services.telemetry.ingest import (
     IngestJob,
     TooManySpans,
@@ -115,8 +115,10 @@ def _sdk_project(
 # SDK span export; metered by the tracing quota instead of the default limit.
 @router.post("/traces", response_model=TraceResponse)
 @limiter.exempt
+@run_first(intake.ingest_slot)
 async def ingest_trace(
     request: Request,
+    slot: InflightSlot = Depends(intake.ingest_slot),
     tenant_context=Depends(get_tenant_context),
     scope_project_id: str | None = Depends(get_project_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -151,14 +153,14 @@ async def ingest_trace(
     organization_id, user_id = tenant_context
     limits = intake.settings()
     try:
-        async with intake.admitted(organization_id, request, limits) as (body, _slot):
-            trace_batch = await intake.in_thread(_parse_sdk_batch, body)
-            await intake.in_thread(apply_span_limits, trace_batch.spans, limits)
-            project_id = await intake.in_thread(
-                _sdk_project, request, current_user, trace_batch, scope_project_id
-            )
-            job = IngestJob(trace_batch.spans, organization_id, user_id, str(project_id))
-            await intake.enqueue(job, limits)
+        body = await intake.admitted_body(organization_id, request, limits, slot)
+        trace_batch = await intake.in_thread(_parse_sdk_batch, body)
+        await intake.in_thread(apply_span_limits, trace_batch.spans, limits)
+        project_id = await intake.in_thread(
+            _sdk_project, request, current_user, trace_batch, scope_project_id
+        )
+        job = IngestJob(trace_batch.spans, organization_id, user_id, str(project_id))
+        await intake.enqueue(job, limits)
     except IngestRejected as exc:
         raise intake.as_http_exception(exc.rejection)
     except TooManySpans as exc:

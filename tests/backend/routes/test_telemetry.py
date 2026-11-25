@@ -19,6 +19,7 @@ from rhesis.backend.app import dependencies, models
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.app.routers import telemetry_intake
+from rhesis.backend.app.services.telemetry import admission
 from rhesis.backend.jobs.telemetry import ingest as ingest_jobs
 from tests.backend.fixtures.rls import scope_to_project
 from tests.backend.routes.fixtures.data_factories import TraceDataFactory
@@ -236,6 +237,19 @@ class TestTraceIngestLimits:
         scope_to_project(test_db, db_project.id)
         rows = test_db.query(models.Trace).filter(models.Trace.trace_id == spans[0]["trace_id"])
         assert rows.count() == 3
+
+    def test_a_busy_process_refuses_before_authenticating(self, client: TestClient, monkeypatch):
+        self._limit(monkeypatch, max_concurrent_requests=1)
+        monkeypatch.setattr(admission.inflight, "requests", 1)
+
+        response = client.post(
+            "/telemetry/traces",
+            json={"spans": []},
+            headers={"Authorization": "Bearer rh-not-a-token"},
+        )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert response.headers["retry-after"] == "30"
 
     def test_test_context_of_the_wrong_type_is_stored_without_it(
         self, authenticated_client: TestClient, test_db, db_project, inline_trace_ingest

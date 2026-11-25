@@ -375,8 +375,8 @@ Both trace ingest routes (`POST /telemetry/traces` from the SDK and, with the En
 | `TRACE_INGEST_MAX_ATTRIBUTES_PER_SPAN` | Attributes kept per span or event; the rest are dropped and counted in `rhesis.dropped_attributes_count` | `512` |
 | `TRACE_INGEST_MAX_EVENTS_PER_SPAN` | Events kept per span | `512` |
 | `TRACE_INGEST_MAX_ATTRIBUTE_CHARS` | Characters per attribute value; longer values are cut and listed in `rhesis.truncated_attributes` | `131072` |
-| `TRACE_INGEST_MAX_CONCURRENT_REQUESTS` | Requests read and decoded at once, per API process | `8` |
-| `TRACE_INGEST_MAX_INFLIGHT_BYTES` | Bytes those requests may hold, compressed and decompressed, per API process | `268435456` (256 MiB) |
+| `TRACE_INGEST_MAX_CONCURRENT_REQUESTS` | Ingest requests handled at once per API process, from authentication to queueing; more get `503` before they reach the database | `8` |
+| `TRACE_INGEST_MAX_INFLIGHT_BYTES` | Bytes those requests may hold, compressed and decompressed, per API process; a gzip body counts as its full decompressed allowance until it is inflated | `134217728` (128 MiB) |
 | `TRACE_INGEST_ORG_BYTES_PER_MINUTE` | Body bytes per organization per minute, across all processes; `0` turns it off | `1073741824` (1 GiB) |
 | `TRACE_INGEST_MAX_QUEUE_DEPTH` | Jobs waiting on the `trace-ingest` queue before new requests get `503`; `0` turns it off | `2000` |
 | `TRACE_INGEST_MAX_MESSAGE_BYTES` | Size of one queued job's spans on the broker (gzip, then base64); larger requests are split | `4194304` (4 MiB) |
