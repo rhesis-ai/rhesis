@@ -8,6 +8,7 @@ import {
   defaultScheduleForm,
   formProblems,
   formatRunTime,
+  fromSchedule,
   toScheduleSpec,
 } from '../schedule-form';
 
@@ -80,5 +81,45 @@ describe('formatRunTime', () => {
     expect(
       formatRunTime('2026-11-26T08:00:00Z', 'Europe/Berlin', 'Europe/Berlin')
     ).toBe('Thu 26 Nov, 09:00');
+  });
+});
+
+describe('fromSchedule', () => {
+  const stored = (cron: string) => ({
+    name: 'S',
+    cron,
+    run_at: null,
+    timezone: 'Europe/Berlin',
+  });
+
+  it.each([
+    '15 * * * *',
+    '0 9 * * *',
+    '30 7 * * 1-5',
+    '0 9 * * 1,4',
+    '0 9 L * *',
+    '0 9 12 * *',
+  ])('round-trips the preset %s', cron => {
+    expect(cronFor(fromSchedule(stored(cron)))).toBe(cron);
+  });
+
+  it('keeps anything else as custom cron', () => {
+    const form = fromSchedule(stored('0 9-17/2 * * *'));
+    expect(form.frequency).toBe(FREQUENCY.CUSTOM);
+    expect(form.cron).toBe('0 9-17/2 * * *');
+  });
+
+  it('reads a run-once time in the schedule zone', () => {
+    const form = fromSchedule({
+      name: 'Once',
+      cron: null,
+      run_at: '2026-11-26T08:00:00Z',
+      timezone: 'Europe/Berlin',
+    });
+    expect([form.repeat, form.date, form.time]).toEqual([
+      false,
+      '2026-11-26',
+      '09:00',
+    ]);
   });
 });
