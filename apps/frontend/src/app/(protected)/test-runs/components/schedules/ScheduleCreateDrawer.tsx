@@ -107,6 +107,7 @@ export default function ScheduleCreateDrawer({
       loading={saving}
       onSave={save}
       saveButtonText="Schedule"
+      loadingText="Scheduling..."
       saveDisabled={!testSet || !endpoint || Boolean(previewError)}
       error={error}
     >

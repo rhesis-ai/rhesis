@@ -49,6 +49,7 @@ export default function RunNameCell({
         variant="caption"
         color="text.secondary"
         noWrap
+        title={`From schedule: ${schedule.name}`}
         sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
       >
         <ScheduleIcon sx={{ fontSize: 'inherit' }} />

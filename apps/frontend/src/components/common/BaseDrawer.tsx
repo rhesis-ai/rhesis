@@ -39,6 +39,8 @@ export interface BaseDrawerProps {
   /** Id for a string `error`, so the field it's about can point at it. */
   errorId?: string;
   saveButtonText?: string;
+  /** Save button text while `loading`. */
+  loadingText?: string;
   /** Other ways to save, behind an arrow next to the save button (a split button). */
   saveMenu?: { label: string; onClick: () => void }[];
   /** Optional data-tour attribute for onboarding (save button). */
@@ -95,6 +97,7 @@ export default function BaseDrawer({
   error,
   errorId,
   saveButtonText = 'Save Changes',
+  loadingText = 'Executing...',
   saveMenu,
   saveDataTour,
   closeButtonText = 'Cancel',
@@ -138,7 +141,7 @@ export default function BaseDrawer({
       }
       sx={drawerFooterSaveButtonSx}
     >
-      {loading ? 'Executing...' : saveButtonText}
+      {loading ? loadingText : saveButtonText}
     </Button>
   );
 

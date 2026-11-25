@@ -1090,8 +1090,9 @@ export default function RunDrawer(props: RunDrawerProps) {
               })),
             }
           : {}),
-        execution_model_id: selectedExecutionModelId ?? null,
-        evaluation_model_id: selectedEvaluationModelId ?? null,
+        // The selectors use '' for "default model"; the API wants null.
+        execution_model_id: selectedExecutionModelId || null,
+        evaluation_model_id: selectedEvaluationModelId || null,
       };
       const created = await apiFactory.getTestRunSchedulesClient().create({
         ...(testSetIds.length > 1
@@ -2095,6 +2096,7 @@ export default function RunDrawer(props: RunDrawerProps) {
       onSave={handleExecute}
       saveDisabled={!canSave}
       saveButtonText={saveButtonText}
+      loadingText={scheduleMode ? 'Scheduling...' : undefined}
       saveMenu={
         canSchedule
           ? [

@@ -65,7 +65,8 @@ function useWeekData(start: dayjs.Dayjs) {
       new ApiClientFactory().getTestRunsClient().getTestRuns({
         trigger: SCHEDULE_TRIGGER.SCHEDULE,
         filter: `created_at ge '${from}' and created_at lt '${runsTo}'`,
-        limit: 200,
+        // The API's page limit; a week rarely has more scheduled runs than this.
+        limit: 100,
       }),
     refetchInterval: SCHEDULES_REFETCH_MS,
   });
@@ -158,7 +159,8 @@ export default function SchedulesWeekView({
     [anchor, zone, occurrences.data, runs.data, schedules]
   );
   const hourly = occurrences.data?.hourly ?? [];
-  const loading = occurrences.isLoading || runs.isLoading;
+  // Only planned runs gate the calendar: if past runs fail to load, it still shows what's planned.
+  const loading = occurrences.isLoading;
   const end = start.add(6, 'day');
 
   return (

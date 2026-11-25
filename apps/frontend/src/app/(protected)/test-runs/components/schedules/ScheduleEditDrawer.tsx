@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -105,16 +105,27 @@ export default function ScheduleEditDrawer({
   const zone = schedule?.timezone ?? 'UTC';
   const occurrenceLocal = occurrence ? dayjs(occurrence.at).tz(zone) : null;
 
+  // Fill the fields once per opened schedule or run. A refetch while open (after a save,
+  // or the minute refresh) must not throw away what the person typed.
+  const filledFor = useRef<string | null>(null);
+  const openKey = scheduleId
+    ? `${scheduleId}|${occurrence?.original ?? ''}`
+    : null;
   useEffect(() => {
-    if (!initialForm) return;
+    if (!openKey) {
+      filledFor.current = null;
+      return;
+    }
+    if (!initialForm || filledFor.current === openKey) return;
+    filledFor.current = openKey;
     setForm(initialForm);
     setError(null);
     if (occurrenceLocal) {
       setMoveDate(occurrenceLocal.format('YYYY-MM-DD'));
       setMoveTime(occurrenceLocal.format('HH:mm'));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when another schedule or run opens
-  }, [initialForm, occurrence?.original]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on openKey on purpose
+  }, [openKey, initialForm]);
 
   const repeating = Boolean(schedule?.cron);
   const editable = schedule ? can(schedule, Capability.TestRun.UPDATE) : false;
@@ -265,6 +276,7 @@ export default function ScheduleEditDrawer({
         loading={saving}
         onSave={editable ? handleSave : undefined}
         saveButtonText="Save"
+        loadingText="Saving..."
         saveDisabled={!dirty || Boolean(previewError) || blockedByBoth}
         error={blockedByBoth ? BOTH_CHANGED : error}
         onDelete={

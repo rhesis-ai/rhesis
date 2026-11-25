@@ -139,7 +139,12 @@ export default function RunDrawerScheduleSection({
         </ToggleButtonGroup>
 
         {form.repeat ? (
-          <RepeatFields form={form} set={set} problems={problems} />
+          <RepeatFields
+            form={form}
+            set={set}
+            problems={problems}
+            serverProblem={previewError}
+          />
         ) : (
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
@@ -218,7 +223,7 @@ export default function RunDrawerScheduleSection({
                 <ScheduleIcon fontSize="small" color="primary" />
                 {preview.data.repeats}
               </Typography>
-              {preview.data.next.length > 0 && (
+              {form.repeat && preview.data.next.length > 0 && (
                 <Typography variant="body2" color="text.secondary">
                   Next:{' '}
                   {preview.data.next
@@ -256,10 +261,13 @@ function RepeatFields({
   form,
   set,
   problems,
+  serverProblem,
 }: {
   form: ScheduleForm;
   set: Setter;
   problems: Problems;
+  /** Why the server refused the schedule; shown at the cron field, which caused it. */
+  serverProblem: string | null;
 }) {
   const toggleDay = (day: number) =>
     set(
@@ -330,9 +338,11 @@ function RepeatFields({
           value={form.cron}
           onChange={e => set('cron', e.target.value)}
           placeholder="0 9 * * 1-5"
-          error={!!problems.cron}
+          error={Boolean(problems.cron ?? serverProblem)}
           helperText={
-            problems.cron ?? 'Five fields: minute hour day month weekday.'
+            problems.cron ??
+            serverProblem ??
+            'Five fields: minute hour day month weekday.'
           }
           inputProps={{ spellCheck: false, style: { fontFamily: 'monospace' } }}
           fullWidth
