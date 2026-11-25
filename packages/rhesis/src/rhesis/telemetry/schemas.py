@@ -75,6 +75,18 @@ class AIOperationType(str, Enum):
     # Agent operations (for multi-agent systems)
     AGENT_INVOKE = "ai.agent.invoke"
     AGENT_HANDOFF = "ai.agent.handoff"
+    AGENT_CREATE = "ai.agent.create"
+    AGENT_PLAN = "ai.agent.plan"
+
+    # Retrieval pipeline run (GenAI ``retrieval`` operation)
+    RETRIEVAL_QUERY = "ai.retrieval.query"
+
+    # Agent memory operations (GenAI ``*_memory`` / ``*_memory_store``)
+    MEMORY_CREATE = "ai.memory.create"
+    MEMORY_SEARCH = "ai.memory.search"
+    MEMORY_UPDATE = "ai.memory.update"
+    MEMORY_UPSERT = "ai.memory.upsert"
+    MEMORY_DELETE = "ai.memory.delete"
 
 
 class SpanEvent(BaseModel):

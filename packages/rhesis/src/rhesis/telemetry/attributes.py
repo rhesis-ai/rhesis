@@ -49,6 +49,8 @@ class AIAttributes:
     OPERATION_TRANSFORM = "transform"
     OPERATION_AGENT_INVOKE = "agent.invoke"
     OPERATION_AGENT_HANDOFF = "agent.handoff"
+    OPERATION_AGENT_CREATE = "agent.create"
+    OPERATION_AGENT_PLAN = "agent.plan"
 
     # Model
     MODEL_PROVIDER = "ai.model.provider"
@@ -72,6 +74,8 @@ class AIAttributes:
     # Tool
     TOOL_NAME = "ai.tool.name"
     TOOL_TYPE = "ai.tool.type"
+    TOOL_DESCRIPTION = "ai.tool.description"
+    TOOL_CALL_ID = "ai.tool.call.id"
 
     # Retrieval
     RETRIEVAL_BACKEND = "ai.retrieval.backend"
@@ -105,6 +109,9 @@ class AIAttributes:
 
     # Agent (for multi-agent systems)
     AGENT_NAME = "ai.agent.name"
+    AGENT_ID = "ai.agent.id"
+    AGENT_DESCRIPTION = "ai.agent.description"
+    AGENT_VERSION = "ai.agent.version"
     AGENT_HANDOFF_FROM = "ai.agent.handoff.from"
     AGENT_HANDOFF_TO = "ai.agent.handoff.to"
     AGENT_INPUT_CONTENT = "ai.agent.input"

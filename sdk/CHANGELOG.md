@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `Endpoint.invoke()` waits as long as the backend waits for the endpoint, its `timeout_seconds` plus 30 seconds, instead of giving up after 30 seconds. An `Endpoint` built from just an id waits up to 7230 seconds, since its timeout isn't known.
+- Microsoft Agent Framework and Pydantic AI `create_agent` spans are now `ai.agent.create` with `ai.operation.type` `agent.create` (were `ai.agent.invoke`).
+- GenAI-convention spans (Agent Framework, Pydantic AI) no longer count cache reads and writes in `ai.llm.tokens.input`; they are reported in `ai.llm.tokens.cache_read` and `ai.llm.tokens.cache_write`. Agent id, description and version, tool description and call id, and handoff targets are mapped too.
+- The GenAI-convention mapping moved to the shared `rhesis` package (`rhesis.telemetry.genai`), where the backend's OTLP ingest uses it as well.
 
 ### Fixed
 
