@@ -46,7 +46,7 @@ test.describe('Onboarding wizard — form @mocked', () => {
     });
   });
 
-  test('onboarding page renders the 4-step sidebar when accessed as a new user', async ({
+  test('onboarding page renders the 3-step sidebar when no welcome video is set', async ({
     page,
   }) => {
     await page.goto('/onboarding');
@@ -69,9 +69,8 @@ test.describe('Onboarding wizard — form @mocked', () => {
     await expect(page.getByText(/review your details/i).first()).toBeVisible({
       timeout: 5_000,
     });
-    await expect(page.getByText(/welcome to rhesis!/i).first()).toBeVisible({
-      timeout: 5_000,
-    });
+    // E2E sets no ONBOARDING_VIDEO_URL, so the welcome video step is left out.
+    await expect(page.getByText(/welcome to rhesis!/i)).toHaveCount(0);
 
     await expect(page.getByText(/create your workplace/i).first()).toBeVisible({
       timeout: 5_000,
@@ -415,7 +414,7 @@ test.describe('Onboarding wizard — form @mocked', () => {
     await expect(errorMsg).toBeVisible({ timeout: 5_000 });
   });
 
-  test('Step 2 — Review step advances to Welcome video step', async ({
+  test('Step 2 — Review step finishes setup when no welcome video is set', async ({
     page,
   }) => {
     await page.goto('/onboarding');
@@ -477,15 +476,6 @@ test.describe('Onboarding wizard — form @mocked', () => {
       return;
     }
 
-    await page
-      .getByRole('button', { name: /^next$/i })
-      .first()
-      .click();
-    await page.waitForLoadState('networkidle');
-
-    await expect(
-      page.getByRole('heading', { name: /welcome to rhesis!/i })
-    ).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole('button', { name: /finish up/i })).toBeVisible({
       timeout: 5_000,
     });

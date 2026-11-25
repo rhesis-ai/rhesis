@@ -4,14 +4,17 @@ import { Box } from '@mui/material';
 import OnboardingSidebar from './OnboardingSidebar';
 import OnboardingProgressBar from './OnboardingProgressBar';
 import { scaledVh } from '@/styles/viewport-scaling';
+import type { OnboardingStepConfig } from './onboarding-steps';
 
 interface OnboardingShellProps {
   activeStep: number;
+  steps: OnboardingStepConfig[];
   children: React.ReactNode;
 }
 
 export default function OnboardingShell({
   activeStep,
+  steps,
   children,
 }: OnboardingShellProps) {
   return (
@@ -25,7 +28,7 @@ export default function OnboardingShell({
         p: { xs: 2, md: '20px' },
       }}
     >
-      <OnboardingSidebar activeStep={activeStep} />
+      <OnboardingSidebar activeStep={activeStep} steps={steps} />
 
       <Box
         sx={{
@@ -56,7 +59,7 @@ export default function OnboardingShell({
         </Box>
 
         <Box sx={{ width: '100%', maxWidth: 600, mt: 4 }}>
-          <OnboardingProgressBar activeStep={activeStep} />
+          <OnboardingProgressBar activeStep={activeStep} steps={steps} />
         </Box>
       </Box>
     </Box>

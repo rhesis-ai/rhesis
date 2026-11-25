@@ -1,5 +1,8 @@
 import OnboardingPageClient from './components/OnboardingPageClient';
-import { getOnboardingVideoUrl } from '@/utils/onboarding-video';
+import {
+  getOnboardingVideoEmbedUrl,
+  getOnboardingVideoUrl,
+} from '@/utils/onboarding-video';
 import { UUID } from 'crypto';
 import { requireSession } from '@/utils/require-session';
 
@@ -13,7 +16,12 @@ export default async function OnboardingPage() {
   }
 
   // Resolved at request time from pod env (Helm ConfigMap), not client bundle.
-  const videoUrl = getOnboardingVideoUrl();
+  // Without a playable video the welcome step is left out.
+  const rawVideoUrl = getOnboardingVideoUrl();
+  const videoUrl =
+    rawVideoUrl && getOnboardingVideoEmbedUrl(rawVideoUrl)
+      ? rawVideoUrl
+      : undefined;
 
   return (
     <OnboardingPageClient

@@ -5,16 +5,18 @@ import { Box, Typography } from '@mui/material';
 import BrandMark from '@/components/common/BrandMark';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { DEFAULT_AUTHENTICATED_PATH } from '@/constants/paths';
-import { ONBOARDING_STEPS } from './onboarding-steps';
+import type { OnboardingStepConfig } from './onboarding-steps';
 import { onboardingSidebarSx } from './onboarding-styles';
 import { scaledVh } from '@/styles/viewport-scaling';
 
 interface OnboardingSidebarProps {
   activeStep: number;
+  steps: OnboardingStepConfig[];
 }
 
 export default function OnboardingSidebar({
   activeStep,
+  steps,
 }: OnboardingSidebarProps) {
   const { branding } = useNavigationItems();
   const productName = branding?.productName ?? 'Rhesis AI';
@@ -66,7 +68,7 @@ export default function OnboardingSidebar({
             position: 'relative',
           }}
         >
-          {ONBOARDING_STEPS.map((step, index) => {
+          {steps.map((step, index) => {
             const isActive = index === activeStep;
             const isPast = index < activeStep;
             const Icon = step.icon;
@@ -82,7 +84,7 @@ export default function OnboardingSidebar({
                   position: 'relative',
                 }}
               >
-                {index < ONBOARDING_STEPS.length - 1 && (
+                {index < steps.length - 1 && (
                   <Box
                     sx={{
                       position: 'absolute',

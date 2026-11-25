@@ -25,12 +25,19 @@ interface FinishStepProps {
   formData: FormData;
   onNext: () => void;
   onBack: () => void;
+  /** Set when this is the last step, i.e. there is no welcome video. */
+  finishLabel?: string;
+  isSubmitting?: boolean;
+  disabled?: boolean;
 }
 
 export default function FinishStep({
   formData,
   onNext,
   onBack,
+  finishLabel,
+  isSubmitting,
+  disabled,
 }: FinishStepProps) {
   const step = ONBOARDING_STEPS[2];
 
@@ -109,8 +116,10 @@ export default function FinishStep({
 
       <OnboardingNavButtons
         onBack={onBack}
-        primaryLabel="Next"
+        primaryLabel={finishLabel ?? 'Next'}
         onPrimary={onNext}
+        isSubmitting={isSubmitting}
+        disabled={disabled}
       />
     </Box>
   );
