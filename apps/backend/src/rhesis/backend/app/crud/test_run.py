@@ -430,7 +430,19 @@ def update_test_run(
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> Optional[models.TestRun]:
-    """Update test_run."""
+    """Update test_run.
+
+    Responses leave out ``attributes.metric_plan``, so an update that sends attributes back
+    keeps the stored plan instead of erasing it.
+    """
+    attributes = test_run.attributes
+    if attributes is not None and "metric_plan" not in attributes:
+        existing = db.get(models.TestRun, test_run_id)
+        plan = (existing.attributes or {}).get("metric_plan") if existing else None
+        if plan is not None:
+            test_run = test_run.model_copy(
+                update={"attributes": {**attributes, "metric_plan": plan}}
+            )
     return update_item(db, models.TestRun, test_run_id, test_run, organization_id, user_id)
 
 
