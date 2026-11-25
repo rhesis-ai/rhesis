@@ -52,6 +52,9 @@ def _projecting(
             return response
         if not content_type.startswith("application/json"):
             return response
+        # Streaming responses have no body attribute; a 204 has an empty one.
+        if not getattr(response, "body", None):
+            return response
         projected = apply_select(json.loads(response.body), select)
         # Same encoding as starlette's JSONResponse; FastAPI may hand back a plain Response.
         response.body = json.dumps(

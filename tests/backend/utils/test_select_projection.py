@@ -44,6 +44,10 @@ def client() -> TestClient:
     def list_plain():
         return [Row("1", "a")]
 
+    @app.get("/empty", status_code=204)
+    def empty(select: Optional[str] = Query(None, alias="$select")):
+        return Response(status_code=204, media_type="application/json")
+
     apply_select_projection(app)
     return TestClient(app)
 
@@ -82,6 +86,11 @@ class TestSelectProjection:
         response = client.get("/items", params={"$select": "name"})
         assert response.headers["X-Total-Count"] == "2"
         assert int(response.headers["content-length"]) == len(response.content)
+
+    def test_empty_responses_pass_through(self, client):
+        response = client.get("/empty", params={"$select": "name"})
+        assert response.status_code == 204
+        assert response.content == b""
 
     def test_routes_without_select_ignore_it(self, client):
         response = client.get("/plain", params={"$select": "name"})
