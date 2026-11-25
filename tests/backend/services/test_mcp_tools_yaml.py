@@ -1273,3 +1273,50 @@ class TestReportMcpTools:
         description = " ".join(self._cfg(name)["description"].split())
         assert "Quote the summary".lower() in description.lower()
         assert "user.name" in description
+
+
+@pytest.mark.unit
+class TestScheduleTools:
+    """The schedule tools exist, resolve against real routes, and gate the right writes."""
+
+    TOOLS: ClassVar[list[str]] = [
+        "schedule_test_set",
+        "list_test_run_schedules",
+        "get_test_run_schedule",
+        "update_test_run_schedule",
+        "pause_test_run_schedule",
+        "resume_test_run_schedule",
+        "skip_next_test_run_schedule_run",
+        "run_test_run_schedule_now",
+        "delete_test_run_schedule",
+    ]
+
+    def _built(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, _ = build_tools_and_operations(app)
+        return {t.name: t for t in tools}
+
+    def test_every_tool_resolves_against_a_route(self):
+        built = self._built()
+        missing = [name for name in self.TOOLS if name not in built]
+        assert missing == [], f"no matching route: {missing}"
+
+    @pytest.mark.parametrize(
+        "name", ["schedule_test_set", "update_test_run_schedule", "delete_test_run_schedule"]
+    )
+    def test_creating_changing_and_deleting_need_confirmation(self, name):
+        configs = {tc["name"]: tc for tc in load_tool_configs()}
+        assert configs[name].get("requires_confirmation") is True
+
+    def test_schedule_input_carries_the_nested_spec(self):
+        schema = self._built()["schedule_test_set"].inputSchema
+        assert {"endpoint_id", "schedule", "test_set_id", "test_set_ids"} <= set(
+            schema["properties"]
+        )
+        assert "cron" in str(schema["properties"]["schedule"])
+
+    def test_descriptions_say_not_to_show_cron(self):
+        configs = {tc["name"]: tc for tc in load_tool_configs()}
+        assert "never the cron expression" in configs["schedule_test_set"]["description"]
