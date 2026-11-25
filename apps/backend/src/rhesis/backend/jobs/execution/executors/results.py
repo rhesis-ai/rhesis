@@ -358,7 +358,7 @@ def create_test_result_record(
             return None
 
         result_id = result.id
-        logger.info(
+        logger.debug(
             f"[TEST_RESULT] Successfully created test result with ID: {result_id} "
             f"for test_id={test_id}, test_run_id={test_run_id}, "
             f"test_config_id={test_config_id}"
@@ -377,7 +377,7 @@ def create_test_result_record(
 
         # Link traces to this test result
         if result_id:
-            logger.info(f"[TEST_RESULT] Attempting to link traces to test_result_id={result_id}")
+            logger.debug(f"[TEST_RESULT] Attempting to link traces to test_result_id={result_id}")
             try:
                 from rhesis.backend.app.services.telemetry.linking_service import (
                     TraceLinkingService,
@@ -391,9 +391,10 @@ def create_test_result_record(
                     test_result_id=str(result_id),
                     organization_id=organization_id,
                 )
+                # The one INFO line per stored result.
                 logger.info(
-                    f"[TEST_RESULT] Trace linking complete: {updated_count} traces "
-                    f"linked to test_result_id={result_id}"
+                    f"[TEST_RESULT] Stored test result {result_id} for test_id={test_id}, "
+                    f"test_run_id={test_run_id}; {updated_count} traces linked"
                 )
             except Exception as trace_error:
                 # Don't fail test result creation if trace linking fails

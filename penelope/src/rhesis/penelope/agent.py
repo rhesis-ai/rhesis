@@ -597,7 +597,7 @@ class PenelopeAgent:
         tools = self._get_tools_for_test(target)
 
         label = "AGENT (async)" if async_label else "AGENT"
-        logger.info(f"=== {label}: Creating system prompt ===")
+        logger.debug(f"=== {label}: Creating system prompt ===")
 
         system_prompt = self._build_system_prompt(
             instructions=instructions,
@@ -611,7 +611,7 @@ class PenelopeAgent:
             min_turns=min_turns,
             contract=contract,
         )
-        logger.info(f"=== {label}: System prompt created, length: {len(system_prompt)} chars ===")
+        logger.debug(f"=== {label}: System prompt created, length: {len(system_prompt)} chars ===")
 
         conditions = self._create_stopping_conditions(max_turns=max_turns, min_turns=min_turns)
         goal_eval_floor = self._compute_goal_eval_floor(max_turns, min_turns)

@@ -458,7 +458,7 @@ class LocalStrategy:
     def _log_evaluation_summary(self, results: Dict[str, Any]) -> None:
         successful = sum(1 for r in results.values() if r and r.get("is_successful", False))
         failed = sum(1 for r in results.values() if r and not r.get("is_successful", False))
-        logger.info(
+        logger.debug(
             f"📊 Metric evaluation complete: {successful} successful, "
             f"{failed} failed/timed out (total: {len(results)})"
         )
@@ -832,7 +832,7 @@ def prepare_metrics(
     Returns:
         List of tuples containing (class_name, metric_instance, metric_config, backend).
     """
-    logger.info(f"Preparing {len(metrics)} metrics for evaluation")
+    logger.debug(f"Preparing {len(metrics)} metrics for evaluation")
     metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]] = []
 
     for metric_config in metrics:

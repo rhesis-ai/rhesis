@@ -425,7 +425,7 @@ def read_test_sets(
         current_user: Current user
     """
 
-    logger.info(f"test_sets endpoint called with has_runs={has_runs}")
+    logger.debug(f"test_sets endpoint called with has_runs={has_runs}")
 
     organization_id, user_id = tenant_context
     results = test_set_crud.get_test_sets(
