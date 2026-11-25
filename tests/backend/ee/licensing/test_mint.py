@@ -188,6 +188,99 @@ class TestMintTokenStandardClaims:
         assert ent.status is LicenseStatus.PAST_DUE
 
 
+class TestMintTokenPinnedClaims:
+    """``jti``/``expires_at`` let rhesis-ee's registry reserve a grant's id and
+    expiry before minting, so it records the grant without seeing the token."""
+
+    ORG_ID = "00000000-0000-0000-0000-000000000099"
+    JTI = "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"
+
+    def test_given_jti_is_stamped(self, private_key_env):
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        ent = verify_token(
+            mint_token(self.ORG_ID, LicenseEdition.TEAM, kid="test-v1", jti=self.JTI)
+        )
+        assert ent is not None
+        assert ent.jti == self.JTI
+
+    def test_given_expiry_overrides_ttl_days(self, private_key_env):
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        expires_at = datetime(2099, 1, 15, tzinfo=timezone.utc)
+        ent = verify_token(
+            mint_token(
+                self.ORG_ID, LicenseEdition.TEAM, ttl_days=1, kid="test-v1", expires_at=expires_at
+            )
+        )
+        assert ent is not None
+        assert ent.expires_at == expires_at
+
+    @pytest.mark.parametrize("jti", ["not-a-uuid", "", "1234"])
+    def test_a_malformed_jti_is_refused(self, private_key_env, jti):
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        with pytest.raises(ValueError, match="jti"):
+            mint_token(self.ORG_ID, LicenseEdition.TEAM, kid="test-v1", jti=jti)
+
+    def test_a_uuid_object_is_accepted(self, private_key_env):
+        """A registry holding the id as a ``uuid.UUID`` can pass it straight on."""
+        import uuid
+
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        ent = verify_token(
+            mint_token(self.ORG_ID, LicenseEdition.TEAM, kid="test-v1", jti=uuid.UUID(self.JTI))
+        )
+        assert ent is not None
+        assert ent.jti == self.JTI
+
+    def test_the_nil_uuid_is_refused(self, private_key_env):
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        with pytest.raises(ValueError, match="nil"):
+            mint_token(
+                self.ORG_ID,
+                LicenseEdition.TEAM,
+                kid="test-v1",
+                jti="00000000-0000-0000-0000-000000000000",
+            )
+
+    def test_a_fractional_second_expiry_is_refused(self, private_key_env):
+        """``exp`` is an integer: a fraction would be dropped silently, and the
+        token would expire before the time the registry recorded."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        with pytest.raises(ValueError, match="whole seconds"):
+            mint_token(
+                self.ORG_ID,
+                LicenseEdition.TEAM,
+                kid="test-v1",
+                expires_at=datetime(2099, 1, 1, 0, 0, 0, 500000, tzinfo=timezone.utc),
+            )
+
+    def test_a_naive_expiry_is_refused(self, private_key_env):
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        with pytest.raises(ValueError, match="timezone-aware"):
+            mint_token(
+                self.ORG_ID, LicenseEdition.TEAM, kid="test-v1", expires_at=datetime(2099, 1, 1)
+            )
+
+    def test_a_past_expiry_is_refused(self, private_key_env):
+        """An already-expired token would verify as unlicensed while the
+        issuance run reports success."""
+        from rhesis.backend.ee.licensing.mint import mint_token
+
+        with pytest.raises(ValueError, match="future"):
+            mint_token(
+                self.ORG_ID,
+                LicenseEdition.TEAM,
+                kid="test-v1",
+                expires_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+            )
+
+
 # ---------------------------------------------------------------------------
 # Custom overrides
 # ---------------------------------------------------------------------------
@@ -289,9 +382,7 @@ class TestMintTokenOverrides:
         assert ent.custom_retention_days is None
 
     @pytest.mark.parametrize("bad", [0, -30, True, False])
-    def test_a_non_positive_retention_override_is_refused_at_mint_time(
-        self, private_key_env, bad
-    ):
+    def test_a_non_positive_retention_override_is_refused_at_mint_time(self, private_key_env, bad):
         """Caught when the token is issued rather than silently ignored at
         resolution time, so a bad deal never ships as a signed licence."""
         from rhesis.backend.ee.licensing.mint import mint_token
@@ -400,6 +491,25 @@ class TestIssue:
         db = MagicMock()
         db.query.return_value.filter.return_value.one.return_value = org
         return db, org
+
+    def test_pinned_claims_reach_the_token(self, private_key_env):
+        from rhesis.backend.ee.licensing.mint import issue
+
+        db, _ = self._make_db()
+        expires_at = datetime(2099, 1, 15, tzinfo=timezone.utc)
+        token = issue(
+            db,
+            org_id=self.ORG_ID,
+            edition=LicenseEdition.TEAM,
+            kid="test-v1",
+            dry_run=True,
+            jti="3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b",
+            expires_at=expires_at,
+        )
+        ent = verify_token(token)
+        assert ent is not None
+        assert ent.jti == "3f2b8c1e-5d4a-4e6f-9a7b-1c2d3e4f5a6b"
+        assert ent.expires_at == expires_at
 
     def test_dry_run_returns_token_without_writing(self, private_key_env):
         from rhesis.backend.ee.licensing.mint import issue

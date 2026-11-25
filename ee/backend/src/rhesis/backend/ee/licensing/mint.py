@@ -135,6 +135,8 @@ def mint_token(
     custom_features: Optional[list[str]] = None,
     custom_limits: Optional[dict[str, Any]] = None,
     custom_retention_days: Optional[int] = None,
+    jti: Optional[str | uuid.UUID] = None,
+    expires_at: Optional[datetime] = None,
 ) -> str:
     """Mint and sign a license JWT for *org_id*.
 
@@ -147,7 +149,8 @@ def mint_token(
         (``"*"``) for a blanket all-orgs license.
     :param edition: License tier; must be a sellable edition in the catalog.
     :param status: Billing status; defaults to :attr:`~rhesis.backend.ee.licensing.entitlements.LicenseStatus.ACTIVE`.
-    :param ttl_days: Validity period from now.  Default: 365 days.
+    :param ttl_days: Validity period from now.  Default: 365 days.  Ignored
+        when *expires_at* is given.
     :param kid: Key ID header — identifies which baked-in public key to verify
         against.  Use ``"rhesis-prod-v1"`` for production,
         ``"rhesis-nonprod-v1"`` for non-prod environments.
@@ -166,10 +169,20 @@ def mint_token(
         tier's published ``retention_days`` at enforcement time (the sweep in
         ``jobs/trace_retention.py``). Must be a positive int; the resolver
         ignores anything else and keeps the tier value.
+    :param jti: Token id to stamp instead of a random UUID. Lets an external
+        license registry reserve the id before minting, so it can record the
+        grant without ever seeing the token. A UUID (string or
+        :class:`uuid.UUID`), not the nil UUID.
+    :param expires_at: Absolute expiry (timezone-aware, whole seconds) instead
+        of *ttl_days*, e.g. the end of a contract term plus grace. Must be in
+        the future. Whole seconds because ``exp`` is an integer: a fraction
+        would be dropped and the token would expire earlier than recorded.
     :returns: Signed JWT string.
     :raises RuntimeError: if the private key is unavailable or invalid, or if
         *edition* is not a sellable tier.
-    :raises ValueError: if *custom_retention_days* is not a positive int.
+    :raises ValueError: if *custom_retention_days* is not a positive int, *jti*
+        is not a non-nil UUID, or *expires_at* is naive, has a fractional
+        second, or is not in the future.
     """
     if custom_retention_days is not None and (
         isinstance(custom_retention_days, bool) or custom_retention_days <= 0
@@ -178,11 +191,29 @@ def mint_token(
             f"custom_retention_days must be a positive int, got {custom_retention_days!r}"
         )
 
-    private_key = _load_private_key()
+    if jti is not None:
+        try:
+            parsed_jti = jti if isinstance(jti, uuid.UUID) else uuid.UUID(jti)
+        except (ValueError, AttributeError, TypeError):
+            raise ValueError(f"jti must be a UUID, got {jti!r}") from None
+        if parsed_jti.int == 0:
+            raise ValueError("jti must not be the nil UUID")
+        jti = str(parsed_jti)
 
     now = int(datetime.now(tz=timezone.utc).timestamp())
-    exp = now + ttl_days * 86400
-    jti = str(uuid.uuid4())
+    if expires_at is not None:
+        if expires_at.tzinfo is None:
+            raise ValueError("expires_at must be timezone-aware")
+        if expires_at.microsecond:
+            raise ValueError(f"expires_at must be whole seconds, got {expires_at.isoformat()}")
+        exp = int(expires_at.timestamp())
+        if exp <= now:
+            raise ValueError(f"expires_at must be in the future, got {expires_at.isoformat()}")
+    else:
+        exp = now + ttl_days * 86400
+    jti = jti or str(uuid.uuid4())
+
+    private_key = _load_private_key()
 
     lic_claim = tier_to_lic_claim(edition, status)
 
@@ -248,6 +279,8 @@ def issue(
     custom_features: Optional[list[str]] = None,
     custom_limits: Optional[dict[str, Any]] = None,
     custom_retention_days: Optional[int] = None,
+    jti: Optional[str | uuid.UUID] = None,
+    expires_at: Optional[datetime] = None,
 ) -> str:
     """Mint a token and (unless *dry_run*) write it to ``organization.license``.
 
@@ -267,6 +300,8 @@ def issue(
         written to a DB row.
     :param dry_run: When ``True``, mint and return the token but do not write
         to the database.
+    :param jti: See :func:`mint_token`.
+    :param expires_at: See :func:`mint_token`.
     :returns: The signed JWT string (whether or not it was written).
     :raises ValueError: if *org_id* is the blanket subject ``"*"``.
     :raises RuntimeError: if the private key is unavailable/invalid.
@@ -287,6 +322,8 @@ def issue(
         custom_features=custom_features,
         custom_limits=custom_limits,
         custom_retention_days=custom_retention_days,
+        jti=jti,
+        expires_at=expires_at,
     )
 
     if dry_run:
