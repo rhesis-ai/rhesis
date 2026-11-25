@@ -21,6 +21,11 @@ from rhesis.backend.app.schemas.services import ActivityItem, ActivityOperation,
 
 logger = logging.getLogger(__name__)
 
+# Columns an activity item carries for its entity: enough to identify and label it.
+ENTITY_DATA_FIELDS = frozenset(
+    {"id", "nano_id", "name", "title", "description", "created_at", "updated_at", "deleted_at"}
+)
+
 
 class RecentActivitiesService:
     """Service for retrieving recent activities across all trackable entities."""
@@ -83,7 +88,9 @@ class RecentActivitiesService:
     @staticmethod
     def entity_to_dict(entity: Base) -> Dict[str, Any]:
         """
-        Convert SQLAlchemy entity to JSON-serializable dict.
+        Convert SQLAlchemy entity to a JSON-serializable summary.
+
+        Only the columns in ``ENTITY_DATA_FIELDS`` that the entity has are included.
 
         Args:
             entity: The entity to convert
@@ -94,8 +101,9 @@ class RecentActivitiesService:
         result = {}
         mapper = sa_inspect(entity.__class__)
 
-        # Get all columns
         for column in mapper.columns:
+            if column.name not in ENTITY_DATA_FIELDS:
+                continue
             value = getattr(entity, column.name, None)
 
             # Handle special types
