@@ -14,6 +14,7 @@ import { detailPageTitle } from '@/utils/document-title';
 
 import TestSetHeaderActions from './components/TestSetHeaderActions';
 import TestSetDetailTabs from './components/TestSetDetailTabs';
+import TestSetScheduleBanner from './components/TestSetScheduleBanner';
 import { testSetTestsList } from './components/list';
 
 interface PageProps {
@@ -95,6 +96,7 @@ export default async function TestSetPage({ params }: PageProps) {
       metadata={metadataStrip}
     >
       <DocumentTitle title={detailPageTitle(testSet.name, 'Test Sets')} />
+      <TestSetScheduleBanner testSetId={identifier} />
       <Box sx={{ flexGrow: 1 }}>
         <React.Suspense
           fallback={

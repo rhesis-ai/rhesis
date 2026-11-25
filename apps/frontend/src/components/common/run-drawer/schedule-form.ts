@@ -184,6 +184,16 @@ export function formatRunTime(
   return `${text} (${dayjs(iso).tz(scheduleZone).format('HH:mm')} ${scheduleZone})`;
 }
 
+/** "in 18 h 40 min", "in 3 days", or "now" once it's due. */
+export function timeUntil(iso: string, now = dayjs()): string {
+  const minutes = dayjs(iso).diff(now, 'minute');
+  if (minutes <= 0) return 'now';
+  if (minutes < 60) return `in ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `in ${hours} h ${minutes % 60} min`;
+  return `in ${Math.floor(hours / 24)} days`;
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Back from a stored schedule to the form. Only the drawer's own presets are recognised. */
