@@ -197,9 +197,16 @@ def _invalidate_tenant_classes(*_args):
 def tenant_classes():
     """The (model_cls, kind) pairs auto_filter applies, rebuilt after any new mapping."""
     global _tenant_classes
-    if _tenant_classes is None:
-        _tenant_classes = _build_tenant_classes()
-    return _tenant_classes
+    with _options_lock:
+        classes, generation = _tenant_classes, _options_generation
+    if classes is not None:
+        return classes
+    classes = _build_tenant_classes()
+    with _options_lock:
+        # A mapping added while this was building has invalidated it; don't store it.
+        if generation == _options_generation:
+            _tenant_classes = classes
+    return classes
 
 
 # ----------------------------------------------------------------------------

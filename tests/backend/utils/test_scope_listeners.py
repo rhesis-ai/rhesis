@@ -357,6 +357,23 @@ class TestTenantOptionsCache:
 
         assert _tenant_options(org, None) is not before
 
+    def test_a_rebuild_overtaken_by_a_new_mapping_is_not_stored(self, monkeypatch):
+        """A class list built before a mapping arrived must not outlive the invalidation."""
+        from rhesis.backend.app.models import scope_events
+
+        real_build = scope_events._build_tenant_classes
+
+        def build_then_map_a_class():
+            classes = real_build()
+            scope_events._invalidate_tenant_classes()  # a mapping lands mid-build
+            return classes
+
+        scope_events._invalidate_tenant_classes()
+        monkeypatch.setattr(scope_events, "_build_tenant_classes", build_then_map_a_class)
+        scope_events.tenant_classes()
+
+        assert scope_events._tenant_classes is None
+
     def test_switching_projects_keeps_each_scope_filtered(
         self, test_db: Session, test_org_id, bound_scope
     ):
