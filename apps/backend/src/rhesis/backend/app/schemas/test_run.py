@@ -48,6 +48,10 @@ class TestRun(TestRunBase, WithPermittedActions, ServerIdentity):
     __resource_type__: ClassVar[Optional[str]] = ResourceType.TEST_RUN
     # __owner_attr__ defaults to "user_id", which is the creator column on TestRun.
 
+    # Response-only (not on TestRunBase): timestamps are server-owned.
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
