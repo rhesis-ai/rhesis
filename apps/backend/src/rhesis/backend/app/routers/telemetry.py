@@ -1,8 +1,9 @@
 """Telemetry router for trace ingestion and queries."""
 
 import logging
+from contextlib import contextmanager
 from datetime import datetime
-from typing import Callable, List, Optional, TypeVar
+from typing import Callable, Iterator, List, Optional, TypeVar
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Request, status
@@ -576,6 +577,31 @@ def span_filter_params(
     )
 
 
+@contextmanager
+def _requested_project(
+    request: Request,
+    current_user: User,
+    db: Session,
+    tenant_context,
+    project_id: Optional[str],
+    scope_project_id: Optional[str],
+) -> Iterator[Optional[str]]:
+    """Scope *db* to the project a read asks for, like ``list_traces``; yields its id.
+
+    A ``project_id`` is access-checked. One other than the session's is read under a
+    temporary rebind so the ORM filter and RLS let its rows through.
+    """
+    organization_id, user_id = tenant_context
+    if project_id is not None:
+        project_id = assert_project_access(request, current_user, project_id, db=db)
+    effective_project_id = project_id or scope_project_id
+    if effective_project_id and effective_project_id != scope_project_id:
+        with temporary_project_scope(db, organization_id, user_id, effective_project_id):
+            yield effective_project_id
+    else:
+        yield effective_project_id
+
+
 def _in_requested_project(
     request: Request,
     current_user: User,
@@ -585,21 +611,13 @@ def _in_requested_project(
     scope_project_id: Optional[str],
     run: Callable[[str, Optional[str]], T],
 ) -> T:
-    """Run *run(organization_id, project_id)* scoped like ``list_traces``.
-
-    A ``project_id`` other than the session's is access-checked, then read under a
-    temporary rebind so the ORM filter and RLS let its rows through.
-    """
-    organization_id, user_id = tenant_context
-    if project_id is not None:
-        assert_project_access(request, current_user, project_id, db=db)
-    effective_project_id = project_id or scope_project_id
-
+    """Run *run(organization_id, project_id)* under :func:`_requested_project`."""
+    organization_id, _ = tenant_context
     try:
-        if effective_project_id and effective_project_id != scope_project_id:
-            with temporary_project_scope(db, organization_id, user_id, effective_project_id):
-                return run(organization_id, effective_project_id)
-        return run(organization_id, effective_project_id)
+        with _requested_project(
+            request, current_user, db, tenant_context, project_id, scope_project_id
+        ) as effective_project_id:
+            return run(organization_id, effective_project_id)
     except HTTPException:
         raise
     except Exception as e:
@@ -745,10 +763,13 @@ def lookup_span(
 
 @router.get("/traces/{trace_id}", response_model=TraceDetailResponse)
 def get_trace(
+    request: Request,
     trace_id: str,
     project_id: str = Query(..., description="Project ID"),
+    current_user: User = Depends(require_current_user_or_token),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    scope_project_id: Optional[str] = Depends(get_project_context),
 ) -> TraceDetailResponse:
     """
     Get detailed trace with all spans.
@@ -760,16 +781,25 @@ def get_trace(
 
     Args:
         trace_id: OpenTelemetry trace ID (32-char hex)
-        project_id: Project ID for access control
+        project_id: The trace's project; read even when the session's project is another
 
     Returns:
         Complete trace details with all spans
 
     Raises:
+        403: No access to the project
         404: Trace not found
     """
-    organization_id, user_id = tenant_context
+    # The response reads relationships too, so all of it runs in the project's scope.
+    with _requested_project(
+        request, current_user, db, tenant_context, project_id, scope_project_id
+    ) as effective_project_id:
+        return _trace_detail(db, tenant_context[0], trace_id, effective_project_id)
 
+
+def _trace_detail(
+    db: Session, organization_id: str, trace_id: str, project_id: str
+) -> TraceDetailResponse:
     try:
         # Fetch all spans for trace with eager loading of relationships, including
         # the nested test_result.test_configuration.endpoint chain in the same query
@@ -990,13 +1020,16 @@ def get_providers(
 
 @router.get("/metrics", response_model=TraceMetricsResponse)
 def get_metrics(
+    request: Request,
     project_id: str = Query(..., description="Project ID"),
     environment: Optional[str] = Query(None, description="Environment filter"),
     start_time_after: Optional[datetime] = Query(None, description="Start time >= (ISO 8601)"),
     start_time_before: Optional[datetime] = Query(None, description="Start time <= (ISO 8601)"),
     test_run_id: Optional[str] = Query(None, description="Scope metrics to a single test run"),
+    current_user: User = Depends(require_current_user_or_token),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
+    scope_project_id: Optional[str] = Depends(get_project_context),
 ) -> TraceMetricsResponse:
     """
     Get aggregated metrics for traces.
@@ -1022,8 +1055,31 @@ def get_metrics(
     Returns:
         Aggregated metrics
     """
-    organization_id, user_id = tenant_context
+    organization_id, _ = tenant_context
 
+    with _requested_project(
+        request, current_user, db, tenant_context, project_id, scope_project_id
+    ) as effective_project_id:
+        return _metrics(
+            db,
+            organization_id,
+            effective_project_id,
+            environment,
+            start_time_after,
+            start_time_before,
+            test_run_id,
+        )
+
+
+def _metrics(
+    db: Session,
+    organization_id: str,
+    project_id: str,
+    environment: Optional[str],
+    start_time_after: Optional[datetime],
+    start_time_before: Optional[datetime],
+    test_run_id: Optional[str],
+) -> TraceMetricsResponse:
     try:
         result = get_trace_metrics_aggregated(
             db=db,

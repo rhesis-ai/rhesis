@@ -1322,8 +1322,14 @@ class TestCrossOrganizationSecurity:
         # the organization check.
         self._acting_as(test_db, org_b, project_a)
         response = client_b.get(f"/telemetry/traces/{trace_id}?project_id={project_a}")
-        assert response.status_code == 404  # Not 403 to avoid information leakage
-        assert "not found" in response.json()["detail"].lower()
+        assert response.status_code == 403
+
+        # The same answer as for a project that doesn't exist, so B learns nothing
+        # about A's project. Only the project id in the message differs.
+        unknown = "123e4567-e89b-12d3-a456-426614174000"
+        missing = client_b.get(f"/telemetry/traces/{trace_id}?project_id={unknown}")
+        assert missing.status_code == 403
+        assert missing.json()["detail"].replace(unknown, project_a) == response.json()["detail"]
 
     def test_list_traces_only_shows_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that list endpoint only returns traces from user's organization"""

@@ -40,6 +40,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ### Fixed
 
+- `GET /telemetry/traces/{trace_id}` and `GET /telemetry/metrics` read the project named by `project_id` when the session's project is another one, as the trace list does, instead of answering 404 or empty metrics. Both now check access to that project and answer 403 without it.
 - SDK connectors are no longer disconnected every 5 minutes while idle or waiting on a long function call. The backend now sends an app-level `ping` that the SDK answers, so a call in flight no longer loses its result to an idle-timeout reconnect.
 - Requests from Python's built-in `urllib` with its default User-Agent are no longer rejected with a 403 (error 1010) by the hosted API, telemetry, Polyphemus and demo chatbot hosts.
 - SDK connector calls no longer end in `sdk_timeout` when the connector reconnects while a call is running. The backend accepts a result on the new connection once the old one is gone, on any backend replica, and fails a call with `sdk_connection_lost` 90 seconds after its connector drops without coming back, instead of waiting for the full endpoint timeout. The backend acknowledges each result, and the SDK keeps a result until it is acknowledged, resending it after reconnecting.
