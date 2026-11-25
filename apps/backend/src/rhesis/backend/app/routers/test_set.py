@@ -3,8 +3,7 @@ import uuid
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Query, Response
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -55,7 +54,6 @@ from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
     validate_generation_model,
 )
-from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.rate_limit import (
     EXECUTION_RATE_LIMIT,
     GENERATION_RATE_LIMIT,
@@ -439,9 +437,6 @@ def read_test_sets(
         organization_id=organization_id,
         user_id=user_id,
     )
-    if select:
-        serialized = jsonable_encoder(results)
-        return JSONResponse(content=apply_select(serialized, select))
     return results
 
 

@@ -2,8 +2,6 @@ import uuid as uuid_lib
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Response
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -26,7 +24,6 @@ from rhesis.backend.app.services.test_set import enforce_test_run_quota
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import handle_execution_error
-from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.enums import RunStatus
@@ -106,9 +103,6 @@ def read_test_configurations(
         organization_id=organization_id,
         user_id=user_id,
     )
-    if select:
-        serialized = jsonable_encoder(results)
-        return JSONResponse(content=apply_select(serialized, select))
     return results
 
 

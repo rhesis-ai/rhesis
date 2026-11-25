@@ -1,8 +1,6 @@
 import uuid
 
 from fastapi import Depends, HTTPException, Query, Response
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
@@ -24,7 +22,6 @@ from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.usage_notifications import notify_stock_crossing
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
-from rhesis.backend.app.utils.odata import apply_select
 
 router = RhesisRouter(
     prefix="/projects",
@@ -125,11 +122,6 @@ def read_projects(
         db=db, filter=filter, organization_id=organization_id, user_id=user_id
     )
     response.headers["X-Total-Count"] = str(total)
-    if select:
-        serialized = jsonable_encoder(results)
-        result = JSONResponse(content=apply_select(serialized, select))
-        result.headers["X-Total-Count"] = str(total)
-        return result
     return results
 
 

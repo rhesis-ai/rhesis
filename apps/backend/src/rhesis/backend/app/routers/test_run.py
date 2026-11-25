@@ -2,7 +2,6 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Request, Response
-from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -33,7 +32,6 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import model_setup_http_exception
 from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
-from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT
 from rhesis.backend.jobs.enums import RunStatus
 
@@ -121,9 +119,6 @@ def read_test_runs(
         organization_id=str(current_user.organization_id),
         user_id=str(current_user.id),
     )
-    if select:
-        serialized = jsonable_encoder(results)
-        return JSONResponse(content=apply_select(serialized, select))
 
     # Attach accurate per-run pass/fail counts so list views (e.g. the test
     # runs grid pass-rate column) don't rely on the stale

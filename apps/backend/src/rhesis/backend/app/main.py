@@ -1090,3 +1090,9 @@ apply_authz_backstop(app)
 # carries WithPermittedActions, so object-level permitted_actions populate
 # automatically during serialization. Runs after all routers are registered.
 apply_affordance_backstop(app)
+
+# $select on every route that declares it, applied to the serialized response. Runs
+# last: it rebuilds each route's handler, which must see the dependencies added above.
+from rhesis.backend.app.utils.select_projection import apply_select_projection
+
+apply_select_projection(app)

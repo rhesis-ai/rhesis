@@ -21,7 +21,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission, capability, get_all_capabilities
@@ -32,7 +32,6 @@ from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.services.storage_service import NotSupportedError, StorageService
 from rhesis.backend.app.utils.content_disposition import attachment_disposition
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.ee.audit import crud as audit_crud
 from rhesis.backend.ee.audit import settings as audit_settings
 from rhesis.backend.ee.audit.export import service as audit_export
@@ -108,9 +107,6 @@ def list_audit_events(
     )
     events = [AuditEventRead.model_validate(row) for row in rows]
     record_view(db, organization_id)
-    if select:
-        serialized = [event.model_dump(mode="json") for event in events]
-        return JSONResponse(content=apply_select(serialized, select))
     return events
 
 
