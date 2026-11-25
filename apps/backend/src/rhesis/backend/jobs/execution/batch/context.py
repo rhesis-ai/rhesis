@@ -7,19 +7,25 @@ models are expunged so they can be used safely across threads/coroutines.
 """
 
 import logging
+import math
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.config.settings import get_job_limit_settings
+from rhesis.backend.app.config.settings import (
+    PER_TEST_TIMEOUT_FLOOR,
+    PER_TEST_TIMEOUT_MARGIN,
+    get_job_limit_settings,
+)
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.run_models import resolve_run_models
+from rhesis.backend.jobs.execution.shared import PER_TEST_TIMEOUT_ERROR
 from rhesis.backend.metrics.applicability import needs_model
 from rhesis.backend.metrics.metric_config import metric_model_to_config
 from rhesis.sdk.metrics import MetricConfig
@@ -27,7 +33,10 @@ from rhesis.sdk.metrics import MetricConfig
 logger = logging.getLogger(__name__)
 
 DEFAULT_BATCH_CONCURRENCY = 10
-DEFAULT_PER_TEST_TIMEOUT = 1800  # 30 min — accommodates multi-turn tests with slow endpoints
+# The floor for the per-test limit: multi-turn tests make several endpoint calls, so a
+# fast endpoint still gets this much. The margin covers retry backoff around one call;
+# metric evaluation runs after the per-test limit, so it needs no room here.
+DEFAULT_PER_TEST_TIMEOUT = PER_TEST_TIMEOUT_FLOOR
 DEFAULT_INVOKE_MAX_ATTEMPTS = 4
 DEFAULT_INVOKE_RETRY_MIN_WAIT = 1.0
 DEFAULT_INVOKE_RETRY_MAX_WAIT = 30.0
@@ -47,16 +56,58 @@ _EXECUTION_OPTION_BOUNDS = (
 )
 
 
-def resolve_execution_options(attrs: Dict[str, Any], config_id: str) -> Dict[str, Any]:
+# Where a run's per_test_timeout came from; the timeout message explains each differently.
+PER_TEST_TIMEOUT_DEFAULT = "default"
+PER_TEST_TIMEOUT_FROM_ENDPOINT = "endpoint"
+PER_TEST_TIMEOUT_EXPLICIT = "execution_options"
+
+
+def effective_endpoint_timeout(endpoint: Any) -> Optional[float]:
+    """How long one invocation of this endpoint may take, or None for a short default.
+
+    The endpoint's own timeout_seconds, else the SDK invoker's default for connector
+    endpoints. The REST default (30s) is left out: it never moves the per-test floor.
+    """
+    from rhesis.backend.app.models.enums import EndpointConnectionType
+    from rhesis.backend.app.services.invokers.sdk_invoker import SDK_FUNCTION_TIMEOUT
+
+    timeout = getattr(endpoint, "timeout_seconds", None)
+    if timeout:
+        return float(timeout)
+    if getattr(endpoint, "connection_type", None) == EndpointConnectionType.SDK.value:
+        return SDK_FUNCTION_TIMEOUT
+    return None
+
+
+def per_test_timeout_for(endpoint_timeout: Optional[float]) -> int:
+    """Default per-test limit: one full endpoint invocation plus a margin, at least 1800s.
+
+    Sized to one invocation rather than turns x attempts x timeout, which for a 2h
+    endpoint would be a limit no run could ever reach.
+    """
+    if not endpoint_timeout:
+        return DEFAULT_PER_TEST_TIMEOUT
+    return max(DEFAULT_PER_TEST_TIMEOUT, math.ceil(endpoint_timeout) + PER_TEST_TIMEOUT_MARGIN)
+
+
+def resolve_execution_options(
+    attrs: Dict[str, Any],
+    config_id: str,
+    endpoint_timeout: Optional[float] = None,
+) -> Dict[str, Any]:
     """Concurrency, timeout and retry options for a run, clamped to the server maxima.
 
     The values come from the test configuration's attributes, which any caller can set,
     so each is bounded by JobLimitSettings and a clamp is logged rather than refused.
     The BATCH_CONCURRENCY and RECOVERY_ROUNDS env vars are operator overrides and win.
+    Without an explicit per_test_timeout, it follows ``endpoint_timeout``.
     """
     limits = get_job_limit_settings()
     options: Dict[str, Any] = {}
+    from_attrs: Set[str] = set()
     for key, default, cast, floor, ceiling_field in _EXECUTION_OPTION_BOUNDS:
+        if key == "per_test_timeout":
+            default = per_test_timeout_for(endpoint_timeout)
         raw = attrs.get(key, default)
         try:
             value = cast(raw)
@@ -65,6 +116,8 @@ def resolve_execution_options(attrs: Dict[str, Any], config_id: str) -> Dict[str
         if value != value:  # NaN, or unparseable above
             logger.warning(f"Ignoring execution option {key}={raw!r} on {config_id}")
             value = default
+        elif key in attrs:
+            from_attrs.add(key)
         bounded = min(max(value, floor), getattr(limits, ceiling_field))
         if bounded != value:
             logger.warning(f"Execution option {key}={value} clamped to {bounded} on {config_id}")
@@ -75,7 +128,76 @@ def resolve_execution_options(attrs: Dict[str, Any], config_id: str) -> Dict[str
     ):
         if os.environ.get(env_var):
             options[key] = int(os.environ[env_var])
+
+    if "per_test_timeout" in from_attrs:
+        options["per_test_timeout_source"] = PER_TEST_TIMEOUT_EXPLICIT
+    elif per_test_timeout_for(endpoint_timeout) > DEFAULT_PER_TEST_TIMEOUT:
+        options["per_test_timeout_source"] = PER_TEST_TIMEOUT_FROM_ENDPOINT
+    else:
+        options["per_test_timeout_source"] = PER_TEST_TIMEOUT_DEFAULT
+    options["endpoint_timeout"] = endpoint_timeout
+    if endpoint_timeout and options["per_test_timeout"] < endpoint_timeout:
+        logger.warning(
+            f"Per-test timeout {options['per_test_timeout']}s on {config_id} is shorter than "
+            f"the endpoint's timeout of {endpoint_timeout:g}s"
+        )
     return options
+
+
+def per_test_timeout_error(ctx: "ExecutionContext") -> str:
+    """The error recorded for a test stopped by the per-test limit, with how to raise it."""
+    limit = ctx.per_test_timeout
+    ceiling = get_job_limit_settings().max_per_test_timeout
+    message = (
+        f"{PER_TEST_TIMEOUT_ERROR} ({limit}s). This limit covers the whole test, "
+        "including retries and every turn of a multi-turn test, and is separate from "
+        "the endpoint's Timeout setting."
+    )
+    if limit >= ceiling:
+        return f"{message} It is at the server maximum; an admin can raise MAX_PER_TEST_TIMEOUT."
+    if ctx.per_test_timeout_source == PER_TEST_TIMEOUT_EXPLICIT:
+        return f"{message} It was set by per_test_timeout in the run's execution options."
+    floor_reach = DEFAULT_PER_TEST_TIMEOUT - PER_TEST_TIMEOUT_MARGIN
+    return (
+        f"{message} It is the endpoint's Timeout plus {PER_TEST_TIMEOUT_MARGIN}s, and at "
+        f"least {DEFAULT_PER_TEST_TIMEOUT}s. Set the endpoint's Timeout above "
+        f"{floor_reach}s to raise it, or set per_test_timeout in the run's execution options."
+    )
+
+
+def timeout_warnings(ctx: "ExecutionContext", test_count: int) -> List[str]:
+    """Why some tests in this run may be stopped early by a limit the user didn't set.
+
+    The deadline check only runs once the per-test limit is above the default: at the
+    default it assumes every test takes its full 30 minutes, which ordinary runs don't.
+    """
+    warnings: List[str] = []
+    limits = get_job_limit_settings()
+    endpoint_timeout = ctx.endpoint_timeout
+    if endpoint_timeout and ctx.per_test_timeout < endpoint_timeout:
+        warnings.append(
+            f"Each test is limited to {ctx.per_test_timeout}s, shorter than the endpoint's "
+            f"Timeout of {endpoint_timeout:g}s, so a slow response is cut short. "
+            + (
+                "The server caps it at MAX_PER_TEST_TIMEOUT."
+                if ctx.per_test_timeout >= limits.max_per_test_timeout
+                else "It was set by per_test_timeout in the run's execution options."
+            )
+        )
+    if ctx.stored_outputs is not None:
+        # A re-score replays stored outputs and never calls the endpoint.
+        return warnings
+    waves = math.ceil(test_count / max(ctx.batch_concurrency, 1))
+    worst_case = waves * ctx.per_test_timeout
+    if ctx.per_test_timeout > DEFAULT_PER_TEST_TIMEOUT and worst_case > limits.execution_time_limit:
+        warnings.append(
+            f"{test_count} tests at {ctx.batch_concurrency} at a time, up to "
+            f"{ctx.per_test_timeout}s each, can take {worst_case}s, longer than the "
+            f"run time limit of {limits.execution_time_limit}s (EXECUTION_TIME_LIMIT). "
+            "Tests still running then are stopped. Split the test set or raise "
+            "batch_concurrency."
+        )
+    return warnings
 
 
 @dataclass
@@ -110,6 +232,8 @@ class ExecutionContext:
     existing_result_ids: Set[str] = field(default_factory=set)
     batch_concurrency: int = DEFAULT_BATCH_CONCURRENCY
     per_test_timeout: int = DEFAULT_PER_TEST_TIMEOUT
+    per_test_timeout_source: str = PER_TEST_TIMEOUT_DEFAULT
+    endpoint_timeout: Optional[float] = None
     connector_metric_sender: Any = None
     reference_test_run_id: Optional[str] = None
     # A re-score's stored test_output per test, replayed instead of calling the endpoint.
@@ -437,7 +561,9 @@ def prefetch_execution_context(
     except Exception as e:
         logger.warning(f"Failed to build connector metric sender: {e}")
 
-    execution_options = resolve_execution_options(attrs, str(test_config.id))
+    execution_options = resolve_execution_options(
+        attrs, str(test_config.id), effective_endpoint_timeout(endpoint)
+    )
 
     # Expunge models for safe cross-context use
     session.expunge(endpoint)

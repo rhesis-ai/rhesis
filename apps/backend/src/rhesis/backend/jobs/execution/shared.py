@@ -31,6 +31,10 @@ _thread_local = threading.local()
 
 # Recorded for tests stopped because the run reached its wall-clock limit.
 RUN_TIME_LIMIT_ERROR = "Run time limit reached"
+# Starts the error for a test stopped by the per-test limit; recovery rounds skip these.
+PER_TEST_TIMEOUT_ERROR = "Per-test time limit reached"
+# Starts the error for a TimeoutError raised inside a test, after its own retries.
+CALL_TIMEOUT_ERROR = "Endpoint call timed out"
 
 
 def error_test_output(message: str) -> Dict[str, Any]:

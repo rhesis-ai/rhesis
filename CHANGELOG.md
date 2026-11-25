@@ -13,6 +13,16 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+### Upgrading a self-hosted deployment
+
+1. If you set `MAX_PER_TEST_TIMEOUT` or `EXECUTION_TIME_LIMIT`, consider removing them. Unset, they now follow the new `MAX_ENDPOINT_TIMEOUT` (default 7200): a test may take the endpoint timeout plus 300s, and a run that plus 900s. Values you set still win, and the backend logs a warning at startup when they are lower than the endpoint ceiling.
+
+### Changed
+
+- A test run's per-test time limit now follows the endpoint's timeout: the timeout plus 300 seconds, and at least 1800 seconds as before. Endpoints with a timeout above 25 minutes no longer fail at 30 minutes. An explicit `per_test_timeout` in the run's execution options still wins.
+- Endpoint timeouts can be up to 7200 seconds (was 3600). Self-hosted deployments set the ceiling with `MAX_ENDPOINT_TIMEOUT`; the per-test and run limits are derived from it.
+- A test stopped by the per-test limit now says which limit it hit and how to raise it, instead of "Timeout after Ns". A run whose tests may outlast the run time limit, or whose per-test limit is shorter than the endpoint's timeout, gets a warning in its activity log and its `warnings` attribute.
+
 ### Fixed
 
 - SDK connectors are no longer disconnected every 5 minutes while idle or waiting on a long function call. The backend now sends an app-level `ping` that the SDK answers, so a call in flight no longer loses its result to an idle-timeout reconnect.

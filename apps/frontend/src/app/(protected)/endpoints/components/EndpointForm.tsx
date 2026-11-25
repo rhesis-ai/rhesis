@@ -37,6 +37,7 @@ import {
   testWaitSeconds,
   timeoutSecondsError,
 } from './timeoutSeconds';
+import { useMaxEndpointTimeoutSeconds } from '@/contexts/FeaturesContext';
 import { useTestRun } from './useTestRun';
 import {
   DEFAULT_TEST_VALUES,
@@ -171,6 +172,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     ref
   ) {
     const router = useRouter();
+    const maxTimeoutSeconds = useMaxEndpointTimeoutSeconds();
     const params = useParams<{ identifier?: string }>();
     const projectIdFromUrl = projectIdProp ?? params?.identifier ?? '';
 
@@ -317,7 +319,10 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     // A Test step result only describes the setup it ran against; drop it once
     // that changes, so the step shows green only after a new successful send.
     const resetTabTest = tabTest.reset;
-    const maxWaitSeconds = testWaitSeconds(formData.timeout_seconds);
+    const maxWaitSeconds = testWaitSeconds(
+      formData.timeout_seconds,
+      maxTimeoutSeconds
+    );
     useEffect(() => {
       resetTabTest();
     }, [fullKey, resetTabTest]);
@@ -330,7 +335,8 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       Boolean(formData.name) &&
         Boolean(formData.project_id) &&
         versionInfoError === null &&
-        timeoutSecondsError(formData.timeout_seconds) === null,
+        timeoutSecondsError(formData.timeout_seconds, maxTimeoutSeconds) ===
+          null,
       Boolean(formData.url) && validateUrl(formData.url) && authError === null,
       INPUT_VAR_RE.test(reqBody) && hasOutputMapping(resBody),
       true,
@@ -409,7 +415,10 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
             | 'json'
             | 'xml'
             | 'text',
-          timeout_seconds: parseTimeoutSeconds(formData.timeout_seconds),
+          timeout_seconds: parseTimeoutSeconds(
+            formData.timeout_seconds,
+            maxTimeoutSeconds
+          ),
         });
 
         const r = result as Record<string, unknown>;
@@ -528,7 +537,10 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
             endpointData.version_info = parsed;
           }
         }
-        const parsedTimeout = parseTimeoutSeconds(formData.timeout_seconds);
+        const parsedTimeout = parseTimeoutSeconds(
+          formData.timeout_seconds,
+          maxTimeoutSeconds
+        );
         if (parsedTimeout) {
           endpointData.timeout_seconds = parsedTimeout;
         }
@@ -562,6 +574,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       }
     }, [
       formData,
+      maxTimeoutSeconds,
       authError,
       versionInfoError,
       isClientCredentials,

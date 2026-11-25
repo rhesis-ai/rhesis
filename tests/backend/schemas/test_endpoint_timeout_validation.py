@@ -15,43 +15,35 @@ class TestTimeoutSecondsValidation:
     """Validate timeout_seconds bounds on create/update schemas."""
 
     def test_none_is_accepted(self):
-        data = EndpointCreate(
-            name="ep", connection_type="REST", timeout_seconds=None
-        )
+        data = EndpointCreate(name="ep", connection_type="REST", timeout_seconds=None)
         assert data.timeout_seconds is None
 
     def test_valid_value_accepted(self):
-        data = EndpointCreate(
-            name="ep", connection_type="REST", timeout_seconds=60
-        )
+        data = EndpointCreate(name="ep", connection_type="REST", timeout_seconds=60)
         assert data.timeout_seconds == 60
 
     def test_boundary_min(self):
-        data = EndpointCreate(
-            name="ep", connection_type="REST", timeout_seconds=1
-        )
+        data = EndpointCreate(name="ep", connection_type="REST", timeout_seconds=1)
         assert data.timeout_seconds == 1
 
     def test_boundary_max(self):
-        data = EndpointCreate(
-            name="ep", connection_type="REST", timeout_seconds=3600
-        )
-        assert data.timeout_seconds == 3600
+        data = EndpointCreate(name="ep", connection_type="REST", timeout_seconds=7200)
+        assert data.timeout_seconds == 7200
 
     def test_zero_rejected(self):
-        with pytest.raises(ValidationError, match="timeout_seconds must be between 1 and 3600"):
+        with pytest.raises(ValidationError, match="timeout_seconds must be between 1 and 7200"):
             EndpointCreate(name="ep", connection_type="REST", timeout_seconds=0)
 
     def test_negative_rejected(self):
-        with pytest.raises(ValidationError, match="timeout_seconds must be between 1 and 3600"):
+        with pytest.raises(ValidationError, match="timeout_seconds must be between 1 and 7200"):
             EndpointCreate(name="ep", connection_type="REST", timeout_seconds=-5)
 
     def test_over_max_rejected(self):
-        with pytest.raises(ValidationError, match="timeout_seconds must be between 1 and 3600"):
-            EndpointCreate(name="ep", connection_type="REST", timeout_seconds=3601)
+        with pytest.raises(ValidationError, match="timeout_seconds must be between 1 and 7200"):
+            EndpointCreate(name="ep", connection_type="REST", timeout_seconds=7201)
 
     def test_update_schema_validates_too(self):
-        with pytest.raises(ValidationError, match="timeout_seconds must be between 1 and 3600"):
+        with pytest.raises(ValidationError, match="timeout_seconds must be between 1 and 7200"):
             EndpointUpdate(timeout_seconds=0)
 
     def test_update_schema_accepts_valid(self):
@@ -102,13 +94,22 @@ class TestEndpointMetadataValidation:
     """Validate EndpointMetadata model and its sub-models."""
 
     def test_timeout_inside_metadata_validated(self):
-        """Invalid timeout_seconds inside endpoint_metadata is rejected."""
-        with pytest.raises(ValidationError, match="timeout_seconds must be between 1 and 3600"):
+        """A timeout_seconds below 1 inside endpoint_metadata is rejected."""
+        with pytest.raises(ValidationError, match="timeout_seconds must be at least 1"):
             EndpointCreate(
                 name="ep",
                 connection_type="REST",
-                endpoint_metadata={"timeout_seconds": 5000},
+                endpoint_metadata={"timeout_seconds": 0},
             )
+
+    def test_timeout_inside_metadata_capped_at_the_ceiling(self):
+        """Above the ceiling it is capped, so stored metadata sent back still saves."""
+        ep = EndpointCreate(
+            name="ep",
+            connection_type="REST",
+            endpoint_metadata={"timeout_seconds": 9000},
+        )
+        assert ep.endpoint_metadata.timeout_seconds == 7200
 
     def test_valid_timeout_inside_metadata(self):
         ep = EndpointCreate(

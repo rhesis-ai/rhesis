@@ -170,7 +170,9 @@ class TestFeaturesEndpoint:
             "rhesis_key_enabled",
             "models_ready",
             "embedding_model_ready",
+            "max_endpoint_timeout_seconds",
         }
+        assert body["max_endpoint_timeout_seconds"] == 7200
         assert set(body["license"].keys()) == {"edition", "licensed", "is_paid"}
         # `plan` is the client's whole contract for displaying a plan: a label
         # to render verbatim, plus the two booleans that decide styling and

@@ -17,6 +17,7 @@
  * silently at runtime.
  */
 
+import { DEFAULT_MAX_TIMEOUT_SECONDS } from '@/constants/endpoint-timeout';
 import { FeatureName } from '@/constants/features';
 import { featureKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -50,6 +51,8 @@ interface FeaturesState {
   rhesisKeyEnabled: boolean;
   /** `null` means unknown (loading, fetch error, or an older backend). */
   modelsReady: boolean | null;
+  /** `null` means unknown; read it through `useMaxEndpointTimeoutSeconds`. */
+  maxEndpointTimeoutSeconds: number | null;
   loading: boolean;
   error: Error | null;
 }
@@ -63,6 +66,7 @@ const DEFAULT_STATE: FeaturesState = {
   isLocalMode: false,
   rhesisKeyEnabled: false,
   modelsReady: null,
+  maxEndpointTimeoutSeconds: null,
   loading: true,
   error: null,
 };
@@ -117,6 +121,7 @@ export function FeaturesProvider({
         isLocalMode: false,
         rhesisKeyEnabled: false,
         modelsReady: null,
+        maxEndpointTimeoutSeconds: null,
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -133,6 +138,7 @@ export function FeaturesProvider({
       isLocalMode: data.is_local ?? false,
       rhesisKeyEnabled: data.rhesis_key_enabled ?? false,
       modelsReady: data.models_ready ?? null,
+      maxEndpointTimeoutSeconds: data.max_endpoint_timeout_seconds ?? null,
       loading: false,
       error: null,
     };
@@ -223,6 +229,18 @@ export function useRhesisKeyEnabled(): boolean {
  */
 export function useModelsReady(): boolean | null {
   return useContext(FeaturesContext).modelsReady;
+}
+
+/**
+ * Longest `timeout_seconds` an endpoint may set, from the server's
+ * MAX_ENDPOINT_TIMEOUT. Falls back to the default ceiling while loading or on
+ * an older backend; the backend still validates on save.
+ */
+export function useMaxEndpointTimeoutSeconds(): number {
+  return (
+    useContext(FeaturesContext).maxEndpointTimeoutSeconds ??
+    DEFAULT_MAX_TIMEOUT_SECONDS
+  );
 }
 
 /**

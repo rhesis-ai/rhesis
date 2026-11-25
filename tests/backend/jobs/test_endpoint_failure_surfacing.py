@@ -36,6 +36,7 @@ from rhesis.backend.jobs.execution.batch.runner import (
     _failure_result,
     _is_retriable_failure,
 )
+from rhesis.backend.jobs.execution.shared import PER_TEST_TIMEOUT_ERROR
 
 SAFEGUARDING_BODY = '{"detail":"Blocked by safeguarding policy"}'
 
@@ -278,7 +279,7 @@ class TestPermanentFailuresAreNotReInvoked:
     def test_unclassified_failure_keeps_the_previous_behaviour(self):
         """No ``transient`` key means no invoker verdict, so fall back to string sniffing."""
         assert _is_retriable_failure({"status": "failed", "error": "something odd"}) is True
-        assert _is_retriable_failure({"status": "failed", "error": "Timeout after 30s"}) is False
+        assert _is_retriable_failure({"status": "failed", "error": PER_TEST_TIMEOUT_ERROR}) is False
 
 
 @pytest.mark.unit

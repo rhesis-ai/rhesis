@@ -79,6 +79,11 @@ export interface FeaturesResponse {
    * Also `false` before the org exists, so never gate on it during onboarding.
    */
   models_ready?: boolean;
+  /**
+   * Longest `timeout_seconds` an endpoint may set (the server's
+   * MAX_ENDPOINT_TIMEOUT). Optional to tolerate an older backend.
+   */
+  max_endpoint_timeout_seconds?: number;
 }
 
 /**

@@ -23,6 +23,7 @@ from rhesis.backend.jobs.enums import ExecutionMode, RunStatus
 from rhesis.backend.jobs.execution.batch.context import (
     ExecutionContext,
     prefetch_execution_context,
+    timeout_warnings,
 )
 from rhesis.backend.jobs.execution.batch.profiling import (
     ResourceSnapshot,
@@ -147,6 +148,45 @@ def _mark_test_run_cancelled(ctx: "ExecutionContext") -> None:
         logger.warning(f"[BATCH] Could not mark test run {ctx.test_run.id} cancelled: {e}")
 
 
+def _record_timeout_warnings(
+    session: Session, ctx: "ExecutionContext", test_count: int, on_emit=None
+) -> None:
+    """Tell the user, on the run and in its activity log, when a limit may stop tests early."""
+    from rhesis.backend.app import schemas
+    from rhesis.backend.app.crud.test_run import update_test_run
+
+    # A warning about the run must never be what stops it.
+    try:
+        warnings = timeout_warnings(ctx, test_count)
+    except Exception as e:
+        logger.warning(f"[BATCH] Could not check timeout limits on {ctx.test_run.id}: {e}")
+        return
+    if not warnings:
+        return
+    for warning in warnings:
+        logger.warning(f"[BATCH] Test run {ctx.test_run.id}: {warning}")
+        if on_emit:
+            on_emit(f"Warning: {warning}")
+
+    try:
+        attributes = dict(ctx.test_run.attributes or {})
+        # A redelivered run comes through here again; keep each warning once.
+        attributes["warnings"] = list(dict.fromkeys([*attributes.get("warnings", []), *warnings]))
+        # The run's own owner: update_item writes the user_id it is given onto the row.
+        run_user_id = ctx.test_run.user_id
+        update_test_run(
+            session,
+            ctx.test_run.id,
+            schemas.TestRunUpdate(attributes=attributes),
+            organization_id=ctx.organization_id or None,
+            user_id=str(run_user_id) if run_user_id else None,
+        )
+        ctx.test_run.attributes = attributes
+    except Exception as e:
+        session.rollback()
+        logger.warning(f"[BATCH] Could not record timeout warnings on {ctx.test_run.id}: {e}")
+
+
 def execute_tests_as_batch(
     session: Session,
     test_config: TestConfiguration,
@@ -195,6 +235,8 @@ def execute_tests_as_batch(
     # connection back to the pool.  All needed data lives in ctx (models are
     # expunged).  Without this, the connection sits idle for the entire async
     # phase — potentially 30+ minutes — starving persist_result threads.
+    session.commit()
+    _record_timeout_warnings(session, ctx, len(ctx.test_data), on_emit)
     session.commit()
     session.close()
 
