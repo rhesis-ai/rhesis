@@ -64,6 +64,10 @@ _RBAC_ACTIVE_KEY_PREFIX = "rbac_active:v1"
 #: per-user prefix, so bust_user drops it with the single decisions.
 _EFFECTIVE_PERMISSIONS = "@effective"
 
+#: Stands in for the permission in the key of a cached "may enter this project" result
+#: (``assert_project_access``). Shares the per-user prefix, so bust_user drops it.
+_PROJECT_ACCESS = "@project_access"
+
 
 class PermissionCache(RedisBackedCache):
     """Redis-backed permission-decision cache with in-memory fallback.
@@ -163,6 +167,20 @@ class PermissionCache(RedisBackedCache):
         key = self._make_key(user_id, org_id, project_id, _EFFECTIVE_PERMISSIONS, scope_fingerprint)
         self._set(key, ",".join(capabilities))
 
+    def has_project_access(
+        self, user_id: UUID, org_id: UUID, project_id: UUID, scope_fingerprint: str = "*"
+    ) -> bool:
+        """True if a recent check let this principal into *project_id*."""
+        key = self._make_key(user_id, org_id, project_id, _PROJECT_ACCESS, scope_fingerprint)
+        return self._get(key) == "1"
+
+    def set_project_access(
+        self, user_id: UUID, org_id: UUID, project_id: UUID, scope_fingerprint: str = "*"
+    ) -> None:
+        """Remember that this principal may enter *project_id*. Denials are not stored."""
+        key = self._make_key(user_id, org_id, project_id, _PROJECT_ACCESS, scope_fingerprint)
+        self._set(key, "1")
+
     def get_rbac_active(self, org_id: UUID) -> Optional[bool]:
         """Return the cached "is RBAC active for this org" flag, or ``None`` on miss.
 
@@ -195,6 +213,17 @@ class PermissionCache(RedisBackedCache):
             org_id,
         )
 
+    def bust_org(self, org_id: UUID) -> None:
+        """Bust every user's cached entries within *org_id* (e.g. after a project is deleted)."""
+        org = str(org_id)
+
+        def in_org(key) -> bool:
+            # perm:v1:{user}:{org}:... -- compare the org segment itself, not a substring.
+            parts = (key.decode() if isinstance(key, bytes) else key).split(":")
+            return len(parts) > 3 and parts[0] == "perm" and parts[3] == org
+
+        self._delete_matching(f"{_KEY_PREFIX}:*:{org}:*", in_org, refine=True)
+
     def clear_all(self) -> None:
         """Clear every entry in this cache.
 
@@ -226,11 +255,20 @@ class PermissionCache(RedisBackedCache):
 
     def _delete_by_prefix(self, prefix: str) -> None:
         """Delete all keys matching ``prefix*`` via SCAN or in-memory iteration."""
+        self._delete_matching(f"{prefix}*", lambda key: key.startswith(prefix))
+
+    def _delete_matching(self, pattern: str, matches, refine: bool = False) -> None:
+        """Delete keys matching the Redis glob *pattern* (or *matches*, in memory).
+
+        ``refine`` also checks Redis keys against *matches*, for a glob coarser than the key.
+        """
         if self._using_redis:
             try:
                 cursor = 0
                 while True:
-                    cursor, keys = self._redis.scan(cursor, match=f"{prefix}*", count=100)
+                    cursor, keys = self._redis.scan(cursor, match=pattern, count=100)
+                    if refine:
+                        keys = [key for key in keys if matches(key)]
                     if keys:
                         self._redis.delete(*keys)
                     if cursor == 0:
@@ -238,14 +276,14 @@ class PermissionCache(RedisBackedCache):
                 return
             except Exception as exc:
                 logger.warning(
-                    "PermissionCache: Redis scan/delete failed for prefix '%s': %s",
-                    prefix,
+                    "PermissionCache: Redis scan/delete failed for pattern '%s': %s",
+                    pattern,
                     exc,
                 )
                 # Fall through to in-memory deletion
 
         with self._lock:
-            stale = [k for k in list(self._memory.keys()) if k.startswith(prefix)]
+            stale = [k for k in list(self._memory.keys()) if matches(k)]
             for k in stale:
                 self._memory.pop(k, None)
                 self._memory_timestamps.pop(k, None)
