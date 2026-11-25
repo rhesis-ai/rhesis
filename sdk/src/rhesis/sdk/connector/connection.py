@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import ssl
+import time
 from collections.abc import Coroutine
 from typing import Any, Callable, Dict, Optional
 
@@ -247,6 +248,8 @@ class WebSocketConnection:
         self._on_connect_task: Optional[asyncio.Task] = None
         self._should_reconnect = True
         self._failure_reason: Optional[str] = None
+        # When the current socket came up (monotonic), or None.
+        self._connected_at: Optional[float] = None
 
     def _log_state_change(self, new_state: ConnectionState, context: str = "") -> None:
         """
@@ -380,6 +383,12 @@ class WebSocketConnection:
                                 # Exit completely for permanent failures
                                 return
 
+                            if self._dropped_after_stable_connection():
+                                # A healthy connection dropped: reconnect now with a
+                                # fresh retry counter, not where earlier drops left it.
+                                logger.warning(f"{error_message} Reconnecting.")
+                                break
+
                             # Transient error - will retry
                             if attempt_number == 1:
                                 # First failure - log the full message
@@ -430,6 +439,17 @@ class WebSocketConnection:
             self._log_state_change(ConnectionState.DISCONNECTED, "connection closed")
         logger.info("Connection maintenance loop ended")
 
+    def _dropped_after_stable_connection(self) -> bool:
+        """Whether the socket that just failed had stayed up for a while.
+
+        A socket that fails right after connecting does not count, so a server that
+        accepts and then drops at once still gets the growing backoff.
+        """
+        connected_at, self._connected_at = self._connected_at, None
+        if connected_at is None:
+            return False
+        return time.monotonic() - connected_at >= RetryConfig.STABLE_CONNECTION_SECONDS
+
     async def _attempt_single_connection(self) -> None:
         """Attempt a single WebSocket connection."""
         logger.debug(f"Attempting WebSocket connection to {self.url}")
@@ -446,6 +466,7 @@ class WebSocketConnection:
             **extra,
         ) as websocket:
             self.websocket = websocket
+            self._connected_at = time.monotonic()
             self._log_state_change(ConnectionState.CONNECTED, "websocket established")
 
             # Trigger on_connect callback (for registration)
@@ -455,7 +476,14 @@ class WebSocketConnection:
 
             # Listen for messages (blocks until connection closes)
             logger.debug("Starting message listener loop")
-            await self._listen_for_messages(websocket)
+            try:
+                await self._listen_for_messages(websocket)
+            finally:
+                # Sends during the reconnect backoff fail fast instead of on a dead socket.
+                if self.websocket is websocket:
+                    self.websocket = None
+                if self.state == ConnectionState.CONNECTED:
+                    self._log_state_change(ConnectionState.RECONNECTING, "socket closed")
             logger.debug("Message listener loop ended")
 
     async def _listen_for_messages(self, websocket: ClientConnection) -> None:

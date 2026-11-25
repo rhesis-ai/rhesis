@@ -14,8 +14,12 @@ from rhesis.backend.app.services.connector.schemas import (
 @pytest.fixture(autouse=True)
 def mock_redis():
     """Disable Redis for all connector tests."""
-    with patch("rhesis.backend.app.services.connector.manager.redis_manager") as mock:
-        mock.is_available = False
+    mock = Mock()
+    mock.is_available = False
+    with (
+        patch("rhesis.backend.app.services.connector.manager.redis_manager", mock),
+        patch("rhesis.backend.app.services.connector.calls.redis_manager", mock),
+    ):
         yield mock
 
 

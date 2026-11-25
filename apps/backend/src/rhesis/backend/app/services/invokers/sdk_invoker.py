@@ -12,6 +12,7 @@ from fastapi import HTTPException
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
+from rhesis.backend.app.services.connector.pending import CONNECTION_LOST_ERROR
 from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 from rhesis.telemetry.constants import ConversationContext as ConversationConstants
 
@@ -292,6 +293,16 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 error_type="sdk_disconnected",
                 output_message="SDK is not connected",
                 message=result.get("details", "SDK connection not available"),
+                request_details=self._safe_request_details(locals(), "SDK"),
+            )
+
+        # The connector dropped mid-call and did not come back within the grace.
+        # A transport result carries no "status"; a function error with this text does.
+        if result.get("error") == CONNECTION_LOST_ERROR and "status" not in result:
+            return self._create_error_response(
+                error_type="sdk_connection_lost",
+                output_message="SDK disconnected while the function was running",
+                message=result.get("details", "SDK connection lost"),
                 request_details=self._safe_request_details(locals(), "SDK"),
             )
 

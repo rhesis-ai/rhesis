@@ -165,6 +165,9 @@ _TRANSIENT_ERROR_TYPES = frozenset(
         # conversation that already advanced -- and we cannot assume an arbitrary
         # user endpoint is idempotent. Genuine timeouts are also rare now that a
         # full Redis pool no longer discards responses.
+        #
+        # ``sdk_connection_lost`` stays out for the same reason: the call reached
+        # the SDK and its connector dropped mid-run, so the function may have run.
         "sdk_send_failed",
         "sdk_disconnected",
     }

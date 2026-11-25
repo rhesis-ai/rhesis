@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Connector keepalive**: the connector WebSocket sends an app-level `ping` every third of `WS_IDLE_TIMEOUT`, so quiet SDK connectors are no longer closed by the idle timeout. A client that stops answering is still closed.
+- **Connector reconnects mid-call**: each dispatched call is recorded in Redis with its scope, and once its dispatching connection is gone, a result sent on a new connection of the same organization and project:environment (or, for metric-only calls, the same metric and user) is accepted on any replica instead of being rejected as a connection mismatch. While the dispatching connection is up, only it may answer.
+- **Result acknowledgements**: SDKs that ask for it in their `register` message get a `result_ack` once their result is handled, and `registered` replies advertise `result_ack: true`.
+- **Routes survive a late teardown**: closing an old connector socket, or its heartbeat while it lingers, no longer removes or takes back the route of a connection that re-registered the same project and environment, locally or in Redis.
+- **Bounded call bookkeeping**: calls dispatched for Celery workers are forgotten once their timeout passes, instead of piling up.
+- **Dropped connectors fail fast**: when a connector drops and no connection of its scope comes back within 90 seconds, its in-flight calls fail with `sdk_connection_lost` instead of waiting for the endpoint timeout. The error is not retried, since the function may already have run.
 
 ## [0.22.0] - 2026-11-19
 
