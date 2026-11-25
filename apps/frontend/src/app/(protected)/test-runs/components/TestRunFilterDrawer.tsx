@@ -1,6 +1,10 @@
 'use client';
 
 import * as React from 'react';
+import {
+  SCHEDULE_TRIGGER,
+  type ScheduleTrigger,
+} from '@/constants/test-run-schedules';
 import { Autocomplete, Box, TextField } from '@mui/material';
 import {
   FilterDrawerShell,
@@ -22,6 +26,7 @@ import {
 } from '@/components/common/presence-filter';
 
 export type RunKindFilter = 'all' | 'tests' | 'experiments';
+export type SourceFilter = 'all' | ScheduleTrigger;
 
 export interface TestRunFilters {
   /** test_configuration/test_set/name contains */
@@ -34,6 +39,8 @@ export interface TestRunFilters {
   tag: string;
   /** surfaced as `has_experiment` via `extraParams`, see list.ts */
   runKind: RunKindFilter;
+  /** surfaced as `trigger` via `extraParams`, see list.ts */
+  source: SourceFilter;
   tags: ActivityPresenceFilters['tags'];
   annotations: ActivityPresenceFilters['annotations'];
   comments: ActivityPresenceFilters['comments'];
@@ -46,6 +53,7 @@ export const EMPTY_TEST_RUN_FILTERS: TestRunFilters = {
   executor: '',
   tag: '',
   runKind: 'all',
+  source: 'all',
   tags: 'all',
   annotations: 'all',
   comments: 'all',
@@ -59,6 +67,7 @@ export function hasActiveTestRunFilters(f: TestRunFilters): boolean {
     f.executor !== '' ||
     f.tag !== '' ||
     f.runKind !== 'all' ||
+    f.source !== 'all' ||
     hasActivePresenceFilters(f)
   );
 }
@@ -70,6 +79,7 @@ export function countActiveTestRunFilters(f: TestRunFilters): number {
     (f.executor !== '' ? 1 : 0) +
     (f.tag !== '' ? 1 : 0) +
     (f.runKind !== 'all' ? 1 : 0) +
+    (f.source !== 'all' ? 1 : 0) +
     countActivePresenceFilters(f)
   );
 }
@@ -77,6 +87,11 @@ export function countActiveTestRunFilters(f: TestRunFilters): number {
 const RUN_KIND_OPTIONS: { label: string; value: RunKindFilter }[] = [
   { label: 'Tests', value: 'tests' },
   { label: 'Experiments', value: 'experiments' },
+];
+
+const SOURCE_OPTIONS: { label: string; value: ScheduleTrigger }[] = [
+  { label: 'Manual', value: SCHEDULE_TRIGGER.MANUAL },
+  { label: 'Schedule', value: SCHEDULE_TRIGGER.SCHEDULE },
 ];
 
 const textFieldSx = filterDrawerTextFieldSx;
@@ -192,6 +207,27 @@ export default function TestRunFilterDrawer({
                 }))
               }
               sx={filterChipSx(draft.runKind === opt.value)}
+            >
+              {opt.label}
+            </Box>
+          ))}
+        </Box>
+      </FilterSection>
+
+      <FilterSection title="Source">
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {SOURCE_OPTIONS.map(opt => (
+            <Box
+              key={opt.value}
+              component="button"
+              type="button"
+              onClick={() =>
+                setDraft(prev => ({
+                  ...prev,
+                  source: prev.source === opt.value ? 'all' : opt.value,
+                }))
+              }
+              sx={filterChipSx(draft.source === opt.value)}
             >
               {opt.label}
             </Box>

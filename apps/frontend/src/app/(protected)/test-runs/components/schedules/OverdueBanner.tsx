@@ -1,0 +1,23 @@
+'use client';
+
+import Alert from '@mui/material/Alert';
+import type { TestRunSchedule } from '@/utils/api-client/interfaces/test-run-schedule';
+
+/** Shown when runs are late: the scheduler hasn't started them. They start once it is back. */
+export default function OverdueBanner({
+  schedules,
+}: {
+  schedules: TestRunSchedule[];
+}) {
+  const overdue = schedules.filter(s => s.overdue);
+  if (overdue.length === 0) return null;
+  const which =
+    overdue.length === 1 ? overdue[0].name : `${overdue.length} schedules`;
+  return (
+    <Alert severity="warning" sx={{ mb: 2 }}>
+      {which} should have started already. The scheduler may be down; runs less
+      than an hour late still start once it is back, later ones are skipped and
+      you are notified.
+    </Alert>
+  );
+}

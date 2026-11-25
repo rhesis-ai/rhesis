@@ -183,3 +183,63 @@ export function formatRunTime(
   if (scheduleZone === viewerZone) return text;
   return `${text} (${dayjs(iso).tz(scheduleZone).format('HH:mm')} ${scheduleZone})`;
 }
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Back from a stored schedule to the form. Only the drawer's own presets are recognised. */
+export function fromSchedule(schedule: {
+  name: string;
+  cron: string | null;
+  run_at: string | null;
+  timezone: string;
+  ends_at?: string | null;
+  max_runs?: number | null;
+  notify?: ScheduleNotify;
+}): ScheduleForm {
+  const zone = schedule.timezone || 'UTC';
+  const form: ScheduleForm = {
+    ...defaultScheduleForm(schedule.name, dayjs().tz(zone), zone),
+    notify: schedule.notify ?? SCHEDULE_NOTIFY.PROBLEMS,
+  };
+  if (schedule.ends_at) {
+    form.ends = ENDS.ON;
+    form.endsOn = dayjs(schedule.ends_at).tz(zone).format('YYYY-MM-DD');
+  } else if (schedule.max_runs) {
+    form.ends = ENDS.AFTER;
+    form.maxRuns = schedule.max_runs;
+  }
+  if (schedule.run_at) {
+    const at = dayjs(schedule.run_at).tz(zone);
+    return {
+      ...form,
+      repeat: false,
+      date: at.format('YYYY-MM-DD'),
+      time: at.format('HH:mm'),
+    };
+  }
+  const cron = schedule.cron ?? '';
+  const [minute, hour, dom, month, dow] = cron.split(' ');
+  const custom = { ...form, frequency: FREQUENCY.CUSTOM, cron };
+  if (!/^\d+$/.test(minute ?? '') || month !== '*') return custom;
+  if (hour === '*' && dom === '*' && dow === '*') {
+    return { ...form, frequency: FREQUENCY.HOURLY, minute: Number(minute) };
+  }
+  if (!/^\d+$/.test(hour ?? '')) return custom;
+  const time = `${pad(Number(hour))}:${pad(Number(minute))}`;
+  if (dom === '*' && dow === '*')
+    return { ...form, frequency: FREQUENCY.DAILY, time };
+  if (dom === '*' && dow === '1-5')
+    return { ...form, frequency: FREQUENCY.WEEKDAYS, time };
+  if (dom === '*' && /^\d(,\d)*$/.test(dow ?? '')) {
+    return {
+      ...form,
+      frequency: FREQUENCY.WEEKLY,
+      time,
+      days: dow.split(',').map(Number),
+    };
+  }
+  if (dow === '*' && (dom === LAST_DAY || MONTH_DAYS.includes(dom ?? ''))) {
+    return { ...form, frequency: FREQUENCY.MONTHLY, time, monthDay: dom };
+  }
+  return custom;
+}
