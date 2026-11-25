@@ -116,7 +116,7 @@ linking_service.link_traces_for_test_result(
 
 ### Point #2: After Span Ingestion
 
-**Location**: `jobs/telemetry/post_ingest.py` → `link_traces_for_incoming_batch()`, run inside the async `post_ingest_link` task dispatched by the ingestion endpoint
+**Location**: `jobs/telemetry/post_ingest.py` → `link_traces_for_incoming_batch()`, run inside the async `post_ingest_link` task dispatched once the `ingest_spans` worker task has stored the spans
 
 **Purpose**: Catch traces that arrived AFTER test result (fast tests)
 

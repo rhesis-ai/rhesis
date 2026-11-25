@@ -88,7 +88,7 @@ The SDK uses **two independent channels**:
 | Span creation (SDK) | ~0.1ms | Per span, negligible overhead |
 | BatchProcessor delay | 5000ms | Fixed by OpenTelemetry design |
 | Span export (OTLP) | ~10ms | Network call |
-| Backend ingestion | ~10-20ms | Spans stored before async dispatch |
+| Backend ingestion | ~10-20ms | Spans validated and queued; a worker stores them |
 | Linking + enrichment | ~50-100ms | Background (Celery, `post_ingest_link`) |
 | Trace query | ~10ms | Cached enrichment |
 | **End-to-end** | **~5 seconds** | Test start to queryable trace |

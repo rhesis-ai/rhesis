@@ -1,0 +1,134 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Send Traces over OTLP (GenAI Conventions)
+
+Rhesis accepts traces from any standard OpenTelemetry exporter over OTLP/HTTP and translates the [OpenTelemetry semantic conventions for generative AI](https://github.com/open-telemetry/semantic-conventions-genai) into the Rhesis trace model. An agent that already exports these conventions, through an OpenTelemetry Collector, Grafana Alloy or an SDK's `OTLPSpanExporter`, can send its traces to Rhesis without the Rhesis SDK. They show up in the trace list, span details, conversation view and trace metrics like SDK-sent traces.
+
+<Callout type="info">
+  OTLP ingest is an Enterprise Edition feature. Without it, the endpoint answers `404`. Sending traces with the Rhesis SDK (`POST /telemetry/traces`) is available on every edition.
+</Callout>
+
+Rhesis implements the conventions at release **v0.1.0** (commit `d0e74ba`). They are still in development status: attributes Rhesis does not recognize are stored unchanged.
+
+## Endpoint and authentication
+
+| | |
+|---|---|
+| Endpoint | `https://<api host>/telemetry/v1/traces`. Exporters append `/v1/traces`, so configure `https://<api host>/telemetry`: `https://api.rhesis.ai/telemetry` for Rhesis Cloud, `http://localhost:8080/telemetry` for a local `./rh start`. |
+| Encodings | `application/x-protobuf` or `application/json` (OTLP JSON), optionally `Content-Encoding: gzip` |
+| Authentication | `Authorization: Bearer <Rhesis API token>` |
+| Project | The token's project, else the `X-Project-Id` header, else the resource attribute `rhesis.project_id` |
+| Environment | The resource attribute `deployment.environment.name`, else `development` |
+
+Spans are queued and stored by a worker, so they appear in the trace list a few seconds after the export returns.
+
+## What the agent has to record
+
+- **Message content on spans.** Rhesis reads prompts, answers and tool calls from `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.system_instructions`, `gen_ai.tool.call.arguments` and `gen_ai.tool.call.result`. Evaluation needs them. With the Python GenAI instrumentations, set `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `SPAN_ONLY` or `SPAN_AND_EVENT`. `EVENT_ONLY` sends content as OTLP logs, which Rhesis does not ingest.
+- **`gen_ai.conversation.id` for multi-turn conversations.** Turns that share it become one conversation. Without it, each trace is a single turn. Rhesis never invents one.
+
+## Configure the exporter
+
+### OpenTelemetry Collector
+
+Add an `otlphttp` exporter next to the one you already use:
+
+<CodeBlock filename="otelcol.yaml" language="yaml">
+{`exporters:
+  otlphttp/rhesis:
+    endpoint: https://api.rhesis.ai/telemetry
+    compression: gzip
+    headers:
+      Authorization: "Bearer \${env:RHESIS_API_TOKEN}"
+      X-Project-Id: "<project id>"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/existing, otlphttp/rhesis]`}
+</CodeBlock>
+
+### Grafana Alloy
+
+<CodeBlock filename="config.alloy" language="hcl">
+{`otelcol.auth.bearer "rhesis" {
+  token = sys.env("RHESIS_API_TOKEN")
+}
+
+otelcol.exporter.otlphttp "rhesis" {
+  client {
+    endpoint = "https://api.rhesis.ai/telemetry"
+    auth     = otelcol.auth.bearer.rhesis.handler
+    headers  = { "X-Project-Id" = "<project id>" }
+  }
+}
+
+// In the component that already exports your traces:
+//   output { traces = [otelcol.exporter.otlp.existing.input, otelcol.exporter.otlphttp.rhesis.input] }`}
+</CodeBlock>
+
+### OpenTelemetry SDK
+
+<CodeBlock filename="env" language="bash">
+{`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://api.rhesis.ai/telemetry/v1/traces
+OTEL_EXPORTER_OTLP_TRACES_HEADERS="Authorization=Bearer <token>,X-Project-Id=<project id>"
+OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf`}
+</CodeBlock>
+
+## How spans are translated
+
+Each span is classified by `gen_ai.operation.name`, or by the first word of its name when that attribute is missing.
+
+| GenAI operation | Rhesis span name |
+|---|---|
+| `invoke_agent`, `invoke_workflow`, `invoke_runner` and other `invoke_*` | `ai.agent.invoke` |
+| `create_agent` | `ai.agent.create` |
+| `plan` | `ai.agent.plan` |
+| `chat`, `text_completion`, `generate_content`, `realtime_inference` | `ai.llm.invoke` |
+| `embeddings` | `ai.embedding.generate` |
+| `retrieval` | `ai.retrieval.query` |
+| `execute_tool` | `ai.tool.invoke` |
+| `execute_tool` with `gen_ai.transfer.*` (an agent called as a tool) | `ai.agent.handoff` |
+| `create_memory`, `search_memory`, `update_memory`, `upsert_memory`, `delete_memory` (and the `*_memory_store` variants) | `ai.memory.create`, `.search`, `.update`, `.upsert`, `.delete` |
+| Anything else, including spans that are not GenAI | `function.<span name>` |
+
+Every original attribute is kept, including `gen_ai.operation.name`, the resource attributes and the instrumentation scope (`otel.scope.name`, `otel.scope.version`). Rhesis adds:
+
+- **Model and usage:** `ai.model.name`, `ai.model.provider` and `ai.llm.tokens.*`. Cached input tokens are counted separately, and only model calls count towards a trace's tokens, so an agent span that repeats its children's usage is not counted twice.
+- **Agents and tools:** `ai.agent.name`, `.id`, `.description`, `.version` and `ai.tool.*`. A handoff span gets `ai.agent.handoff.to` from `gen_ai.transfer.target.name` and `ai.agent.handoff.from` from the agent span above it, so the span graph draws the handoff. The trace list shows the agent and can filter by it; when the root is another span, such as an HTTP server span, it takes the agent name of the outermost agent below it.
+- **Content:** prompt and completion events on model calls, input and output events on agent spans, and tool input and output events. The `*_ref` attributes are kept and shown; Rhesis does not fetch them.
+- **Errors:** span status and `error.type` set the span's status. The message of a `gen_ai.*.exception` event becomes its status message.
+- **Turns:** the root `invoke_*` span gets `rhesis.conversation.input` (the last user message) and `rhesis.conversation.output` (the final answer). These drive the trace list's Input column, the conversation view and [trace metrics](/docs/metrics/trace-metrics). When the root is another span, such as an HTTP server span, it takes them from the outermost agent below it, if both arrive in the same request.
+
+## Conversations
+
+Rhesis keeps a conversation as one trace with one root span per turn. An agent exporting the GenAI conventions starts a new trace for every turn, so Rhesis files later turns under the trace id of the conversation's first turn. Each moved span keeps the id it arrived with in `rhesis.otlp.source_trace_id`, and searching the trace list for that id finds the conversation. Spans of a turn can arrive in any order and over many requests. A turn joins the conversation when its root span arrives.
+
+## Responses and retries
+
+| Status | When | Exporter behavior |
+|---|---|---|
+| `200` | Accepted. `partial_success` counts spans dropped as invalid. | Done |
+| `400` | Undecodable payload, or no project could be resolved | Dropped |
+| `401` / `403` | Missing or invalid token, or no access to the project | Dropped |
+| `404` | OTLP ingest is not enabled for the organization | Dropped |
+| `413` | Body (before or after gzip) or span count over the limits below | Dropped |
+| `415` | `Content-Type` is neither `application/x-protobuf` nor `application/json` | Dropped |
+| `429` | The organization's ingest rate or tracing backstop was reached | Retried after `Retry-After` |
+| `503` | Ingest is busy or temporarily unavailable | Retried after `Retry-After` |
+
+Error bodies are a `google.rpc.Status` in the request's encoding. Resending a batch is safe: spans already stored, with the same trace and span id, are skipped.
+
+## Limits
+
+| Limit | Default |
+|---|---|
+| Request body | 16 MiB, 32 MiB after gzip |
+| Spans per request | 10,000 |
+| Characters per attribute value | 131,072 |
+| Attributes / events per span | 512 / 512 |
+| Bytes per organization per minute | 1 GiB |
+
+A value longer than the attribute limit is cut, and the span's `rhesis.truncated_attributes` lists what was cut. Self-hosted deployments can change every limit; see [trace ingest limits](/self-hosting/environment-variables#trace-ingest-limits).

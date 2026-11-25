@@ -10,6 +10,7 @@ const meta: MetaRecord = {
   "agent-framework": "Microsoft Agent Framework",
   "google-adk": "Google ADK",
   haystack: "Haystack",
+  otlp: "OTLP (GenAI Conventions)",
   "multi-agent": "Multi-Agent Tracing",
   "conversation-tracing": "Conversation Tracing",
   costs: "Token Costs",

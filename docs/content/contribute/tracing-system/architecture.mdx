@@ -81,23 +81,14 @@ Span names are validated server-side (`packages/rhesis/src/rhesis/telemetry/sche
 
 ### Ingestion Endpoint
 
-`ingest_trace()` in `routers/telemetry.py` (`POST /telemetry/traces`):
+`ingest_trace()` in `routers/telemetry.py` (`POST /telemetry/traces`) stores nothing itself:
 
-1. Resolves `project_id` — prefers the span's `project_id`, falls back to the request's project scope, otherwise returns 422
-2. Validates the OTLP payload (Pydantic `OTELTraceBatch`, including span-name conventions)
-3. Stores spans via `crud.create_trace_spans()`, commits, and releases the DB session
-4. Dispatches `post_ingest_link.delay(...)` — fire-and-forget
+1. Takes an admission slot and reads the body under the `TRACE_INGEST_*` limits (413, or 429/503 with `Retry-After`)
+2. Validates the payload (Pydantic `OTELTraceBatch`, including span-name conventions) off the event loop
+3. Resolves `project_id`: the span's `project_id` when it names one (access-checked), else the request's project scope, otherwise 422
+4. Queues an `IngestJob` on the `trace-ingest` queue and returns `status="received"` with the span count
 
-<CodeBlock filename="Dispatch" language="python">
-{`try:
-    post_ingest_link.delay(**dispatch_kwargs)
-except BROKER_ERRORS as broker_err:
-    logger.warning(f"Broker unavailable, post-processing deferred | error={broker_err}")
-
-return TraceResponse(status="received", span_count=stored_count, trace_id=trace_id)`}
-</CodeBlock>
-
-If the broker is unreachable, the request still returns 200 — linking and enrichment for that batch simply do not run. This differs from a separate code path used by direct SDK-endpoint invocation (`services/invokers/tracing.py`), which enqueues enrichment via `AsyncService.execute_with_fallback`: it tries the async Celery dispatch first and only falls back to running enrichment synchronously, in-process, when the broker raises a connection error.
+The Enterprise Edition's OTLP route (`POST /telemetry/v1/traces`) does the same after translating OpenTelemetry GenAI spans. A worker's `ingest_spans` task stores the spans and dispatches `post_ingest_link`; if the broker is down at that point, the spans stay stored and post-processing for that batch does not run.
 
 The `post_ingest_link` task itself (`jobs/telemetry/post_ingest.py`) performs test-result linking, conversation-id linking, input-file linking, and dispatches an enrichment → evaluation chain per root span. See [Worker: Trace Ingestion Pipeline](/contribute/worker/trace-ingestion-pipeline) for the full breakdown, including metric evaluation.
 

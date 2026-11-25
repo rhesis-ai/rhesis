@@ -2,18 +2,17 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Trace Ingestion Pipeline
 
-This document explains how traces are processed after arriving via `POST /telemetry/traces`, covering the full pipeline from storage through enrichment and metric evaluation.
+This document explains how traces are processed after arriving via `POST /telemetry/traces` (SDK) or `POST /telemetry/v1/traces` (OTLP, Enterprise Edition), covering the full pipeline from storage through enrichment and metric evaluation.
 
 ## Pipeline Overview
 
-When traces are ingested, the backend stores spans immediately, then dispatches post-ingestion work (linking, enrichment, evaluation) either asynchronously via Celery or synchronously as a fallback.
+Neither route writes to the database. The route validates the spans and queues them; a worker stores them, then dispatches post-ingestion work (linking, enrichment, evaluation).
 
 <Mermaid chart={`flowchart TD
-    API["POST /telemetry/traces"]
+    API["POST /telemetry/traces<br/>POST /telemetry/v1/traces"]
+    QUEUE["ingest_spans<br/>(trace-ingest queue)"]
     STORE["Store spans in database"]
-    CHECK{"Workers available?"}
-    POST["post_ingest_link<br/>(Celery task)"]
-    SYNC["Sync fallback<br/>(in-request)"]
+    POST["post_ingest_link<br/>(telemetry queue)"]
 
     L1["1. Test-result linking"]
     L2["2. Conversation-id linking"]
@@ -23,54 +22,37 @@ When traces are ingested, the backend stores spans immediately, then dispatches 
     ENRICH["enrich_trace_async<br/>(costs, anomalies, metadata)"]
     EVAL["evaluate_turn_trace_metrics<br/>(LLM-based scoring)"]
 
-    SL["Linking (sync)"]
-    SE["Enrichment (sync)"]
-    SKIP["Evaluation: SKIPPED"]
-
-    API --> STORE
-    STORE --> CHECK
-    CHECK -->|YES| POST
-    CHECK -->|NO| SYNC
+    API --> QUEUE
+    QUEUE --> STORE
+    STORE --> POST
     POST --> L1
     POST --> L2
     POST --> L3
     POST --> CHAIN
     CHAIN --> ENRICH
-    ENRICH --> EVAL
-    SYNC --> SL
-    SYNC --> SE
-    SYNC --> SKIP`} />
+    ENRICH --> EVAL`} />
 
-## Phase 1: Span Storage
+## Phase 1: Admission and Queueing
 
-The telemetry router receives an `OTELTraceBatch` payload containing one or more spans. Before storage, the backend injects any pending mapped output into span attributes (for SDK endpoints where output arrives asynchronously).
+The routes share `routers/telemetry_intake.py`. Each request takes a per-process admission slot, reads its body under a size cap, and passes the queue-depth and per-organization rate checks (`services/telemetry/admission.py`). Parsing, OTLP translation and project checks run in a small thread pool, so the event loop never blocks and the route holds no database session. The spans become an `IngestJob` (`services/telemetry/ingest.py`), gzip-compressed inside the Celery message and split by size, queued as `ingest_spans` on the `trace-ingest` queue. The limits are the `TRACE_INGEST_*` settings; see [trace ingest limits](/self-hosting/environment-variables#trace-ingest-limits).
 
-Spans are then stored in the `Trace` table via `crud.create_trace_spans()`. Each span record includes the OTEL trace ID, span ID, parent span ID, timing data, attributes, and tenant context (organization and project).
+## Phase 2: Span Storage
 
-## Phase 2: Post-Ingestion Dispatch
+The `ingest_spans` task (`jobs/telemetry/ingest.py`) runs `process_ingest_job`. It injects any pending mapped output into span attributes (for SDK endpoints where output arrives asynchronously), runs the job's pre-store hooks (the OTLP route's hook re-files later conversation turns onto the conversation's first trace), takes per-trace advisory locks, and stores the spans via `crud.create_trace_spans()`. Spans already stored with the same trace and span id are skipped, so a resent batch is safe. A database failure retries the task with backoff; values the database refuses are logged and dropped.
 
-After storage, the router checks for Celery worker availability using a TTL-cached ping (300-second cache to avoid repeated 3-second Celery inspect calls).
+After the commit, the task dispatches a single `post_ingest_link` task:
 
-### Async Path (Workers Available)
-
-When workers are available, the router dispatches a single `post_ingest_link` Celery task that handles all post-ingestion work:
-
-<CodeBlock language="python" filename="routers/telemetry.py" isTerminal={false}>
-{`if check_workers_available():
-    post_ingest_link.delay(
-        stored_span_ids=stored_span_ids,
-        unique_trace_ids=unique_trace_ids,
-        organization_id=organization_id,
-        project_id=str(project_id),
-        test_run_id=...,
-        test_id=...,
-        test_configuration_id=...,
-    )`}
+<CodeBlock language="python" filename="jobs/telemetry/ingest.py" isTerminal={false}>
+{`post_ingest_link.delay(
+    stored_span_ids=stored_span_ids,
+    unique_trace_ids=unique_trace_ids,
+    organization_id=organization_id,
+    project_id=str(project_id),
+    test_run_id=...,
+    test_id=...,
+    test_configuration_id=...,
+)`}
 </CodeBlock>
-
-### Sync Fallback (No Workers)
-
-Without workers, the router runs linking and enrichment synchronously in the same request. Metric evaluation is skipped because it involves LLM calls that should not block API responses.
 
 ## Phase 3: Linking
 
@@ -117,7 +99,7 @@ The second task in the chain is `evaluate_turn_trace_metrics`, which runs LLM-ba
 
 Evaluation requires all of the following:
 
-1. **Celery workers running** -- evaluation never runs in the sync fallback path.
+1. **Celery workers consuming the `telemetry` queue** -- evaluation runs there.
 
 2. **Trace metrics enabled on the project** -- the project's `attributes.trace_metrics.enabled` must not be `false`.
 
