@@ -165,6 +165,7 @@ export default function TestRunsPageClient({
               onCreateClose={() =>
                 setScheduleCreate({ open: false, date: null })
               }
+              onCreateOnDay={date => setScheduleCreate({ open: true, date })}
               onMoreOptions={form => {
                 setScheduleCreate({ open: false, date: null });
                 setScheduleSeed(form);
