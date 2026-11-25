@@ -187,11 +187,14 @@ export function buildEndpointRunFilter(endpointId: string): string {
   return `test_configuration/endpoint_id eq '${endpointId}'`;
 }
 
+/** The run fields Insights reads: ids for queries, name and date for the run picker. */
+const INSIGHTS_RUN_FIELDS = ['id', 'name', 'created_at'];
+
 export async function fetchTestRunsForEndpoint(
   endpointId: string,
   timeRange?: InsightsTimeRange,
   factory: ApiClientFactory = new ApiClientFactory()
-): Promise<TestRun[]> {
+): Promise<Pick<TestRun, 'id' | 'name' | 'created_at'>[]> {
   const client = factory.getTestRunsClient();
   const filterParts = [buildEndpointRunFilter(endpointId)];
   if (timeRange) {
@@ -201,7 +204,7 @@ export async function fetchTestRunsForEndpoint(
     }
   }
   const filter = filterParts.join(' and ');
-  const runs: TestRun[] = [];
+  const runs: Pick<TestRun, 'id' | 'name' | 'created_at'>[] = [];
   let skip = 0;
   const limit = 100;
 
@@ -212,6 +215,7 @@ export async function fetchTestRunsForEndpoint(
       limit,
       sort_by: 'created_at',
       sort_order: 'desc',
+      select: INSIGHTS_RUN_FIELDS,
     });
 
     runs.push(...response.data);
@@ -240,7 +244,12 @@ export async function findEndpointIdsWithRuns(
       const filter = [buildEndpointRunFilter(id), timeFilter]
         .filter(Boolean)
         .join(' and ');
-      const response = await client.getTestRuns({ filter, skip: 0, limit: 1 });
+      const response = await client.getTestRuns({
+        filter,
+        skip: 0,
+        limit: 1,
+        select: ['id'],
+      });
       return response.data.length > 0;
     })
   );

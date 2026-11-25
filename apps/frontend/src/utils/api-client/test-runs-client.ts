@@ -20,6 +20,11 @@ type TestRunsQueryParams = Partial<PaginationParams> & {
   has_annotations?: boolean;
   /** Only runs a schedule started, or only runs a person started. */
   trigger?: ScheduleTrigger;
+  /**
+   * Top-level fields to return (`$select`); `id` always comes back. The backend
+   * also skips computing `stats`, `usage` and `counts` when they aren't listed.
+   */
+  select?: string[];
 };
 
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -39,6 +44,7 @@ export class TestRunsClient extends BaseApiClient {
       has_experiment,
       has_annotations,
       trigger,
+      select,
       ...paginationParams
     } = params;
 
@@ -52,6 +58,7 @@ export class TestRunsClient extends BaseApiClient {
     // Prepare parameters for fetchPaginated
     const fetchParams: PaginationParams & {
       $filter?: string;
+      $select?: string;
       has_experiment?: boolean;
       has_annotations?: boolean;
       trigger?: ScheduleTrigger;
@@ -74,6 +81,10 @@ export class TestRunsClient extends BaseApiClient {
 
     if (trigger) {
       fetchParams.trigger = trigger;
+    }
+
+    if (select?.length) {
+      fetchParams.$select = select.join(',');
     }
 
     return this.fetchPaginated<TestRunDetail>(

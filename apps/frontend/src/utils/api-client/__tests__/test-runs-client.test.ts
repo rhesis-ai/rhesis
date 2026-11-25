@@ -85,6 +85,17 @@ describe('TestRunsClient', () => {
       expect(calledUrl).toContain('config-123');
     });
 
+    it('sends select as $select', async () => {
+      fetchMock.mockResolvedValue(
+        makeFetchResponse([], 200, { 'x-total-count': '0' })
+      );
+
+      await client.getTestRuns({ select: ['id', 'name'] });
+
+      const calledUrl = new URL(fetchMock.mock.calls[0][0] as string);
+      expect(calledUrl.searchParams.get('$select')).toBe('id,name');
+    });
+
     it('combines custom filter with test_configuration_id filter', async () => {
       fetchMock.mockResolvedValue(
         makeFetchResponse([], 200, { 'x-total-count': '0' })
