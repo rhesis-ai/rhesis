@@ -17,6 +17,12 @@ from rhesis.backend.app.error_handlers import reraise_model_refusal
 logger = logging.getLogger(__name__)
 
 
+def is_foreign_key_violation(error: Exception) -> bool:
+    """True when *error* is a Postgres foreign-key constraint violation."""
+    error_msg = str(error).lower()
+    return "foreign key constraint" in error_msg or "violates foreign key" in error_msg
+
+
 class DatabaseExceptionHandler:
     """
     Centralized handler for database constraint violations and errors.
@@ -77,7 +83,7 @@ class DatabaseExceptionHandler:
         logger.error(f"Database error in {entity_name}: {error}", exc_info=True)
 
         # Handle foreign key constraint violations
-        if "foreign key constraint" in error_msg or "violates foreign key" in error_msg:
+        if is_foreign_key_violation(error):
             # Merge custom field messages with defaults
             field_messages = {**self.FOREIGN_KEY_FIELD_MESSAGES}
             if custom_field_messages:

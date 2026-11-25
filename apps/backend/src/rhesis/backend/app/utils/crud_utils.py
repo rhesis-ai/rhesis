@@ -11,14 +11,23 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import inspect
 from sqlalchemy import update as sa_update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Query, Session
 
 from rhesis.backend.app.constants import EntityType
 
 # Removed unused imports - legacy tenant functions no longer needed
 from rhesis.backend.app.models import Category, Model, Requirement, Status, Topic, TypeLookup
-from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
-from rhesis.backend.app.utils.foreign_refs import validate_foreign_references
+from rhesis.backend.app.utils.database_exceptions import (
+    ItemDeletedException,
+    ItemNotFoundException,
+    is_foreign_key_violation,
+)
+from rhesis.backend.app.utils.foreign_refs import (
+    ForeignReferenceError,
+    field_from_integrity_error,
+    validate_foreign_references,
+)
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
 
@@ -225,6 +234,24 @@ def _prepare_update_data(
     return data
 
 
+def _flush_with_fk_guard(db: Session, model: Type[T]) -> None:
+    """Flush the pending write inside a savepoint, turning a foreign-key violation into a
+    ForeignReferenceError (HTTP 400).
+
+    Postgres checks FKs regardless of RLS, so a bad id would otherwise surface as a raw
+    IntegrityError whose presence tells the caller whether that id exists elsewhere. The
+    savepoint keeps the surrounding transaction usable after the rollback.
+    """
+    try:
+        with db.begin_nested():
+            db.flush()
+    except IntegrityError as error:
+        if not is_foreign_key_violation(error):
+            raise
+        field = field_from_integrity_error(error, model) or "reference"
+        raise ForeignReferenceError(field) from None
+
+
 def _create_db_item_with_transaction(
     db: Session, model: Type[T], item_data: Dict[str, Any], commit: bool = True
 ) -> T:
@@ -232,7 +259,7 @@ def _create_db_item_with_transaction(
     db_item = model(**item_data)
 
     db.add(db_item)
-    db.flush()  # Flush to get the ID and other generated values
+    _flush_with_fk_guard(db, model)  # Flush to get the ID and other generated values
     db.refresh(db_item)  # Refresh to ensure we have all generated values
 
     # Note: commit parameter is kept for backward compatibility but transaction
@@ -676,7 +703,7 @@ def update_item(
 
     # Flush and refresh to ensure we have updated values
     # Transaction commit is handled by the session context manager
-    db.flush()
+    _flush_with_fk_guard(db, model)
     db.refresh(db_item)
 
     return db_item
