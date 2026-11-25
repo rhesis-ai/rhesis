@@ -37,7 +37,7 @@ from typing import Optional, Set, Tuple
 from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.quota.hosted_spend import hosted_spend
-from rhesis.backend.app.services.usage import dispatch_accrual
+from rhesis.backend.app.services import usage_coalescer
 from rhesis.backend.app.usage_attribution import current_usage_org
 from rhesis.sdk.models.base import (
     CallSettle,
@@ -131,7 +131,7 @@ def accrue_model_tokens(usage: TokenUsage, model: UsageReporting) -> None:
     """Accrue one model call's tokens against the ambient organization.
 
     The SDK hands us an already-normalized :class:`TokenUsage`, so there is
-    no provider dialect to parse here. :func:`dispatch_accrual` queues the
+    no provider dialect to parse here. :mod:`usage_coalescer` sums it and queues the
     write on a worker and never raises, which matters most on this path:
     unlike the Celery call sites, this runs during interactive requests a
     user is waiting on.
@@ -146,7 +146,7 @@ def accrue_model_tokens(usage: TokenUsage, model: UsageReporting) -> None:
         _record_unattributed(usage, model)
         return
 
-    dispatch_accrual(organization_id, QuotaResource.MODEL_TOKENS, usage["total_tokens"])
+    usage_coalescer.add(organization_id, QuotaResource.MODEL_TOKENS, usage["total_tokens"])
 
 
 def _counts_toward_hosted_cap(model: UsageReporting) -> bool:
