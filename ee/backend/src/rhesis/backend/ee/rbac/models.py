@@ -40,6 +40,7 @@ from __future__ import annotations
 from sqlalchemy import (
     Boolean,
     Column,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -48,6 +49,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from rhesis.backend.app.auth.capabilities import (
@@ -420,7 +422,8 @@ class OrganizationMember(Base):
     """
 
     __tablename__ = "organization_member"
-    __audit__ = AuditPolicy(resource="member")
+    # The SSO claims snapshot is rewritten at every sign-in; its role effects are audited.
+    __audit__ = AuditPolicy(resource="member", ignore=("sso_claims", "sso_claims_at", "sso_grants"))
 
     organization_id = Column(
         GUID(),
@@ -440,6 +443,14 @@ class OrganizationMember(Base):
         nullable=False,
         index=True,
     )
+
+    #: List-valued claims from the member's last SSO sign-in (groups, roles, ...), as
+    #: ``[{"path": [...], "values": [...]}]``. Feeds role-mapping suggestions and previews.
+    sso_claims = Column(JSONB, nullable=True)
+    sso_claims_at = Column(DateTime(timezone=True), nullable=True)
+    #: What SSO role mapping last gave: ``{"org_role": id|None, "projects": {id: id}}``.
+    #: Lets a later sign-in take it back once no rule grants it any more.
+    sso_grants = Column(JSONB, nullable=True)
 
     __table_args__ = (
         UniqueConstraint("organization_id", "user_id", name="uq_organization_member_org_user"),

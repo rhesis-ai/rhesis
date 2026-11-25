@@ -277,6 +277,15 @@ def email_marked_unverified(claims: Mapping[str, Any]) -> bool:
     return value != 1
 
 
+def _claim_missing(claims: Mapping[str, Any], path: Union[str, Iterable[str]]) -> bool:
+    node: Any = claims
+    for segment in [path] if isinstance(path, str) else path:
+        if not isinstance(node, Mapping) or segment not in node:
+            return True
+        node = node[segment]
+    return False
+
+
 class OIDCProvider(AuthProvider):
     """Generic OIDC provider instantiated per-request with org-specific config.
 
@@ -327,9 +336,7 @@ class OIDCProvider(AuthProvider):
             except SSRFError:
                 raise
             except Exception as e:
-                logger.error(
-                    "OIDC discovery failed for %s: %s", issuer, type(e).__name__
-                )
+                logger.error("OIDC discovery failed for %s: %s", issuer, type(e).__name__)
                 raise ValueError(f"OIDC discovery failed for issuer: {issuer}")
 
             _OIDC_METADATA_CACHE[issuer] = (metadata, now)
@@ -375,9 +382,7 @@ class OIDCProvider(AuthProvider):
                     cached = _JWKS_CACHE.get(issuer)
                     if cached:
                         return cached[0]
-                    raise ValueError(
-                        "No cached JWKS available and refresh is on cooldown"
-                    )
+                    raise ValueError("No cached JWKS available and refresh is on cooldown")
 
             try:
                 resp = await self._http.get(jwks_uri)
@@ -386,9 +391,7 @@ class OIDCProvider(AuthProvider):
             except SSRFError:
                 raise
             except Exception as e:
-                logger.error(
-                    "JWKS fetch failed for %s: %s", issuer, type(e).__name__
-                )
+                logger.error("JWKS fetch failed for %s: %s", issuer, type(e).__name__)
                 raise ValueError(f"JWKS fetch failed for issuer: {issuer}")
 
             _JWKS_CACHE[issuer] = (jwks, now)
@@ -469,6 +472,29 @@ class OIDCProvider(AuthProvider):
 
         return f"{auth_endpoint}?{urlencode(params)}"
 
+    async def _fetch_userinfo(self, metadata: dict, access_token: str) -> Optional[dict]:
+        userinfo_endpoint = metadata.get("userinfo_endpoint")
+        if not userinfo_endpoint or not access_token:
+            return None
+        try:
+            ui_resp = await self._http.get(
+                userinfo_endpoint,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            if not ui_resp.is_success:
+                logger.error(
+                    "Userinfo endpoint HTTP %s: %s",
+                    ui_resp.status_code,
+                    ui_resp.text[:300],
+                )
+            ui_resp.raise_for_status()
+            userinfo = ui_resp.json()
+            logger.debug("Userinfo response keys: %s", list(userinfo.keys()))
+            return userinfo if isinstance(userinfo, dict) else None
+        except Exception as ue:
+            logger.error("Userinfo endpoint call failed: %s", ue)
+            return None
+
     async def authenticate(self, request: Any, **kwargs) -> AuthUser:
         """Exchange auth code for tokens and validate the ID token.
 
@@ -531,34 +557,24 @@ class OIDCProvider(AuthProvider):
 
         email = claims.get("email")
         email_source = claims
-        if not email:
-            logger.warning(
-                "email claim missing from ID token for issuer %s; "
-                "falling back to userinfo endpoint. Available claims: %s",
-                self._config.issuer_url,
-                list(claims.keys()),
-            )
-            userinfo_endpoint = metadata.get("userinfo_endpoint")
-            if userinfo_endpoint:
-                access_token = token_response.get("access_token", "")
-                try:
-                    ui_resp = await self._http.get(
-                        userinfo_endpoint,
-                        headers={"Authorization": f"Bearer {access_token}"},
-                    )
-                    if not ui_resp.is_success:
-                        logger.error(
-                            "Userinfo endpoint HTTP %s: %s",
-                            ui_resp.status_code,
-                            ui_resp.text[:300],
-                        )
-                    ui_resp.raise_for_status()
-                    userinfo = ui_resp.json()
-                    logger.debug("Userinfo response keys: %s", list(userinfo.keys()))
-                    email = userinfo.get("email")
-                    email_source = userinfo
-                except Exception as ue:
-                    logger.error("Userinfo endpoint call failed: %s", ue)
+        claim_path = kwargs.get("claim_path")
+        needs_groups = claim_path is not None and _claim_missing(claims, claim_path)
+        if not email or needs_groups:
+            if not email:
+                logger.warning(
+                    "email claim missing from ID token for issuer %s; "
+                    "falling back to userinfo endpoint. Available claims: %s",
+                    self._config.issuer_url,
+                    list(claims.keys()),
+                )
+            userinfo = await self._fetch_userinfo(metadata, token_response.get("access_token", ""))
+            if userinfo and not email:
+                email = userinfo.get("email")
+                email_source = userinfo
+            # OIDC Core 5.3.2: only an answer for the same subject may add claims (groups
+            # can be set up to reach userinfo only). The ID token stays authoritative.
+            if userinfo and claims.get("sub") and userinfo.get("sub") == claims.get("sub"):
+                claims = {**userinfo, **claims}
 
         if not email:
             raise ValueError("Could not determine user email from IdP")
@@ -579,9 +595,5 @@ class OIDCProvider(AuthProvider):
             given_name=claims.get("given_name"),
             family_name=claims.get("family_name"),
             picture=claims.get("picture"),
-            raw_data={
-                k: v
-                for k, v in claims.items()
-                if k not in ("at_hash", "c_hash")
-            },
+            raw_data={k: v for k, v in claims.items() if k not in ("at_hash", "c_hash")},
         )
