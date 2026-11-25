@@ -69,6 +69,9 @@ export interface OrgMemberRead {
    *  privilege-escalation guard (self-change and outranking are both
    *  denied) — check with `can()`, never re-derive it client-side. */
   permitted_actions?: string[];
+  /** Set when SSO role mapping decides this role at every sign-in: the
+   *  deciding IdP group, or "" when the "everyone else" fallback does. */
+  managed_by_sso_group?: string | null;
 }
 
 export interface OrgRoleAssign {

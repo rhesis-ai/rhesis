@@ -17,7 +17,15 @@
 
 import { BaseApiClient } from '@/utils/api-client/base-client';
 import { API_ENDPOINTS } from '@/utils/api-client/config';
-import type { SSOConfig, SSOTestResult } from '../types';
+import type {
+  ClaimPath,
+  ProviderInfo,
+  RoleMapping,
+  RoleMappingPreview,
+  SeenClaims,
+  SSOConfig,
+  SSOTestResult,
+} from '../types';
 
 export class SSOClient extends BaseApiClient {
   constructor(sessionToken?: string) {
@@ -57,5 +65,43 @@ export class SSOClient extends BaseApiClient {
         method: 'POST',
       }
     );
+  }
+
+  /** Values people signed in with for a claim, and every list claim seen. */
+  async getSeenClaims(orgId: string, claim: ClaimPath): Promise<SeenClaims> {
+    return this.fetch<SeenClaims>(
+      `${API_ENDPOINTS.organizations}/${orgId}/sso/groups`,
+      { method: 'POST', body: JSON.stringify({ claim }) }
+    );
+  }
+
+  /** Who a mapping would change at their next sign-in. */
+  async previewRoleMapping(
+    orgId: string,
+    mapping: RoleMapping
+  ): Promise<RoleMappingPreview> {
+    return this.fetch<RoleMappingPreview>(
+      `${API_ENDPOINTS.organizations}/${orgId}/sso/role-mapping/preview`,
+      { method: 'POST', body: JSON.stringify(mapping) }
+    );
+  }
+
+  /** The identity providers Rhesis knows, in display order. */
+  async getProviders(orgId: string): Promise<ProviderInfo[]> {
+    return this.fetch<ProviderInfo[]>(
+      `${API_ENDPOINTS.organizations}/${orgId}/sso/providers`
+    );
+  }
+
+  /** Which provider an issuer belongs to (null while it isn't a URL). */
+  async detectProvider(
+    orgId: string,
+    issuerUrl: string
+  ): Promise<string | null> {
+    const res = await this.fetch<{ provider: string | null }>(
+      `${API_ENDPOINTS.organizations}/${orgId}/sso/providers/detect`,
+      { method: 'POST', body: JSON.stringify({ issuer_url: issuerUrl }) }
+    );
+    return res.provider;
   }
 }

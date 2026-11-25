@@ -24,8 +24,11 @@ SSO_LOGIN_RATE_LIMIT = "10/minute"
 SSO_CALLBACK_RATE_LIMIT = "10/minute"
 SSO_TEST_CONNECTION_RATE_LIMIT = "5/minute"
 SSO_ADMIN_RATE_LIMIT = "20/minute"
+# Read-only helpers the role mapping editor calls as the admin types.
+SSO_ADMIN_READ_RATE_LIMIT = "120/minute"
 
 __all__ = [
+    "SSO_ADMIN_READ_RATE_LIMIT",
     "SSO_ADMIN_RATE_LIMIT",
     "SSO_CALLBACK_RATE_LIMIT",
     "SSO_LOGIN_RATE_LIMIT",

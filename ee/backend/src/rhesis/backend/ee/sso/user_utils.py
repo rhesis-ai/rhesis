@@ -32,6 +32,25 @@ class SSOLoginError(Exception):
         super().__init__(message)
 
 
+def find_sso_user_in_org(db: Session, email: str, organization):
+    """The org's existing account for ``email``, or None (also for an invalid email)."""
+    from rhesis.backend.app.models.user import User
+
+    try:
+        normalized_email = validate_and_normalize_email(email)
+    except ValueError:
+        return None
+    return (
+        db.query(User)
+        .filter(
+            User.email == normalized_email,
+            User.organization_id == organization.id,
+            User.is_deleted.is_(False),
+        )
+        .first()
+    )
+
+
 def find_or_create_sso_user(
     db: Session,
     auth_user: AuthUser,

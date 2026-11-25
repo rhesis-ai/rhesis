@@ -105,6 +105,9 @@ class OrgMemberRead(BaseModel):
     #: are both denied) so the frontend never re-derives it. See
     #: `_member_permitted_actions` in router.py.
     permitted_actions: list[str] = Field(default_factory=list)
+    #: Set when SSO role mapping decides this member's role at every sign-in: the
+    #: IdP group that decides it, or "" when the "everyone else" fallback does.
+    managed_by_sso_group: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

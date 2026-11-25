@@ -56,6 +56,7 @@ from rhesis.backend.ee.rbac.schemas import (
     RoleUpdate,
     UserProjectMembershipRead,
 )
+from rhesis.backend.ee.sso.role_mapping import sso_managed_members, sso_manages_project_role
 
 logger = logging.getLogger(__name__)
 
@@ -392,11 +393,7 @@ def _member_permitted_actions(
     actions = []
     if Permission.Member.MANAGE.value in actor_permissions:
         actions.append(Permission.Member.MANAGE.value)
-    if (
-        include_delete
-        and not is_last_owner
-        and Permission.Member.DELETE.value in actor_permissions
-    ):
+    if include_delete and not is_last_owner and Permission.Member.DELETE.value in actor_permissions:
         actions.append(Permission.Member.DELETE.value)
     return actions
 
@@ -677,9 +674,7 @@ def delete_role(
     # bypass the ambient tenant filter.
     with bypass_tenant_filter():
         none_role = (
-            db.query(Role)
-            .filter_by(name="None", is_built_in=True, organization_id=None)
-            .first()
+            db.query(Role).filter_by(name="None", is_built_in=True, organization_id=None).first()
         )
     if none_role is None:
         # Fail loudly rather than orphan members; None is seeded by migration.
@@ -750,6 +745,7 @@ def list_org_members(
         owner_role = db.query(Role).filter_by(name="Owner", is_built_in=True).first()
     owner_role_id = owner_role.id if owner_role is not None else None
     owner_count = sum(1 for m in members if m.role_id == owner_role_id)
+    sso_managed = sso_managed_members(db, current_user.organization_id)
 
     result = []
     for m in members:
@@ -767,6 +763,9 @@ def list_org_members(
             actor_permissions=actor_permissions,
             is_last_owner=is_last_owner,
         )
+        # The IdP decides this role; a change here would be undone at the next sign-in.
+        if m.user_id in sso_managed:
+            actions = [a for a in actions if a != Permission.Member.MANAGE.value]
 
         result.append(
             OrgMemberRead(
@@ -779,6 +778,7 @@ def list_org_members(
                 if m.user_id in users_by_id
                 else None,
                 permitted_actions=actions,
+                managed_by_sso_group=sso_managed.get(m.user_id),
             )
         )
     return result
@@ -863,6 +863,11 @@ def assign_org_role(
         raise HTTPException(
             status_code=400,
             detail="Cannot change your own organization role",
+        )
+    if user_id in sso_managed_members(db, current_user.organization_id):
+        raise HTTPException(
+            status_code=409,
+            detail="This role is set by SSO group mapping. Change it in your identity provider.",
         )
 
     target_role = _get_role_or_404(body.role_id, db, current_user.organization_id)
@@ -1121,6 +1126,11 @@ def assign_project_role(
             status_code=400,
             detail="Cannot change your own project role",
         )
+    if sso_manages_project_role(db, current_user.organization_id, user_id, project_id):
+        raise HTTPException(
+            status_code=409,
+            detail="This role is set by SSO group mapping. Change it in your identity provider.",
+        )
 
     target_role = check_project_role_assignment(db, current_user, body.role_id, project_id)
 
@@ -1183,9 +1193,7 @@ def assign_project_role(
             is_self=False,
             current_role_level=target_role.level,
             current_role_is_built_in=target_role.is_built_in,
-            current_role_permission_names=set(
-                _role_permission_names_resolved(target_role, db)
-            ),
+            current_role_permission_names=set(_role_permission_names_resolved(target_role, db)),
             actor_level=actor_level,
             actor_permissions=actor_permissions,
             include_delete=False,

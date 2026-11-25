@@ -32,6 +32,7 @@ export const PUBLIC_PATHS = [
   '/auth/reset-password',
   '/auth/verify-email',
   '/auth/magic-link',
+  '/auth/sso-error',
 ] as const;
 
 export function isPublicPath(path: string): boolean {

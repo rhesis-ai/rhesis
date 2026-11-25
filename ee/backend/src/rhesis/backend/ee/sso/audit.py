@@ -24,6 +24,7 @@ class SSOAuditEvent(str, Enum):
     LOGIN_FAILED = "sso.login.failed"
     USER_PROVISIONED = "sso.user.provisioned"
     USER_REJECTED = "sso.user.rejected"
+    ROLES_SYNCED = "sso.roles.synced"
 
 
 def audit_log(

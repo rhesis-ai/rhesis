@@ -17,6 +17,11 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 1. If you set `MAX_PER_TEST_TIMEOUT` or `EXECUTION_TIME_LIMIT`, consider removing them. Unset, they now follow the new `MAX_ENDPOINT_TIMEOUT` (default 7200): a test may take the endpoint timeout plus 300s, and a run that plus 900s. Values you set still win, and the backend logs a warning at startup when they are lower than the endpoint ceiling.
 
+### Added
+
+- SSO role mapping: organization and project roles can follow the groups your identity provider sends at sign-in, with a preview of who changes before you save and a JSON editor. The SSO settings are now split into Connection, Sign-in and Role mapping tabs, and the identity provider is recognised from the issuer URL.
+- A failed SSO sign-in now shows a page that explains what went wrong, with a reference the administrator can find in the backend log.
+
 ### Changed
 
 - A test run's per-test time limit now follows the endpoint's timeout: the timeout plus 300 seconds, and at least 1800 seconds as before. Endpoints with a timeout above 25 minutes no longer fail at 30 minutes. An explicit `per_test_timeout` in the run's execution options still wins.

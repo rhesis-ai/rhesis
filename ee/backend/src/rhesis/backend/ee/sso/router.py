@@ -17,7 +17,7 @@ from typing import List, Optional
 import anyio
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, Field, SecretStr, field_validator
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission, capability
@@ -49,19 +49,39 @@ from rhesis.backend.app.utils.rate_limit import limiter
 from rhesis.backend.app.utils.ssrf_http_client import SafeHttpClient, SSRFError
 from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
 from rhesis.backend.ee.sso.encryption import sso_decrypt, sso_encrypt
+from rhesis.backend.ee.sso.login_errors import login_error_redirect
 from rhesis.backend.ee.sso.oidc import (
     OIDCProvider,
     verify_signed_state,
 )
+from rhesis.backend.ee.sso.providers import catalog as provider_catalog
+from rhesis.backend.ee.sso.providers import detect_provider
 from rhesis.backend.ee.sso.rate_limits import (
     SSO_ADMIN_RATE_LIMIT,
+    SSO_ADMIN_READ_RATE_LIMIT,
     SSO_CALLBACK_RATE_LIMIT,
     SSO_LOGIN_RATE_LIMIT,
     SSO_TEST_CONNECTION_RATE_LIMIT,
 )
+from rhesis.backend.ee.sso.role_mapping import (
+    RoleMappingInvalid,
+    apply_decision,
+    decide_for_claims,
+    first_sso_sign_in,
+    groups_unknown,
+    is_owner,
+    preview_mapping,
+    seen_claims,
+    store_claims_snapshot,
+    validate_mapping_refs,
+)
 from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
-from rhesis.backend.ee.sso.schemas import SSOConfig
-from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
+from rhesis.backend.ee.sso.schemas import ClaimPath, RoleMapping, SSOConfig
+from rhesis.backend.ee.sso.user_utils import (
+    SSOLoginError,
+    find_or_create_sso_user,
+    find_sso_user_in_org,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +194,50 @@ def _resolve_org_and_config(db: Session, org_identifier: str):
     return org, _get_sso_config(org)
 
 
+def active_role_mapping(org: Organization, sso_config: SSOConfig) -> Optional[RoleMapping]:
+    """The org's role mapping when it is on and RBAC is available, else None."""
+    mapping = sso_config.role_mapping
+    if mapping is None or not mapping.enabled:
+        return None
+    if not FeatureRegistry.is_available(FeatureName.RBAC, org):
+        logger.warning("SSO role mapping is on for org %s but RBAC is not available", org.id)
+        return None
+    return mapping
+
+
+def resolve_sso_user(db: Session, auth_user, org: Organization, sso_config: SSOConfig):
+    """Find or provision the user, then apply the org's role mapping. Never commits.
+
+    A mapping that blocks people in no mapped group rejects them before an account is
+    created; an existing Owner is never blocked.
+    """
+    mapping = active_role_mapping(org, sso_config)
+    existing = find_sso_user_in_org(db, auth_user.email, org)
+    decision = decide_for_claims(db, org.id, mapping, auth_user.raw_data) if mapping else None
+    unknown = mapping is not None and groups_unknown(auth_user.raw_data, mapping.claim)
+    owner = existing is not None and is_owner(db, org.id, existing.id)
+    # With "block", groups that can't be read refuse sign-in rather than let anyone in.
+    reason = None
+    if decision and decision.blocked:
+        reason = "no_matching_group"
+    elif unknown and mapping.everyone_else == "block":
+        reason = "groups_unavailable"
+    if reason and not owner:
+        audit_log(
+            SSOAuditEvent.USER_REJECTED, str(org.id), email=auth_user.email, reason_code=reason
+        )
+        raise SSOLoginError(reason)
+
+    user = find_or_create_sso_user(db, auth_user, org, sso_config)
+    db.flush()
+    # "On create" means the first SSO sign-in, so invited people get their roles too.
+    if decision and (mapping.apply == "every_sign_in" or first_sso_sign_in(db, org.id, user.id)):
+        apply_decision(db, org.id, user.id, decision)
+    if not unknown:  # Keep the last known groups for the editor and preview.
+        store_claims_snapshot(db, org.id, user.id, auth_user.raw_data)
+    return user
+
+
 def _complete_sso_login(db: Session, auth_user, org, sso_config):
     """Resolve the user and mint the tokens; returns (user_id, session, refresh).
 
@@ -193,7 +257,7 @@ def _complete_sso_login(db: Session, auth_user, org, sso_config):
     """
     set_session_variables(db, str(org.id), "")
 
-    user = find_or_create_sso_user(db, auth_user, org, sso_config)
+    user = resolve_sso_user(db, auth_user, org, sso_config)
 
     session_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
@@ -231,21 +295,22 @@ async def sso_callback(
 async def _finish_sso_login(
     request: Request, code: str, state: str, error: Optional[str], db: Session
 ) -> RedirectResponse:
-    error_redirect = f"{get_frontend_settings().url}/auth/sso-error?error=login_failed"
+    frontend = get_frontend_settings().url
+
+    def fail(reason: str, **kw) -> RedirectResponse:
+        return login_error_redirect(frontend, reason, **kw)
 
     if error:
-        logger.warning("SSO callback received error from IdP: %s", error)
-        return RedirectResponse(url=error_redirect, status_code=302)
+        return fail("idp_error", detail=error)
 
     if not code or not state:
-        return RedirectResponse(url=error_redirect, status_code=302)
+        return fail("invalid_callback", detail="missing code or state")
 
     # Validate signed state
     try:
         state_payload = verify_signed_state(state)
     except ValueError as e:
-        logger.warning("SSO state validation failed: %s", e)
-        return RedirectResponse(url=error_redirect, status_code=302)
+        return fail("invalid_state", detail=e)
 
     org_id = state_payload.get("org_id", "")
     state_nonce = state_payload.get("nonce", "")
@@ -254,32 +319,31 @@ async def _finish_sso_login(
     # Cross-check org_id from state against session (defense in depth)
     session_org_id = request.session.get("sso_org_id", "")
     if session_org_id and session_org_id != org_id:
-        logger.warning("SSO org_id mismatch: state=%s session=%s", org_id, session_org_id)
-        return RedirectResponse(url=error_redirect, status_code=302)
+        return fail("org_mismatch", org_id=org_id, detail=f"session org {session_org_id}")
 
     if not check_sso_available():
-        return RedirectResponse(url=error_redirect, status_code=302)
+        return fail("sso_unavailable", org_id=org_id, detail="SSO not licensed")
 
     try:
         org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config, db, org_id)
     except HTTPException:
-        return RedirectResponse(url=error_redirect, status_code=302)
+        return fail("org_not_found", org_id=org_id)
 
     if not sso_config or not sso_config.enabled:
-        return RedirectResponse(url=error_redirect, status_code=302)
+        return fail("sso_disabled", org_id=org_id)
 
     # Retrieve PKCE verifier and nonce from session
     code_verifier = request.session.get("sso_code_verifier", "")
     session_nonce = request.session.get("sso_nonce", "")
 
     if not code_verifier:
-        logger.warning("SSO callback missing code_verifier in session")
-        return RedirectResponse(url=error_redirect, status_code=302)
+        return fail("missing_verifier", org_id=org_id, detail="no PKCE verifier in session")
 
     redirect_uri = _get_sso_callback_url(request)
 
     # Authenticate with OIDC provider
     provider = OIDCProvider(sso_config)
+    mapping = active_role_mapping(org, sso_config)
     try:
         auth_user = await provider.authenticate(
             request,
@@ -287,15 +351,12 @@ async def _finish_sso_login(
             code_verifier=code_verifier,
             nonce=session_nonce or state_nonce,
             redirect_uri=redirect_uri,
+            claim_path=mapping.claim if mapping else None,
         )
     except (ValueError, SSRFError) as e:
-        logger.error("SSO authentication failed for org %s: %s", org_id, e)
-        audit_log(
-            SSOAuditEvent.LOGIN_FAILED,
-            org_id,
-            reason_code="authentication_failed",
-        )
-        return RedirectResponse(url=error_redirect, status_code=302)
+        reason = getattr(e, "reason_code", "authentication_failed")
+        audit_log(SSOAuditEvent.LOGIN_FAILED, org_id, reason_code=reason)
+        return fail(reason, org_id=org_id, detail=e)
 
     # Org-scoped user resolution, token creation, and redirect.
     # Wrapped in a catch-all so unhandled exceptions (DB constraint
@@ -316,7 +377,7 @@ async def _finish_sso_login(
             await anyio.to_thread.run_sync(
                 partial(record_failed_sign_in, db, auth_user.email, organization_id=org.id)
             )
-            return RedirectResponse(url=error_redirect, status_code=302)
+            return fail(e.reason_code, org_id=org_id, email=auth_user.email)
 
         # The signed state carries the validated return_to for build_redirect_url.
         request.session["return_to"] = state_return_to
@@ -342,7 +403,7 @@ async def _finish_sso_login(
             email=auth_user.email,
             reason_code="internal_error",
         )
-        return RedirectResponse(url=error_redirect, status_code=302)
+        return fail("internal_error", org_id=org_id, email=auth_user.email)
 
 
 @router.get("/auth/sso/{org_id}")
@@ -355,19 +416,18 @@ async def sso_login(
 ):
     """Initiate SSO login for an organization."""
     require_bff(request)
+    # The browser navigates here, so failures go to the error page, not a JSON body.
+    frontend = get_frontend_settings().url
     if not check_sso_available():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="SSO is not available",
-        )
+        return login_error_redirect(frontend, "sso_unavailable", org_id=org_id)
 
-    _org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config, db, org_id)
+    try:
+        _org, sso_config = await anyio.to_thread.run_sync(_resolve_org_and_config, db, org_id)
+    except HTTPException:
+        return login_error_redirect(frontend, "org_not_found", org_id=org_id)
 
     if not sso_config or not sso_config.enabled:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="SSO is not available",
-        )
+        return login_error_redirect(frontend, "sso_disabled", org_id=org_id)
 
     return_to = _validate_return_to(return_to)
 
@@ -403,13 +463,7 @@ async def sso_login(
             return_to=return_to,
         )
     except (ValueError, SSRFError) as e:
-        logger.error("SSO login initiation failed for org %s: %s", org_id, e)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=(
-                "Could not reach the SSO provider. Please verify the issuer URL and try again."
-            ),
-        )
+        return login_error_redirect(frontend, "idp_unreachable", org_id=org_id, detail=e)
 
     return RedirectResponse(url=auth_url, status_code=302)
 
@@ -431,11 +485,29 @@ class SSOConfigRequest(BaseModel):
     allowed_auth_methods: Optional[List[str]] = None
     allow_insecure_tls: bool = False
     slug: Optional[str] = None
+    # Left out of the body: the stored value is kept, so older clients can't wipe it.
+    provider: Optional[str] = None
+    role_mapping: Optional[RoleMapping] = None
 
 
 class SSOTestResponse(BaseModel):
     success: bool
     message: str
+    #: Provider guessed from the discovery document, when it succeeded.
+    provider: Optional[str] = None
+
+
+class SeenGroupsRequest(BaseModel):
+    claim: ClaimPath = "groups"
+
+    @field_validator("claim")
+    @classmethod
+    def valid_claim(cls, v: ClaimPath) -> ClaimPath:
+        return RoleMapping.valid_claim(v)
+
+
+class DetectProviderRequest(BaseModel):
+    issuer_url: str = Field(max_length=2048)
 
 
 def _check_org_admin(user, request: Request, org_id: str, db: Session) -> None:
@@ -540,10 +612,18 @@ def _resolve_plaintext_secret(org: Organization, body: SSOConfigRequest) -> str:
     )
 
 
-def _validate_sso_config(body: SSOConfigRequest, plaintext_secret: str) -> SSOConfig:
+def _validate_sso_config(
+    body: SSOConfigRequest, plaintext_secret: str, existing: Optional[dict] = None
+) -> SSOConfig:
     """Run every SSOConfig field validator over the submitted values."""
+    existing = existing or {}
+    sent = body.model_fields_set
     try:
         return SSOConfig(
+            provider=body.provider if "provider" in sent else existing.get("provider", "oidc"),
+            role_mapping=(
+                body.role_mapping if "role_mapping" in sent else existing.get("role_mapping")
+            ),
             enabled=body.enabled,
             provider_type=body.provider_type,
             issuer_url=body.issuer_url,
@@ -587,6 +667,36 @@ def _resolve_slug_update(db: Session, org: Organization, raw_slug: str) -> Optio
     return slug_val
 
 
+def _stored_mapping(stored: dict) -> Optional[RoleMapping]:
+    try:
+        return RoleMapping.model_validate(stored)
+    except ValueError:
+        return None
+
+
+def _check_role_mapping(
+    db: Session,
+    org: Organization,
+    mapping: Optional[RoleMapping],
+    stored: Optional[dict] = None,
+) -> None:
+    """Check a mapping that is on and changed. An unchanged or switched-off mapping never
+    blocks saving other SSO settings, even after a role it names was deleted."""
+    if mapping is None or not mapping.enabled:
+        return
+    if stored is not None and mapping == _stored_mapping(stored):
+        return
+    if not FeatureRegistry.is_available(FeatureName.RBAC, org):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Role mapping needs roles and permissions, which this plan doesn't include",
+        )
+    try:
+        validate_mapping_refs(db, org.id, mapping)
+    except RoleMappingInvalid as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+
+
 def _write_sso_config(db: Session, org_id: str, body: SSOConfigRequest, actor_id: str) -> dict:
     """The whole locked read-modify-write, in one transaction and one thread."""
     # SELECT FOR UPDATE to prevent concurrent writes
@@ -598,12 +708,14 @@ def _write_sso_config(db: Session, org_id: str, body: SSOConfigRequest, actor_id
         )
 
     plaintext_secret = _resolve_plaintext_secret(org, body)
-    validated = _validate_sso_config(body, plaintext_secret)
+    validated = _validate_sso_config(body, plaintext_secret, org.sso_config)
+    _check_role_mapping(db, org, validated.role_mapping, (org.sso_config or {}).get("role_mapping"))
 
     # Encrypt client_secret before storage
     encrypted_secret = sso_encrypt(plaintext_secret)
 
-    config_dict = validated.model_dump()
+    # JSON mode: the column is JSON and role mapping rules carry UUIDs.
+    config_dict = validated.model_dump(mode="json")
     config_dict["client_secret"] = encrypted_secret
 
     # Handle slug update
@@ -752,6 +864,7 @@ async def test_sso_connection(
         return SSOTestResponse(
             success=True,
             message="OIDC discovery successful",
+            provider=detect_provider(sso_config.issuer_url, metadata),
         )
 
     except SSRFError:
@@ -766,3 +879,79 @@ async def test_sso_connection(
             success=False,
             message="Connection failed",
         )
+
+
+# =============================================================================
+# Role mapping helpers for the admin UI
+# =============================================================================
+
+
+def _seen_groups(db: Session, org_id: str, claim: ClaimPath) -> dict:
+    org = _get_org_or_404(db, org_id)
+    return seen_claims(db, org.id, claim)
+
+
+def _preview(db: Session, org_id: str, mapping: RoleMapping) -> dict:
+    org = _get_org_or_404(db, org_id)
+    _check_role_mapping(db, org, mapping)
+    return preview_mapping(db, org.id, mapping)
+
+
+@router.post("/organizations/{org_id}/sso/groups", **capability(Permission.SSO.MANAGE))
+@limiter.limit(SSO_ADMIN_READ_RATE_LIMIT)
+async def list_seen_groups(
+    request: Request,
+    org_id: str,
+    body: SeenGroupsRequest,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+):
+    """Values people signed in with for a claim, and every list claim seen.
+
+    A POST because a nested claim is a list of path segments.
+    """
+    await _require_org_admin(request, org_id, db)
+    if not check_sso_available():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SSO is not available")
+    return await anyio.to_thread.run_sync(_seen_groups, db, org_id, body.claim)
+
+
+@router.post(
+    "/organizations/{org_id}/sso/role-mapping/preview", **capability(Permission.SSO.MANAGE)
+)
+@limiter.limit(SSO_ADMIN_READ_RATE_LIMIT)
+async def preview_role_mapping(
+    request: Request,
+    org_id: str,
+    body: RoleMapping,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+):
+    """Who a mapping would change at their next sign-in."""
+    await _require_org_admin(request, org_id, db)
+    if not check_sso_available():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SSO is not available")
+    return await anyio.to_thread.run_sync(_preview, db, org_id, body)
+
+
+@router.get("/organizations/{org_id}/sso/providers", **capability(Permission.SSO.MANAGE))
+@limiter.limit(SSO_ADMIN_READ_RATE_LIMIT)
+async def list_sso_providers(
+    request: Request,
+    org_id: str,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+):
+    """The identity providers Rhesis knows, for the admin UI."""
+    await _require_org_admin(request, org_id, db)
+    return provider_catalog()
+
+
+@router.post("/organizations/{org_id}/sso/providers/detect", **capability(Permission.SSO.MANAGE))
+@limiter.limit(SSO_ADMIN_READ_RATE_LIMIT)
+async def detect_sso_provider(
+    request: Request,
+    org_id: str,
+    body: DetectProviderRequest,
+    db: OffLoopSession = Depends(get_off_loop_db_session),
+):
+    """Which provider an issuer URL belongs to, from the URL alone (no request is made)."""
+    await _require_org_admin(request, org_id, db)
+    return {"provider": detect_provider(body.issuer_url)}

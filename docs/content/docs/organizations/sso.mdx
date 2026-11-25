@@ -46,6 +46,62 @@ Then configure the organization in Rhesis with these values:
 | `allowed_auth_methods` | No | Optional list from `sso`, `email`, `google`, `github` |
 | `allow_insecure_tls` | No | Skips certificate checks for a provider with a self-signed or internal-CA certificate. Use only on a trusted network |
 | `slug` | Recommended | Stable login slug used in SSO URLs and API Client audiences |
+| `provider` | No | Identity provider, detected from `issuer_url`. Changes setup hints only |
+| `role_mapping` | No | Group-to-role rules, see [Map groups to roles](#map-groups-to-roles). Left out of an update, the stored rules are kept |
+
+## Map groups to roles
+
+Role mapping gives people organization and project roles from the groups their identity provider sends at sign-in. Set it up under **Organization Settings → SSO → Role mapping**. It needs roles and permissions, which come with the Enterprise Edition.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-sso-role-mapping.webp"
+  darkSrc="/screenshots/rhesis-ai-sso-role-mapping-dark.webp"
+  alt="Role mapping tab with Keycloak groups mapped to organization and project roles, the everyone-else fallback, and a preview of who changes at their next sign-in"
+/>
+
+Each rule names a group exactly as the token carries it and what members of that group get:
+
+- an organization role (any role except Owner), and
+- roles in specific projects (any role except Owner, Auditor and None). People are added to those projects.
+
+At sign-in:
+
+- People in several mapped groups get the highest organization role, and the highest role in each project.
+- **Everyone else**, people in no mapped group, keep their role, become Viewer, become None, or are refused sign-in. A refused person who has no account is not created.
+- If the groups can't be read at sign-in (the userinfo call fails, or Entra ID sends too many groups), roles stay as they are. When everyone else is refused, the person is refused too, and asked to try again.
+- Project memberships change only for projects a rule names. Someone who leaves a group is removed from that group's projects at their next sign-in, unless they own the project.
+- Owners are never changed or refused, in the organization or in projects. A project's owner keeps their role in that project.
+
+By default roles apply at every sign-in. The Team tab shows those roles with a lock, and Rhesis refuses to change them or the project roles a rule sets, so change them in the identity provider. Under **Advanced** you can apply roles only at a person's first SSO sign-in, including people invited before they signed in. After that their roles are managed in Rhesis.
+
+Before you save, the tab shows who changes at their next sign-in, based on the groups each member had at their last SSO sign-in. Rhesis suggests groups it has seen at sign-in; you can also type a group name.
+
+The **JSON** view shows the same rules with role and project names:
+
+<CodeBlock filename="role-mapping.json" language="json">
+{`{
+  "claim": "groups",
+  "apply": "every_sign_in",
+  "rules": [
+    { "group": "eval-admins", "role": "Admin" },
+    { "group": "qa-team", "role": "Member", "projects": { "Support Bot": "Member" } },
+    { "group": "claims-squad", "projects": { "Claims Assistant": "Admin" } }
+  ],
+  "everyone_else": "keep"
+}`}
+</CodeBlock>
+
+`claim` is the token claim that lists the groups. Use a list for a nested claim, for example `["realm_access", "roles"]`. If the ID token doesn't carry it, Rhesis reads the userinfo endpoint. The API stores role and project IDs, so renaming a project doesn't break a rule.
+
+How to send groups from common providers:
+
+| Provider | Setup |
+|---|---|
+| Keycloak | Add a **Group Membership** mapper to the client with token claim name `groups`, added to the ID token. Keep **Full group path** on and use paths like `/engineering/qa-team`. Short names are not unique, so anyone who can create a subgroup called `qa-team` elsewhere would match the rule |
+| Microsoft Entra ID | Add a groups claim under **Token configuration**. Entra sends group object IDs, so rules use the ID. Above 200 groups Entra leaves the claim out, and Rhesis leaves that person's roles unchanged |
+| Okta | Add a `groups` claim with a group filter to the app or authorization server |
+| Auth0 | Add the groups with an Action, usually under a URL claim name, and set that name as the claim |
+| Google Workspace | Google doesn't send groups, so role mapping isn't available |
 
 ## Admin API
 
@@ -77,6 +133,10 @@ Useful endpoints:
 | `PUT /organizations/{org_id}/sso` | Create or update configuration |
 | `DELETE /organizations/{org_id}/sso` | Remove configuration |
 | `POST /organizations/{org_id}/sso/test` | Test OIDC discovery |
+| `POST /organizations/{org_id}/sso/groups` | Groups seen at sign-in for a claim, and the claims seen |
+| `POST /organizations/{org_id}/sso/role-mapping/preview` | Who a mapping changes at their next sign-in |
+| `GET /organizations/{org_id}/sso/providers` | Identity providers Rhesis recognises |
+| `POST /organizations/{org_id}/sso/providers/detect` | Provider for an issuer URL |
 | `GET /auth/sso/{org_id_or_slug}` | Start SSO login; browsers reach it on the app address under `/api/backend` |
 | `GET /auth/sso/callback` | OIDC callback; same rule |
 
@@ -86,7 +146,7 @@ Useful endpoints:
 - If you omit `client_secret` on an update, Rhesis preserves the existing encrypted secret.
 - `allowed_domains` values are lowercased and normalized without leading dots.
 - Slugs must be lowercase, 3-50 characters, alphanumeric or hyphenated, and cannot contain consecutive hyphens.
-- Failed login attempts redirect to the SSO error page without exposing provider details.
+- A failed sign-in shows the person what went wrong (for example, not invited yet, email domain not allowed, or not in a group with access) and a reference code. Search the backend log for that code to find the line `SSO sign-in failed: reason=...` with the full cause. Provider details are never shown in the browser.
 
 ## Related pages
 
