@@ -54,6 +54,9 @@ export function SkeletonSlot({
         ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
       ]}
       aria-hidden
+      // Hidden children already can't take focus or clicks; inert also covers
+      // any descendant that sets itself visible again.
+      inert
     >
       {children}
     </Skeleton>
