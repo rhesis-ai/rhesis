@@ -33,10 +33,13 @@ export function descriptorId(descriptor: object): number {
   return id;
 }
 
-function firstPageKey(descriptor: object, scope: ListCacheScope): QueryKey {
+/** A list descriptor, as far as the cache needs one. */
+type CachedList = object & { cacheId?: string };
+
+function firstPageKey(descriptor: CachedList, scope: ListCacheScope): QueryKey {
   return [
     'list-first-page',
-    descriptorId(descriptor),
+    descriptor.cacheId ?? descriptorId(descriptor),
     scope.userId,
     scope.organizationId,
     scope.projectId,
@@ -45,7 +48,7 @@ function firstPageKey(descriptor: object, scope: ListCacheScope): QueryKey {
 
 export function readFirstPage<T>(
   queryClient: QueryClient,
-  descriptor: object,
+  descriptor: CachedList,
   scope: ListCacheScope
 ): CachedFirstPage<T> | undefined {
   return queryClient.getQueryData<CachedFirstPage<T>>(
@@ -55,7 +58,7 @@ export function readFirstPage<T>(
 
 export function writeFirstPage<T>(
   queryClient: QueryClient,
-  descriptor: object,
+  descriptor: CachedList,
   scope: ListCacheScope,
   page: CachedFirstPage<T>
 ): void {

@@ -156,6 +156,13 @@ export interface ListDescriptor<
   description?: string;
   /** Noun used in the `AccessDenied` message, e.g. `endpoints`. */
   resource: string;
+  /**
+   * Names the list in the first-page cache (`utils/list/cache.ts`). Only for a
+   * descriptor built per render, such as one closing over the active project:
+   * otherwise each build is a different list to the cache. A constant
+   * descriptor is told apart by identity and leaves this out.
+   */
+  cacheId?: string;
   /** A single capability, or two OR'd together. */
   capability: string | readonly [string, string];
   defaultPageSize: number;
