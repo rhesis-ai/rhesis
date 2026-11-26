@@ -209,6 +209,47 @@ class TestCeleryBindingEndToEnd:
 
         assert current_usage_org() is None
 
+    @pytest.mark.parametrize("bind", [False, True])
+    def test_an_org_passed_by_position_is_bound(self, bind):
+        """The trace evaluations take the org as a positional argument."""
+        from celery import Celery
+
+        from rhesis.backend.celery.signals import (
+            bind_usage_attribution_for_task,
+            clear_usage_attribution_for_task,
+        )
+
+        app = Celery("usage_attribution_probe", broker="memory://")
+        app.conf.task_always_eager = True
+
+        def body(trace_id, project_id, organization_id):
+            return current_usage_org()
+
+        if bind:
+
+            @app.task(name="usage_attribution_probe.positional", bind=True)
+            def observe(self, trace_id, project_id, organization_id):
+                return body(trace_id, project_id, organization_id)
+
+        else:
+            observe = app.task(name="usage_attribution_probe.positional")(body)
+
+        task_prerun.connect(bind_usage_attribution_for_task, weak=False)
+        task_postrun.connect(clear_usage_attribution_for_task, weak=False)
+        try:
+            result = observe.apply_async(args=["trace-1", "project-1", "org-by-position"])
+            assert result.get() == "org-by-position"
+        finally:
+            task_prerun.disconnect(bind_usage_attribution_for_task)
+            task_postrun.disconnect(clear_usage_attribution_for_task)
+
+    def test_args_that_do_not_fit_the_signature_bind_nothing(self):
+        from rhesis.backend.celery.signals import _task_value
+
+        task = type("_Task", (), {"request": None, "run": staticmethod(lambda a: None)})()
+
+        assert _task_value(task, ("x", "y"), {}, "organization_id") is None
+
 
 class TestWorkerSinkInstallation:
     """The sink has to actually get installed in the worker process.
