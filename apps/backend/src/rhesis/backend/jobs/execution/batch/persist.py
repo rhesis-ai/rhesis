@@ -8,7 +8,9 @@ completion for multi-turn tests.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
@@ -26,8 +28,12 @@ def persist_result(
     deferred_traces: list,
     execution_time: float,
     is_multi_turn: bool,
+    db: Optional[Session] = None,
 ) -> None:
-    """Open session, write deferred traces, write test result, tick progress.
+    """Write deferred traces, write test result, tick progress, commit.
+
+    On *db* when given (the run's result writer shares one session across tests),
+    else on a session of its own.
 
     The progress tick rides in the result's transaction on purpose: it used to
     be a separate ``set_progress`` call per test, each on its own session, and
@@ -35,45 +41,83 @@ def persist_result(
     and the batch's final ``on_progress(total, total)`` settles the count.
     """
     from rhesis.backend.app.database import get_db_with_tenant_variables
+
+    if db is None:
+        with get_db_with_tenant_variables(
+            ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
+        ) as own:
+            _write(
+                own,
+                ctx,
+                test_id,
+                test,
+                output,
+                metrics_results,
+                deferred_traces,
+                execution_time,
+                is_multi_turn,
+            )
+        return
+    _write(
+        db,
+        ctx,
+        test_id,
+        test,
+        output,
+        metrics_results,
+        deferred_traces,
+        execution_time,
+        is_multi_turn,
+    )
+
+
+def _write(
+    db: Session,
+    ctx: ExecutionContext,
+    test_id: str,
+    test: Test,
+    output: Dict[str, Any],
+    metrics_results: Dict[str, Any],
+    deferred_traces: list,
+    execution_time: float,
+    is_multi_turn: bool,
+) -> None:
     from rhesis.backend.app.services.invokers.tracing import persist_deferred_trace
     from rhesis.backend.jobs.execution.executors.results import create_test_result_record
 
-    with get_db_with_tenant_variables(
-        ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
-    ) as db:
-        try:
-            for trace_data in deferred_traces:
-                persist_deferred_trace(db, trace_data)
+    try:
+        for trace_data in deferred_traces:
+            persist_deferred_trace(db, trace_data)
 
-            metadata = None
-            if ctx.reference_test_run_id:
-                metadata = {
-                    "source": "rescore",
-                    "reference_test_run_id": ctx.reference_test_run_id,
-                }
+        metadata = None
+        if ctx.reference_test_run_id:
+            metadata = {
+                "source": "rescore",
+                "reference_test_run_id": ctx.reference_test_run_id,
+            }
 
-            create_test_result_record(
-                db=db,
-                test=test,
-                test_config_id=str(ctx.test_config.id),
-                test_run_id=str(ctx.test_run.id),
-                test_id=test_id,
-                organization_id=ctx.organization_id,
-                user_id=ctx.user_id,
-                execution_time=execution_time,
-                metrics_results=metrics_results,
-                processed_result=output,
-                metadata=metadata,
-            )
-            tick_progress(db, ctx.celery_task_id)
+        create_test_result_record(
+            db=db,
+            test=test,
+            test_config_id=str(ctx.test_config.id),
+            test_run_id=str(ctx.test_run.id),
+            test_id=test_id,
+            organization_id=ctx.organization_id,
+            user_id=ctx.user_id,
+            execution_time=execution_time,
+            metrics_results=metrics_results,
+            processed_result=output,
+            metadata=metadata,
+        )
+        tick_progress(db, ctx.celery_task_id)
 
-            db.commit()
+        db.commit()
 
-            if is_multi_turn and deferred_traces:
-                _signal_conversation_complete(ctx, deferred_traces)
-        except Exception:
-            db.rollback()
-            raise
+        if is_multi_turn and deferred_traces:
+            _signal_conversation_complete(ctx, deferred_traces)
+    except Exception:
+        db.rollback()
+        raise
 
 
 def _signal_conversation_complete(ctx: ExecutionContext, deferred_traces: list) -> None:

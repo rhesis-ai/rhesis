@@ -16,6 +16,7 @@ def _ctx():
     ctx.existing_result_ids = set()
     ctx.test_data = {"test-1": {"test": MagicMock(), "prompt_content": "", "expected_response": ""}}
     ctx.input_files = {}
+    ctx.result_writer = None
     ctx.per_test_timeout = 30
     ctx.get_metric_configs_for_test.return_value = [{"name": "Goal Achievement"}]
     return ctx
