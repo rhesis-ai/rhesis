@@ -375,3 +375,122 @@ class TestLiteLLMProxyUsageEmission:
         llm.generate("prompt")
 
         assert emitted == []
+
+
+class TestLiteLLMProxyAsync:
+    """``a_generate`` talks to the proxy on an async client, holding no thread per call."""
+
+    @staticmethod
+    async def _proxy(handler):
+        from aiohttp import web
+        from aiohttp.test_utils import TestServer
+
+        app = web.Application()
+        app.router.add_post("/chat/completions", handler)
+        server = TestServer(app)
+        await server.start_server()
+        return server
+
+    @staticmethod
+    def _completion(content: str) -> dict:
+        return {
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": content}}],
+            "usage": {"completion_tokens": 3, "prompt_tokens": 2, "total_tokens": 5},
+        }
+
+    @pytest.mark.asyncio
+    async def test_returns_the_content_and_sends_the_request(self):
+        from aiohttp import web
+
+        seen = {}
+
+        async def handler(request):
+            seen["body"] = await request.json()
+            seen["auth"] = request.headers.get("Authorization")
+            return web.json_response(self._completion("hello"))
+
+        server = await self._proxy(handler)
+        try:
+            llm = LiteLLMProxy(model_name="gemini", api_base=str(server.make_url("")), api_key="k")
+            result = await llm.a_generate("hi", system_prompt="sys")
+        finally:
+            await server.close()
+
+        assert result == "hello"
+        assert seen["auth"] == "Bearer k"
+        assert seen["body"]["model"] == "gemini"
+        assert seen["body"]["messages"] == [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "hi"},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_validates_structured_output(self):
+        from aiohttp import web
+
+        class Answer(BaseModel):
+            answer: str
+
+        async def handler(request):
+            return web.json_response(self._completion('{"answer": "42"}'))
+
+        server = await self._proxy(handler)
+        try:
+            llm = LiteLLMProxy(model_name="gemini", api_base=str(server.make_url("")))
+            result = await llm.a_generate("q", schema=Answer)
+        finally:
+            await server.close()
+
+        assert result == {"answer": "42"}
+
+    @pytest.mark.asyncio
+    async def test_a_client_error_is_raised_not_retried(self):
+        import aiohttp
+        from aiohttp import web
+
+        calls = []
+
+        async def handler(request):
+            calls.append(1)
+            return web.json_response({"error": "bad"}, status=400)
+
+        server = await self._proxy(handler)
+        try:
+            llm = LiteLLMProxy(model_name="gemini", api_base=str(server.make_url("")))
+            with pytest.raises(aiohttp.ClientResponseError):
+                await llm.a_generate("q")
+        finally:
+            await server.close()
+
+        assert len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_many_calls_are_in_flight_at_once(self):
+        # The thread-pool version held one of at most 32 threads per call, so no more
+        # than that many could reach the proxy at the same time.
+        import asyncio
+
+        from aiohttp import web
+
+        calls = 40
+        in_flight = {"now": 0, "peak": 0}
+        all_in = asyncio.Event()
+
+        async def handler(request):
+            in_flight["now"] += 1
+            in_flight["peak"] = max(in_flight["peak"], in_flight["now"])
+            if in_flight["now"] == calls:
+                all_in.set()
+            await asyncio.wait_for(all_in.wait(), timeout=10)
+            in_flight["now"] -= 1
+            return web.json_response(self._completion("ok"))
+
+        server = await self._proxy(handler)
+        try:
+            llm = LiteLLMProxy(model_name="gemini", api_base=str(server.make_url("")))
+            results = await asyncio.gather(*[llm.a_generate(f"q{i}") for i in range(calls)])
+        finally:
+            await server.close()
+
+        assert results == ["ok"] * calls
+        assert in_flight["peak"] == calls

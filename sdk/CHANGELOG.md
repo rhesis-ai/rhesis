@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `LiteLLMProxy.a_generate()` calls the proxy on an async HTTP client instead of running the blocking call in a thread, so many evaluations can wait on the proxy at once.
+- Blocking model calls made from the SDK's background event loop run on a pool of `RHESIS_SDK_LOOP_THREADS` threads (default 64). Before, a process made at most `os.cpu_count() + 4` such calls at once, and in a container that is the host's core count.
+- Creating a metric imports only its own provider. A Rhesis metric no longer imports deepeval and garak, which took seconds of CPU on a process's first evaluation.
 - `Endpoint.invoke()` waits as long as the backend waits for the endpoint, its `timeout_seconds` plus 30 seconds, instead of giving up after 30 seconds. An `Endpoint` built from just an id waits up to 7230 seconds, since its timeout isn't known.
 - Microsoft Agent Framework and Pydantic AI `create_agent` spans are now `ai.agent.create` with `ai.operation.type` `agent.create` (were `ai.agent.invoke`).
 - GenAI-convention spans (Agent Framework, Pydantic AI) no longer count cache reads and writes in `ai.llm.tokens.input`; they are reported in `ai.llm.tokens.cache_read` and `ai.llm.tokens.cache_write`. Agent id, description and version, tool description and call id, and handoff targets are mapped too.

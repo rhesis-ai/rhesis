@@ -107,3 +107,15 @@ class TestIsRetryableException:
 
     def test_plain_exception_is_not_retryable(self):
         assert _is_retryable_exception(ValueError("bad value")) is False
+
+
+class TestRetryableAiohttpTransportErrors:
+    """Connection failures and timeouts from aiohttp retry, like their requests twins."""
+
+    def test_aiohttp_connection_error(self):
+        assert _is_retryable_exception(aiohttp.ClientConnectionError()) is True
+
+    def test_timeout(self):
+        import asyncio
+
+        assert _is_retryable_exception(asyncio.TimeoutError()) is True
