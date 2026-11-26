@@ -7,7 +7,8 @@ requests, and no database write happens before the response.
 """
 
 import logging
-from typing import AsyncIterator, Callable, TypeVar
+from collections import defaultdict
+from typing import AsyncIterator, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar
 
 import anyio
 from fastapi import HTTPException, Request
@@ -25,6 +26,7 @@ from rhesis.backend.app.services.telemetry.admission import (
     inflight,
 )
 from rhesis.backend.app.services.telemetry.ingest import IngestJob
+from rhesis.telemetry.schemas import OTELSpan
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +121,55 @@ def check_project_access(request: Request, current_user: User, project_id: str) 
     slow client uploads its body.
     """
     return assert_project_access(request, current_user, project_id)
+
+
+class ProjectUnresolved(Exception):
+    """No token or header scope, and a span that names no project."""
+
+
+# What the SDK sends when the exporter was configured without a project.
+_NO_PROJECT = frozenset({"", "unknown"})
+
+
+def ingest_jobs(
+    request: Request,
+    current_user: User,
+    tenant_context: Tuple[str, Optional[str]],
+    spans: List[OTELSpan],
+    scope_project_id: Optional[str],
+    pre_store_hooks: Sequence[str] = (),
+) -> List[IngestJob]:
+    """One job per project, the same rule on both routes.
+
+    The token's project or ``X-Project-Id`` wins for every span; without either,
+    each span's own ``project_id``, access-checked.
+
+    Raises:
+        ProjectUnresolved: no scope, and a span without a project.
+        HTTPException: 403 for a span's project the caller cannot write to.
+    """
+    organization_id, user_id = tenant_context
+    groups: Dict[Optional[str], List[OTELSpan]] = defaultdict(list)
+    for span in spans:
+        span_project = span.project_id if span.project_id not in _NO_PROJECT else None
+        groups[scope_project_id or span_project].append(span)
+    if None in groups:
+        raise ProjectUnresolved()
+
+    jobs = []
+    for project_id, project_spans in groups.items():
+        if project_id != scope_project_id:
+            project_id = check_project_access(request, current_user, project_id)
+        jobs.append(
+            IngestJob(
+                project_spans,
+                organization_id,
+                user_id,
+                str(project_id),
+                pre_store_hooks=list(pre_store_hooks),
+            )
+        )
+    return jobs
 
 
 def as_http_exception(rejection: Rejection) -> HTTPException:

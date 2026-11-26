@@ -58,7 +58,6 @@ from rhesis.backend.app.schemas.telemetry import (
 from rhesis.backend.app.services.project_membership import list_other_member_projects
 from rhesis.backend.app.services.telemetry.admission import InflightSlot, IngestRejected
 from rhesis.backend.app.services.telemetry.ingest import (
-    IngestJob,
     TooManySpans,
     apply_span_limits,
 )
@@ -89,27 +88,6 @@ def _parse_sdk_batch(body: bytes) -> OTELTraceBatch:
         return OTELTraceBatch.model_validate_json(body)
     except ValidationError as exc:
         raise RequestValidationError(exc.errors(include_url=False, include_context=False))
-
-
-def _sdk_project(
-    request: Request,
-    current_user: User,
-    trace_batch: OTELTraceBatch,
-    scope_project_id: Optional[str],
-) -> str:
-    """The span's project when it names one (access-checked), else the token/header scope."""
-    span_project_id = trace_batch.spans[0].project_id
-    if span_project_id and span_project_id != "unknown":
-        return intake.check_project_access(request, current_user, span_project_id)
-    if scope_project_id:
-        return scope_project_id
-    raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail=(
-            "No project_id could be resolved. Use a project-scoped token, "
-            "set RHESIS_PROJECT_ID, or pass X-Project-Id header."
-        ),
-    )
 
 
 # SDK span export; metered by the tracing quota instead of the default limit.
@@ -150,17 +128,30 @@ async def ingest_trace(
         429: Organization over its ingest rate
         503: Ingest busy or unavailable
     """
-    organization_id, user_id = tenant_context
+    organization_id = tenant_context[0]
     limits = intake.settings()
     try:
         body = await intake.admitted_body(organization_id, request, limits, slot)
         trace_batch = await intake.in_thread(_parse_sdk_batch, body)
         await intake.in_thread(apply_span_limits, trace_batch.spans, limits)
-        project_id = await intake.in_thread(
-            _sdk_project, request, current_user, trace_batch, scope_project_id
+        jobs = await intake.in_thread(
+            intake.ingest_jobs,
+            request,
+            current_user,
+            tenant_context,
+            trace_batch.spans,
+            scope_project_id,
         )
-        job = IngestJob(trace_batch.spans, organization_id, user_id, str(project_id))
-        await intake.enqueue(job, limits)
+        for job in jobs:
+            await intake.enqueue(job, limits)
+    except intake.ProjectUnresolved:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "No project_id could be resolved. Use a project-scoped token, "
+                "set RHESIS_PROJECT_ID, or pass X-Project-Id header."
+            ),
+        )
     except IngestRejected as exc:
         raise intake.as_http_exception(exc.rejection)
     except TooManySpans as exc:
@@ -169,7 +160,7 @@ async def ingest_trace(
     trace_id = trace_batch.spans[0].trace_id
     logger.info(
         f"📊 TRACE INGESTION | trace_id={trace_id} | spans={len(trace_batch.spans)} | "
-        f"project={project_id} | org={organization_id} | queued"
+        f"projects={','.join(job.project_id for job in jobs)} | org={organization_id} | queued"
     )
     return TraceResponse(status="received", span_count=len(trace_batch.spans), trace_id=trace_id)
 

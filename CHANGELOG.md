@@ -35,6 +35,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 - Each worker process sizes its database pool with `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` (default 10 and 20, as before).
 - The worker container no longer imports the backend three extra times at startup for its self-checks; it checks the broker with a plain Redis ping.
 - Model token usage is counted per organization every `USAGE_ACCRUAL_FLUSH_SECONDS` (default 2) instead of with one job per model call.
+- `POST /telemetry/traces` picks each span's project the same way as the OTLP route: a project-scoped token or the `X-Project-Id` header decides for every span, and without either each span goes to its own `project_id`. Before, the first span's `project_id` decided for the whole batch, over the token or header.
 - Embedding generation is off unless `EMBEDDINGS_ENABLED` is set. While it is off, saving tests, test results, traces and source chunks no longer queues embedding jobs, `POST /services/generate/embedding` returns 404, and embedding models are hidden on the Models page.
 - A test run's per-test time limit now follows the endpoint's timeout: the timeout plus 300 seconds, and at least 1800 seconds as before. Endpoints with a timeout above 25 minutes no longer fail at 30 minutes. An explicit `per_test_timeout` in the run's execution options still wins.
 - Endpoint timeouts can be up to 7200 seconds (was 3600). Self-hosted deployments set the ceiling with `MAX_ENDPOINT_TIMEOUT`; the per-test and run limits are derived from it.
