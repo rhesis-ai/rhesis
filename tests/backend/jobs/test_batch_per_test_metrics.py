@@ -24,6 +24,17 @@ from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 # ============================================================================
 
 
+def _prefetched(session, tests, organization_id):
+    """Stands in for the bulk test load: every test runnable, none with input files."""
+    return (
+        {
+            str(t.id): {"test": t, "prompt_content": "prompt", "expected_response": "expected"}
+            for t in tests
+        },
+        set(),
+    )
+
+
 def _make_metric_config(
     name: str,
     class_name: str,
@@ -214,12 +225,8 @@ class TestPrefetchMetricResolution:
             patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
             patch("rhesis.backend.app.config.settings.get_model_settings"),
             patch(
-                "rhesis.backend.jobs.execution.executors.data.get_test_and_prompt",
-                side_effect=lambda s, tid, org: (
-                    test_1 if tid == str(test_1.id) else test_2,
-                    "prompt",
-                    "expected",
-                ),
+                "rhesis.backend.jobs.execution.batch.context._prefetch_tests",
+                side_effect=_prefetched,
             ),
         ):
             from rhesis.backend.jobs.execution.batch.context import (
@@ -300,12 +307,8 @@ class TestPrefetchMetricResolution:
             patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
             patch("rhesis.backend.app.config.settings.get_model_settings"),
             patch(
-                "rhesis.backend.jobs.execution.executors.data.get_test_and_prompt",
-                side_effect=lambda s, tid, org: (
-                    test_1 if tid == str(test_1.id) else test_2,
-                    "prompt",
-                    "expected",
-                ),
+                "rhesis.backend.jobs.execution.batch.context._prefetch_tests",
+                side_effect=_prefetched,
             ),
         ):
             from rhesis.backend.jobs.execution.batch.context import (
@@ -418,12 +421,8 @@ class TestPrefetchFallthroughToPerTest:
             patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
             patch("rhesis.backend.app.config.settings.get_model_settings"),
             patch(
-                "rhesis.backend.jobs.execution.executors.data.get_test_and_prompt",
-                side_effect=lambda s, tid, org: (
-                    test_1 if tid == str(test_1.id) else test_2,
-                    "prompt",
-                    "expected",
-                ),
+                "rhesis.backend.jobs.execution.batch.context._prefetch_tests",
+                side_effect=_prefetched,
             ),
         ):
             from rhesis.backend.jobs.execution.batch.context import (

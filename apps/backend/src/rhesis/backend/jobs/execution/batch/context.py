@@ -10,7 +10,7 @@ import logging
 import math
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -229,6 +229,8 @@ class ExecutionContext:
     metric_models: Dict[str, Any] = field(default_factory=dict)
     test_data: Dict[str, Any] = field(default_factory=dict)
     input_files: Dict[str, List] = field(default_factory=dict)
+    # Tests with attached input files; None (unknown) means look up every test.
+    tests_with_files: Optional[Set[str]] = None
     existing_result_ids: Set[str] = field(default_factory=set)
     batch_concurrency: int = DEFAULT_BATCH_CONCURRENCY
     per_test_timeout: int = DEFAULT_PER_TEST_TIMEOUT
@@ -328,6 +330,57 @@ def _resolve_text_model(session: Session, user_id: Optional[str], evaluation_mod
         return None
 
 
+def _prefetch_tests(
+    session: Session, tests: List[Test], organization_id: str
+) -> Tuple[Dict[str, Any], Set[str]]:
+    """Each runnable test's data, and which tests have input files, in two queries.
+
+    A test that is gone or fails its prompt check is logged and left out, as before.
+    """
+    from rhesis.backend.app.crud.file import entity_ids_with_files
+    from rhesis.backend.app.models.requirement import Requirement
+    from rhesis.backend.app.utils.query_utils import QueryBuilder, include
+    from rhesis.backend.jobs.execution.executors.data import prompt_for_test
+
+    test_ids = [test.id for test in tests]
+    if not test_ids:
+        return {}, set()
+    loaded = {
+        str(test.id): test
+        for test in QueryBuilder(session, Test)
+        .with_organization_filter(organization_id)
+        .with_custom_filter(lambda q: q.filter(Test.id.in_(test_ids)))
+        .with_related(
+            include(Test.prompt),
+            include(Test.requirement, Requirement.metrics),
+            # test_type decides which executor each test gets; loaded before the
+            # tests are expunged.
+            include(Test.test_type),
+            include(Test.category),
+            include(Test.topic),
+        )
+        .all()
+    }
+
+    test_data: Dict[str, Any] = {}
+    for test_id in map(str, test_ids):
+        test = loaded.get(test_id)
+        if test is None:
+            logger.error(f"Failed to pre-fetch test {test_id}: not found or deleted")
+            continue
+        try:
+            prompt_content, expected_response = prompt_for_test(test)
+        except ValueError as e:
+            logger.error(f"Failed to pre-fetch test {test_id}: {e}")
+            continue
+        test_data[test_id] = {
+            "test": test,
+            "prompt_content": prompt_content,
+            "expected_response": expected_response,
+        }
+    return test_data, entity_ids_with_files(session, "Test", [t.id for t in loaded.values()])
+
+
 def prefetch_execution_context(
     session: Session,
     test_config: TestConfiguration,
@@ -339,9 +392,7 @@ def prefetch_execution_context(
     """Pre-fetch all shared data in a single session before async execution."""
     from rhesis.backend.app.crud import endpoint as endpoint_crud
     from rhesis.backend.app.database import bind_scope_to_session
-    from rhesis.backend.app.models.requirement import Requirement
     from rhesis.backend.app.services.test_set import get_test_set
-    from rhesis.backend.app.utils.query_utils import QueryBuilder, include
     from rhesis.backend.jobs.execution.executors.data import get_test_metrics
 
     organization_id = str(test_config.organization_id) if test_config.organization_id else ""
@@ -379,43 +430,9 @@ def prefetch_execution_context(
 
     attrs = test_config.attributes or {}
 
-    # Warm the session identity map with prompt/requirement/requirement.metrics eager-loaded
-    # for every test in the batch, in one query. get_test_and_prompt/get_test_metrics
-    # below re-fetch each test by id from this same session -- SQLAlchemy's identity
-    # map returns the very same instance per row, so once these relationships are
-    # already populated here, those per-test lookups find them already loaded instead
-    # of issuing one extra lazy-load query per test per relationship (N+1).
-    test_ids = [test.id for test in tests]
-    if test_ids:
-        QueryBuilder(session, Test).with_custom_filter(
-            lambda q: q.filter(Test.id.in_(test_ids))
-        ).with_related(
-            include(Test.prompt),
-            include(Test.requirement, Requirement.metrics),
-            # test_type decides which executor each test gets. Eager-load it so it
-            # is already populated when the Test objects are expunged below.
-            include(Test.test_type),
-        ).all()
-
-    # Pre-fetch per-test data
-    test_data: Dict[str, Any] = {}
-    for test in tests:
-        try:
-            from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt
-
-            test_obj, prompt_content, expected_response = get_test_and_prompt(
-                session, str(test.id), organization_id
-            )
-            test_data[str(test.id)] = {
-                "test": test_obj,
-                "prompt_content": prompt_content,
-                "expected_response": expected_response,
-            }
-        except Exception as e:
-            logger.error(f"Failed to pre-fetch test {test.id}: {e}")
-
-    # Input files are loaded lazily inside the semaphore (per-test) to avoid
-    # holding all base64-encoded attachments in memory for the entire batch.
+    # Every test with what execution reads, in one query; the per-test checks below and
+    # get_test_metrics use these instances instead of loading each test again.
+    test_data, tests_with_files = _prefetch_tests(session, tests, organization_id)
 
     # Pre-fetch metrics: convert ORM -> MetricConfig before session closes.  Async
     # evaluation runs after session.close(); detached Metric rows would raise on
@@ -591,6 +608,7 @@ def prefetch_execution_context(
         per_test_metric_configs=per_test_metric_configs,
         metric_models=metric_models,
         test_data=test_data,
+        tests_with_files=tests_with_files,
         existing_result_ids=existing_result_ids,
         connector_metric_sender=connector_metric_sender,
         reference_test_run_id=reference_test_run_id,
