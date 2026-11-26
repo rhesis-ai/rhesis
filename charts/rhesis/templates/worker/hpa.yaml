@@ -3,6 +3,11 @@
 {{- $keda := .hpa.keda | default dict }}
 {{- if and $keda.enabled ($.Capabilities.APIVersions.Has "keda.sh/v1alpha1") }}
 {{- $valkeyAuth := $.Values.valkey.auth | default dict }}
+{{- /* KEDA runs in its own namespace, so the in-cluster broker needs its full name. */}}
+{{- $broker := include "rhesis.valkey.host" $ }}
+{{- if $.Values.valkey.enabled }}
+{{- $broker = printf "%s.%s.svc.cluster.local" $broker $.Release.Namespace }}
+{{- end }}
 ---
 # Scales on CPU like the plain HPA, and also on the jobs waiting in each queue. KEDA
 # creates and owns the HPA (named worker-<name>, as before).
@@ -41,7 +46,7 @@ spec:
     - type: redis
       name: {{ $queue }}
       metadata:
-        address: {{ printf "%s:%v" (include "rhesis.valkey.host" $) $.Values.config.redisPort | quote }}
+        address: {{ printf "%s:%v" $broker $.Values.config.redisPort | quote }}
         databaseIndex: {{ $keda.databaseIndex | default 0 | quote }}
         listName: {{ $queue | quote }}
         listLength: {{ $perReplica | quote }}

@@ -7,6 +7,8 @@ Add a new job to the queue in celery/queues.py QUEUES whose rule it fits.
 import pathlib
 import re
 
+import yaml
+
 from rhesis.backend.celery.queues import QUEUES, TASK_ROUTES
 from rhesis.backend.worker import app
 
@@ -59,3 +61,13 @@ def test_the_dev_worker_consumes_every_queue():
     queues = set(re.search(r"--queues=(\S+) ", script).group(1).split(","))
 
     assert set(QUEUES) <= queues
+
+
+def test_the_chart_scales_on_real_queues():
+    # hpa.keda.queues in the Helm values name Redis lists; a typo would never trigger.
+    charts = ROOT / "charts" / "rhesis"
+    for values in sorted(charts.glob("values*.yaml")):
+        for worker in yaml.safe_load(values.read_text()).get("workers") or []:
+            queues = set(((worker.get("hpa") or {}).get("keda") or {}).get("queues") or {})
+            unknown = queues - set(QUEUES)
+            assert not unknown, f"{values.name}: hpa.keda.queues names unknown queues {unknown}"
