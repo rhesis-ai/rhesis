@@ -6,31 +6,26 @@ import type {
   GridPaginationModel,
   GridSortModel,
 } from '@mui/x-data-grid';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { readActiveProjectId } from '@/utils/active-project';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 import {
+  descriptorId,
+  firstPageParams,
   listParams,
+  readFirstPage,
+  writeFirstPage,
+  type ListCacheScope,
   type ListDescriptor,
   type ListSort,
   type FilterSpecMap,
   type FiltersOf,
+  type CachedFirstPage,
 } from '@/utils/list';
 import { useListAuthGate } from './useListAuthGate';
 import { usePaginatedList } from './usePaginatedList';
-
-// A descriptor built per parent entity (e.g. `entityTasksList(type, id)`) is a
-// new object when that entity changes, and the list must refetch then. Number
-// each identity so it can be part of the request fingerprint; callers memoize
-// descriptors, so a stable list keeps a stable number.
-const descriptorIds = new WeakMap<object, number>();
-let nextDescriptorId = 0;
-function descriptorId(descriptor: object): number {
-  let id = descriptorIds.get(descriptor);
-  if (id === undefined) {
-    id = nextDescriptorId++;
-    descriptorIds.set(descriptor, id);
-  }
-  return id;
-}
 
 /**
  * The grid clears its sort on the third header click, but a list always keeps
@@ -110,21 +105,65 @@ export function useList<T, S extends FilterSpecMap>(
     order: sortModel[0]?.sort ?? descriptor.defaultSort.order,
   };
 
+  // The first page in its default state is what a return visit's loading view
+  // draws from the cache, so only that page is kept.
+  const queryClient = useQueryClient();
+  const cacheScope = useListCacheScope();
+  const skeleton = useSkeletonMode();
+  const firstPage = React.useMemo(
+    () => JSON.stringify(firstPageParams(descriptor)),
+    [descriptor]
+  );
+  const paramsFor = (page: number, pageSize: number) =>
+    listParams(
+      descriptor,
+      { page, pageSize, sort, filters },
+      extraFilters ?? []
+    );
+  const remember = (
+    scope: ListCacheScope | null,
+    params: object,
+    page: CachedFirstPage<T>
+  ) => {
+    if (scope && JSON.stringify(params) === firstPage) {
+      writeFirstPage(queryClient, descriptor, scope, page);
+    }
+  };
+
+  // Read once, on mount: a loading view never fetches, so this is all it shows.
+  const [cached] = React.useState(() => {
+    const scope = cacheScope();
+    if (!skeleton || initialData !== undefined || !scope) return undefined;
+    const params = paramsFor(1, descriptor.defaultPageSize);
+    return JSON.stringify(params) === firstPage
+      ? readFirstPage<T>(queryClient, descriptor, scope)
+      : undefined;
+  });
+
+  // The server's first page, which the client doesn't fetch again.
+  React.useEffect(() => {
+    if (initialData === undefined || skeleton) return;
+    remember(cacheScope(), paramsFor(1, descriptor.defaultPageSize), {
+      data: initialData,
+      totalCount: initialTotalCount ?? 0,
+    });
+    // Once, for what the page arrived with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const list = usePaginatedList<T>({
-    fetchPage: ({ skip, limit }) =>
-      descriptor.list(
-        new ApiClientFactory(),
-        listParams(
-          descriptor,
-          {
-            page: skip / limit + 1,
-            pageSize: limit,
-            sort,
-            filters,
-          },
-          extraFilters ?? []
-        )
-      ),
+    fetchPage: async ({ skip, limit }) => {
+      const params = paramsFor(skip / limit + 1, limit);
+      // Taken before the request, so a project switch mid-flight can't file
+      // this page under the new project.
+      const scope = cacheScope();
+      const response = await descriptor.list(new ApiClientFactory(), params);
+      remember(scope, params, {
+        data: response.data,
+        totalCount: response.pagination.totalCount,
+      });
+      return response;
+    },
     filterFingerprint: JSON.stringify({
       descriptor: descriptorId(descriptor),
       filters,
@@ -132,8 +171,8 @@ export function useList<T, S extends FilterSpecMap>(
       extraFilters,
     }),
     defaultPageSize: descriptor.defaultPageSize,
-    initialData,
-    initialTotalCount,
+    initialData: initialData ?? cached?.data,
+    initialTotalCount: initialData ? initialTotalCount : cached?.totalCount,
     onData,
     onError,
     pollMs,
@@ -144,6 +183,8 @@ export function useList<T, S extends FilterSpecMap>(
     ...list,
     ready: gate.ready,
     gateNode: gate.ready ? null : gate.node,
+    /** A loading view drawing the rows of an earlier visit, not placeholders. */
+    fromCache: cached !== undefined,
     /** Spread onto `<BaseDataGrid>` alongside `rowCount`/`loading`/`serverSidePagination`. */
     paginationModel: { page: list.page, pageSize: list.rowsPerPage },
     onPaginationModelChange: (model: GridPaginationModel) => {
@@ -165,4 +206,19 @@ export function useList<T, S extends FilterSpecMap>(
         )
       ),
   };
+}
+
+/**
+ * The scope a cached list page belongs to, or null while the session doesn't
+ * name a user and an organization yet. A function, so the project is read
+ * from its cookie when the page is fetched, as the API client reads it.
+ */
+function useListCacheScope(): () => ListCacheScope | null {
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
+  const organizationId = session?.user?.organization_id;
+  return () =>
+    userId && organizationId
+      ? { userId, organizationId, projectId: readActiveProjectId() ?? '' }
+      : null;
 }

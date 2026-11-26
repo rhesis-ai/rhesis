@@ -15,9 +15,16 @@ import { delayedRevealSx } from './DelayedReveal';
  */
 const SkeletonModeContext = createContext(false);
 
-export function SkeletonMode({ children }: { children: React.ReactNode }) {
+export function SkeletonMode({
+  children,
+  active = true,
+}: {
+  children: React.ReactNode;
+  /** `false` draws a part of a loading view for real, e.g. rows from the cache. */
+  active?: boolean;
+}) {
   return (
-    <SkeletonModeContext.Provider value>
+    <SkeletonModeContext.Provider value={active}>
       {children}
     </SkeletonModeContext.Provider>
   );
