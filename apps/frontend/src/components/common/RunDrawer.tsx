@@ -761,7 +761,10 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   const handleWhenChange = (next: RunWhen) => {
     setWhen(next);
-    if (next === RUN_WHEN.NOW) return;
+    if (next === RUN_WHEN.NOW) {
+      setReuseDropped(false);
+      return;
+    }
     // Scheduled runs always call the endpoint, so reusing outputs is off.
     if (scoringTarget === SCORING_TARGET.REUSE) {
       setScoringTarget(SCORING_TARGET.FRESH);
