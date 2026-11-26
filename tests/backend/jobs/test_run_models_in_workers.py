@@ -17,6 +17,18 @@ from rhesis.backend.jobs.execution.batch.context import (
 from rhesis.backend.jobs.execution.batch.runner import run_batch
 from rhesis.backend.jobs.execution.sequential import execute_tests_sequentially
 
+
+def _prefetched(session, tests, organization_id):
+    """Stands in for the bulk test load: every test runnable, none with input files."""
+    return (
+        {
+            str(t.id): {"test": t, "prompt_content": "prompt", "expected_response": "expected"}
+            for t in tests
+        },
+        set(),
+    )
+
+
 _RESOLVE = "rhesis.backend.app.utils.user_model_utils.resolve_model"
 _GET_USER = "rhesis.backend.app.services.run_models.get_user_by_id"
 _RECORD = "rhesis.backend.app.services.run_models.record_resolved_evaluation_model"
@@ -81,8 +93,8 @@ class TestBatchPrefetchBuildsOnlyNeededModels:
             patch("rhesis.backend.app.crud.endpoint.get_endpoint", return_value=endpoint),
             patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
             patch(
-                "rhesis.backend.jobs.execution.executors.data.get_test_and_prompt",
-                return_value=(test, "prompt", "expected"),
+                "rhesis.backend.jobs.execution.batch.context._prefetch_tests",
+                side_effect=_prefetched,
             ),
             patch(
                 "rhesis.backend.jobs.execution.executors.data.get_test_metrics",
@@ -167,8 +179,8 @@ class TestMetricEditedAfterDispatch:
             patch("rhesis.backend.app.crud.endpoint.get_endpoint", return_value=endpoint),
             patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
             patch(
-                "rhesis.backend.jobs.execution.executors.data.get_test_and_prompt",
-                return_value=(test, "prompt", "expected"),
+                "rhesis.backend.jobs.execution.batch.context._prefetch_tests",
+                side_effect=_prefetched,
             ),
             patch(
                 "rhesis.backend.jobs.execution.executors.data.get_test_metrics",
@@ -239,8 +251,8 @@ class TestMetricEditedAfterDispatch:
             patch("rhesis.backend.app.crud.endpoint.get_endpoint", return_value=endpoint),
             patch("rhesis.backend.app.services.invokers.auth.manager.AuthenticationManager"),
             patch(
-                "rhesis.backend.jobs.execution.executors.data.get_test_and_prompt",
-                return_value=(test, "prompt", "expected"),
+                "rhesis.backend.jobs.execution.batch.context._prefetch_tests",
+                side_effect=_prefetched,
             ),
             patch(
                 "rhesis.backend.jobs.execution.executors.data.get_test_metrics",

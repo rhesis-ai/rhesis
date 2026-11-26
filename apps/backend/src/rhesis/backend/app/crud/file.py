@@ -17,7 +17,7 @@ commits on its own — it moves no bytes and touches no storage.
 """
 
 import uuid
-from typing import List, Optional, Union
+from typing import List, Optional, Set, Union
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -101,6 +101,24 @@ def get_files_for_entity(
         .with_sorting("position", "asc")
         .all()
     )
+
+
+def entity_ids_with_files(db: Session, entity_type: str, entity_ids: List[str]) -> Set[str]:
+    """The ids among *entity_ids* that have at least one stored file."""
+    if not entity_ids:
+        return set()
+    rows = (
+        db.query(models.File.entity_id)
+        .filter(
+            models.File.entity_type == entity_type,
+            models.File.entity_id.in_(entity_ids),
+            models.File.deleted_at.is_(None),
+            models.File.storage_path.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    return {str(row.entity_id) for row in rows}
 
 
 def get_entity_files_total_size(

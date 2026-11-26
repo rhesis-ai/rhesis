@@ -35,6 +35,8 @@ async def load_input_files_lazy(ctx: ExecutionContext, test_id: str) -> Optional
     cached = ctx.input_files.get(test_id)
     if cached is not None:
         return cached
+    if ctx.tests_with_files is not None and test_id not in ctx.tests_with_files:
+        return None
 
     def _load():
         from rhesis.backend.app.database import get_db_with_tenant_variables
