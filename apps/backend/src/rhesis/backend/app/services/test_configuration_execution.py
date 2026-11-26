@@ -58,7 +58,6 @@ def execute_configuration(
     the model check's errors, ``JobCapacityExceededError`` or ``RunSubmissionError``.
     """
     from rhesis.backend.app.services.test_set import enforce_test_run_quota, tagged_test_filter
-    from rhesis.backend.jobs.execution.run import create_test_run, plan_run_for_user
 
     if check_quota and config.test_set_id:
         enforce_test_run_quota(
@@ -75,6 +74,30 @@ def execute_configuration(
         config.attributes = attributes
         db.commit()
 
+    test_run, celery_task_id = prepare_run(
+        db, config, user, trigger=trigger, scheduled_for=scheduled_for
+    )
+    db.commit()
+
+    result = dispatch_run(db, config, test_run, user, celery_task_id)
+    return result, test_run
+
+
+def prepare_run(
+    db: Session,
+    config: TestConfiguration,
+    user: User,
+    *,
+    trigger: RunTrigger | None = None,
+    scheduled_for: datetime | None = None,
+) -> tuple[TestRun, str]:
+    """Check the run's models and create it Queued, without committing or dispatching.
+
+    Returns the run and the Celery task id to dispatch it under. Raises the model check's
+    errors, and the experiment resolution's when its parameters can't be resolved.
+    """
+    from rhesis.backend.jobs.execution.run import create_test_run, plan_run_for_user
+
     # Metrics are resolved here, so this is where the run's models can be checked.
     metric_plan = plan_run_for_user(db, config, user)
 
@@ -89,10 +112,7 @@ def execute_configuration(
     )
     if trigger is not None:
         _stamp_trigger(test_run, trigger, scheduled_for)
-    db.commit()
-
-    result = _dispatch(db, config, test_run, user, celery_task_id)
-    return result, test_run
+    return test_run, celery_task_id
 
 
 def _stamp_trigger(test_run: TestRun, trigger: RunTrigger, scheduled_for: datetime | None) -> None:
@@ -103,9 +123,10 @@ def _stamp_trigger(test_run: TestRun, trigger: RunTrigger, scheduled_for: dateti
     test_run.attributes = attributes
 
 
-def _dispatch(
+def dispatch_run(
     db: Session, config: TestConfiguration, test_run: TestRun, user: User, celery_task_id: str
 ):
+    """Queue a committed run's job; on failure, mark the run Failed and raise."""
     from rhesis.backend.jobs import launch_job
     from rhesis.backend.jobs.enums import RunStatus
     from rhesis.backend.jobs.execution.run import update_test_run_status

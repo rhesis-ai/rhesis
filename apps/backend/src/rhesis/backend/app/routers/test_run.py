@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
-from rhesis.backend.app.auth.quota_gates import require_job_capacity
+from rhesis.backend.app.auth.quota_gates import require_job_capacity, require_quota
 from rhesis.backend.app.auth.rbac import require_object
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import test_run as test_run_crud
@@ -17,9 +17,12 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
     per_user_rate_limit,
 )
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.telemetry import TraceListResponse, TraceSource, TraceSummary
+from rhesis.backend.app.schemas.test_run_batch import TestRunBatchCreate, TestRunBatchOut
 from rhesis.backend.app.services import test_run as services_test_run
 from rhesis.backend.app.services.telemetry.token_totals import trace_summary_usage
 from rhesis.backend.app.services.test_run import (
@@ -30,7 +33,10 @@ from rhesis.backend.app.services.test_run import (
 from rhesis.backend.app.utils.content_disposition import attachment_disposition
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.execution_validation import model_setup_http_exception
+from rhesis.backend.app.utils.execution_validation import (
+    handle_execution_error,
+    model_setup_http_exception,
+)
 from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
 from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT
 from rhesis.backend.app.utils.select_projection import selected_fields
@@ -67,6 +73,34 @@ def create_test_run(
     return test_run_crud.create_test_run(
         db=db, test_run=test_run, organization_id=organization_id, user_id=user_id
     )
+
+
+@router.post(
+    "/batches",
+    response_model=TestRunBatchOut,
+    **capability(Permission.TestSet.EXECUTE),
+    dependencies=[per_user_rate_limit(EXECUTION_RATE_LIMIT)],
+)
+def start_test_run_batch(
+    request: TestRunBatchCreate,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+    _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_EXECUTIONS)),
+    _job_capacity: None = Depends(require_job_capacity),
+):
+    """Run several test sets, or every set carrying a tag, against one endpoint.
+
+    One run per test set and experiment version, sharing a ``batch_id``. Every set is
+    checked, and the quota for the whole group, before any run starts.
+    """
+    from rhesis.backend.app.services.test_run_batch import start_batch
+
+    try:
+        return start_batch(db, current_user, request)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_execution_error(e, operation="start test runs")
 
 
 @router.get("/", response_model=list[schemas.TestRunDetail])

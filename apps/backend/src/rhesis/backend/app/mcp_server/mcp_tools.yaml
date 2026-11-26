@@ -338,6 +338,38 @@ tools:
           Optional. Test tag names; only the tests carrying any of them
           run. Omit to run every test in the set.
 
+  - name: execute_test_set_group
+    label: Running test sets
+    method: POST
+    path: /test_runs/batches
+    requires_confirmation: false
+    description: >
+      Run several test sets against one endpoint at once: pass
+      test_set_ids, or test_set_tag to run every test set carrying that
+      tag. ENTITY: TestSets + Endpoint → one TestRun per set (and per
+      experiment version, when experiments are given), all sharing a
+      batch_id. Every set is checked, and the quota for the whole group,
+      before any run starts, so a refusal starts nothing. run_settings
+      takes the same options as execute_test_set (execution_options,
+      metrics, execution_model_id, evaluation_model_id, tests_tagged).
+      Response has batch_id and members (test_set_name, test_run_id,
+      test_run_name). A group starts at most 50 runs. CHAIN: then
+      get_test_run per member, or get_insights with the members'
+      test_run_ids. NEVER: use for a single set — use execute_test_set.
+    parameters:
+      test_set_ids:
+        description: "Test set UUIDs. Use this or test_set_tag."
+      test_set_tag:
+        description: "Tag name; every test set carrying it runs. Use this or test_set_ids."
+      endpoint_id:
+        description: "REQUIRED. UUID of the endpoint every run calls."
+      experiments:
+        description: >
+          Optional list of {experiment_id, version}; each set runs once
+          per entry. Omit to run each set once.
+      run_settings:
+        description: "Optional. Options shared by every run, as for execute_test_set."
+
   # ── Test Run Schedules ───────────────────────────────────
   - name: schedule_test_set
     label: Scheduling test set
