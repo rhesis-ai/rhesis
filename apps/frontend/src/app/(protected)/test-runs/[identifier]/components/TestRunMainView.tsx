@@ -481,10 +481,7 @@ export default function TestRunMainView({
   }, [queryClient]);
 
   // Jump straight to the new run in Detail view so execution is visible as
-  // it happens. executeTestSet only returns the test_configuration
-  // synchronously -- the worker creates the run itself -- so this polls for
-  // it the same way tag assignment already does. Falls back to the runs
-  // list (the prior unconditional behaviour) if it doesn't show up in time.
+  // it happens. Falls back to the runs list if the run can't be loaded.
   const handleRerunExecuted = useCallback(
     (outcome: BatchRunOutcome) => {
       void (async () => {

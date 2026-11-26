@@ -50,6 +50,13 @@ import { useCan } from '@/components/common/Can';
 import RunDrawerSection from '@/components/common/run-drawer/RunDrawerSection';
 import TestsTaggedField from '@/components/common/run-drawer/TestsTaggedField';
 import {
+  RunTargetToggle,
+  TestSetTagField,
+} from '@/components/common/run-drawer/SetTagFields';
+import { anyTagFilter } from '@/utils/odata-filter';
+import { tagsOnEntityFilter } from '@/utils/api-client/tags-client';
+import { EntityType } from '@/utils/api-client/interfaces/tag';
+import {
   plural,
   summaryOf,
 } from '@/components/common/run-drawer/run-drawer-format';
@@ -75,10 +82,12 @@ import {
 import {
   EXECUTION_MODE,
   METRIC_MODE,
+  RUN_TARGET,
   RUN_WHEN,
   RUN_WHEN_LABEL,
   SCORING_TARGET,
   type MetricMode,
+  type RunTarget,
   type RunWhen,
   type ScoringTarget,
   type SelectedMetric,
@@ -370,6 +379,14 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   // Run only the tests carrying any of these tags; empty runs every test.
   const [testsTagged, setTestsTagged] = useState<string[]>([]);
+
+  // A new run can cover every test set carrying a tag, resolved again when it starts.
+  const [runTarget, setRunTarget] = useState<RunTarget>(RUN_TARGET.SET);
+  const [testSetTag, setTestSetTag] = useState<string | null>(null);
+  const [setTagOptions, setSetTagOptions] = useState<string[]>([]);
+  const [taggedSets, setTaggedSets] = useState<
+    { id: string; name: string }[] | null
+  >(null);
   const [testTagOptions, setTestTagOptions] = useState<TestSetTestTag[]>([]);
 
   // ---- Preflight ----
@@ -424,6 +441,9 @@ export default function RunDrawer(props: RunDrawerProps) {
     setTags([]);
     setTestsTagged([]);
     setTestTagOptions([]);
+    setRunTarget(RUN_TARGET.SET);
+    setTestSetTag(null);
+    setTaggedSets(null);
     setExecutionMode(EXECUTION_MODE.PARALLEL);
     setScoringTarget(SCORING_TARGET.FRESH);
     setLastTestRun(null);
@@ -785,11 +805,72 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Resolve test set IDs + endpoint ID for execution
   // -----------------------------------------------------------------------
 
+  const byTag = mode === 'newTestRun' && runTarget === RUN_TARGET.TAG;
+
+  // Runs by tag start now and call the endpoint: the When and reuse choices don't apply.
+  const handleRunTargetChange = (next: RunTarget) => {
+    setRunTarget(next);
+    setTestsTagged([]);
+    if (next === RUN_TARGET.TAG) {
+      setWhen(RUN_WHEN.NOW);
+      setScoringTarget(SCORING_TARGET.FRESH);
+    }
+  };
+
+  useEffect(() => {
+    if (!open || !byTag) return;
+    let mounted = true;
+    apiFactory
+      .getTagsClient()
+      .getTags({
+        limit: 100,
+        sort_by: 'name',
+        sort_order: 'asc',
+        $filter: tagsOnEntityFilter(EntityType.TEST_SET),
+      })
+      .then(tags => {
+        if (mounted) setSetTagOptions(tags.map(tag => tag.name));
+      })
+      .catch(() => {
+        if (mounted) setSetTagOptions([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [open, byTag, apiFactory]);
+
+  useEffect(() => {
+    setTaggedSets(null);
+    if (!open || !byTag || !testSetTag) return;
+    let mounted = true;
+    apiFactory
+      .getTestSetsClient()
+      .getTestSets({
+        limit: 100,
+        sort_by: 'name',
+        sort_order: 'asc',
+        $filter: anyTagFilter([testSetTag]),
+      })
+      .then(page => {
+        if (mounted)
+          setTaggedSets(
+            page.data.map(set => ({ id: String(set.id), name: set.name }))
+          );
+      })
+      .catch(() => {
+        if (mounted) setTaggedSets([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [open, byTag, testSetTag, apiFactory]);
+
   const resolveTestSetIds = (): string[] => {
     switch (mode) {
       case 'executeTestSet':
         return [props.data.testSetId];
       case 'newTestRun':
+        if (byTag) return (taggedSets ?? []).map(set => set.id);
         return selectedTestSet ? [selectedTestSet.id as string] : [];
       case 'runExperiment':
         return selectedTestSet ? [selectedTestSet.id as string] : [];
@@ -957,7 +1038,6 @@ export default function RunDrawer(props: RunDrawerProps) {
 
     setExecuting(true);
     try {
-      const testSetsClient = apiFactory.getTestSetsClient();
       const experiments = resolveExperiments();
 
       const baseAttributes: Record<string, unknown> = {
@@ -989,8 +1069,8 @@ export default function RunDrawer(props: RunDrawerProps) {
       }
 
       const outcome = await executeBatchedTestRuns({
-        testSetsClient,
-        testSetIds,
+        testRunsClient: apiFactory.getTestRunsClient(),
+        ...(byTag && testSetTag ? { testSetTag } : { testSetIds }),
         endpointId,
         selectedExperiments: experiments,
         baseAttributes,
@@ -1020,7 +1100,6 @@ export default function RunDrawer(props: RunDrawerProps) {
 
           await assignTagsToRuns({
             outcome,
-            testRunsClient: apiFactory.getTestRunsClient(),
             tags,
             organizationId,
           });
@@ -1192,6 +1271,9 @@ export default function RunDrawer(props: RunDrawerProps) {
     mode,
     selectedEndpoint,
     selectedTestSet,
+    runTarget,
+    testSetTag,
+    taggedSets,
     internalVersionHashes,
     executionQuota.exhausted,
   ]);
@@ -1221,8 +1303,14 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Section summaries (shown while a section is folded)
   // -----------------------------------------------------------------------
 
-  const setNameSummary =
-    gridTestSetIds && gridTestSetIds.length > 1
+  const setNameSummary = byTag
+    ? testSetTag
+      ? summaryOf(
+          `Sets tagged ${testSetTag}`,
+          taggedSets && plural(taggedSets.length, 'test set')
+        )
+      : 'Choose a test set tag'
+    : gridTestSetIds && gridTestSetIds.length > 1
       ? plural(gridTestSetIds.length, 'test set')
       : (rerunConfig?.testSetName ??
         selectedTestSet?.name ??
@@ -1280,6 +1368,34 @@ export default function RunDrawer(props: RunDrawerProps) {
   // -----------------------------------------------------------------------
 
   const renderTestSetField = () => {
+    if (mode === 'newTestRun') {
+      return (
+        <>
+          <RunTargetToggle value={runTarget} onChange={handleRunTargetChange} />
+          {byTag ? (
+            <TestSetTagField
+              tags={setTagOptions}
+              value={testSetTag}
+              onChange={tag => {
+                setTestSetTag(tag);
+                setTestsTagged([]);
+              }}
+              setNames={(taggedSets ?? []).map(set => set.name)}
+              loading={Boolean(testSetTag) && taggedSets === null}
+            />
+          ) : (
+            <TestSetField
+              testSets={testSets}
+              value={selectedTestSet}
+              onChange={testSet => {
+                setSelectedTestSet(testSet);
+                setTestsTagged([]);
+              }}
+            />
+          )}
+        </>
+      );
+    }
     if (cfg.testSetMode === 'single') {
       return (
         <TestSetField
@@ -1460,14 +1576,16 @@ export default function RunDrawer(props: RunDrawerProps) {
               reuseCaption={reuseCaption}
               // Only a re-run or the set's last run has outputs to reuse.
               reuseDisabled={
-                scheduleMode || (mode !== 'rerunTestRun' && !lastTestRun)
+                scheduleMode ||
+                byTag ||
+                (mode !== 'rerunTestRun' && !lastTestRun)
               }
               reusedRun={mode === 'executeTestSet' ? lastTestRun : null}
               reusingThisRun={mode === 'rerunTestRun'}
             />
           </RunDrawerSection>
 
-          {(canSchedule || editingSchedule) && (
+          {(canSchedule || editingSchedule) && !byTag && (
             <RunDrawerSection title="When" summary={whenSummary}>
               <WhenField
                 when={when}

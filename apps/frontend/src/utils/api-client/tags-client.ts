@@ -14,6 +14,7 @@ export class TagsClient extends BaseApiClient {
       limit?: number;
       sort_by?: string;
       sort_order?: string;
+      $filter?: string;
     } = {}
   ): Promise<Tag[]> {
     const queryParams = new URLSearchParams();
@@ -24,6 +25,7 @@ export class TagsClient extends BaseApiClient {
     if (options.sort_by) queryParams.append('sort_by', options.sort_by);
     if (options.sort_order)
       queryParams.append('sort_order', options.sort_order);
+    if (options.$filter) queryParams.append('$filter', options.$filter);
 
     const queryString = queryParams.toString();
     const url = queryString
@@ -83,3 +85,7 @@ export class TagsClient extends BaseApiClient {
     );
   }
 }
+
+/** OData filter for tags carried by at least one entity of `entityType`. */
+export const tagsOnEntityFilter = (entityType: EntityType): string =>
+  `tagged_items/any(i: i/entity_type eq '${entityType}')`;
