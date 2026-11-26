@@ -824,6 +824,11 @@ independently adoptable:
 - **Switch to CloudNativePG** for managed Postgres backups, replacing the bundled `postgresql`
   subchart; see `kubernetes/clusters/prd/cnpg-cluster/`
 - **Turn on autoscaling**: set `*.hpa.enabled: true` per component; already wired into the chart
+- **Scale workers on queue length**: install KEDA (`kubernetes/base/keda`) and set
+  `workers[].hpa.keda.enabled: true` with a target per Celery queue; see `values-prd.yaml`
+- **Pool database connections**: run PgBouncer in transaction mode (Rhesis uses a CloudNativePG
+  `Pooler`, `kubernetes/clusters/stg/cnpg-cluster/pooler.yaml`) and set
+  `externalDatabase.poolerHost`; migrations keep using `externalDatabase.host`
 - **Add monitoring**: `kube-prometheus-stack`, Loki, and Alloy, deployed the same way as ArgoCD
   Applications in `kubernetes/base/`
 - **Match the rest of Rhesis's own setup**: see [above](#optional-match-rhesiss-own-setup) for

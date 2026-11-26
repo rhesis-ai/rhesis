@@ -275,7 +275,8 @@ CONNECT_ARGS = {
     "tcp_user_timeout": "30000",  # 30 second TCP timeout
     # Kills a session that leaked an open transaction. Sent as a startup option
     # so it covers every connection this engine opens, in every process that
-    # imports it -- API, worker and scripts alike.
+    # imports it -- API, worker and scripts alike. PgBouncer drops startup options,
+    # so a pooler sets the same limit itself (idle_transaction_timeout).
     "options": f"-c idle_in_transaction_session_timeout={IDLE_IN_TRANSACTION_TIMEOUT_MS}",
 }
 
