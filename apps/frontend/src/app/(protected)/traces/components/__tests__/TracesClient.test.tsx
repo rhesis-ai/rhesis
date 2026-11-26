@@ -4,6 +4,7 @@ import { render, screen, fireEvent } from '@/test-utils';
 import '@testing-library/jest-dom';
 
 import TracesClient from '../TracesClient';
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
 
 const mockReplace = jest.fn();
 jest.mock('next/navigation', () => ({
@@ -55,8 +56,8 @@ function MockSwitch() {
 
 jest.mock('../TracesTable', () => ({
   __esModule: true,
-  default: ({ onRowClick }: any) => (
-    <div>
+  default: ({ onRowClick, loading }: any) => (
+    <div data-testid="traces-table" data-loading={String(loading)}>
       <MockSwitch />
       <button onClick={() => onRowClick('trace-9', 'proj-1')}>trace row</button>
     </div>
@@ -192,5 +193,36 @@ describe('TracesClient row click', () => {
         initialSpanId: undefined,
       })
     );
+  });
+});
+
+describe('TracesClient as a loading view', () => {
+  const loadingView = () =>
+    render(
+      <SkeletonMode>
+        <TracesClient />
+      </SkeletonMode>
+    );
+
+  it('draws the traces of an earlier visit, inert, and fetches nothing', () => {
+    mockUseList.mockImplementation(descriptor => ({
+      ...listResult(),
+      fromCache: descriptor.resource === 'traces',
+    }));
+
+    loadingView();
+
+    const table = screen.getByTestId('traces-table');
+    expect(table).toHaveAttribute('data-loading', 'false');
+    expect(table.closest('[inert]')).not.toBeNull();
+    expect(enabledLists()).toEqual([]);
+  });
+
+  it('draws the grid loading without a cached page', () => {
+    loadingView();
+
+    const table = screen.getByTestId('traces-table');
+    expect(table).toHaveAttribute('data-loading', 'true');
+    expect(table.closest('[inert]')).toBeNull();
   });
 });

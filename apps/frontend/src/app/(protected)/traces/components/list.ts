@@ -46,6 +46,8 @@ export function tracesList(
   return defineList<TraceSummary, typeof TRACES_FILTERS>({
     title: 'Traces',
     resource: 'traces',
+    // Built per render; the project is already part of the cache key.
+    cacheId: 'traces',
     capability: Capability.Telemetry.READ,
     defaultPageSize: 50,
     // The shared default is created_at, which this endpoint does not sort by.

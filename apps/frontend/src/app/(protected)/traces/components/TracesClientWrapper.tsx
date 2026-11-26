@@ -22,7 +22,10 @@ import {
   viewFromSearchParams,
 } from './trace-url-state';
 import { PAGE_HEADERS } from '@/constants/page-headers';
-import { useSkeletonMode } from '@/components/loading/SkeletonMode';
+import {
+  CachedContent,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 
 interface TracesClientWrapperProps {
   currentUserId?: string;
@@ -119,9 +122,11 @@ export default function TracesClientWrapper({
          * Unmounting on the first empty response trapped the page even when later
          * requests returned traces (visible in Network but not in the UI).
          */}
+        {/* In a loading view the hint only comes from a cached empty list:
+            TracesClient reports nothing while it draws placeholders. */}
         <Box
           sx={
-            showEmptyHint && !skeleton
+            showEmptyHint
               ? {
                   position: 'absolute',
                   width: '100%',
@@ -150,13 +155,15 @@ export default function TracesClientWrapper({
             initialTotalCount={initialTotalCount}
           />
         </Box>
-        {showEmptyHint && !skeleton && (
-          <EntityEmptyState
-            card
-            icon={TimelineOutlinedIcon}
-            title="No traces yet"
-            description="Traces appear after test runs or live endpoint invocations. Run a test set or call an instrumented endpoint to get started."
-          />
+        {showEmptyHint && (
+          <CachedContent active={skeleton}>
+            <EntityEmptyState
+              card
+              icon={TimelineOutlinedIcon}
+              title="No traces yet"
+              description="Traces appear after test runs or live endpoint invocations. Run a test set or call an instrumented endpoint to get started."
+            />
+          </CachedContent>
         )}
       </Box>
     </PageLayout>

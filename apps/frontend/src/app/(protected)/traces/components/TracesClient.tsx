@@ -30,7 +30,10 @@ import {
 } from './trace-filter-params';
 import { withTraceUrlState } from './trace-url-state';
 import type { CostScope } from '@/utils/trace-utils';
-import { useSkeletonMode } from '@/components/loading/SkeletonMode';
+import {
+  CachedContent,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 
 interface TracesClientProps {
   currentUserId?: string;
@@ -200,7 +203,11 @@ export default function TracesClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger]);
 
-  const listLoading = skeleton || active.isLoading || projectLoading;
+  // A loading view draws the traces of an earlier visit when they're cached.
+  const cachedView = skeleton && view === 'traces' && traces.fromCache;
+  const listLoading = skeleton
+    ? !cachedView
+    : active.isLoading || projectLoading;
 
   const filterScope = useMemo(
     () => ({
@@ -353,55 +360,57 @@ export default function TracesClient({
         costScope={costScope}
       />
 
-      <Paper sx={GRID_PAPER_SX}>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
-            {error}
-          </Alert>
-        )}
-
-        <TracesToolbarContext.Provider value={toolbarState}>
-          {view === 'spans' ? (
-            <SpansTable
-              spans={spans.data}
-              loading={listLoading}
-              onRowClick={handleSpanRowClick}
-              totalCount={spans.totalCount}
-              page={spans.page}
-              pageSize={spans.rowsPerPage}
-              onPageChange={spans.onPageChange}
-              onPageSizeChange={spans.onRowsPerPageChange}
-              sortModel={spans.sortModel}
-              onSortModelChange={spans.onSortModelChange}
-            />
-          ) : (
-            <TracesTable
-              traces={traces.data}
-              loading={listLoading}
-              onRowClick={handleTraceRowClick}
-              totalCount={traces.totalCount}
-              page={traces.page}
-              pageSize={traces.rowsPerPage}
-              onPageChange={traces.onPageChange}
-              onPageSizeChange={traces.onRowsPerPageChange}
-              sortModel={traces.sortModel}
-              onSortModelChange={traces.onSortModelChange}
-            />
+      <CachedContent active={cachedView}>
+        <Paper sx={GRID_PAPER_SX}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={dismissError}>
+              {error}
+            </Alert>
           )}
-        </TracesToolbarContext.Provider>
 
-        {showFilteredEmpty && (
-          <Box sx={{ py: 6, textAlign: 'center' }}>
-            <Typography variant="h6" gutterBottom>
-              {view === 'spans' ? 'No spans found' : 'No traces found'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Try adjusting your filters or check back after running tests or
-              invoking endpoints.
-            </Typography>
-          </Box>
-        )}
-      </Paper>
+          <TracesToolbarContext.Provider value={toolbarState}>
+            {view === 'spans' ? (
+              <SpansTable
+                spans={spans.data}
+                loading={listLoading}
+                onRowClick={handleSpanRowClick}
+                totalCount={spans.totalCount}
+                page={spans.page}
+                pageSize={spans.rowsPerPage}
+                onPageChange={spans.onPageChange}
+                onPageSizeChange={spans.onRowsPerPageChange}
+                sortModel={spans.sortModel}
+                onSortModelChange={spans.onSortModelChange}
+              />
+            ) : (
+              <TracesTable
+                traces={traces.data}
+                loading={listLoading}
+                onRowClick={handleTraceRowClick}
+                totalCount={traces.totalCount}
+                page={traces.page}
+                pageSize={traces.rowsPerPage}
+                onPageChange={traces.onPageChange}
+                onPageSizeChange={traces.onRowsPerPageChange}
+                sortModel={traces.sortModel}
+                onSortModelChange={traces.onSortModelChange}
+              />
+            )}
+          </TracesToolbarContext.Provider>
+
+          {showFilteredEmpty && (
+            <Box sx={{ py: 6, textAlign: 'center' }}>
+              <Typography variant="h6" gutterBottom>
+                {view === 'spans' ? 'No spans found' : 'No traces found'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Try adjusting your filters or check back after running tests or
+                invoking endpoints.
+              </Typography>
+            </Box>
+          )}
+        </Paper>
+      </CachedContent>
 
       {!skeleton && (
         <>
