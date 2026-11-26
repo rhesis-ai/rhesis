@@ -20,8 +20,8 @@ hand.
 ## Schedule a test set
 
 1. Open the test set and click the run button (**Execute test set**).
-2. In the drawer, click the arrow next to **Execute Test Set** and pick **Schedule run…**.
-3. Choose the endpoint and run options, then set **Run once** or **Repeat**.
+2. In **Run against**, choose the endpoint.
+3. In **When**, pick **Once, later** or **Repeat** and set the timing.
 4. Click **Schedule Run**.
 
 The box under the fields says when it runs and lists the next runs. If the timing can't be saved,
@@ -33,7 +33,8 @@ for example a cron expression that runs more than once an hour, the box says why
   alt="Run drawer in schedule mode, repeating every weekday at 09:00"
 />
 
-Scheduled runs always call the endpoint, so **Reuse Outputs** is not available. An SDK endpoint is
+Scheduled runs always call the endpoint, so **Reuse Outputs** is not available, and schedules
+don't keep experiments or test run tags. An SDK endpoint is
 reached only while your connector is running. Each run uses the tests in the set when it starts.
 
 You can also schedule from **Test Runs › Schedules** with **+**, or by clicking a day on the
