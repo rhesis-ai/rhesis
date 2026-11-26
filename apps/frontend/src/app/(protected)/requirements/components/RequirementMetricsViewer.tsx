@@ -245,7 +245,7 @@ export default function RequirementMetricsViewer({
                       description={metric.description ?? ''}
                       backend={metric.backend_type?.type_value}
                       metricType={metric.metric_type?.type_value}
-                      scoreType={metric.score_type}
+                      scoreType={metric.score_type ?? undefined}
                       target={(() => {
                         const target = getMetricTarget(metric);
                         return target
