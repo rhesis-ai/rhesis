@@ -179,16 +179,17 @@ fi
 #
 # Each entry: node|queues|pool|concurrency|prefetch|db_pool|db_overflow|nice
 # db_pool/db_overflow size the process's SQLAlchemy pool (DB_POOL_SIZE/DB_MAX_OVERFLOW);
-# tasks hold a connection only for their queries, so the pool is smaller than the
-# thread count. nice lowers a process's CPU priority under contention.
+# trace jobs hold a connection only for their queries, so their pools are far smaller
+# than their thread counts; a test run persists each running test's result, so the long
+# process needs about one per test in flight. nice lowers a process's CPU priority.
 #
 # The previous release's queue names (celery, execution, telemetry) are consumed too,
 # so messages it queued still drain after an upgrade.
 if [ "$WORKER_LAYOUT" = "split" ]; then
     WORKERS=(
         "long|test-runs,long-jobs,execution|threads|$CELERY_LONG_CONCURRENCY|1|10|14|0"
-        "ingest|trace-ingest|threads|$CELERY_INGEST_CONCURRENCY|$CELERY_FAST_PREFETCH_MULTIPLIER|8|8|0"
-        "fast|trace-eval,quick-tasks,maintenance,celery,telemetry|threads|$CELERY_FAST_CONCURRENCY|$CELERY_FAST_PREFETCH_MULTIPLIER|10|14|5"
+        "ingest|trace-ingest|threads|$CELERY_INGEST_CONCURRENCY|$CELERY_FAST_PREFETCH_MULTIPLIER|4|4|0"
+        "fast|trace-eval,quick-tasks,maintenance,celery,telemetry|threads|$CELERY_FAST_CONCURRENCY|$CELERY_FAST_PREFETCH_MULTIPLIER|6|6|5"
         "architect|architect|threads|$CELERY_ARCHITECT_CONCURRENCY|$CELERY_ARCHITECT_PREFETCH_MULTIPLIER|4|6|0"
         "cpu|cpu-bound|prefork|1|1|2|2|10"
     )
