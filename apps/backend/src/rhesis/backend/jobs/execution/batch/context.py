@@ -231,6 +231,8 @@ class ExecutionContext:
     input_files: Dict[str, List] = field(default_factory=dict)
     # Tests with attached input files; None (unknown) means look up every test.
     tests_with_files: Optional[Set[str]] = None
+    # Set while run_batch runs (batch/writer.py); saves each test on one shared session.
+    result_writer: Optional[Any] = None
     existing_result_ids: Set[str] = field(default_factory=set)
     batch_concurrency: int = DEFAULT_BATCH_CONCURRENCY
     per_test_timeout: int = DEFAULT_PER_TEST_TIMEOUT

@@ -391,6 +391,30 @@ async def run_batch(
     test_data_snapshot = dict(ctx.test_data)
     ctx.test_data_snapshot = test_data_snapshot
 
+    from rhesis.backend.jobs.execution.batch.writer import ResultWriter
+
+    ctx.result_writer = ResultWriter(ctx)
+    try:
+        return await _run_passes(
+            ctx, test_ids, semaphore, penelope_agent, evaluator, on_emit, on_test_phase
+        )
+    finally:
+        writer, ctx.result_writer = ctx.result_writer, None
+        await writer.close()
+
+
+async def _run_passes(
+    ctx: ExecutionContext,
+    test_ids: List[str],
+    semaphore: asyncio.Semaphore,
+    penelope_agent: Any,
+    evaluator: Any,
+    on_emit: Any,
+    on_test_phase: Any,
+) -> List[Dict[str, Any]]:
+    """The main pass, then the recovery passes for tests whose failure looks transient."""
+    test_data_snapshot = ctx.test_data_snapshot
+
     # --- Main pass ---
     total = len(test_ids)
     results = await _run_gather(
@@ -484,6 +508,16 @@ async def _persist_to_completion(persist: Any, *args: Any) -> None:
     except asyncio.CancelledError:
         await asyncio.gather(write, return_exceptions=True)
         raise
+
+
+async def _save_result(ctx: ExecutionContext, *args: Any) -> None:
+    """Save a finished test: on the batch's writer, else on a session of its own."""
+    if ctx.result_writer is not None:
+        await ctx.result_writer.save(*args)
+        return
+    from rhesis.backend.jobs.execution.batch.persist import persist_result
+
+    await _persist_to_completion(persist_result, ctx, *args)
 
 
 async def _execute_single_test(
@@ -622,10 +656,7 @@ async def _execute_single_test(
 
             # --- Persist result and deferred traces in a thread ---
             try:
-                from rhesis.backend.jobs.execution.batch.persist import persist_result
-
-                await _persist_to_completion(
-                    persist_result,
+                await _save_result(
                     ctx,
                     test_id,
                     test,

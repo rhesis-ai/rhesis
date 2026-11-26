@@ -33,6 +33,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 - A test run loads its tests in one query instead of one per test, and looks up input files only for tests that have some. A run of 200 tests sends about 2,000 fewer queries before its first test starts.
 - Saving a test result sends 2 statements instead of 7: the result status is cached per organization, the new row is not read back, and linking its traces no longer reads them first.
+- A test run saves its finished tests one after another on one database session, instead of one session per test, so a fast run holds fewer database connections.
 - Long background jobs (test runs, generation, tuning) no longer share a queue with short ones. Set `WORKER_LAYOUT=split` on the worker to run one process per kind of job, each sized for it: short jobs are prefetched (`CELERY_FAST_PREFETCH_MULTIPLIER`, default 8) so threads no longer sit idle waiting on the broker between them, and long jobs are taken one at a time. The default, `combined`, keeps one main process and one for the Architect, as before.
 - Each worker process sizes its database pool with `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` (default 10 and 20, as before).
 - The worker container no longer imports the backend three extra times at startup for its self-checks; it checks the broker with a plain Redis ping.
