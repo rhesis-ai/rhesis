@@ -29,6 +29,7 @@ from rhesis.backend.app.services.garak.taxonomy import GarakTaxonomy
 from rhesis.backend.app.services.test import bulk_create_tests
 from rhesis.backend.app.utils.crud_utils import get_item_detail
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+from rhesis.backend.app.utils.deadline import Deadline
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ class GarakSyncService:
         self.db = db
         self.probe_service = GarakProbeService()
         self._probes_by_module: Optional[Dict[str, List[GarakProbeInfo]]] = None
+        self._deadline: Optional[Deadline] = None
 
     def preload_probes(self, probes_by_module: Dict[str, List[GarakProbeInfo]]) -> None:
         """
@@ -89,6 +91,7 @@ class GarakSyncService:
         test_set_id: str,
         organization_id: str,
         user_id: str,
+        deadline: Optional[Deadline] = None,
     ) -> SyncResult:
         """
         Sync a Garak-imported test set with the latest probe.
@@ -101,13 +104,16 @@ class GarakSyncService:
             test_set_id: ID of the test set to sync
             organization_id: Organization ID
             user_id: User ID
+            deadline: Checked between steps. Nothing is committed if it passes.
 
         Returns:
             SyncResult with counts of added/removed/unchanged tests
 
         Raises:
             ValueError: If test set not found or not a Garak-imported test set
+            JobTimeLimitExceeded: *deadline* passed before the sync finished.
         """
+        self._deadline = deadline
         # Get the test set
         test_set = self._get_test_set_or_raise(test_set_id, organization_id, user_id)
 
@@ -142,6 +148,7 @@ class GarakSyncService:
                 f"Probe {module_name}.{probe_class} not found in current Garak version"
             )
 
+        self._check_deadline()
         # Get current prompts in the test set
         existing_probe_ids = self._get_existing_probe_ids(test_set)
 
@@ -169,6 +176,7 @@ class GarakSyncService:
             probe_ids_to_remove=to_remove,
         )
 
+        self._check_deadline()
         # Update test set metadata
         now = datetime.now(timezone.utc).isoformat()
         test_set.attributes = {
@@ -191,6 +199,10 @@ class GarakSyncService:
             new_garak_version=new_version,
             old_garak_version=old_version,
         )
+
+    def _check_deadline(self) -> None:
+        if self._deadline:
+            self._deadline.check()
 
     def _get_probe(self, module_name: str, class_name: str) -> Optional[GarakProbeInfo]:
         """Get a specific probe from Garak."""
@@ -269,6 +281,7 @@ class GarakSyncService:
         # Get all latest probes from all modules
         all_probes = []
         for module_name in modules:
+            self._check_deadline()
             probes = self.probe_service.get_probes_for_module(module_name, self._probes_by_module)
             all_probes.extend(probes)
 
@@ -298,6 +311,7 @@ class GarakSyncService:
         # Perform sync
         added_count = 0
         for probe in all_probes:
+            self._check_deadline()
             added_count += self._add_new_prompts(
                 test_set=test_set,
                 probe=probe,
@@ -311,6 +325,7 @@ class GarakSyncService:
             probe_ids_to_remove=to_remove,
         )
 
+        self._check_deadline()
         # Update metadata
         now = datetime.now(timezone.utc).isoformat()
         test_set.attributes = {

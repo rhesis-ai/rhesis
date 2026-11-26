@@ -42,6 +42,7 @@ from rhesis.backend.app.schemas.metric_tuning_metadata import (
 )
 from rhesis.backend.app.services import metric_tuning as service
 from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+from rhesis.backend.app.utils.deadline import JobTimeLimitExceeded
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 
 CASE_INPUT = "How are you?"
@@ -704,6 +705,28 @@ class TestRunResults:
         assert summary["status"] == "completed"
         assert summary["completed_cases"] == 2
         assert summary["errored_cases"] == 1
+
+    def test_a_run_past_its_deadline_stops_between_cases(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        test_org_id,
+        tuning_metric: models.Metric,
+    ):
+        _create_case(authenticated_client, tuning_metric.id)
+        _create_case(authenticated_client, tuning_metric.id, input="The second one")
+        test_db.expire_all()
+        factory, evaluator = _evaluator_returning({"score": 1.0, "reason": "fine"})
+        deadline = MagicMock()
+        deadline.check.side_effect = [None, JobTimeLimitExceeded("Tuning run stopped after 1s")]
+
+        with patch("rhesis.backend.metrics.evaluator.MetricEvaluator", factory):
+            with pytest.raises(JobTimeLimitExceeded):
+                service.execute_tuning_run(test_db, tuning_metric, test_org_id, None, deadline)
+
+        # The case judged before the deadline keeps its result.
+        summary = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+        assert summary["completed_cases"] == 1
 
     def test_an_error_result_from_the_evaluator_is_errored_too(
         self,

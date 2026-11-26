@@ -233,3 +233,46 @@ class TestPostSaveFailureIsolation:
 
         # The tests were saved, so they count even though the result build failed.
         mock_dispatch.assert_called_once_with("org-1", QuotaResource.TEST_GENERATION, 4)
+
+
+@pytest.mark.unit
+class TestGenerationTimeLimit:
+    def test_stops_at_a_progress_report_past_the_limit(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from rhesis.backend.app.utils.deadline import JobTimeLimitExceeded
+        from rhesis.backend.jobs import test_set
+
+        monkeypatch.setattr(
+            test_set, "get_job_limit_settings", lambda: SimpleNamespace(generation_time_limit=0)
+        )
+        reported = []
+
+        def generate(num_tests, on_progress):
+            # The SDK synthesizers catch Exception around their progress reports.
+            for done in range(1, num_tests + 1):
+                try:
+                    on_progress(done, num_tests)
+                except Exception:
+                    pass
+            return "finished"
+
+        synthesizer = MagicMock()
+        synthesizer.generate.side_effect = generate
+
+        with pytest.raises(JobTimeLimitExceeded, match="Test set generation stopped"):
+            test_set._generate_within_limit(
+                synthesizer, 3, lambda current, total: reported.append(current)
+            )
+        assert reported == [1]
+
+    def test_the_task_fails_without_wrapping_the_error(self):
+        """Wrapped in a plain Exception, Celery would retry it and hit the limit again."""
+        from rhesis.backend.app.utils.deadline import JobTimeLimitExceeded
+
+        with patch(
+            "rhesis.backend.jobs.test_set._generate_within_limit",
+            side_effect=JobTimeLimitExceeded("Test set generation stopped after 7200s"),
+        ):
+            with pytest.raises(JobTimeLimitExceeded):
+                _run_task(num_tests_requested=5, tests_actually_generated=5)

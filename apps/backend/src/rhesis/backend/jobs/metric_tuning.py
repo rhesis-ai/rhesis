@@ -9,8 +9,10 @@ is not something to hold a browser open for.
 import logging
 import uuid
 
+from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.crud.metric import get_metric
 from rhesis.backend.app.services import metric_tuning as service
+from rhesis.backend.app.utils.deadline import Deadline
 from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.base import BaseJob
 
@@ -44,7 +46,8 @@ def run_metric_tuning(self, metric_id: str):
             return {"metric_id": metric_id, "status": "failed", "error": "Metric not found"}
 
         try:
-            summary = service.execute_tuning_run(db, metric, org_id, user_id)
+            deadline = Deadline(get_job_limit_settings().metric_tuning_time_limit, "Tuning run")
+            summary = service.execute_tuning_run(db, metric, org_id, user_id, deadline)
         except Exception as e:
             self.log_with_context("error", "Tuning run failed", metric_id=metric_id, error=str(e))
             # Leaving the run marked `running` would both look like progress and

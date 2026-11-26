@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 from uuid import UUID
 
 from celery import Task
+from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_frontend_settings
@@ -18,6 +19,7 @@ from rhesis.backend.app.quota.hosted_refusals import (
     HostedRequestTooLarge,
 )
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+from rhesis.backend.app.utils.deadline import JobTimeLimitExceeded
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.jobs.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
 from rhesis.sdk.models.providers.native import PlatformRefusedCall
@@ -100,10 +102,6 @@ def in_app_notification(event_type):
     return decorator
 
 
-class JobTimeLimitExceeded(Exception):
-    """A job stopped itself at its wall-clock limit; a retry would only hit it again."""
-
-
 class BaseJob(Task):
     """Base task class with tenant context, logging, retry logic, and email notifications."""
 
@@ -134,10 +132,12 @@ class BaseJob(Task):
     # soft-deleted row is the same story: whatever it referenced stays deleted
     # on every retry. So do the hosted spend refusals, until a cap is lifted or the UTC
     # day rolls over; a per-minute throughput refusal (ModelCallThrottled) is retried.
+    # A job stopped at its time limit would only hit it again.
     dont_autoretry_for = (
         ModelConfigurationError,
         ItemDeletedException,
         JobTimeLimitExceeded,
+        SoftTimeLimitExceeded,
         HostedModelCapReached,
         HostedModelOrgCapReached,
         HostedRequestTooLarge,

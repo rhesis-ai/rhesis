@@ -2,6 +2,7 @@ from celery.schedules import crontab
 
 from rhesis.backend.app.config.settings import get_job_limit_settings, get_redis_settings
 from rhesis.backend.app.ee_bootstrap import ee_celery_jobs
+from rhesis.backend.app.services.job_deadlines import CPU_JOB_TIME_LIMITS, job_time_limits
 from rhesis.backend.celery.queues import TASK_ROUTES
 
 redis_settings = get_redis_settings()
@@ -10,9 +11,9 @@ job_limits = get_job_limit_settings()
 # execute_test_configuration stops itself at EXECUTION_TIME_LIMIT (see
 # jobs/execution/shared.run_deadline); the hard limit leaves room to wrap up.
 EXECUTION_HARD_LIMIT = job_limits.execution_time_limit + 300
-# Must outlast test runs and explorations, which stop themselves (see
-# broker_transport_options below), so it follows the execution limit up.
-VISIBILITY_TIMEOUT = max(7200, EXECUTION_HARD_LIMIT + 300)
+# Must outlast every job with a time limit (see broker_transport_options below), so it
+# follows the longest one up.
+VISIBILITY_TIMEOUT = max(7200, max(job_time_limits().values()) + 600)
 
 
 # Worker-context config: retry aggressively to ensure task delivery
@@ -44,9 +45,8 @@ CELERY_CONFIG = {
         # Must exceed the longest task run, or Redis redelivers a still-running
         # task to a second worker and it runs twice: with task_acks_late the
         # message is only acked on completion. The worker's thread pool ignores
-        # time_limit, so a test run is bounded by its own deadline
-        # (EXECUTION_TIME_LIMIT) and this stays above it. Generation, Garak and
-        # tuning jobs have no in-job limit yet and can still outlast it.
+        # time_limit, so long jobs stop themselves at their own limits (see
+        # app/services/job_deadlines.py) and this stays above the longest.
         "visibility_timeout": VISIBILITY_TIMEOUT,
         "connection_pool_kwargs": {
             "max_connections": 10,
@@ -100,6 +100,11 @@ CELERY_CONFIG = {
             "max_retries": 3,
             "soft_time_limit": 600,
             "time_limit": 660,
+        },
+        # Enforced on the prefork pool, which kills the child at the hard limit.
+        **{
+            f"rhesis.backend.jobs.{job_type}": {"soft_time_limit": soft, "time_limit": hard}
+            for job_type, (soft, hard) in CPU_JOB_TIME_LIMITS.items()
         },
     },
     # Task discovery

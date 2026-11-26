@@ -562,6 +562,10 @@ class JobLimitSettings(BaseSettings):
     # Unset or 0 derives it from max_per_test_timeout.
     execution_time_limit: int = Field(default=0, alias="EXECUTION_TIME_LIMIT", ge=0)
     exploration_time_limit: int = Field(default=3600, alias="EXPLORATION_TIME_LIMIT", gt=0)
+    # Test set generation, OWASP generation included.
+    generation_time_limit: int = Field(default=7200, alias="GENERATION_TIME_LIMIT", gt=0)
+    metric_tuning_time_limit: int = Field(default=3600, alias="METRIC_TUNING_TIME_LIMIT", gt=0)
+    garak_sync_time_limit: int = Field(default=1800, alias="GARAK_SYNC_TIME_LIMIT", gt=0)
     # Queued or running heavy jobs per organization; 0 turns the cap off.
     max_active_jobs_per_org: int = Field(default=10, alias="MAX_ACTIVE_JOBS_PER_ORG", ge=0)
 
