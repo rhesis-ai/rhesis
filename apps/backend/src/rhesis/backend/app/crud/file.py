@@ -103,7 +103,7 @@ def get_files_for_entity(
     )
 
 
-def entity_ids_with_files(db: Session, entity_type: str, entity_ids: List[str]) -> Set[str]:
+def entity_ids_with_files(db: Session, entity_type: str, entity_ids: List[uuid.UUID]) -> Set[str]:
     """The ids among *entity_ids* that have at least one stored file."""
     if not entity_ids:
         return set()

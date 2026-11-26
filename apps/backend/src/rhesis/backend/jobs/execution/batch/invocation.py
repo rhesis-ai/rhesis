@@ -32,9 +32,8 @@ def is_multi_turn_test(test: Optional[Test]) -> bool:
 async def load_input_files_lazy(ctx: ExecutionContext, test_id: str) -> Optional[List]:
     """Load input files on demand (inside the semaphore) to avoid holding all
     base64-encoded attachments in memory for the full batch duration."""
-    cached = ctx.input_files.get(test_id)
-    if cached is not None:
-        return cached
+    if test_id in ctx.input_files:
+        return ctx.input_files[test_id] or None
     if ctx.tests_with_files is not None and test_id not in ctx.tests_with_files:
         return None
 
@@ -51,8 +50,8 @@ async def load_input_files_lazy(ctx: ExecutionContext, test_id: str) -> Optional
 
     try:
         files = await asyncio.to_thread(_load)
+        ctx.input_files[test_id] = files
         if files:
-            ctx.input_files[test_id] = files
             return files
     except Exception as e:
         logger.warning(f"[BATCH] Failed to load input files for {test_id}: {e}")

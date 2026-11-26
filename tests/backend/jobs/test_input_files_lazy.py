@@ -41,3 +41,13 @@ class TestLoadInputFilesLazy:
             assert asyncio.run(load_input_files_lazy(ctx, "t1")) == ["file"]
         load.assert_called_once()
         assert ctx.input_files["t1"] == ["file"]
+
+    def test_no_files_is_remembered(self):
+        with (
+            patch("rhesis.backend.app.database.get_db_with_tenant_variables"),
+            patch(_LOAD, return_value=[]) as load,
+        ):
+            ctx = _ctx(None)
+            assert asyncio.run(load_input_files_lazy(ctx, "t1")) is None
+            assert asyncio.run(load_input_files_lazy(ctx, "t1")) is None
+        load.assert_called_once()

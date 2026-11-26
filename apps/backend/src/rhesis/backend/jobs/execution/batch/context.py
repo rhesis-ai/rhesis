@@ -378,7 +378,7 @@ def _prefetch_tests(
             "prompt_content": prompt_content,
             "expected_response": expected_response,
         }
-    return test_data, entity_ids_with_files(session, "Test", list(loaded))
+    return test_data, entity_ids_with_files(session, "Test", [t.id for t in loaded.values()])
 
 
 def prefetch_execution_context(
