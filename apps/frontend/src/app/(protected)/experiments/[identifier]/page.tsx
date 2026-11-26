@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import * as React from 'react';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import ExperimentDetailClient, {
   type ExperimentDetailData,
 } from './components/ExperimentDetailClient';
@@ -36,7 +36,8 @@ export default async function ExperimentDetailPage({ params }: PageProps) {
     ]);
     initialExperiment = { experiment, schema, environments };
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 

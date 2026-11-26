@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import RequirementDetailClient from './components/RequirementDetailClient';
 import { prefetch } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
@@ -33,7 +33,8 @@ export default async function RequirementDetailPage({ params }: PageProps) {
   try {
     requirement = await client.getRequirementWithMetrics(identifier as UUID);
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 

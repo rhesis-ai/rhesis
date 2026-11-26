@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import { isValidEndpointId } from '@/utils/is-valid-endpoint-id';
 import ProjectEndpointDetailPageClient from './components/ProjectEndpointDetailPageClient';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -35,7 +35,8 @@ export default async function ProjectEndpointPage({ params }: PageProps) {
   ]);
 
   if (endpointResult.status === 'rejected') {
-    notFoundIfEntityMissing(endpointResult.reason);
+    const errorView = entityErrorView(endpointResult.reason);
+    if (errorView) return errorView;
     throw endpointResult.reason;
   }
   const endpoint: Endpoint = endpointResult.value;

@@ -1,6 +1,6 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { requireSession } from '@/utils/require-session';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import TestRunMainView from '../components/TestRunMainViewClient';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
@@ -89,7 +89,8 @@ export default async function TestRunPage({
   try {
     testRun = await testRunsClient.getTestRun(identifier);
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 

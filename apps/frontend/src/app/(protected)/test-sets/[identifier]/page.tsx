@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import { prefetchList } from '@/utils/server-prefetch';
 import { firstPageParams } from '@/utils/list';
 import { requireSession } from '@/utils/require-session';
@@ -41,7 +41,8 @@ export default async function TestSetPage({ params }: PageProps) {
   try {
     testSet = await testSetsClient.getTestSet(identifier);
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 

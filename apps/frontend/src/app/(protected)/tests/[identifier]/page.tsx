@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
 import { fetchTestExecutionHistory } from '@/components/tests/test-execution-history';
@@ -60,7 +60,8 @@ export default async function TestDetailPage({ params }: PageProps) {
   try {
     test = await testsClient.getTest(identifier);
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 

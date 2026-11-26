@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import { isValidEndpointId } from '@/utils/is-valid-endpoint-id';
 import EndpointDetailPageClient from './components/EndpointDetailPageClient';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -27,7 +27,8 @@ export default async function EndpointPage({ params }: PageProps) {
   try {
     endpoint = await factory.getEndpointsClient().getEndpoint(identifier);
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 
