@@ -13,11 +13,10 @@ logger = logging.getLogger(__name__)
 
 @app.task(bind=True, max_retries=3, default_retry_delay=60)
 def enrich_trace_async(self, trace_id: str, project_id: str, organization_id: str) -> dict:
-    """
-    Enrich trace asynchronously in background.
+    """Enrich a stored trace.
 
-    This reuses the same enrichment logic as sync enrichment.
-    The only difference is it runs in a Celery worker.
+    Kept for messages queued by the previous release. New spans are enriched in the
+    transaction that stores them (``span_storage.store_spans``), so nothing queues this.
 
     Args:
         trace_id: Trace ID to enrich

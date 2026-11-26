@@ -65,6 +65,24 @@ def get_metric(
     )
 
 
+def get_metrics_by_ids_for_scope(
+    db: Session, organization_id: str, metric_ids: List[str], metric_scope: str
+) -> List[models.Metric]:
+    """The organization's live metrics among *metric_ids* that apply to *metric_scope*."""
+    if not metric_ids:
+        return []
+    return (
+        db.query(models.Metric)
+        .filter(
+            models.Metric.organization_id == organization_id,
+            models.Metric.deleted_at.is_(None),
+            models.Metric.id.in_(metric_ids),
+            models.Metric.metric_scope.contains([metric_scope]),
+        )
+        .all()
+    )
+
+
 def _metric_scope_filter(metric_scope: str | None):
     """Build a query transform filtering Metric.metric_scope by a comma-separated scope list.
 

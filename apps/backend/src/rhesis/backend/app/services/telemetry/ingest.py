@@ -18,8 +18,8 @@ from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import TraceIngestSettings
-from rhesis.backend.app.crud.telemetry import create_trace_spans, lock_traces_for_ingest
 from rhesis.backend.app.database import temporary_project_scope
+from rhesis.backend.app.services.telemetry.span_storage import store_spans
 from rhesis.backend.app.utils.crud_utils import clean_strings_recursive
 
 logger = logging.getLogger(__name__)
@@ -189,11 +189,15 @@ def apply_span_limits(spans: Sequence[OTELSpan], settings: TraceIngestSettings) 
 
 @dataclass
 class StoredBatch:
-    """What one call to :func:`process_ingest_job` stored, and the post-ingest job arguments."""
+    """What one call to :func:`process_ingest_job` stored: the new rows, as inserted
+    (still readable after the commit)."""
 
-    span_count: int = 0
+    spans: List[Any] = field(default_factory=list)
     trace_ids: List[str] = field(default_factory=list)
-    dispatch_kwargs: Optional[Dict[str, Any]] = None
+
+    @property
+    def span_count(self) -> int:
+        return len(self.spans)
 
 
 def _inject_pending_output(spans: List[OTELSpan], organization_id: str, project_id: str) -> None:
@@ -221,12 +225,8 @@ def _run_pre_store_hooks(db: Session, job: IngestJob) -> None:
         hook(db, job.spans, job.organization_id, job.project_id)
 
 
-def _str_or_none(value: Any) -> Optional[str]:
-    return value if isinstance(value, str) and value else None
-
-
 def process_ingest_job(db: Session, job: IngestJob) -> StoredBatch:
-    """Store a queued job's spans and commit. Does not dispatch post-processing.
+    """Store a queued job's spans, enriched, and commit. Does not run post-processing.
 
     Spans already stored (same ``trace_id`` and ``span_id``) are skipped, so a
     retried export is safe. Raises :class:`SpanStorageError` when the write fails.
@@ -240,9 +240,9 @@ def process_ingest_job(db: Session, job: IngestJob) -> StoredBatch:
         with temporary_project_scope(db, organization_id, job.user_id or "", project_id):
             # Hooks run first and take their own locks, in an order of their
             # choosing; a hook that re-files spans locks the traces it writes.
+            # store_spans locks the traces it stores.
             _run_pre_store_hooks(db, job)
-            lock_traces_for_ingest(db, organization_id, [s.trace_id for s in spans])
-            stored = create_trace_spans(db, spans, organization_id)
+            stored = store_spans(db, spans, organization_id)
         db.commit()
     except DataError as exc:
         db.rollback()
@@ -263,22 +263,4 @@ def process_ingest_job(db: Session, job: IngestJob) -> StoredBatch:
 
     if not stored:
         return StoredBatch()
-
-    first = stored[0]
-    trace_ids = list({s.trace_id for s in stored})
-    # ORM objects stay usable after commit because expire_on_commit=False.
-    return StoredBatch(
-        span_count=len(stored),
-        trace_ids=trace_ids,
-        dispatch_kwargs=dict(
-            stored_span_ids=[str(s.id) for s in stored],
-            unique_trace_ids=trace_ids,
-            organization_id=organization_id,
-            project_id=str(project_id),
-            test_run_id=str(first.test_run_id) if first.test_run_id else None,
-            test_id=str(first.test_id) if first.test_id else None,
-            test_configuration_id=_str_or_none(
-                first.attributes.get("rhesis.test.test_configuration_id")
-            ),
-        ),
-    )
+    return StoredBatch(spans=stored, trace_ids=list({s.trace_id for s in stored}))

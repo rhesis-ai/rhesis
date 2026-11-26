@@ -446,9 +446,11 @@ class TestHostedDefaultsAreGated:
         assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED
 
     def _prepare(self, project):
-        from rhesis.backend.jobs.telemetry import evaluate
+        from rhesis.backend.app.services.telemetry import evaluation_context
 
-        return evaluate._build_evaluator(Mock(), project, "trace", "org")
+        db = Mock()
+        db.query.return_value.filter.return_value.first.return_value = project
+        return evaluation_context.build_evaluator(db, "project", "trace", "org")
 
     def test_trace_evaluation_setup_raises_at_the_limit(self):
         # The task catches it and marks the trace Skipped (jobs/test_trace_eval_token_limit.py).

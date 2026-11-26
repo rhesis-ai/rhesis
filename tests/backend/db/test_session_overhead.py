@@ -101,3 +101,21 @@ class TestTenantSessionOverhead:
             ).scalar()
 
         assert current == str(test_org_id)
+
+    def test_entering_the_scope_a_session_already_has_costs_nothing(self, test_org_id):
+        """A job binds its session's scope, then storage enters the same project scope."""
+        from uuid import uuid4
+
+        from rhesis.backend.app.database import bind_scope_to_session, temporary_project_scope
+
+        project_id = str(uuid4())
+        with get_db_with_tenant_variables() as db:
+            bind_scope_to_session(db, str(test_org_id), "", project_id)
+            with _StatementCounter() as counter:
+                with temporary_project_scope(db, str(test_org_id), "", project_id):
+                    current = db.execute(
+                        text("SELECT current_setting('app.current_project', true)")
+                    ).scalar()
+
+        assert counter.set_config_calls == []
+        assert current == project_id

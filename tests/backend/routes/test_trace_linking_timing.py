@@ -9,7 +9,6 @@ This module tests the complete trace linking flow including:
 
 import asyncio
 from datetime import datetime, timezone
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -257,7 +256,7 @@ class TestTraceLinkingTiming:
         self, test_db, test_organization, db_project, db_test, db_test_run, db_test_configuration
     ):
         """
-        Test complete flow: span ingestion → enrichment → linking.
+        Test complete flow: span storage (enriched on insert) → linking.
 
         This tests the real flow through the telemetry endpoint.
         """
@@ -285,23 +284,17 @@ class TestTraceLinkingTiming:
             for _ in range(5)
         ]
 
-        # Use EnrichmentService (simulates telemetry endpoint flow)
-        # Force sync fallback by making async dispatch fail with a broker error
+        # Spans are enriched as they are stored; the project has no trace metrics, so
+        # no evaluation is queued.
         enrichment_service = EnrichmentService(test_db)
-
-        with patch.object(
-            enrichment_service,
-            "_enqueue_async",
-            side_effect=ConnectionError("Broker unavailable"),
-        ):
-            stored_spans, async_count, sync_count = enrichment_service.create_and_enrich_spans(
-                spans=spans,
-                organization_id=str(test_organization.id),
-                project_id=str(db_project.id),
-            )
+        stored_spans, queued, not_queued = enrichment_service.create_and_enrich_spans(
+            spans=spans,
+            organization_id=str(test_organization.id),
+            project_id=str(db_project.id),
+        )
 
         assert len(stored_spans) == 5
-        assert sync_count == 5
+        assert (queued, not_queued) == (0, 0)
 
         # Link traces
         linking_service = TraceLinkingService(test_db)
@@ -320,8 +313,8 @@ class TestTraceLinkingTiming:
         assert len(all_traces) == 5
         for trace in all_traces:
             assert trace.test_result_id == test_result.id
-            # Enrichment should have been triggered
-            assert trace.enriched_data is not None or trace.processed_at is not None
+            assert trace.enriched_data is not None
+            assert trace.processed_at is not None
 
     def test_idempotent_linking_multiple_batches(
         self, test_db, test_organization, db_project, db_test, db_test_run, db_test_configuration

@@ -10,11 +10,12 @@ import uuid
 import zlib
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
 from uuid import UUID
 
-from sqlalchemy import String, and_, asc, cast, desc, false, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import String, and_, asc, cast, desc, false, func, insert, or_, select
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Session, make_transient_to_detached
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import (
@@ -271,9 +272,19 @@ def lock_ingest_buckets(db: Session, namespace: str, keys: Iterable[str]) -> Non
 
     Taken in sorted order, so jobs locking overlapping buckets cannot deadlock.
     """
-    buckets = {zlib.crc32(key.encode()) % INGEST_LOCK_BUCKETS for key in keys}
-    for bucket in sorted(buckets):
-        advisory_xact_lock(db, f"{namespace}:{bucket}")
+    buckets = sorted({zlib.crc32(key.encode()) % INGEST_LOCK_BUCKETS for key in keys})
+    if not buckets:
+        return
+    # One statement for all of them: Postgres evaluates the select list left to right,
+    # so the sorted order still holds.
+    db.execute(
+        select(
+            *[
+                func.pg_advisory_xact_lock(func.hashtextextended(f"{namespace}:{bucket}", 0))
+                for bucket in buckets
+            ]
+        )
+    )
 
 
 def lock_traces_for_ingest(db: Session, organization_id: str, trace_ids: Iterable[str]) -> None:
@@ -297,6 +308,19 @@ def first_root_start_time(db: Session, trace_id: str) -> Optional[datetime]:
         db.query(func.min(models.Trace.start_time))
         .filter(models.Trace.trace_id == trace_id, models.Trace.parent_span_id.is_(None))
         .scalar()
+    )
+
+
+def load_trace_spans(db: Session, trace_ids: Iterable[str]) -> List[models.Trace]:
+    """Every stored span of *trace_ids* in the bound project, oldest first."""
+    trace_ids = list(set(trace_ids))
+    if not trace_ids:
+        return []
+    return (
+        db.query(models.Trace)
+        .filter(models.Trace.trace_id.in_(trace_ids))
+        .order_by(models.Trace.start_time.asc())
+        .all()
     )
 
 
@@ -350,10 +374,42 @@ def move_spans_to_trace(
     return len(moved)
 
 
+# What create_trace_spans writes; the rest (created_at, nano_id, defaults) the insert fills.
+_SPAN_INSERT_KEYS = (
+    "id",
+    "trace_id",
+    "span_id",
+    "parent_span_id",
+    "project_id",
+    "organization_id",
+    "environment",
+    "conversation_id",
+    "span_name",
+    "span_kind",
+    "span_type",
+    "start_time",
+    "end_time",
+    "duration_ms",
+    "status_code",
+    "status_message",
+    "attributes",
+    "events",
+    "links",
+    "resource",
+    "test_run_id",
+    "test_result_id",
+    "test_id",
+    "enriched_data",
+    "processed_at",
+)
+
+
 def create_trace_spans(
     db: Session,
     spans: List[OTELSpanCreate],
     organization_id: str,
+    existing: Optional[List[models.Trace]] = None,
+    before_commit: Optional[Callable[[List[models.Trace]], None]] = None,
 ) -> List[models.Trace]:
     """
     Create multiple trace spans in the database.
@@ -362,9 +418,13 @@ def create_trace_spans(
         db: Database session
         spans: List of span schemas to create
         organization_id: Organization ID for multi-tenancy
+        existing: The stored spans of these traces, when the caller loaded them
+            already; used for the duplicate check instead of another query.
+        before_commit: Called with the new rows after they are added and before the
+            commit, so the caller can fill derived columns into the same INSERT.
 
     Returns:
-        List of created Trace models
+        The created rows, attached to the session and still readable after the commit.
 
     Raises:
         Exception: If database operation fails
@@ -387,7 +447,10 @@ def create_trace_spans(
     trace_models = []
     # Exporters retry, so a batch can arrive twice. Skip spans already stored in
     # this project and repeats within the batch itself.
-    seen = existing_span_keys(db, [(span.trace_id, span.span_id) for span in spans])
+    if existing is None:
+        seen = existing_span_keys(db, [(span.trace_id, span.span_id) for span in spans])
+    else:
+        seen = {(row.trace_id, row.span_id) for row in existing}
 
     for span in spans:
         key = (span.trace_id, span.span_id)
@@ -427,11 +490,27 @@ def create_trace_spans(
             test_id=_safe_uuid(test_id, "test_id"),
         )
 
-        db.add(trace_model)
         trace_models.append(trace_model)
+
+    if before_commit and trace_models:
+        before_commit(trace_models)
 
     prev_expire = db.expire_on_commit
     try:
+        if trace_models:
+            # One multi-row INSERT. Added to the session instead, each row would be its own
+            # statement: the ORM reads server defaults back with RETURNING and can't match
+            # GUID keys to rows, so it sends them one at a time. render_nulls keeps a root
+            # span (no parent) in the same statement as its children.
+            db.execute(
+                insert(models.Trace).execution_options(render_nulls=True),
+                [{key: getattr(row, key) for key in _SPAN_INSERT_KEYS} for row in trace_models],
+            )
+            # Attach the rows as stored, without reading them back; a column the insert
+            # left to the database (created_at, nano_id) loads if it is read.
+            for row in trace_models:
+                make_transient_to_detached(row)
+                db.add(row)
         db.expire_on_commit = False
         db.commit()
         return trace_models
@@ -1289,6 +1368,7 @@ def mark_trace_processed(
     db: Session,
     trace_id: str,
     enriched_data: dict,
+    commit: bool = True,
 ) -> int:
     """
     Mark all spans in a trace as processed.
@@ -1297,6 +1377,8 @@ def mark_trace_processed(
         db: Database session
         trace_id: OpenTelemetry trace ID
         enriched_data: Enriched attributes to store
+        commit: False leaves the write in the caller's transaction, e.g. to commit it
+            with the spans being inserted while the trace's ingest lock is held.
 
     Returns:
         Number of spans updated
@@ -1312,7 +1394,8 @@ def mark_trace_processed(
         },
     )
 
-    db.commit()
+    if commit:
+        db.commit()
     return len(ids)
 
 
@@ -1483,6 +1566,43 @@ def update_conversation_id_for_trace(
 # ---------------------------------------------------------------
 
 
+def _with_metrics_key(key: str, value: dict):
+    """``trace_metrics`` with *key* set to *value*, merged in SQL.
+
+    Turn and conversation evaluations write different keys of the same column and can
+    finish at once; merging in the UPDATE keeps both, where read-modify-write in Python
+    would let the later one drop the other's key. It also saves reading the rows first.
+    """
+    return func.coalesce(models.Trace.trace_metrics, cast({}, JSONB)).op("||", return_type=JSONB)(
+        func.jsonb_build_object(key, cast(value, JSONB))
+    )
+
+
+def _metrics_update_values(
+    key: str,
+    metrics: dict,
+    status_id: Optional[str],
+    execution: Optional[str],
+    verdict: Optional[str],
+    processed_at: Optional[datetime],
+) -> Dict[Any, Any]:
+    now = datetime.now(timezone.utc)
+    values: Dict[Any, Any] = {
+        "trace_metrics": _with_metrics_key(key, metrics),
+        "trace_metrics_processed_at": processed_at or now,
+        "updated_at": now,
+    }
+    if status_id is not None:
+        values["trace_metrics_status_id"] = status_id
+    if execution is not None:
+        # verdict is written unconditionally alongside execution: the
+        # ck_trace_verdict_requires_ok constraint means leaving a stale
+        # verdict behind when execution moves off 'ok' would fail the write.
+        values["execution"] = execution
+        values["verdict"] = verdict
+    return values
+
+
 def update_trace_turn_metrics(
     db: Session,
     span_id: str,
@@ -1492,39 +1612,17 @@ def update_trace_turn_metrics(
     verdict: Optional[str] = None,
     processed_at: Optional[datetime] = None,
 ) -> int:
-    """Update turn-level trace metrics on a single span row.
-
-    Merges turn_metrics into trace_metrics.turn_metrics without
-    overwriting conversation_metrics if already present.
+    """Set trace_metrics.turn_metrics on one span row, keeping conversation_metrics.
 
     ``execution``/``verdict`` are the source of truth (app/outcomes.py) and
     are written together with the legacy ``status_id``; see
     jobs/telemetry/evaluate.py's _derive_outcome, which produces all three
     from one classification.
     """
-    span = db.query(models.Trace).filter(models.Trace.id == span_id).first()
-    if not span:
-        return 0
-
-    existing = span.trace_metrics or {}
-    existing["turn_metrics"] = turn_metrics
-    now = processed_at or datetime.now(timezone.utc)
-
-    update_values: Dict[str, Any] = {
-        "trace_metrics": existing,
-        "trace_metrics_processed_at": now,
-        "updated_at": datetime.now(timezone.utc),
-    }
-    if status_id is not None:
-        update_values["trace_metrics_status_id"] = status_id
-    if execution is not None:
-        # verdict is written unconditionally alongside execution: the
-        # ck_trace_verdict_requires_ok constraint means leaving a stale
-        # verdict behind when execution moves off 'ok' would fail the write.
-        update_values["execution"] = execution
-        update_values["verdict"] = verdict
-
-    ids = bulk_update(db, models.Trace, [models.Trace.id == span_id], update_values)
+    values = _metrics_update_values(
+        "turn_metrics", turn_metrics, status_id, execution, verdict, processed_at
+    )
+    ids = bulk_update(db, models.Trace, [models.Trace.id == span_id], values)
     db.commit()
     return len(ids)
 
@@ -1538,41 +1636,16 @@ def update_trace_conversation_metrics(
     verdict: Optional[str] = None,
     processed_at: Optional[datetime] = None,
 ) -> int:
-    """Update conversation-level trace metrics on all spans sharing a trace_id.
+    """Set trace_metrics.conversation_metrics on every span of *trace_id*, in one UPDATE.
 
-    Writes conversation_metrics into trace_metrics.conversation_metrics on
-    every span row, re-derives status from combined turn + conversation results.
+    Keeps each span's turn_metrics; status is re-derived by the caller from both.
     """
-    from sqlalchemy.orm.attributes import flag_modified
-
-    spans = db.query(models.Trace).filter(models.Trace.trace_id == trace_id).all()
-    if not spans:
-        return 0
-
-    now = processed_at or datetime.now(timezone.utc)
-    count = 0
-    for span in spans:
-        existing = span.trace_metrics or {}
-        # Important: copy the dict so SQLAlchemy detects the change, or use flag_modified
-        new_metrics = dict(existing)
-        new_metrics["conversation_metrics"] = conversation_metrics
-        span.trace_metrics = new_metrics
-
-        # Explicitly flag the JSON column as modified
-        flag_modified(span, "trace_metrics")
-
-        span.trace_metrics_processed_at = now
-        span.updated_at = datetime.now(timezone.utc)
-        if status_id is not None:
-            span.trace_metrics_status_id = status_id
-        if execution is not None:
-            # Paired write -- see update_trace_turn_metrics.
-            span.execution = execution
-            span.verdict = verdict
-        count += 1
-
+    values = _metrics_update_values(
+        "conversation_metrics", conversation_metrics, status_id, execution, verdict, processed_at
+    )
+    ids = bulk_update(db, models.Trace, [models.Trace.trace_id == trace_id], values)
     db.commit()
-    return count
+    return len(ids)
 
 
 def get_trace_metrics_aggregated(
