@@ -64,6 +64,7 @@ _RUN_SETTING_KEYS = (
     "evaluation_model_id",
     "parameters_ref",
     "execution_mode",
+    "tests_tagged",
 )
 
 
@@ -166,13 +167,29 @@ def _apply_spec(schedule: dict, spec: ScheduleSpecIn) -> None:
 def _settings_attributes(
     db: Session, test_set_id: UUID, settings: TestSetExecutionRequest | None
 ) -> dict[str, Any]:
-    from rhesis.backend.app.services.test_set import resolve_metrics_source
+    from rhesis.backend.app.services.test_set import (
+        TESTS_TAGGED_KEY,
+        count_test_set_tests,
+        no_tagged_tests_message,
+        resolve_metrics_source,
+    )
 
     settings = settings or TestSetExecutionRequest()
     metrics = [
         {"id": str(m.id), "name": m.name, "scope": m.scope} for m in settings.metrics or []
     ] or None
-    attributes: dict[str, Any] = dict(settings.execution_options or {"execution_mode": "Parallel"})
+    attributes: dict[str, Any] = {
+        k: v
+        for k, v in (settings.execution_options or {"execution_mode": "Parallel"}).items()
+        if k != TESTS_TAGGED_KEY
+    }
+    if settings.tests_tagged:
+        if count_test_set_tests(db, test_set_id, settings.tests_tagged) == 0:
+            from rhesis.backend.app.crud.test_set import get_test_set_name
+
+            name = get_test_set_name(db, test_set_id) or "this test set"
+            raise ScheduleValidationError(no_tagged_tests_message(name, settings.tests_tagged))
+        attributes[TESTS_TAGGED_KEY] = settings.tests_tagged
     attributes["metrics_source"] = resolve_metrics_source(db, test_set_id, metrics)
     if metrics:
         attributes["metrics"] = metrics

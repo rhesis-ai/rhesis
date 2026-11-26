@@ -57,11 +57,17 @@ def execute_configuration(
     so runs from the existing paths look exactly as before. Raises ``QuotaExceededError``,
     the model check's errors, ``JobCapacityExceededError`` or ``RunSubmissionError``.
     """
-    from rhesis.backend.app.services.test_set import enforce_test_run_quota
+    from rhesis.backend.app.services.test_set import enforce_test_run_quota, tagged_test_filter
     from rhesis.backend.jobs.execution.run import create_test_run, plan_run_for_user
 
     if check_quota and config.test_set_id:
-        enforce_test_run_quota(db, str(config.organization_id), str(user.id), config.test_set_id)
+        enforce_test_run_quota(
+            db,
+            str(config.organization_id),
+            str(user.id),
+            config.test_set_id,
+            tagged_test_filter(config.attributes),
+        )
 
     if parameters_ref:
         attributes = dict(config.attributes or {})

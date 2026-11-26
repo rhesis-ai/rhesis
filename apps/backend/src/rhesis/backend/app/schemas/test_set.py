@@ -253,6 +253,13 @@ class TestSetBulkAssociateRequest(BaseModel):
     test_ids: BulkIds
 
 
+class TestSetTestTag(BaseModel):
+    """A tag used on a test set's tests, and how many of them carry it."""
+
+    name: str
+    test_count: int
+
+
 class TestSetBulkAssociateResponse(BaseModel):
     success: bool
     total_tests: int
@@ -300,6 +307,10 @@ class ExecutionMetric(BaseModel):
     scope: Optional[List[str]] = None  # e.g., ["Single-Turn"], ["Multi-Turn"], or both
 
 
+#: How many tags a run can filter its tests by.
+MAX_TESTS_TAGGED = 20
+
+
 class TestSetExecutionRequest(BaseModel):
     """Request model for test set execution with flexible execution options."""
 
@@ -318,6 +329,16 @@ class TestSetExecutionRequest(BaseModel):
     )
     version: Optional[str] = None
     environment: Optional[str] = None
+    tests_tagged: List[str] = Field(
+        default_factory=list,
+        max_length=MAX_TESTS_TAGGED,
+        description="Run only the tests carrying any of these tags. Empty runs every test.",
+    )
+
+    @field_validator("tests_tagged")
+    @classmethod
+    def clean_tests_tagged(cls, v: List[str]) -> List[str]:
+        return list(dict.fromkeys(tag.strip() for tag in v if tag.strip()))
 
     @field_validator("execution_options")
     @classmethod

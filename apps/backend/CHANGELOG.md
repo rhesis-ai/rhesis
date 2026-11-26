@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Run tagged tests**: executing a test set, and a schedule's run settings, take `tests_tagged`, a list of tag names. The run includes only the tests carrying any of them, and its test count, quota check, metric plan and re-scores follow the same tests. A schedule whose tags no longer match any test pauses.
+- **Test tags of a test set**: `GET /test_sets/{id}/test-tags` lists the tags on a set's tests, each with how many tests carry it. The MCP server exposes it as `list_test_set_test_tags`, and `execute_test_set` takes `tests_tagged`.
+
 ### Fixed
 
 - **Connector keepalive**: the connector WebSocket sends an app-level `ping` every third of `WS_IDLE_TIMEOUT`, so quiet SDK connectors are no longer closed by the idle timeout. A client that stops answering is still closed.

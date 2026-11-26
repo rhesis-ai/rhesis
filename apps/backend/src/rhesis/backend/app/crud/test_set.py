@@ -2,9 +2,9 @@
 
 import logging
 import uuid
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence, Set
 
-from sqlalchemy import and_, delete, insert
+from sqlalchemy import and_, delete, func, insert
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -253,6 +253,89 @@ def get_test_sets_for_test(
     items = query_builder.with_pagination(skip, limit).with_sorting(sort_by, sort_order).all()
 
     return items, total_count
+
+
+def get_test_set_name(db: Session, test_set_id: uuid.UUID) -> Optional[str]:
+    """The set's name in the session's scope, or ``None``."""
+    row = db.query(models.TestSet.name).filter(models.TestSet.id == test_set_id).first()
+    return row[0] if row else None
+
+
+def _active_set_tests(db: Session, test_set_id: uuid.UUID, columns):
+    """A query over the set's tests that aren't deleted, selecting ``columns``.
+
+    Joins the test table explicitly so stale association rows don't count deleted tests.
+    """
+    from rhesis.backend.app.models.test import test_test_set_association
+
+    return (
+        db.query(*columns)
+        .select_from(test_test_set_association)
+        .join(models.Test, models.Test.id == test_test_set_association.c.test_id)
+        .filter(
+            test_test_set_association.c.test_set_id == test_set_id,
+            models.Test.deleted_at.is_(None),
+        )
+    )
+
+
+def _tagged(tag_names: Sequence[str]):
+    from rhesis.backend.app.crud.tag import tagged_entity_ids
+    from rhesis.backend.app.schemas.tag import EntityType
+
+    return models.Test.id.in_(tagged_entity_ids(EntityType.TEST, tag_names))
+
+
+def count_set_tests(
+    db: Session,
+    test_set_id: uuid.UUID,
+    tests_tagged: Sequence[str] = (),
+    not_tagged: Sequence[str] = (),
+) -> int:
+    """Active tests in the set, only those carrying any of ``tests_tagged`` when given,
+    and leaving out those carrying any of ``not_tagged``."""
+    query = _active_set_tests(db, test_set_id, [func.count(models.Test.id)])
+    if tests_tagged:
+        query = query.filter(_tagged(tests_tagged))
+    if not_tagged:
+        query = query.filter(~_tagged(not_tagged))
+    return query.scalar() or 0
+
+
+def tagged_set_test_ids(
+    db: Session, test_set_id: uuid.UUID, tests_tagged: Sequence[str]
+) -> Set[uuid.UUID]:
+    """Ids of the set's active tests carrying any of ``tests_tagged``."""
+    query = _active_set_tests(db, test_set_id, [models.Test.id]).filter(_tagged(tests_tagged))
+    return {row[0] for row in query}
+
+
+def get_test_set_test_tags(db: Session, test_set_id: uuid.UUID) -> List[tuple[str, int]]:
+    """``[(tag name, test count)]`` over the set's active tests, by name."""
+    from rhesis.backend.app.models.test import test_test_set_association
+    from rhesis.backend.app.schemas.tag import EntityType
+
+    rows = (
+        db.query(models.Tag.name, func.count(func.distinct(models.Test.id)))
+        .select_from(test_test_set_association)
+        .join(models.Test, models.Test.id == test_test_set_association.c.test_id)
+        .join(
+            models.TaggedItem,
+            and_(
+                models.TaggedItem.entity_id == models.Test.id,
+                models.TaggedItem.entity_type == EntityType.TEST.value,
+            ),
+        )
+        .join(models.Tag, models.Tag.id == models.TaggedItem.tag_id)
+        .filter(
+            test_test_set_association.c.test_set_id == test_set_id,
+            models.Test.deleted_at.is_(None),
+        )
+        .group_by(models.Tag.name)
+        .order_by(models.Tag.name)
+        .all()
+    )
+    return [(name, count) for name, count in rows]
 
 
 def get_test_set_tests(

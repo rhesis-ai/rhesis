@@ -12,7 +12,13 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
-from rhesis.backend.app.services.test_set import count_test_set_tests, get_test_set
+from rhesis.backend.app.services.test_set import (
+    count_test_set_tests,
+    filter_tests_by_tags,
+    get_test_set,
+    no_tagged_tests_message,
+    tagged_test_filter,
+)
 from rhesis.backend.jobs.enums import ExecutionMode
 from rhesis.backend.jobs.execution.batch import execute_tests_as_batch
 from rhesis.backend.jobs.execution.modes import get_execution_mode
@@ -48,12 +54,15 @@ def execute_test_cases(
     """
 
     test_set = get_test_set(session, str(test_config.test_set_id), str(test_config.organization_id))
-    if count_test_set_tests(session, test_set.id) == 0:
+    tests_tagged = tagged_test_filter(test_config.attributes)
+    if count_test_set_tests(session, test_set.id, tests_tagged) == 0:
+        if tests_tagged:
+            raise TestExecutionError(no_tagged_tests_message(test_set.name, tests_tagged))
         raise TestExecutionError(
             "Cannot execute test set with 0 tests. Please add tests before executing."
         )
 
-    tests = test_set.tests
+    tests = filter_tests_by_tags(session, test_set.id, test_set.tests, tests_tagged)
 
     execution_mode = get_execution_mode(test_config)
     logger.info(f"Executing test configuration {test_config.id} in {execution_mode.value} mode")

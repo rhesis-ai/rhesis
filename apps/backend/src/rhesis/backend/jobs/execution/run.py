@@ -101,16 +101,11 @@ def create_test_run(
     # Count tests from the test set so the UI can show the total immediately
     total_tests = 0
     if test_config.test_set_id:
-        from sqlalchemy import func
+        from rhesis.backend.app.services.test_set import count_test_set_tests, tagged_test_filter
 
-        from rhesis.backend.app.models.test_set import test_test_set_association
-
-        total_tests = (
-            session.query(func.count())
-            .select_from(test_test_set_association)
-            .filter(test_test_set_association.c.test_set_id == test_config.test_set_id)
-            .scalar()
-        ) or 0
+        total_tests = count_test_set_tests(
+            session, test_config.test_set_id, tagged_test_filter(test_config.attributes)
+        )
 
     attributes = {
         "configuration_id": str(test_config.id),

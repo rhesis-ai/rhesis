@@ -208,6 +208,7 @@ class RunSettingsOut(BaseModel):
     execution_model_id: str | None = None
     evaluation_model_id: str | None = None
     execution_mode: str | None = None
+    tests_tagged: list[str] = Field(default_factory=list)
 
 
 class TestRunScheduleDetail(TestRunScheduleOut):

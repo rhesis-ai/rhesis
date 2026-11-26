@@ -233,6 +233,7 @@ from .test_set import (
     TestSetCreate,
     TestSetDetail,
     TestSetExecutionRequest,
+    TestSetTestTag,
     TestSetUpdate,
 )
 from .token import TokenBase, TokenCreate, TokenUpdate
@@ -349,6 +350,7 @@ __all__ = [
     "TestSetBulkCreate",
     "TestSetBulkResponse",
     "TestSetBulkAssociateResponse",
+    "TestSetTestTag",
     "TestSetBulkAssociateRequest",
     "TestRunRescoreRequest",
     "TestSetBulkDisassociateResponse",

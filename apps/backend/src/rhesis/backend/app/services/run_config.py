@@ -31,6 +31,7 @@ SNAPSHOT_KEYS = (
     "evaluation_model_id",
     "execution_model_id",
     "run_preflight_checks",
+    "tests_tagged",
 )
 
 

@@ -167,6 +167,7 @@ def _run_settings(config: TestConfiguration) -> dict[str, Any]:
         "execution_model_id": attributes.get("execution_model_id"),
         "evaluation_model_id": attributes.get("evaluation_model_id"),
         "execution_mode": attributes.get("execution_mode"),
+        "tests_tagged": attributes.get("tests_tagged") or [],
     }
 
 

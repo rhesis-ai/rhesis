@@ -241,7 +241,11 @@ def _build_metric_plan(
     organization_id: Optional[str],
     user_id: Optional[str],
 ) -> Dict[str, Any]:
-    ordered = get_ordered_tests_for_test_set(db, test_set.id, organization_id)
+    from rhesis.backend.app.services.test_set import tagged_test_filter
+
+    ordered = get_ordered_tests_for_test_set(
+        db, test_set.id, organization_id, tagged_test_filter(test_config.attributes)
+    )
     test_order = [test_id for test_id, _, _ in ordered]
     if not ordered:
         return {**_EMPTY_PLAN, "test_order": test_order}
