@@ -153,11 +153,23 @@ workers:
         memory: "3Gi"
         cpu: "500m"
     hpa:
-      enabled: false
+      enabled: true
       minReplicas: 1
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 80
+      # No memory target (as in prd): Python RSS does not come back down after a run,
+      # so memory pins the workers at maxReplicas.
+      # Also scale on the jobs waiting in each queue (templates/worker/hpa.yaml).
+      keda:
+        enabled: true
+        # Waiting jobs per replica, by queue. A worker pod already holds as many as it
+        # runs (24 test runs; 256 trace evaluations with prefetch), so these count overflow.
+        queues:
+          test-runs: 2
+          long-jobs: 4
+          trace-ingest: 200
+          trace-eval: 200
+          quick-tasks: 100
     # Autoscaler scale-down never drains this pod's node, so a post-deploy
     # scale-down cannot kill an in-flight test run. A GKE node upgrade still
     # can; at this usage that is a rare, accepted interruption.

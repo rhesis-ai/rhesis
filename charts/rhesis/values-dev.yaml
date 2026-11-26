@@ -233,6 +233,17 @@ workers:
       targetCPUUtilizationPercentage: 60
       # No memory target (as in prd): Python RSS does not come back down after a run,
       # so memory would pin the workers at maxReplicas.
+      # Also scale on the jobs waiting in each queue (templates/worker/hpa.yaml).
+      keda:
+        enabled: true
+        # Waiting jobs per replica, by queue. A worker pod already holds as many as it
+        # runs (24 test runs; 256 trace evaluations with prefetch), so these count overflow.
+        queues:
+          test-runs: 2
+          long-jobs: 4
+          trace-ingest: 200
+          trace-eval: 200
+          quick-tasks: 100
     # Dev: Celery worker loads heavy ML imports (LiteLLM, Garak) on startup.
     # Allow extra headroom vs backend (no StatReload, but Garak cache pre-warm).
     # Liveness worst-case ≈ 240 + 29×45 = 1545s (~26m) before restart.

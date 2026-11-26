@@ -24,6 +24,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 ### Added
 
 - Helm chart: `externalDatabase.poolerHost` points the API, workers and beat at a PgBouncer in transaction mode, such as a CloudNativePG `Pooler`. Migrations keep connecting to `externalDatabase.host`.
+- Helm chart: with `hpa.keda.enabled` and the KEDA operator installed, a worker also scales on the number of jobs waiting in each Celery queue (`hpa.keda.queues`), not only on CPU. Without KEDA the chart keeps rendering the CPU-only HPA.
 - SSO role mapping: organization and project roles can follow the groups your identity provider sends at sign-in, with a preview of who changes before you save and a JSON editor. The SSO settings are now split into Connection, Sign-in and Role mapping tabs, and the identity provider is recognised from the issuer URL.
 - A failed SSO sign-in now shows a page that explains what went wrong, with a reference the administrator can find in the backend log.
 - Scheduled test runs. Run a test set against an endpoint once at a set time or on a repeating schedule, from the run drawer or the new Schedules tab on Test Runs. Schedules have a week calendar, a page of their own, notifications, and MCP tools. Self-hosted deployments need no change: the existing `beat` service starts the runs. `SCHEDULE_MIN_INTERVAL_MINUTES` and `SCHEDULE_DISPATCH_ENABLED` are optional.

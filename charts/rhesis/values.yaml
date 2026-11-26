@@ -360,6 +360,15 @@ workers:
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 80
+      # Also scale on the jobs waiting in each queue, through KEDA. Needs the KEDA
+      # operator in the cluster; without it the chart renders the CPU-only HPA above.
+      keda:
+        enabled: false
+        pollingInterval: 15
+        scaleDownStabilizationSeconds: 600
+        databaseIndex: 0  # The broker's Redis database (BROKER_URL)
+        # Waiting jobs per replica, by queue (backend celery/queues.py), e.g. trace-eval: 200
+        queues: {}
     # How long a deploy waits for running jobs (test runs included) to finish.
     # Keep it above EXECUTION_TIME_LIMIT (8400 by default) plus 300, or runs in
     # progress are cut off.
