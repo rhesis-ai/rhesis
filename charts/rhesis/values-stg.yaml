@@ -146,7 +146,8 @@ workers:
     replicas: 1
     resources:
       requests:
-        memory: "1Gi"
+        # The split layout uses about 2.1Gi per pod under load.
+        memory: "2Gi"
         cpu: "250m"
       limits:
         memory: "3Gi"
