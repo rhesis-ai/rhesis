@@ -63,35 +63,38 @@ class ResultWriter:
                     stopping = True
                     break
                 group.append(nxt)
-            outcomes = await loop.run_in_executor(
-                self._thread, self._save_group, [args for args, _ in group]
-            )
-            for (_, done), error in zip(group, outcomes, strict=True):
-                if done.done():
-                    continue
-                if error is None:
-                    done.set_result(None)
-                else:
-                    done.set_exception(error)
+            await loop.run_in_executor(self._thread, self._save_group, loop, group)
 
-    def _save_group(self, items: List[tuple]) -> List[Optional[BaseException]]:
+    def _save_group(self, loop: asyncio.AbstractEventLoop, group: List[_Item]) -> None:
+        """Save each test on one session; release each one as soon as its own row commits."""
         from rhesis.backend.app.database import get_db_with_tenant_variables
         from rhesis.backend.jobs.execution.batch import persist
 
         ctx = self._ctx
-        outcomes: List[Optional[BaseException]] = []
+        settled = 0
         try:
             with get_db_with_tenant_variables(
                 ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
             ) as db:
-                for args in items:
+                for args, done in group:
+                    error: Optional[BaseException] = None
                     try:
                         # persist_result commits or rolls back each test on its own.
                         persist.persist_result(ctx, *args, db=db)
-                        outcomes.append(None)
                     except Exception as e:
-                        outcomes.append(e)
+                        error = e
+                    loop.call_soon_threadsafe(_settle, done, error)
+                    settled += 1
         except Exception as e:
             logger.error(f"[BATCH] Result writer could not open a session: {e}", exc_info=True)
-            outcomes.extend(e for _ in range(len(items) - len(outcomes)))
-        return outcomes
+            for _, done in group[settled:]:
+                loop.call_soon_threadsafe(_settle, done, e)
+
+
+def _settle(done: "asyncio.Future[None]", error: Optional[BaseException]) -> None:
+    if done.done():
+        return
+    if error is None:
+        done.set_result(None)
+    else:
+        done.set_exception(error)
