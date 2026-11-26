@@ -363,6 +363,82 @@ class TestLookupSpanCrossProject:
 
 
 @pytest.mark.integration
+class TestIngestProjectRule:
+    """The token or X-Project-Id scope wins; without one, each span's own project."""
+
+    @pytest.fixture(autouse=True)
+    def project_check_uses_test_db(self, test_db, monkeypatch):
+        @contextmanager
+        def _fake(*_args, **_kwargs):
+            yield test_db
+
+        monkeypatch.setattr(dependencies, "get_db_with_tenant_variables", _fake)
+
+    @pytest.fixture
+    def other_project_id(
+        self, test_db, test_organization, db_user, db_owner_user, db_status, authenticated_user_id
+    ):
+        project = Project(
+            name="Ingest Rule Project",
+            description=fake.text(max_nb_chars=60),
+            is_active=True,
+            user_id=db_user.id,
+            owner_id=db_owner_user.id,
+            organization_id=test_organization.id,
+            status_id=db_status.id,
+        )
+        test_db.add(project)
+        test_db.flush()
+        test_db.add(
+            ProjectMembership(
+                project_id=project.id,
+                user_id=authenticated_user_id,
+                organization_id=test_organization.id,
+            )
+        )
+        test_db.flush()
+        return str(project.id)
+
+    def _project_of(self, test_db, project_id, trace_id):
+        scope_to_project(test_db, project_id)
+        found = (
+            test_db.query(models.Trace.project_id)
+            .filter(models.Trace.trace_id == trace_id)
+            .scalar()
+        )
+        return str(found) if found else None
+
+    def test_the_header_scope_wins_over_the_spans_project(
+        self, authenticated_client, test_db, db_project, other_project_id
+    ):
+        span = TraceDataFactory.minimal_data(project_id=other_project_id)
+
+        response = authenticated_client.post(
+            "/telemetry/traces",
+            json={"spans": [span]},
+            headers={"X-Project-Id": str(db_project.id)},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert self._project_of(test_db, str(db_project.id), span["trace_id"]) == str(db_project.id)
+        assert self._project_of(test_db, other_project_id, span["trace_id"]) is None
+
+    def test_without_a_scope_a_batch_is_split_by_project(
+        self, authenticated_client, test_db, db_project, other_project_id
+    ):
+        first = TraceDataFactory.minimal_data(project_id=str(db_project.id))
+        second = TraceDataFactory.minimal_data(project_id=other_project_id)
+
+        response = authenticated_client.post("/telemetry/traces", json={"spans": [first, second]})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert self._project_of(test_db, str(db_project.id), first["trace_id"]) == str(
+            db_project.id
+        )
+        assert self._project_of(test_db, other_project_id, second["trace_id"]) == other_project_id
+
+
+@pytest.mark.integration
 class TestTraceEdgeCases:
     """Test edge cases and boundary conditions"""
 

@@ -9,8 +9,7 @@ it through the same path as ``POST /telemetry/traces``.
 """
 
 import logging
-from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import Depends, Request, Response
 
@@ -103,16 +102,6 @@ def _translate(raw: bytes, encoding: OTLPEncoding, limits) -> TranslatedRequest:
     return translated
 
 
-def _group_by_project(
-    spans: List[OTELSpan], fixed_project_id: Optional[str]
-) -> Dict[Optional[str], List[OTELSpan]]:
-    """Token or header scope wins; otherwise each resource's ``rhesis.project_id``."""
-    groups: Dict[Optional[str], List[OTELSpan]] = defaultdict(list)
-    for span in spans:
-        groups[fixed_project_id or span.project_id].append(span)
-    return groups
-
-
 def _jobs(
     request: Request,
     current_user: User,
@@ -120,29 +109,22 @@ def _jobs(
     spans: List[OTELSpan],
     scope_project_id: Optional[str],
 ) -> List[IngestJob]:
-    """One job per project, each access-checked. Raises :class:`OTLPBadRequest` or 403."""
-    organization_id, user_id = tenant_context
-    groups = _group_by_project(spans, scope_project_id)
-    if None in groups:
+    """One job per project (:func:`intake.ingest_jobs`). Raises :class:`OTLPBadRequest` or 403."""
+    try:
+        return intake.ingest_jobs(
+            request,
+            current_user,
+            tenant_context,
+            spans,
+            scope_project_id,
+            pre_store_hooks=[PRE_STORE_HOOK],
+        )
+    except intake.ProjectUnresolved as exc:
         raise OTLPBadRequest(
             400,
             "No project could be resolved. Use a project-scoped token, send an "
             "X-Project-Id header, or set the resource attribute rhesis.project_id.",
-        )
-    jobs = []
-    for project_id, project_spans in groups.items():
-        if project_id != scope_project_id:
-            project_id = intake.check_project_access(request, current_user, project_id)
-        jobs.append(
-            IngestJob(
-                project_spans,
-                organization_id,
-                user_id,
-                str(project_id),
-                pre_store_hooks=[PRE_STORE_HOOK],
-            )
-        )
-    return jobs
+        ) from exc
 
 
 async def _ingest(
