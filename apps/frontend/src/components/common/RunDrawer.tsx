@@ -7,65 +7,27 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  FormControl,
-  FormHelperText,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  ArrowForward as ArrowForwardIcon,
-  AutoGraph as AutoGraphIcon,
-  Bolt as BoltIcon,
-  CallSplit as CallSplitIcon,
-  Close as CloseIcon,
-  Edit as EditIcon,
-  FlightTakeoff as FlightTakeoffIcon,
-  Psychology as PsychologyIcon,
-  Replay as ReplayIcon,
-  Tune as TuneIcon,
-} from '@mui/icons-material';
-import Switch from '@mui/material/Switch';
-import Link from 'next/link';
+import { Box, CircularProgress, Typography } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import BaseTag from '@/components/common/BaseTag';
-import FormSectionDivider from '@/components/common/FormSectionDivider';
 import {
-  drawerDisabledFieldSx,
   drawerOutlinedFieldSx,
   drawerTagFieldSx,
 } from '@/components/common/drawerFormFieldSx';
 import ModelSelector from '@/components/common/ModelSelector';
 import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDrawer from '@/components/common/SelectExperimentsDrawer';
-import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import type { MetricScope } from '@/utils/api-client/interfaces/metric';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
-import { Project } from '@/utils/api-client/interfaces/project';
 import { useEndpoints } from '@/hooks/useEndpoints';
 import type {
   TestSetMetric,
   LastTestRunSummary,
   TestSet,
 } from '@/utils/api-client/interfaces/test-set';
-import {
-  ExperimentDetail,
-  shortVersion,
-} from '@/utils/api-client/interfaces/parameters';
+import type { ExperimentDetail } from '@/utils/api-client/interfaces/parameters';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import { getApiErrorStatus } from '@/utils/api-client/is-not-found-error';
@@ -75,20 +37,46 @@ import {
   type BatchRunOutcome,
   type SelectedExperiment,
 } from '@/utils/test-run-batch';
-import { BiotechIcon } from '@/components/icons';
 import tagStyles from '@/styles/BaseTag.module.css';
-import { BORDER_RADIUS } from '@/styles/theme';
 import type { UUID } from 'crypto';
 import { readActiveProjectId } from '@/utils/active-project';
-import { formatDate } from '@/utils/date';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { QuotaResource } from '@/constants/quota';
 import { useQuotaErrorHandler, useQuotaGate } from '@/hooks/useQuotaGate';
 import { useRunTestCount } from '@/hooks/useRunTestCount';
-import { rem } from '@/styles/theme-constants';
 import { Capability } from '@/constants/capabilities';
 import { useCan } from '@/components/common/Can';
-import RunDrawerScheduleSection from '@/components/common/run-drawer/RunDrawerScheduleSection';
+import RunDrawerSection from '@/components/common/run-drawer/RunDrawerSection';
+import WhenField from '@/components/common/run-drawer/WhenField';
+import {
+  EndpointField,
+  FixedField,
+  TestSetField,
+  type EndpointOption,
+} from '@/components/common/run-drawer/TargetFields';
+import {
+  ExperimentPicker,
+  ExperimentVersionPicker,
+} from '@/components/common/run-drawer/ExperimentFields';
+import {
+  MetricsField,
+  ScoringTargetField,
+} from '@/components/common/run-drawer/ScoringFields';
+import {
+  ExecutionModeField,
+  PreflightField,
+} from '@/components/common/run-drawer/OptionFields';
+import {
+  EXECUTION_MODE,
+  METRIC_MODE,
+  RUN_WHEN,
+  RUN_WHEN_LABEL,
+  SCORING_TARGET,
+  type MetricMode,
+  type RunWhen,
+  type ScoringTarget,
+  type SelectedMetric,
+} from '@/components/common/run-drawer/run-drawer-types';
 import {
   changedFields,
   defaultScheduleForm,
@@ -103,35 +91,6 @@ import type {
 } from '@/utils/api-client/interfaces/test-run-schedule';
 import { useQueryClient } from '@tanstack/react-query';
 import { scheduleKeys } from '@/constants/query-keys';
-
-// ---------------------------------------------------------------------------
-// Shared local types
-// ---------------------------------------------------------------------------
-
-interface ProjectOption {
-  id: UUID;
-  name: string;
-  nano_id?: string;
-  created_at?: string;
-}
-
-interface EndpointOption {
-  id: UUID;
-  name: string;
-  environment?: 'development' | 'staging' | 'production' | 'local';
-  project_id?: string;
-  organization_id?: string;
-  connection_type?: string;
-}
-
-interface SelectedMetric {
-  id: UUID;
-  name: string;
-  scope?: string[];
-}
-
-type MetricMode = 'use_test_set' | 'use_requirement' | 'define_custom';
-type ScoringTarget = 'fresh' | 'reuse';
 
 // ---------------------------------------------------------------------------
 // Rerun config (mirrors the old RerunTestRunDrawer's props)
@@ -197,7 +156,7 @@ type RunDrawerProps = {
    *  resolving its id via pollForTestRun) hook in here rather than every
    *  mode picking up router logic that most callers don't want. */
   onExecuted?: (outcome: BatchRunOutcome) => void;
-  /** Open on "Schedule run" instead of "Execute now". */
+  /** Open with "When" set to a schedule instead of "Now". */
   initialSchedule?: boolean;
   /** Schedule fields to start from, e.g. carried over from the compact create drawer. */
   scheduleSeed?: ScheduleForm;
@@ -212,15 +171,12 @@ type RunDrawerProps = {
 interface ModeConfig {
   title: string;
   saveButtonText: string;
+  /** Endpoints load and the active project filters them. */
   projectEditable: boolean;
-  /** Controls whether the project selector is rendered. Keeps projectEditable
-   *  true so endpoints still load and the ambient project filters them. */
-  showProjectField: boolean;
   endpointEditable: boolean;
-  testSetMode: 'hidden' | 'single' | 'multi-search';
+  /** `fixed`: the caller chose the test set(s); `single`: pick one here. */
+  testSetMode: 'fixed' | 'single';
   experimentsEditable: boolean;
-  showScoringTarget: boolean;
-  showMetrics: boolean;
 }
 
 const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
@@ -228,84 +184,43 @@ const MODE_CONFIGS: Record<RunDrawerProps['mode'], ModeConfig> = {
     title: 'Execute Test Set',
     saveButtonText: 'Execute Test Set',
     projectEditable: true,
-    showProjectField: false,
     endpointEditable: true,
-    testSetMode: 'hidden',
+    testSetMode: 'fixed',
     experimentsEditable: true,
-    showScoringTarget: true,
-    showMetrics: true,
   },
   newTestRun: {
     title: 'Test Run Configuration',
     saveButtonText: 'Execute Now',
     projectEditable: true,
-    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'single',
     experimentsEditable: true,
-    showScoringTarget: true,
-    showMetrics: true,
   },
   runExperiment: {
     title: 'Run Experiment',
     saveButtonText: 'Run Experiment',
     projectEditable: false,
-    showProjectField: false,
     endpointEditable: true,
     testSetMode: 'single',
     experimentsEditable: false,
-    showScoringTarget: true,
-    showMetrics: true,
   },
   rerunTestRun: {
     title: 'Re-run Tests',
     saveButtonText: 'Re-run Tests',
     projectEditable: false,
-    showProjectField: false,
     endpointEditable: false,
-    testSetMode: 'hidden',
+    testSetMode: 'fixed',
     experimentsEditable: true,
-    showScoringTarget: true,
-    showMetrics: true,
   },
   createFromGrid: {
     title: 'Execute Test Sets',
     saveButtonText: 'Run Test Sets',
     projectEditable: true,
-    showProjectField: false,
     endpointEditable: true,
-    testSetMode: 'hidden',
+    testSetMode: 'fixed',
     experimentsEditable: true,
-    showScoringTarget: true,
-    showMetrics: true,
   },
 };
-
-const RERUN_SECTION_SX = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '40px',
-} as const;
-
-const RERUN_FIELDS_SX = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '30px',
-} as const;
-
-const RERUN_OUTLINE_BUTTON_SX = {
-  borderWidth: 2,
-  borderColor: 'primary.main',
-  color: 'primary.main',
-  fontWeight: 700,
-  fontSize: rem(14),
-  lineHeight: rem(22),
-  borderRadius: BORDER_RADIUS.sm,
-  px: '16px',
-  py: '8px',
-  textTransform: 'none',
-  '&:hover': { borderWidth: 2 },
-} as const;
 
 /** Modes that can schedule; re-run and experiment runs stay "now" only. */
 const SCHEDULABLE_MODES = new Set<RunDrawerProps['mode']>([
@@ -314,31 +229,46 @@ const SCHEDULABLE_MODES = new Set<RunDrawerProps['mode']>([
   'createFromGrid',
 ]);
 
-const EXPERIMENT_SECTION_DESCRIPTION =
-  "Each selected experiment triggers its own test run with that experiment's parameters pinned. Leave empty to run without an experiment.";
+const METRIC_MODE_SUMMARY: Record<MetricMode, string> = {
+  [METRIC_MODE.TEST_SET]: 'Test set metrics',
+  [METRIC_MODE.REQUIREMENT]: 'Requirement metrics',
+  [METRIC_MODE.CUSTOM]: 'Custom metrics',
+};
+
+/** Shown in "What to run" when the fixed test set's name can't be loaded. */
+const UNKNOWN_TEST_SET_NAME = 'Selected test set';
+
+const plural = (count: number, word: string) =>
+  `${count} ${word}${count === 1 ? '' : 's'}`;
+
+/** Joins the parts of a section's one-line summary, skipping empty ones. */
+const summaryOf = (...parts: (string | false | null | undefined)[]) =>
+  parts.filter(Boolean).join(' · ');
+
+const whenFor = (form: ScheduleForm): RunWhen =>
+  form.repeat ? RUN_WHEN.REPEAT : RUN_WHEN.ONCE;
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function RunDrawer(props: RunDrawerProps) {
-  const a11yId = React.useId();
   const { open, onClose, onSuccess, onExecuted, mode } = props;
   const cfg = MODE_CONFIGS[mode];
   const notifications = useNotifications();
   const { status } = useSession();
 
   // ---- Core state ----
-  const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
+  // Bumped by the reset on open, so sections mount with that opening's state.
+  const [session, setSession] = useState(0);
   const [error, setError] = useState<React.ReactNode>();
 
   // The reactive 402 path; the preflight gate sits below, once the drawer
   // knows which test sets and experiments a click would run.
   const asQuotaError = useQuotaErrorHandler();
 
-  // ---- Project / Endpoint ----
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  // ---- Endpoint ----
   const { data: rawEndpoints, isLoading: endpointsLoading } = useEndpoints(
     { sort_by: 'name', sort_order: 'asc', limit: 100 },
     open && (cfg.projectEditable || mode === 'runExperiment')
@@ -363,62 +293,61 @@ export default function RunDrawer(props: RunDrawerProps) {
   const [selectedProject, setSelectedProject] = useState<UUID | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
 
-  // ---- Test set (single-select for newTestRun) ----
+  // ---- Test set (single-select for newTestRun / runExperiment) ----
   const [testSets, setTestSets] = useState<TestSet[]>([]);
   const [selectedTestSet, setSelectedTestSet] = useState<TestSet | null>(null);
 
-  // ---- Test set multi-search (runExperiment) ----
-  const [searchTestSets, setSearchTestSets] = useState<TestSet[]>([]);
-  const [selectedSearchTestSets, setSelectedSearchTestSets] = useState<
-    TestSet[]
-  >([]);
-  const [testSetInput, setTestSetInput] = useState('');
-  const [testSetSearching, setTestSetSearching] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-
   // ---- Test set info (for metrics/multi-turn) ----
+  const [testSetName, setTestSetName] = useState<string | null>(null);
   const [testSetType, setTestSetType] = useState<string | null>(null);
   const [testSetMetrics, setTestSetMetrics] = useState<TestSetMetric[]>([]);
 
   // ---- Execution mode ----
-  const [executionMode, setExecutionMode] = useState<string>('Parallel');
+  const [executionMode, setExecutionMode] = useState<string>(
+    EXECUTION_MODE.PARALLEL
+  );
 
-  // ---- Schedule (run later instead of now) ----
+  // ---- When: now, or a schedule ----
   const canSchedule =
     useCan(Capability.TestRun.EXECUTE) && SCHEDULABLE_MODES.has(mode);
-  const [scheduleMode, setScheduleMode] = useState(false);
+  const [when, setWhen] = useState<RunWhen>(RUN_WHEN.NOW);
+  const scheduleMode = when !== RUN_WHEN.NOW;
   const [scheduleForm, setScheduleForm] = useState<ScheduleForm>(() =>
     defaultScheduleForm()
   );
   const [schedulePreviewError, setSchedulePreviewError] = useState<
     string | null
   >(null);
-  const [reuseDropped, setReuseDropped] = useState(false);
   useEffect(() => {
     if (!open) return;
-    setScheduleMode(
-      (Boolean(props.initialSchedule) && canSchedule) ||
-        (mode === 'executeTestSet' && Boolean(props.data.schedule))
+    const editing = mode === 'executeTestSet' ? props.data.schedule : null;
+    const form = editing
+      ? fromSchedule(editing)
+      : (props.scheduleSeed ?? defaultScheduleForm());
+    setScheduleForm(form);
+    setWhen(
+      editing || (props.initialSchedule && canSchedule)
+        ? whenFor(form)
+        : RUN_WHEN.NOW
     );
-    setScheduleForm(
-      mode === 'executeTestSet' && props.data.schedule
-        ? fromSchedule(props.data.schedule)
-        : (props.scheduleSeed ?? defaultScheduleForm())
-    );
-    setReuseDropped(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the drawer opens
   }, [open]);
 
+  const [reuseDropped, setReuseDropped] = useState(false);
+
   // ---- Scoring target ----
-  const [scoringTarget, setScoringTarget] = useState<ScoringTarget>('fresh');
+  const [scoringTarget, setScoringTarget] = useState<ScoringTarget>(
+    SCORING_TARGET.FRESH
+  );
   const [lastTestRun, setLastTestRun] = useState<LastTestRunSummary | null>(
     null
   );
 
   // ---- Metrics ----
-  const [metricMode, setMetricMode] = useState<MetricMode>('use_requirement');
+  const [metricMode, setMetricMode] = useState<MetricMode>(
+    METRIC_MODE.REQUIREMENT
+  );
   const [selectedMetrics, setSelectedMetrics] = useState<SelectedMetric[]>([]);
-  const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
 
   // ---- Models ----
   const [selectedExecutionModelId, setSelectedExecutionModelId] = useState('');
@@ -483,27 +412,28 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   useEffect(() => {
     if (!open) return;
+    setSession(prev => prev + 1);
     setError(undefined);
     setExecuting(false);
+    setTestSetName(null);
+    setReuseDropped(false);
     setTags([]);
-    setExecutionMode('Parallel');
-    setScoringTarget('fresh');
+    setExecutionMode(EXECUTION_MODE.PARALLEL);
+    setScoringTarget(SCORING_TARGET.FRESH);
     setLastTestRun(null);
     setSelectedMetrics([]);
-    setMetricMode('use_requirement');
+    setMetricMode(METRIC_MODE.REQUIREMENT);
     setSelectedExecutionModelId('');
     setSelectedEvaluationModelId('');
     setSelectedExperiments([]);
     setSelectedTestSet(null);
-    setSelectedSearchTestSets([]);
-    setTestSetInput('');
     setPreflightEnabled(true);
     setPreflightDialogOpen(false);
     setPreflightCorrelationId('');
     setPreflightChecks([]);
 
     if (cfg.projectEditable) {
-      // Pre-select the session's active project so users don't have to choose
+      // The session's active project filters the endpoints.
       const activeId = readActiveProjectId();
       setSelectedProject(activeId ? (activeId as UUID) : null);
       setSelectedEndpoint(null);
@@ -526,59 +456,6 @@ export default function RunDrawer(props: RunDrawerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // -----------------------------------------------------------------------
-  // Load projects + endpoints (editable modes)
-  // -----------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!open || !isAuthenticated(status)) return;
-    if (!cfg.projectEditable && mode !== 'runExperiment') return;
-
-    let mounted = true;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const projectsClient = apiFactory.getProjectsClient();
-        const projectsData = await projectsClient.getProjects({
-          sort_by: 'name',
-          sort_order: 'asc',
-          limit: 100,
-        });
-
-        if (!mounted) return;
-
-        let projectsArray: Project[] = [];
-        if (Array.isArray(projectsData)) {
-          projectsArray = projectsData;
-        } else if (projectsData && Array.isArray(projectsData.data)) {
-          projectsArray = projectsData.data;
-        }
-
-        setProjects(
-          projectsArray
-            .filter((p: Project) => p.id && p.name && p.name.trim() !== '')
-            .map((p: Project) => ({
-              id: p.id as UUID,
-              name: p.name,
-              nano_id: (p as Project & { nano_id?: string }).nano_id,
-              created_at: p.created_at,
-            }))
-        );
-      } catch {
-        if (mounted) {
-          setProjects([]);
-        }
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mode]);
-
   // `runExperiment` mode filters endpoints to the experiment's project as
   // soon as the shared endpoints list resolves (the general
   // "filter endpoints when project changes" effect below skips this mode).
@@ -596,7 +473,8 @@ export default function RunDrawer(props: RunDrawerProps) {
   // -----------------------------------------------------------------------
 
   useEffect(() => {
-    if (!open || (mode !== 'newTestRun' && mode !== 'runExperiment')) return;
+    if (!open || !isAuthenticated(status)) return;
+    if (cfg.testSetMode !== 'single') return;
     let mounted = true;
     const load = async () => {
       try {
@@ -612,7 +490,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     return () => {
       mounted = false;
     };
-  }, [open, mode, apiFactory]);
+  }, [open, status, cfg.testSetMode, apiFactory]);
 
   // -----------------------------------------------------------------------
   // Test set info + metrics (executeTestSet & rerunTestRun)
@@ -629,6 +507,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         const client = apiFactory.getTestSetsClient();
         const testSet = await client.getTestSet(testSetId);
         if (!mounted) return;
+        setTestSetName(testSet?.name ?? null);
         setTestSetType(testSet?.test_set_type?.type_value || null);
 
         const metrics = await client.getTestSetMetrics(testSetId);
@@ -637,14 +516,15 @@ export default function RunDrawer(props: RunDrawerProps) {
 
         if (mode === 'executeTestSet' && !editingSchedule) {
           setMetricMode(
-            metrics?.length > 0 ? 'use_test_set' : 'use_requirement'
+            metrics?.length > 0 ? METRIC_MODE.TEST_SET : METRIC_MODE.REQUIREMENT
           );
         }
       } catch {
         if (mounted) {
+          setTestSetName(UNKNOWN_TEST_SET_NAME);
           setTestSetType(null);
           setTestSetMetrics([]);
-          setMetricMode('use_requirement');
+          setMetricMode(METRIC_MODE.REQUIREMENT);
         }
       }
     };
@@ -655,26 +535,46 @@ export default function RunDrawer(props: RunDrawerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- editingSchedule is fixed while open
   }, [open, executeTestSetId, rerunConfig?.testSetId, mode, apiFactory]);
 
+  // One set picked in the test sets list: name it in "What to run".
+  const singleGridTestSetId =
+    gridTestSetIds && gridTestSetIds.length === 1 ? gridTestSetIds[0] : null;
+  useEffect(() => {
+    if (!open || !singleGridTestSetId) return;
+    let mounted = true;
+    apiFactory
+      .getTestSetsClient()
+      .getTestSet(singleGridTestSetId)
+      .then(testSet => {
+        if (mounted) setTestSetName(testSet?.name ?? null);
+      })
+      .catch(() => {
+        if (mounted) setTestSetName(UNKNOWN_TEST_SET_NAME);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [open, singleGridTestSetId, apiFactory]);
+
   // Editing a schedule: start from what its runs use now.
   useEffect(() => {
     if (!open || !editingSchedule) return;
     const settings = editingSchedule.run_settings;
-    setExecutionMode(settings.execution_mode ?? 'Parallel');
+    setExecutionMode(settings.execution_mode ?? EXECUTION_MODE.PARALLEL);
     setSelectedExecutionModelId(settings.execution_model_id ?? '');
     setSelectedEvaluationModelId(settings.evaluation_model_id ?? '');
     if (
       settings.metrics_source === 'execution_time' &&
       settings.metrics.length > 0
     ) {
-      setMetricMode('define_custom');
+      setMetricMode(METRIC_MODE.CUSTOM);
       setSelectedMetrics(
         settings.metrics.map(m => ({ id: m.id as UUID, name: m.name }))
       );
     } else {
       setMetricMode(
         settings.metrics_source === 'test_set'
-          ? 'use_test_set'
-          : 'use_requirement'
+          ? METRIC_MODE.TEST_SET
+          : METRIC_MODE.REQUIREMENT
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fill once per open
@@ -700,10 +600,9 @@ export default function RunDrawer(props: RunDrawerProps) {
   // instead of the model that happened to be active on the original run.
   useEffect(() => {
     if (!open || mode !== 'rerunTestRun' || !rerunConfig) return;
-    const orig = rerunConfig.originalAttributes;
-    const origMetrics = orig?.metrics;
+    const origMetrics = rerunConfig.originalAttributes?.metrics;
     if (origMetrics && origMetrics.length > 0) {
-      setMetricMode('define_custom');
+      setMetricMode(METRIC_MODE.CUSTOM);
       setSelectedMetrics(
         origMetrics.map(m => ({
           id: m.id as UUID,
@@ -793,7 +692,7 @@ export default function RunDrawer(props: RunDrawerProps) {
     ) {
       if (mode === 'executeTestSet') {
         setLastTestRun(null);
-        setScoringTarget('fresh');
+        setScoringTarget(SCORING_TARGET.FRESH);
       }
       return;
     }
@@ -805,12 +704,12 @@ export default function RunDrawer(props: RunDrawerProps) {
           .getLastTestRun(executeTestSetId, selectedEndpoint);
         if (mounted) {
           setLastTestRun(result);
-          setScoringTarget('fresh');
+          setScoringTarget(SCORING_TARGET.FRESH);
         }
       } catch {
         if (mounted) {
           setLastTestRun(null);
-          setScoringTarget('fresh');
+          setScoringTarget(SCORING_TARGET.FRESH);
         }
       }
     };
@@ -821,58 +720,13 @@ export default function RunDrawer(props: RunDrawerProps) {
   }, [mode, selectedEndpoint, executeTestSetId, open, apiFactory]);
 
   // -----------------------------------------------------------------------
-  // Multi-search test sets (runExperiment mode)
+  // Field handlers
   // -----------------------------------------------------------------------
 
-  const fetchSearchTestSets = useCallback(
-    async (search: string) => {
-      setTestSetSearching(true);
-      try {
-        const client = apiFactory.getTestSetsClient();
-        const params: Record<string, unknown> = {
-          sort_by: 'name',
-          sort_order: 'asc' as const,
-          limit: 100,
-        };
-        if (search.trim().length >= 2) {
-          const escaped = search.replace(/'/g, "''");
-          params.$filter = `contains(tolower(name), tolower('${escaped}'))`;
-        }
-        const res = await client.getTestSets(params);
-        setSearchTestSets(Array.isArray(res?.data) ? res.data : []);
-      } catch {
-        setSearchTestSets([]);
-      } finally {
-        setTestSetSearching(false);
-      }
-    },
-    [apiFactory]
-  );
-
-  useEffect(() => {
-    if (open && mode === 'runExperiment') fetchSearchTestSets('');
-  }, [open, mode, fetchSearchTestSets]);
-
-  const handleTestSetInputChange = useCallback(
-    (_: unknown, value: string, reason: string) => {
-      setTestSetInput(value);
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-      if (value === '' || reason === 'reset') {
-        fetchSearchTestSets('');
-        return;
-      }
-      if (value.length < 2) return;
-      searchTimeoutRef.current = setTimeout(
-        () => fetchSearchTestSets(value),
-        500
-      );
-    },
-    [fetchSearchTestSets]
-  );
-
-  // -----------------------------------------------------------------------
-  // Metric helpers
-  // -----------------------------------------------------------------------
+  const handleMetricModeChange = (next: MetricMode) => {
+    setMetricMode(next);
+    if (next !== METRIC_MODE.CUSTOM) setSelectedMetrics([]);
+  };
 
   const handleAddMetric = (metric: {
     id: UUID;
@@ -891,6 +745,29 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   const handleRemoveMetric = (metricId: UUID) => {
     setSelectedMetrics(prev => prev.filter(m => m.id !== metricId));
+  };
+
+  const handleToggleVersion = (version: string) => {
+    setInternalVersionHashes(prev => {
+      const next = new Set(prev);
+      if (next.has(version)) {
+        next.delete(version);
+      } else {
+        next.add(version);
+      }
+      return next;
+    });
+  };
+
+  const handleWhenChange = (next: RunWhen) => {
+    setWhen(next);
+    if (next === RUN_WHEN.NOW) return;
+    // Scheduled runs always call the endpoint, so reusing outputs is off.
+    if (scoringTarget === SCORING_TARGET.REUSE) {
+      setScoringTarget(SCORING_TARGET.FRESH);
+      setReuseDropped(true);
+    }
+    setScheduleForm(prev => ({ ...prev, repeat: next === RUN_WHEN.REPEAT }));
   };
 
   // -----------------------------------------------------------------------
@@ -970,7 +847,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         scoring_target: scoringTarget,
         metric_mode: metricMode,
         selected_metrics:
-          metricMode === 'define_custom'
+          metricMode === METRIC_MODE.CUSTOM
             ? selectedMetrics.map(m => ({
                 id: m.id,
                 name: m.name,
@@ -1021,6 +898,11 @@ export default function RunDrawer(props: RunDrawerProps) {
     };
   };
 
+  const customMetricsPayload = () =>
+    metricMode === METRIC_MODE.CUSTOM && selectedMetrics.length > 0
+      ? selectedMetrics.map(m => ({ id: m.id, name: m.name, scope: m.scope }))
+      : null;
+
   const doExecute = async () => {
     const testSetIds = resolveTestSetIds();
     const endpointId = resolveEndpointId();
@@ -1039,17 +921,8 @@ export default function RunDrawer(props: RunDrawerProps) {
         run_preflight_checks: preflightEnabled,
       };
 
-      if (
-        cfg.showMetrics &&
-        metricMode === 'define_custom' &&
-        selectedMetrics.length > 0
-      ) {
-        baseAttributes.metrics = selectedMetrics.map(m => ({
-          id: m.id,
-          name: m.name,
-          scope: m.scope,
-        }));
-      }
+      const metrics = customMetricsPayload();
+      if (metrics) baseAttributes.metrics = metrics;
 
       if (selectedExecutionModelId) {
         baseAttributes.execution_model_id = selectedExecutionModelId;
@@ -1058,7 +931,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         baseAttributes.evaluation_model_id = selectedEvaluationModelId;
       }
 
-      if (cfg.showScoringTarget && scoringTarget === 'reuse') {
+      if (scoringTarget === SCORING_TARGET.REUSE) {
         if (mode === 'rerunTestRun' && rerunConfig?.testRunId) {
           baseAttributes.reference_test_run_id = rerunConfig.testRunId;
         } else if (lastTestRun) {
@@ -1128,15 +1001,6 @@ export default function RunDrawer(props: RunDrawerProps) {
     }
   };
 
-  const enterScheduleMode = () => {
-    // Scheduled runs always call the endpoint, so reusing outputs is off.
-    if (scoringTarget === 'reuse') {
-      setScoringTarget('fresh');
-      setReuseDropped(true);
-    }
-    setScheduleMode(true);
-  };
-
   const saveScheduleSettings = async (
     schedule: TestRunScheduleDetail,
     endpointId: string,
@@ -1166,22 +1030,13 @@ export default function RunDrawer(props: RunDrawerProps) {
     if (!endpointId || testSetIds.length === 0) return;
     setExecuting(true);
     try {
+      const metrics = customMetricsPayload();
       const runSettings = {
         execution_options: {
           execution_mode: executionMode,
           run_preflight_checks: preflightEnabled,
         },
-        ...(cfg.showMetrics &&
-        metricMode === 'define_custom' &&
-        selectedMetrics.length > 0
-          ? {
-              metrics: selectedMetrics.map(m => ({
-                id: m.id,
-                name: m.name,
-                scope: m.scope,
-              })),
-            }
-          : {}),
+        ...(metrics ? { metrics } : {}),
         // The selectors use '' for "default model"; the API wants null.
         execution_model_id: selectedExecutionModelId || null,
         evaluation_model_id: selectedEvaluationModelId || null,
@@ -1260,6 +1115,8 @@ export default function RunDrawer(props: RunDrawerProps) {
   // the overage tolerance, and gating on `limit` would disable the button
   // for an org the backend would still happily accept -- erasing exactly the
   // grace band the tier grants.
+  const runCount =
+    resolveTestSetIds().length * Math.max(resolveExperiments().length, 1);
   const runTestCount = useRunTestCount(
     resolveTestSetIds(),
     Math.max(resolveExperiments().length, 1),
@@ -1308,872 +1165,137 @@ export default function RunDrawer(props: RunDrawerProps) {
     return null;
   }, [testSetType, mode, selectedTestSet, rerunConfig]);
 
-  // Effective scope filter for metrics dialog
-  const metricScopeFilter = effectiveTestSetType ?? undefined;
-
   // -----------------------------------------------------------------------
-  // Render helpers
+  // Section summaries (shown while a section is folded)
   // -----------------------------------------------------------------------
 
-  const renderProjectField = () => {
-    if (!cfg.showProjectField) return null;
+  const testSetSummary =
+    gridTestSetIds && gridTestSetIds.length > 1
+      ? plural(gridTestSetIds.length, 'test set')
+      : (rerunConfig?.testSetName ??
+        selectedTestSet?.name ??
+        testSetName ??
+        (cfg.testSetMode === 'fixed' ? 'Loading…' : 'Choose a test set'));
 
-    if (!cfg.projectEditable) {
-      if (mode === 'rerunTestRun') {
-        return (
-          <TextField
-            label="Project"
-            value={rerunConfig?.projectName ?? ''}
-            disabled
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            sx={drawerDisabledFieldSx}
-          />
-        );
-      }
-      return null;
-    }
+  const endpointName =
+    rerunConfig?.endpointName ??
+    filteredEndpoints.find(e => e.id === selectedEndpoint)?.name;
+  const experimentCount = resolveExperiments().length;
+  const targetSummary = summaryOf(
+    endpointName ?? 'Choose an endpoint',
+    !scheduleMode &&
+      experimentCount > 0 &&
+      plural(experimentCount, 'experiment')
+  );
 
-    return (
-      <FormControl fullWidth>
-        <Autocomplete
-          options={projects}
-          value={projects.find(p => p.id === selectedProject) || null}
-          onChange={(_, v) => {
-            setSelectedProject(v?.id ?? null);
-            setSelectedEndpoint(null);
-          }}
-          getOptionLabel={option => {
-            const hasDuplicate =
-              projects.filter(p => p.name === option.name).length > 1;
-            if (!hasDuplicate) return option.name;
-            const suffix = option.nano_id
-              ? option.nano_id.slice(0, 6)
-              : option.id.slice(0, 6);
-            return `${option.name} (${suffix})`;
-          }}
-          renderOption={(props, option) => {
-            const { key: _key, ...otherProps } = props;
-            const hasDuplicate =
-              projects.filter(p => p.name === option.name).length > 1;
-            return (
-              <Box component="li" key={option.id} {...otherProps}>
-                <Box>
-                  <Typography variant="body2">{option.name}</Typography>
-                  {hasDuplicate && (
-                    <Typography variant="caption" color="text.secondary">
-                      {option.created_at
-                        ? `Created ${formatDate(option.created_at)}`
-                        : `ID: ${option.nano_id ?? option.id.slice(0, 8)}`}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-            );
-          }}
-          renderInput={params => (
-            <TextField
-              {...params}
-              label="Project (optional — filters endpoints)"
-              placeholder="Active project"
-            />
-          )}
-          isOptionEqualToValue={(a, b) => a.id === b.id}
-        />
-        {projects.length === 0 && !loading && (
-          <FormHelperText>No projects available</FormHelperText>
-        )}
-      </FormControl>
-    );
-  };
+  const scoringSummary = summaryOf(
+    metricMode === METRIC_MODE.CUSTOM
+      ? `Custom metrics (${selectedMetrics.length})`
+      : METRIC_MODE_SUMMARY[metricMode],
+    selectedEvaluationModelId && 'chosen evaluation model',
+    scoringTarget === SCORING_TARGET.REUSE ? 'reused outputs' : 'fresh outputs'
+  );
 
-  const renderEndpointField = () => {
-    if (!cfg.endpointEditable) {
-      if (mode === 'rerunTestRun') {
-        return (
-          <TextField
-            label="Endpoint"
-            value={rerunConfig?.endpointName ?? ''}
-            disabled
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            sx={drawerDisabledFieldSx}
-          />
-        );
-      }
-      return null;
-    }
+  const whenSummary = RUN_WHEN_LABEL[when];
 
-    const options = filteredEndpoints;
+  const optionsSummary = summaryOf(
+    executionMode,
+    preflightEnabled ? 'preflight on' : 'preflight off',
+    !scheduleMode && tags.length > 0 && plural(tags.length, 'tag')
+  );
 
-    return (
-      <FormControl fullWidth>
-        <Autocomplete
-          options={options}
-          value={options.find(e => e.id === selectedEndpoint) || null}
-          onChange={(_, v) => setSelectedEndpoint(v?.id ?? null)}
-          getOptionLabel={opt => opt.name}
-          renderInput={params => (
-            <TextField
-              {...params}
-              label="Endpoint"
-              required
-              placeholder="Select endpoint"
-            />
-          )}
-          renderOption={(props, option) => {
-            const { key: _key, ...otherProps } = props;
-            return (
-              <Box
-                key={option.id}
-                {...otherProps}
-                component="li"
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <span>{option.name}</span>
-                {option.environment && (
-                  <Chip
-                    label={option.environment}
-                    size="small"
-                    color={
-                      option.environment === 'production'
-                        ? 'error'
-                        : option.environment === 'staging'
-                          ? 'warning'
-                          : 'success'
-                    }
-                    sx={{ ml: 1 }}
-                  />
-                )}
-              </Box>
-            );
-          }}
-          isOptionEqualToValue={(a, b) => a.id === b.id}
-        />
-        {options.length === 0 && !loading && !endpointsLoading && (
-          <FormHelperText>
-            No endpoints available for this project
-          </FormHelperText>
-        )}
-      </FormControl>
-    );
-  };
+  const footerSummary = scheduleMode
+    ? editingSchedule
+      ? null
+      : resolveTestSetIds().length > 1
+        ? `Creates ${plural(resolveTestSetIds().length, 'schedule')}`
+        : 'Creates 1 schedule'
+    : runCount > 0
+      ? summaryOf(
+          plural(runCount, 'run'),
+          runTestCount !== null &&
+            runTestCount !== undefined &&
+            plural(runTestCount, 'test')
+        )
+      : null;
+
+  // -----------------------------------------------------------------------
+  // Sections
+  // -----------------------------------------------------------------------
 
   const renderTestSetField = () => {
-    if (cfg.testSetMode === 'hidden') {
-      if (mode === 'rerunTestRun') {
-        return (
-          <TextField
-            label="Test Set"
-            value={rerunConfig?.testSetName ?? ''}
-            disabled
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            sx={drawerDisabledFieldSx}
-          />
-        );
-      }
-      return null;
-    }
-
     if (cfg.testSetMode === 'single') {
       return (
-        <Autocomplete
-          options={testSets}
+        <TestSetField
+          testSets={testSets}
           value={selectedTestSet}
-          onChange={(_, v) => setSelectedTestSet(v)}
-          getOptionLabel={opt => opt.name || 'Unnamed Test Set'}
-          isOptionEqualToValue={(a, b) => a.id === b.id}
-          renderOption={(props, option) => {
-            const { key: _key, ...otherProps } = props;
-            return (
-              <Box component="li" key={option.id} {...otherProps}>
-                {option.name || 'Unnamed Test Set'}
-              </Box>
-            );
-          }}
-          fullWidth
-          renderInput={params => (
-            <TextField {...params} label="Test Set" required />
-          )}
+          onChange={setSelectedTestSet}
         />
       );
     }
+    if (gridTestSetIds && gridTestSetIds.length > 1) {
+      return (
+        <FixedField
+          label="Test Sets"
+          value={`${gridTestSetIds.length} selected in the list`}
+        />
+      );
+    }
+    return <FixedField label="Test Set" value={testSetSummary} />;
+  };
 
-    // multi-search
+  const renderEndpointField = () =>
+    cfg.endpointEditable ? (
+      <EndpointField
+        endpoints={filteredEndpoints}
+        value={selectedEndpoint}
+        onChange={setSelectedEndpoint}
+        loading={endpointsLoading}
+      />
+    ) : (
+      <FixedField label="Endpoint" value={rerunConfig?.endpointName ?? ''} />
+    );
+
+  const renderExperiments = () => {
+    if (experimentData) {
+      return (
+        <ExperimentVersionPicker
+          experiment={experimentData.experiment}
+          selected={internalVersionHashes}
+          onToggle={handleToggleVersion}
+        />
+      );
+    }
+    if (!cfg.experimentsEditable || !effectiveProjectId) return null;
+    if (scheduleMode) {
+      return (
+        <Typography variant="body2" color="text.secondary">
+          Scheduled runs run without an experiment.
+        </Typography>
+      );
+    }
     return (
-      <Autocomplete
-        multiple
-        options={searchTestSets}
-        value={selectedSearchTestSets}
-        onChange={(_, v) => setSelectedSearchTestSets(v)}
-        inputValue={testSetInput}
-        onInputChange={handleTestSetInputChange}
-        getOptionLabel={opt => opt.name || 'Unnamed Test Set'}
-        isOptionEqualToValue={(a, b) => a.id === b.id}
-        filterOptions={x => x}
-        loading={testSetSearching}
-        fullWidth
-        renderOption={(props, option) => {
-          const { key: _key, ...otherProps } = props;
-          return (
-            <Box component="li" key={option.id} {...otherProps}>
-              {option.name || 'Unnamed Test Set'}
-            </Box>
-          );
-        }}
-        renderInput={params => (
-          <TextField
-            {...params}
-            label="Test Set"
-            required
-            placeholder="Type to search test sets..."
-            InputProps={{
-              ...params.InputProps,
-              endAdornment: (
-                <>
-                  {testSetSearching && (
-                    <CircularProgress color="inherit" size={20} />
-                  )}
-                  {params.InputProps.endAdornment}
-                </>
-              ),
-            }}
-          />
-        )}
+      <ExperimentPicker
+        selected={selectedExperiments}
+        onChange={setSelectedExperiments}
+        onAdd={() => setExperimentsDrawerOpen(true)}
       />
     );
   };
 
-  const renderExperimentVersionBoxes = () => {
-    if (mode !== 'runExperiment') return null;
-    const allVersions = props.data.experiment.versions;
-    // Deduplicate versions (same logic as VersionHistory)
-    const seen = new Set<string>();
-    const uniqueVersions = allVersions.filter(v => {
-      if (seen.has(v.version)) return false;
-      seen.add(v.version);
-      return true;
-    });
-    return (
-      <Box
-        sx={{
-          p: 1.5,
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: theme => theme.spacing(1),
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-          <BiotechIcon fontSize="small" color="primary" />
-          <Typography variant="body2" fontWeight={500} noWrap>
-            {props.data.experiment.name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            — select versions to run
-          </Typography>
-        </Box>
-        {uniqueVersions.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            No versions saved yet.
-          </Typography>
-        ) : (
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-            {[...uniqueVersions].reverse().map(v => {
-              const selected = internalVersionHashes.has(v.version);
-              return (
-                <Chip
-                  key={v.version}
-                  label={shortVersion(v.version)}
-                  size="small"
-                  variant={selected ? 'filled' : 'outlined'}
-                  color={selected ? 'primary' : 'default'}
-                  sx={{ fontFamily: 'monospace', cursor: 'pointer' }}
-                  onClick={() => {
-                    setInternalVersionHashes(prev => {
-                      const next = new Set(prev);
-                      if (next.has(v.version)) {
-                        next.delete(v.version);
-                      } else {
-                        next.add(v.version);
-                      }
-                      return next;
-                    });
-                  }}
-                />
-              );
-            })}
-          </Stack>
-        )}
-      </Box>
-    );
-  };
+  const reuseCaption = scheduleMode
+    ? 'Scheduled runs always call the endpoint'
+    : mode === 'rerunTestRun'
+      ? 'Re-score outputs from this test run'
+      : lastTestRun
+        ? 'Re-score outputs from the latest test run'
+        : 'No previous test run available';
 
-  const renderSelectedExperimentGroups = () => {
-    if (selectedExperiments.length === 0) return null;
-
-    const grouped = new Map<
-      string,
-      { name: string; versions: SelectedExperiment[] }
-    >();
-    for (const exp of selectedExperiments) {
-      const key = String(exp.experiment_id);
-      const group = grouped.get(key) ?? {
-        name: exp.experiment_name,
-        versions: [],
-      };
-      group.versions.push(exp);
-      grouped.set(key, group);
-    }
-
-    return (
-      <Stack spacing={1}>
-        {Array.from(grouped.entries()).map(([expId, group]) => (
-          <Box
-            key={expId}
-            sx={{
-              p: 1.5,
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: theme => theme.spacing(1),
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                mb: 1,
-              }}
-            >
-              <BiotechIcon fontSize="small" color="primary" />
-              <Typography variant="body2" noWrap>
-                {group.name}
-              </Typography>
-            </Box>
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-              {group.versions.map(exp => (
-                <Chip
-                  key={exp.version}
-                  label={shortVersion(exp.version)}
-                  size="small"
-                  variant="outlined"
-                  sx={{ fontFamily: 'monospace' }}
-                  onDelete={() =>
-                    setSelectedExperiments(prev =>
-                      prev.filter(
-                        row =>
-                          row.experiment_id !== exp.experiment_id ||
-                          row.version !== exp.version
-                      )
-                    )
-                  }
-                />
-              ))}
-            </Stack>
-          </Box>
-        ))}
-      </Stack>
-    );
-  };
-
-  const renderExperimentsSection = () => {
-    if (!cfg.experimentsEditable) return null;
-    if (!effectiveProjectId) return null;
-
-    if (mode === 'rerunTestRun') {
-      return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <FormSectionDivider
-            headline="Experiment"
-            descriptiveText={EXPERIMENT_SECTION_DESCRIPTION}
-          />
-          {renderSelectedExperimentGroups()}
-          <Button
-            variant="outlined"
-            fullWidth
-            startIcon={<AddIcon />}
-            onClick={() => setExperimentsDrawerOpen(true)}
-            sx={RERUN_OUTLINE_BUTTON_SX}
-          >
-            Add experiment
-          </Button>
-        </Box>
-      );
-    }
-
-    const experimentGroups = renderSelectedExperimentGroups();
-
-    return (
-      <Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {EXPERIMENT_SECTION_DESCRIPTION}
-        </Typography>
-
-        {experimentGroups && <Box sx={{ mb: 2 }}>{experimentGroups}</Box>}
-
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => setExperimentsDrawerOpen(true)}
-        >
-          Add Experiment
-        </Button>
-      </Box>
-    );
-  };
-
-  const renderExecutionMode = () => (
-    <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-      <InputLabel id={`${a11yId}-execution-mode`} shrink>
-        Execution Mode
-      </InputLabel>
-      <Select
-        labelId={`${a11yId}-execution-mode`}
-        value={executionMode}
-        onChange={e => setExecutionMode(e.target.value)}
-        label="Execution Mode"
-        notched
-      >
-        <MenuItem value="Parallel">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CallSplitIcon fontSize="small" />
-            <Box>
-              <Typography variant="body1">Parallel</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Tests run simultaneously for faster execution (default)
-              </Typography>
-            </Box>
-          </Box>
-        </MenuItem>
-        <MenuItem value="Sequential">
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ArrowForwardIcon fontSize="small" />
-            <Box>
-              <Typography variant="body1">Sequential</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Tests run one after another, better for rate-limited endpoints
-              </Typography>
-            </Box>
-          </Box>
-        </MenuItem>
-      </Select>
-    </FormControl>
-  );
-
-  const renderScoringTarget = () => {
-    if (!cfg.showScoringTarget) return null;
-    const reusableDisabled = mode === 'executeTestSet' && !lastTestRun;
-
-    return (
-      <>
-        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-          <InputLabel id={`${a11yId}-scoring-target`} shrink>
-            Scoring Target
-          </InputLabel>
-          <Select
-            labelId={`${a11yId}-scoring-target`}
-            value={scoringTarget}
-            onChange={e => setScoringTarget(e.target.value as ScoringTarget)}
-            label="Scoring Target"
-            notched
-          >
-            <MenuItem value="fresh">
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <BoltIcon fontSize="small" />
-                <Box>
-                  <Typography variant="body1">Fresh Outputs</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Call the endpoint and score the new responses
-                  </Typography>
-                </Box>
-              </Box>
-            </MenuItem>
-            <MenuItem value="reuse" disabled={reusableDisabled}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ReplayIcon fontSize="small" />
-                <Box>
-                  <Typography variant="body1">Reuse Outputs</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {mode === 'rerunTestRun'
-                      ? 'Re-score outputs from this test run'
-                      : lastTestRun
-                        ? 'Re-score outputs from the latest test run'
-                        : 'No previous test run available'}
-                  </Typography>
-                </Box>
-              </Box>
-            </MenuItem>
-          </Select>
-        </FormControl>
-
-        {scoringTarget === 'reuse' &&
-          mode === 'executeTestSet' &&
-          lastTestRun && (
-            <Alert severity="info">
-              Outputs from{' '}
-              <Link
-                href={`/test-runs/${lastTestRun.nano_id || lastTestRun.id}`}
-                target="_blank"
-                style={{ fontWeight: 600 }}
-              >
-                {lastTestRun.name ||
-                  `Test run from ${
-                    lastTestRun.created_at
-                      ? formatDate(lastTestRun.created_at)
-                      : 'unknown date'
-                  }`}
-              </Link>{' '}
-              ({lastTestRun.pass_rate}% pass rate, {lastTestRun.test_count}{' '}
-              tests) will be reused. Only metrics will be re-evaluated.
-            </Alert>
-          )}
-
-        {scoringTarget === 'reuse' && mode === 'rerunTestRun' && (
-          <Alert severity="info">
-            Outputs from this test run will be reused. Only metrics will be
-            re-evaluated.
-          </Alert>
-        )}
-      </>
-    );
-  };
-
-  const renderMetrics = () => {
-    if (!cfg.showMetrics) return null;
-
-    return (
-      <>
-        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-          <InputLabel id={`${a11yId}-metrics-source`} shrink>
-            Metrics Source
-          </InputLabel>
-          <Select
-            labelId={`${a11yId}-metrics-source`}
-            value={metricMode}
-            onChange={e => {
-              setMetricMode(e.target.value as MetricMode);
-              if (e.target.value !== 'define_custom') setSelectedMetrics([]);
-            }}
-            label="Metrics Source"
-            notched
-          >
-            {testSetMetrics.length > 0 && (
-              <MenuItem value="use_test_set">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <TuneIcon fontSize="small" />
-                  <Box>
-                    <Typography variant="body1">Test Set Metrics</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Use {testSetMetrics.length} metric
-                      {testSetMetrics.length !== 1 ? 's' : ''} configured on
-                      this test set
-                    </Typography>
-                  </Box>
-                </Box>
-              </MenuItem>
-            )}
-            <MenuItem value="use_requirement">
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <PsychologyIcon fontSize="small" />
-                <Box>
-                  <Typography variant="body1">Requirement Metrics</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Use default metrics defined on each test&apos;s requirement
-                  </Typography>
-                </Box>
-              </Box>
-            </MenuItem>
-            <MenuItem value="define_custom">
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <EditIcon fontSize="small" />
-                <Box>
-                  <Typography variant="body1">Custom Metrics</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Define specific metrics for this execution only
-                  </Typography>
-                </Box>
-              </Box>
-            </MenuItem>
-          </Select>
-        </FormControl>
-
-        {metricMode === 'define_custom' && (
-          <Box>
-            <Alert severity="info" sx={{ mb: 2 }}>
-              These metrics will only be used for this specific execution and
-              will not be saved to the test set.
-            </Alert>
-
-            {selectedMetrics.length > 0 && (
-              <Stack spacing={1} sx={{ mb: 2 }}>
-                {selectedMetrics.map(metric => (
-                  <Box
-                    key={metric.id}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      p: 1,
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: theme => theme.spacing(1),
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <AutoGraphIcon fontSize="small" color="primary" />
-                      <Typography variant="body2">{metric.name}</Typography>
-                    </Box>
-                    <IconButton
-                      aria-label={`Remove ${metric.name}`}
-                      size="small"
-                      onClick={() => handleRemoveMetric(metric.id)}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                ))}
-              </Stack>
-            )}
-
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={() => setMetricsDialogOpen(true)}
-            >
-              Add Metric
-            </Button>
-
-            <SelectMetricsDialog
-              open={metricsDialogOpen}
-              onClose={() => setMetricsDialogOpen(false)}
-              onSelect={handleAddMetric}
-              excludeMetricIds={selectedMetrics.map(m => m.id)}
-              title="Add Metric to Execution"
-              subtitle="Select a metric to use for this test run"
-              scopeFilter={metricScopeFilter}
-              variant="drawer"
-            />
-          </Box>
-        )}
-      </>
-    );
-  };
+  const showExecutionModel =
+    effectiveTestSetType === 'Multi-Turn' || mode === 'createFromGrid';
 
   // -----------------------------------------------------------------------
-  // RerunTestRunDrawer layout (Figma 1641:16598)
-  // -----------------------------------------------------------------------
-
-  const renderRerunTestRunContent = () => (
-    <>
-      <Box sx={RERUN_SECTION_SX}>
-        <FormSectionDivider headline="Execution Target" />
-        <Box sx={RERUN_FIELDS_SX}>
-          {renderTestSetField()}
-          {renderProjectField()}
-          {renderEndpointField()}
-        </Box>
-      </Box>
-
-      {renderExperimentsSection()}
-
-      <Box sx={RERUN_SECTION_SX}>
-        <FormSectionDivider headline="Configuration" />
-        <Box sx={RERUN_FIELDS_SX}>
-          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-            <InputLabel id={`${a11yId}-execution-mode-2`} shrink>
-              Execution Mode
-            </InputLabel>
-            <Select
-              labelId={`${a11yId}-execution-mode-2`}
-              value={executionMode}
-              onChange={e => setExecutionMode(e.target.value)}
-              label="Execution Mode"
-            >
-              <MenuItem value="Parallel">Parallel</MenuItem>
-              <MenuItem value="Sequential">Sequential</MenuItem>
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-            <InputLabel id={`${a11yId}-scoring-target-2`} shrink>
-              Scoring Target
-            </InputLabel>
-            <Select
-              labelId={`${a11yId}-scoring-target-2`}
-              value={scoringTarget}
-              onChange={e => setScoringTarget(e.target.value as ScoringTarget)}
-              label="Scoring Target"
-            >
-              <MenuItem value="fresh">Fresh Outputs</MenuItem>
-              <MenuItem value="reuse">Reuse Outputs</MenuItem>
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-            <InputLabel id={`${a11yId}-metric-source`} shrink>
-              Metric Source
-            </InputLabel>
-            <Select
-              labelId={`${a11yId}-metric-source`}
-              value={metricMode}
-              onChange={e => {
-                setMetricMode(e.target.value as MetricMode);
-                if (e.target.value !== 'define_custom') setSelectedMetrics([]);
-              }}
-              label="Metric Source"
-            >
-              {testSetMetrics.length > 0 && (
-                <MenuItem value="use_test_set">Test Set Metrics</MenuItem>
-              )}
-              <MenuItem value="use_requirement">Requirement Metrics</MenuItem>
-              <MenuItem value="define_custom">Custom Metrics</MenuItem>
-            </Select>
-          </FormControl>
-
-          {metricMode === 'define_custom' && (
-            <Box>
-              {selectedMetrics.length > 0 && (
-                <Stack spacing={1} sx={{ mb: 2 }}>
-                  {selectedMetrics.map(metric => (
-                    <Box
-                      key={metric.id}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        p: 1,
-                        border: 1,
-                        borderColor: 'divider',
-                        borderRadius: theme => theme.spacing(1),
-                      }}
-                    >
-                      <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                      >
-                        <AutoGraphIcon fontSize="small" color="primary" />
-                        <Typography variant="body2">{metric.name}</Typography>
-                      </Box>
-                      <IconButton
-                        aria-label={`Remove ${metric.name}`}
-                        size="small"
-                        onClick={() => handleRemoveMetric(metric.id)}
-                      >
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ))}
-                </Stack>
-              )}
-
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<AddIcon />}
-                onClick={() => setMetricsDialogOpen(true)}
-                sx={RERUN_OUTLINE_BUTTON_SX}
-              >
-                Add metric
-              </Button>
-
-              <SelectMetricsDialog
-                open={metricsDialogOpen}
-                onClose={() => setMetricsDialogOpen(false)}
-                onSelect={handleAddMetric}
-                excludeMetricIds={selectedMetrics.map(m => m.id)}
-                title="Add Metric to Execution"
-                subtitle="Select a metric to use for this test run"
-                scopeFilter={metricScopeFilter}
-                variant="drawer"
-              />
-            </Box>
-          )}
-        </Box>
-      </Box>
-
-      <Box sx={RERUN_SECTION_SX}>
-        <FormSectionDivider headline="Model Settings" />
-        <Box sx={RERUN_FIELDS_SX}>
-          <ModelSelector
-            value={selectedEvaluationModelId}
-            onChange={setSelectedEvaluationModelId}
-            label="Evaluation Model"
-            purpose="evaluation"
-            hideHelperText
-            compact
-            fieldSx={drawerOutlinedFieldSx}
-            enabled={open}
-          />
-
-          {effectiveTestSetType === 'Multi-Turn' && (
-            <ModelSelector
-              value={selectedExecutionModelId}
-              onChange={setSelectedExecutionModelId}
-              label="Execution Model"
-              purpose="execution"
-              hideHelperText
-              compact
-              fieldSx={drawerOutlinedFieldSx}
-              enabled={open}
-            />
-          )}
-
-          <Box
-            sx={{
-              borderTop: 1,
-              borderColor: theme => theme.palette.greyscale.border,
-              pt: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Typography
-              sx={{
-                fontSize: rem(16),
-                lineHeight: rem(24),
-                color: theme => theme.palette.greyscale.title,
-              }}
-            >
-              Run Preflight Checks
-            </Typography>
-            <Switch
-              checked={preflightEnabled}
-              onChange={e => setPreflightEnabled(e.target.checked)}
-              size="small"
-            />
-          </Box>
-        </Box>
-      </Box>
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <FormSectionDivider headline="Tags" />
-        <BaseTag
-          value={tags}
-          onChange={setTags}
-          label="Tags"
-          placeholder="Add tags (press Enter or comma to add)"
-          chipColor="default"
-          addOnBlur
-          delimiters={[',', 'Enter']}
-          size="small"
-          margin="none"
-          fullWidth
-          chipClassName={tagStyles.modalTag}
-          sx={drawerTagFieldSx}
-        />
-      </Box>
-    </>
-  );
-
-  // -----------------------------------------------------------------------
-  // Dynamic title for createFromGrid
+  // Title and save button
   // -----------------------------------------------------------------------
 
   const title = editingSchedule
@@ -2207,7 +1329,7 @@ export default function RunDrawer(props: RunDrawerProps) {
       open={open}
       onClose={onClose}
       title={title}
-      loading={loading || endpointsLoading || executing}
+      loading={endpointsLoading || executing}
       error={error ?? quotaExhaustedMessage}
       onSave={handleExecute}
       saveDisabled={!canSave}
@@ -2219,200 +1341,119 @@ export default function RunDrawer(props: RunDrawerProps) {
             ? 'Scheduling...'
             : undefined
       }
-      saveMenu={
-        canSchedule && !editingSchedule
-          ? [
-              scheduleMode
-                ? {
-                    label: 'Execute now',
-                    onClick: () => setScheduleMode(false),
-                  }
-                : { label: 'Schedule run…', onClick: enterScheduleMode },
-            ]
-          : undefined
-      }
+      footerSummary={footerSummary}
     >
-      {loading || endpointsLoading ? (
+      {endpointsLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
           <CircularProgress />
         </Box>
-      ) : mode === 'rerunTestRun' ? (
-        renderRerunTestRunContent()
       ) : (
-        <>
-          {scheduleMode && (
-            <RunDrawerScheduleSection
-              form={scheduleForm}
-              onChange={setScheduleForm}
-              onPreviewError={setSchedulePreviewError}
-              sdkEndpoint={selectedEndpointIsSdk}
-              testSetCount={resolveTestSetIds().length}
-              initialForm={
-                editingSchedule ? fromSchedule(editingSchedule) : undefined
+        // Keyed per opening so each section starts from that opening's default fold.
+        <Box
+          key={session}
+          sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+        >
+          <RunDrawerSection title="What to run" summary={testSetSummary}>
+            {renderTestSetField()}
+          </RunDrawerSection>
+
+          <RunDrawerSection title="Run against" summary={targetSummary}>
+            {renderEndpointField()}
+            {renderExperiments()}
+          </RunDrawerSection>
+
+          <RunDrawerSection
+            title="Scoring"
+            summary={scoringSummary}
+            defaultExpanded={
+              mode === 'rerunTestRun' || metricMode === METRIC_MODE.CUSTOM
+            }
+          >
+            <MetricsField
+              metricMode={metricMode}
+              onMetricModeChange={handleMetricModeChange}
+              testSetMetricCount={testSetMetrics.length}
+              selectedMetrics={selectedMetrics}
+              onAddMetric={handleAddMetric}
+              onRemoveMetric={handleRemoveMetric}
+              scopeFilter={effectiveTestSetType ?? undefined}
+            />
+            <ModelSelector
+              value={selectedEvaluationModelId}
+              onChange={setSelectedEvaluationModelId}
+              label="Evaluation Model"
+              purpose="evaluation"
+              hideHelperText
+              compact
+              fieldSx={drawerOutlinedFieldSx}
+              enabled={open}
+            />
+            <ScoringTargetField
+              value={scoringTarget}
+              onChange={setScoringTarget}
+              reuseCaption={reuseCaption}
+              // Only a re-run or the set's last run has outputs to reuse.
+              reuseDisabled={
+                scheduleMode || (mode !== 'rerunTestRun' && !lastTestRun)
               }
+              reusedRun={mode === 'executeTestSet' ? lastTestRun : null}
+              reusingThisRun={mode === 'rerunTestRun'}
             />
+          </RunDrawerSection>
+
+          {(canSchedule || editingSchedule) && (
+            <RunDrawerSection title="When" summary={whenSummary}>
+              <WhenField
+                when={when}
+                onWhenChange={handleWhenChange}
+                allowNow={!editingSchedule}
+                form={scheduleForm}
+                onFormChange={setScheduleForm}
+                onPreviewError={setSchedulePreviewError}
+                sdkEndpoint={selectedEndpointIsSdk}
+                testSetCount={resolveTestSetIds().length}
+                initialForm={
+                  editingSchedule ? fromSchedule(editingSchedule) : undefined
+                }
+                reuseDropped={reuseDropped}
+              />
+            </RunDrawerSection>
           )}
-          {/* Execution Target */}
-          <Box sx={RERUN_SECTION_SX}>
-            <FormSectionDivider
-              headline="Execution Target"
-              descriptiveText="The endpoint that will receive and respond to each test case."
+
+          <RunDrawerSection
+            title="More options"
+            summary={optionsSummary}
+            defaultExpanded={false}
+          >
+            <ExecutionModeField
+              value={executionMode}
+              onChange={setExecutionMode}
             />
-            <Box sx={RERUN_FIELDS_SX}>
-              {mode === 'runExperiment' && renderExperimentVersionBoxes()}
-              {renderTestSetField()}
-              {renderProjectField()}
-              {renderEndpointField()}
-            </Box>
-          </Box>
-
-          {/* Experiment */}
-          {!scheduleMode &&
-            cfg.experimentsEditable &&
-            effectiveProjectId &&
-            (() => {
-              const experimentGroups = renderSelectedExperimentGroups();
-              return (
-                <Box
-                  sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
-                >
-                  <FormSectionDivider
-                    headline="Experiment"
-                    descriptiveText={EXPERIMENT_SECTION_DESCRIPTION}
-                  />
-                  {experimentGroups}
-                  <Button
-                    variant="outlined"
-                    startIcon={<AddIcon />}
-                    onClick={() => setExperimentsDrawerOpen(true)}
-                    sx={RERUN_OUTLINE_BUTTON_SX}
-                  >
-                    Add experiment
-                  </Button>
-                </Box>
-              );
-            })()}
-
-          {/* Run count summary (runExperiment only) */}
-          {mode === 'runExperiment' &&
-            canExecute &&
-            (() => {
-              const totalRuns = internalVersionHashes.size;
-              return (
-                <Alert severity="info">
-                  This will create {totalRuns} test run
-                  {totalRuns !== 1 ? 's' : ''} (1 test set &times;{' '}
-                  {internalVersionHashes.size} version
-                  {internalVersionHashes.size !== 1 ? 's' : ''})
-                </Alert>
-              );
-            })()}
-
-          {/* Advanced Options */}
-          <Box sx={RERUN_SECTION_SX}>
-            <FormSectionDivider
-              headline="Advanced Options"
-              descriptiveText="Optional overrides — defaults work well for most runs."
-            />
-            <Box sx={RERUN_FIELDS_SX}>
-              {renderExecutionMode()}
-              {!scheduleMode && renderScoringTarget()}
-              {scheduleMode && reuseDropped && (
-                <Alert severity="info">
-                  Scheduled runs always call the endpoint, so this switched to
-                  fresh outputs.
-                </Alert>
-              )}
-              {cfg.showMetrics && renderMetrics()}
+            {showExecutionModel && (
               <ModelSelector
-                value={selectedEvaluationModelId}
-                onChange={setSelectedEvaluationModelId}
-                label="Evaluation Model"
-                purpose="evaluation"
+                value={selectedExecutionModelId}
+                onChange={setSelectedExecutionModelId}
+                label="Execution Model"
+                purpose="execution"
                 hideHelperText
                 compact
                 fieldSx={drawerOutlinedFieldSx}
                 enabled={open}
               />
-              {(effectiveTestSetType === 'Multi-Turn' ||
-                mode === 'createFromGrid') && (
-                <ModelSelector
-                  value={selectedExecutionModelId}
-                  onChange={setSelectedExecutionModelId}
-                  label="Execution Model"
-                  purpose="execution"
-                  hideHelperText
-                  compact
-                  fieldSx={drawerOutlinedFieldSx}
-                  enabled={open}
-                />
-              )}
-              <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-                <InputLabel id={`${a11yId}-run-preflight-checks`} shrink>
-                  Run Preflight Checks
-                </InputLabel>
-                <Select
-                  labelId={`${a11yId}-run-preflight-checks`}
-                  value={preflightEnabled ? 'yes' : 'no'}
-                  onChange={e => setPreflightEnabled(e.target.value === 'yes')}
-                  label="Run Preflight Checks"
-                  notched
-                  renderValue={val => (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {val === 'yes' ? (
-                        <FlightTakeoffIcon fontSize="small" />
-                      ) : (
-                        <CloseIcon fontSize="small" />
-                      )}
-                      <Box>
-                        <Typography variant="body1">
-                          {val === 'yes' ? 'Yes' : 'No'}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {val === 'yes'
-                            ? 'Validate endpoint and model configuration before executing'
-                            : 'Skip validation and start the run immediately'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
-                >
-                  <MenuItem value="no">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CloseIcon fontSize="small" />
-                      <Box>
-                        <Typography variant="body1">No</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Skip validation and start the run immediately
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value="yes">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <FlightTakeoffIcon fontSize="small" />
-                      <Box>
-                        <Typography variant="body1">Yes</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Validate endpoint and model configuration before
-                          executing
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-          </Box>
-
-          {/* Test Run Tags: schedules don't store tags, so not in schedule mode */}
-          {!scheduleMode && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <FormSectionDivider headline="Test Run Tags" />
+            )}
+            <PreflightField
+              checked={preflightEnabled}
+              onChange={setPreflightEnabled}
+            />
+            {scheduleMode ? (
+              <Typography variant="body2" color="text.secondary">
+                Schedules don&apos;t keep test run tags.
+              </Typography>
+            ) : (
               <BaseTag
                 value={tags}
                 onChange={setTags}
-                label="Tags"
+                label="Test run tags"
                 placeholder="Add tags (press Enter or comma to add)"
                 chipColor="default"
                 addOnBlur
@@ -2423,9 +1464,9 @@ export default function RunDrawer(props: RunDrawerProps) {
                 chipClassName={tagStyles.modalTag}
                 sx={drawerTagFieldSx}
               />
-            </Box>
-          )}
-        </>
+            )}
+          </RunDrawerSection>
+        </Box>
       )}
       {cfg.experimentsEditable && effectiveProjectId && (
         <SelectExperimentsDrawer

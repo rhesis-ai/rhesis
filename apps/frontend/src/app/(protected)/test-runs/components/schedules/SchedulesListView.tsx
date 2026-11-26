@@ -78,7 +78,7 @@ export default function SchedulesListView({
       <SectionEmptyState
         icon={ScheduleIcon}
         title="No schedules yet"
-        description="Schedule a test set to run it later or on a regular basis. Use + or pick Schedule run… in the run drawer."
+        description="Schedule a test set to run it later or on a regular basis. Use + or the When section of the run drawer."
       />
     );
   }

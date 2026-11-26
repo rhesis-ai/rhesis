@@ -48,6 +48,7 @@ import {
   type Frequency,
   type ScheduleForm,
 } from './schedule-form';
+import { RUN_WHEN, RUN_WHEN_LABEL } from './run-drawer-types';
 
 interface Props {
   form: ScheduleForm;
@@ -62,6 +63,8 @@ interface Props {
   testSetCount?: number;
   /** Editing a stored schedule: its unchanged dates may be in the past. */
   initialForm?: ScheduleForm;
+  /** Inside the run drawer's "When" section, which owns the once/repeat choice. */
+  embedded?: boolean;
 }
 
 function useDebounced<T>(value: T, delay: number): T {
@@ -72,6 +75,9 @@ function useDebounced<T>(value: T, delay: number): T {
   }, [value, delay]);
   return debounced;
 }
+
+const SCHEDULE_HELP =
+  'Each run uses the tests in the set at the time it starts.';
 
 const SUMMARY_SX = {
   border: 1,
@@ -89,6 +95,7 @@ export default function RunDrawerScheduleSection({
   sdkEndpoint = false,
   testSetCount = 1,
   initialForm,
+  embedded = false,
 }: Props) {
   const set = <K extends keyof ScheduleForm>(key: K, value: ScheduleForm[K]) =>
     onChange({ ...form, [key]: value });
@@ -117,22 +124,23 @@ export default function RunDrawerScheduleSection({
     onPreviewError(hasProblems ? 'invalid' : keptTiming ? null : previewError);
   }, [hasProblems, previewError, keptTiming, onPreviewError]);
 
-  return (
-    <Box sx={drawerSectionSx}>
-      <FormSectionDivider
-        headline="Schedule"
-        descriptiveText="Each run uses the tests in the set at the time it starts."
-      />
-      <Box sx={drawerFieldsSx}>
-        {showName && (
-          <TextField
-            label="Name"
-            value={form.name}
-            onChange={e => set('name', e.target.value)}
-            fullWidth
-          />
-        )}
+  const fields = (
+    <Box sx={drawerFieldsSx}>
+      {embedded && (
+        <Typography variant="body2" color="text.secondary">
+          {SCHEDULE_HELP}
+        </Typography>
+      )}
+      {showName && (
+        <TextField
+          label="Name"
+          value={form.name}
+          onChange={e => set('name', e.target.value)}
+          fullWidth
+        />
+      )}
 
+      {!embedded && (
         <ToggleButtonGroup
           exclusive
           fullWidth
@@ -140,119 +148,129 @@ export default function RunDrawerScheduleSection({
           onChange={(_, value) => value && set('repeat', value === 'repeat')}
           aria-label="Run once or repeat"
         >
-          <ToggleButton value="once">Run once</ToggleButton>
-          <ToggleButton value="repeat">Repeat</ToggleButton>
+          <ToggleButton value="once">
+            {RUN_WHEN_LABEL[RUN_WHEN.ONCE]}
+          </ToggleButton>
+          <ToggleButton value="repeat">
+            {RUN_WHEN_LABEL[RUN_WHEN.REPEAT]}
+          </ToggleButton>
         </ToggleButtonGroup>
+      )}
 
-        {form.repeat ? (
-          <RepeatFields
-            form={form}
-            set={set}
-            problems={problems}
-            serverProblem={previewError}
-          />
-        ) : (
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              label="Date"
-              type="date"
-              value={form.date}
-              onChange={e => set('date', e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-            />
-            <TextField
-              label="Time"
-              type="time"
-              value={form.time}
-              onChange={e => set('time', e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              error={!!problems.time}
-              helperText={problems.time}
-              fullWidth
-            />
-          </Box>
-        )}
-
-        <Autocomplete
-          options={zones}
-          value={form.timezone}
-          onChange={(_, value) => value && set('timezone', value)}
-          disableClearable
-          renderInput={params => <TextField {...params} label="Time zone" />}
+      {form.repeat ? (
+        <RepeatFields
+          form={form}
+          set={set}
+          problems={problems}
+          serverProblem={previewError}
         />
-
-        {form.repeat && (
-          <EndsFields form={form} set={set} problems={problems} />
-        )}
-
-        <FormControl fullWidth>
-          <InputLabel id="schedule-notify">Notify me</InputLabel>
-          <Select
-            labelId="schedule-notify"
-            label="Notify me"
-            value={form.notify}
-            onChange={e => set('notify', e.target.value as ScheduleNotify)}
-          >
-            {Object.entries(SCHEDULE_NOTIFY_LABEL).map(([value, label]) => (
-              <MenuItem key={value} value={value}>
-                {label}
-              </MenuItem>
-            ))}
-          </Select>
-          <FormHelperText>
-            You also hear once after the first run, so you know it works.
-          </FormHelperText>
-        </FormControl>
-
-        <Box sx={SUMMARY_SX} aria-live="polite">
-          {hasProblems ? (
-            <Typography variant="body2" color="text.secondary">
-              Finish the fields above to see when it runs.
-            </Typography>
-          ) : previewError ? (
-            <Typography variant="body2" color="error">
-              {previewError}
-            </Typography>
-          ) : preview.isLoading || !preview.data ? (
-            <>
-              <Skeleton width="60%" />
-              <Skeleton width="80%" />
-              <Skeleton width="40%" />
-            </>
-          ) : (
-            <>
-              <Typography
-                variant="subtitle2"
-                sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-              >
-                <ScheduleIcon fontSize="small" color="primary" />
-                {preview.data.repeats}
-              </Typography>
-              {form.repeat && preview.data.next.length > 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  Next:{' '}
-                  {preview.data.next
-                    .map(at => formatRunTime(at, form.timezone))
-                    .join(' · ')}
-                </Typography>
-              )}
-              {testSetCount > 1 && (
-                <Typography variant="body2" color="text.secondary">
-                  Creates one schedule per selected test set ({testSetCount}).
-                </Typography>
-              )}
-            </>
-          )}
+      ) : (
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <TextField
+            label="Date"
+            type="date"
+            value={form.date}
+            onChange={e => set('date', e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+          />
+          <TextField
+            label="Time"
+            type="time"
+            value={form.time}
+            onChange={e => set('time', e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            error={!!problems.time}
+            helperText={problems.time}
+            fullWidth
+          />
         </Box>
+      )}
 
-        {sdkEndpoint && (
-          <Alert severity="info">
-            This endpoint runs through the SDK. Scheduled runs only reach it
-            while your connector is running.
-          </Alert>
+      <Autocomplete
+        options={zones}
+        value={form.timezone}
+        onChange={(_, value) => value && set('timezone', value)}
+        disableClearable
+        renderInput={params => <TextField {...params} label="Time zone" />}
+      />
+
+      {form.repeat && <EndsFields form={form} set={set} problems={problems} />}
+
+      <FormControl fullWidth>
+        <InputLabel id="schedule-notify">Notify me</InputLabel>
+        <Select
+          labelId="schedule-notify"
+          label="Notify me"
+          value={form.notify}
+          onChange={e => set('notify', e.target.value as ScheduleNotify)}
+        >
+          {Object.entries(SCHEDULE_NOTIFY_LABEL).map(([value, label]) => (
+            <MenuItem key={value} value={value}>
+              {label}
+            </MenuItem>
+          ))}
+        </Select>
+        <FormHelperText>
+          You also hear once after the first run, so you know it works.
+        </FormHelperText>
+      </FormControl>
+
+      <Box sx={SUMMARY_SX} aria-live="polite">
+        {hasProblems ? (
+          <Typography variant="body2" color="text.secondary">
+            Finish the fields above to see when it runs.
+          </Typography>
+        ) : previewError ? (
+          <Typography variant="body2" color="error">
+            {previewError}
+          </Typography>
+        ) : preview.isLoading || !preview.data ? (
+          <>
+            <Skeleton width="60%" />
+            <Skeleton width="80%" />
+            <Skeleton width="40%" />
+          </>
+        ) : (
+          <>
+            <Typography
+              variant="subtitle2"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+            >
+              <ScheduleIcon fontSize="small" color="primary" />
+              {preview.data.repeats}
+            </Typography>
+            {form.repeat && preview.data.next.length > 0 && (
+              <Typography variant="body2" color="text.secondary">
+                Next:{' '}
+                {preview.data.next
+                  .map(at => formatRunTime(at, form.timezone))
+                  .join(' · ')}
+              </Typography>
+            )}
+            {testSetCount > 1 && (
+              <Typography variant="body2" color="text.secondary">
+                Creates one schedule per selected test set ({testSetCount}).
+              </Typography>
+            )}
+          </>
         )}
       </Box>
+
+      {sdkEndpoint && (
+        <Alert severity="info">
+          This endpoint runs through the SDK. Scheduled runs only reach it while
+          your connector is running.
+        </Alert>
+      )}
+    </Box>
+  );
+
+  if (embedded) return fields;
+  return (
+    <Box sx={drawerSectionSx}>
+      <FormSectionDivider headline="Schedule" descriptiveText={SCHEDULE_HELP} />
+      {fields}
     </Box>
   );
 }
