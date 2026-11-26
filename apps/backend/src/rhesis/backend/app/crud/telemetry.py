@@ -1439,47 +1439,6 @@ def update_traces_with_test_result_id(
     test_result_uuid = uuid.UUID(test_result_id)
     org_uuid = uuid.UUID(organization_id)
 
-    # First, count how many traces match our criteria
-    matching_traces = (
-        db.query(models.Trace)
-        .filter(
-            models.Trace.test_run_id == test_run_uuid,
-            models.Trace.test_id == test_id_uuid,
-            models.Trace.organization_id == org_uuid,
-            models.Trace.attributes[
-                TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID
-            ].astext
-            == str(test_config_uuid),
-            models.Trace.test_result_id.is_(None),
-        )
-        .all()
-    )
-
-    logger.debug(
-        f"[TRACE_LINKING] Found {len(matching_traces)} traces matching criteria "
-        f"(test_run_id={test_run_uuid}, test_id={test_id_uuid}, "
-        f"test_configuration_id={test_config_uuid}, organization_id={org_uuid})"
-    )
-
-    if len(matching_traces) > 0:
-        logger.debug(f"[TRACE_LINKING] Sample trace attributes: {matching_traces[0].attributes}")
-    else:
-        # Check if there are ANY traces for this test_run
-        all_traces_for_run = (
-            db.query(models.Trace).filter(models.Trace.test_run_id == test_run_uuid).all()
-        )
-        logger.warning(
-            f"[TRACE_LINKING] No matching traces found! "
-            f"Total traces for test_run_id={test_run_uuid}: {len(all_traces_for_run)}"
-        )
-        if len(all_traces_for_run) > 0:
-            logger.debug(
-                f"[TRACE_LINKING] Sample trace from run - "
-                f"test_id: {all_traces_for_run[0].test_id}, "
-                f"test_result_id: {all_traces_for_run[0].test_result_id}, "
-                f"attributes: {all_traces_for_run[0].attributes}"
-            )
-
     result = len(
         bulk_update(
             db,

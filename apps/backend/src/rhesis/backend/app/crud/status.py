@@ -35,6 +35,25 @@ def get_status_with_entity_type(db: Session, status_id: uuid.UUID) -> Optional[m
     )
 
 
+def find_status_id(
+    db: Session, organization_id: str, name: str, entity_type: str
+) -> Optional[uuid.UUID]:
+    """The id of the organization's *name* status for *entity_type*, or None, in one query."""
+    return (
+        db.query(models.Status.id)
+        .join(models.TypeLookup, models.TypeLookup.id == models.Status.entity_type_id)
+        .filter(
+            models.Status.organization_id == organization_id,
+            models.Status.name == name,
+            models.Status.deleted_at.is_(None),
+            models.TypeLookup.type_name == "EntityType",
+            models.TypeLookup.type_value == entity_type,
+        )
+        .limit(1)
+        .scalar()
+    )
+
+
 def get_statuses(
     db: Session,
     skip: int = 0,

@@ -30,6 +30,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.models.entity_counts import batch_counts
 from rhesis.backend.app.utils.crud_utils import (
+    _flush_with_fk_guard,
+    _prepare_item_data,
     create_item,
     delete_item,
     get_item_detail,
@@ -139,6 +141,26 @@ def create_test_result(
 ) -> models.TestResult:
     """Create test_result."""
     return create_item(db, models.TestResult, test_result, organization_id, user_id)
+
+
+def insert_run_test_result(
+    db: Session,
+    test_result: schemas.TestResultCreate,
+    organization_id: str,
+    user_id: str | None = None,
+) -> uuid.UUID:
+    """Insert a result a test run produced and return its id, in one statement.
+
+    Only for rows the run built itself. Unlike :func:`create_test_result` it neither checks
+    the references nor reads the row back: the run resolved every id inside the
+    organization, and needs only the id. Anything built from request input goes through
+    :func:`create_test_result`.
+    """
+    data = _prepare_item_data(models.TestResult, test_result, organization_id, user_id)
+    row = models.TestResult(**data)
+    db.add(row)
+    _flush_with_fk_guard(db, models.TestResult)
+    return row.id
 
 
 def update_test_result(

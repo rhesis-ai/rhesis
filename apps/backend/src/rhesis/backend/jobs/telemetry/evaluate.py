@@ -28,12 +28,11 @@ from rhesis.backend.app.services.telemetry.evaluation_context import (
 )
 from rhesis.backend.app.services.telemetry.evaluation_trace import load_evaluation_trace
 from rhesis.backend.app.services.telemetry.trace_metrics_config import (
-    context_ttl_seconds,
     evaluation_enabled,
     project_trace_metrics_config,
 )
+from rhesis.backend.app.services.test_result_status import test_result_status_id
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
-from rhesis.backend.app.utils.ttl_cache import TTLCache
 from rhesis.backend.celery.core import app
 from rhesis.backend.metrics.inputs import ResponseTrace, TraceLoader
 from rhesis.sdk.entities.trace import Trace
@@ -42,9 +41,6 @@ logger = logging.getLogger(__name__)
 
 CONVERSATION_INPUT_KEY = "rhesis.conversation.input"
 CONVERSATION_OUTPUT_KEY = "rhesis.conversation.output"
-
-# Status ids per organization; see trace_metrics_config for the TTL.
-_status_ids = TTLCache(context_ttl_seconds)
 
 
 def _should_evaluate(config: Optional[Dict[str, Any]]) -> bool:
@@ -125,19 +121,14 @@ def _resolve_status_id(
     trace's status in that case.
     """
 
-    def load() -> Optional[str]:
-        status = get_or_create_status(
-            db, status_name, "TestResult", organization_id=organization_id
-        )
-        return str(status.id) if status else None
-
-    status_id = _status_ids.get_or_load((str(organization_id), status_name), load)
-    if status_id is None:
+    try:
+        return test_result_status_id(db, organization_id, status_name)
+    except ValueError:
         logger.warning(
             f"Status '{status_name}' not found for org {organization_id}; "
             f"trace_metrics_status will not be set"
         )
-    return status_id
+        return None
 
 
 def _turn_root_span(db: Session, trace_id: str, root_span_id: Optional[str]):
