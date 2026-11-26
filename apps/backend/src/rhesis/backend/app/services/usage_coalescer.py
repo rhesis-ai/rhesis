@@ -23,9 +23,23 @@ from rhesis.backend.app.services.usage import dispatch_accrual
 logger = logging.getLogger(__name__)
 
 
+_DEFAULT_FLUSH_SECONDS = 2.0
+
+
 def flush_seconds() -> float:
-    """Summing interval; 0 or less dispatches each accrual at once."""
-    return float(os.environ.get("USAGE_ACCRUAL_FLUSH_SECONDS", "2.0"))
+    """Summing interval; 0 or less dispatches each accrual at once.
+
+    A value that is not a number falls back to the default: this runs on request
+    paths, where accrual must never raise.
+    """
+    raw = os.environ.get("USAGE_ACCRUAL_FLUSH_SECONDS")
+    if raw is None:
+        return _DEFAULT_FLUSH_SECONDS
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning(f"USAGE_ACCRUAL_FLUSH_SECONDS={raw!r} is not a number; using 2")
+        return _DEFAULT_FLUSH_SECONDS
 
 
 _lock = threading.Lock()
@@ -82,5 +96,6 @@ def _reset_in_child() -> None:
     _flusher = _flusher_pid = None
 
 
-os.register_at_fork(after_in_child=_reset_in_child)
+if hasattr(os, "register_at_fork"):  # POSIX only
+    os.register_at_fork(after_in_child=_reset_in_child)
 atexit.register(flush)

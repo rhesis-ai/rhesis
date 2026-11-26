@@ -78,3 +78,9 @@ def test_a_forked_child_does_not_send_the_parents_sum(queued, summing):
 
     assert child_sent == 0
     assert queued == [("org-a", QuotaResource.MODEL_TOKENS.value, 100)]
+
+
+def test_a_bad_interval_falls_back_to_the_default(monkeypatch):
+    monkeypatch.setenv("USAGE_ACCRUAL_FLUSH_SECONDS", "two seconds")
+
+    assert usage_coalescer.flush_seconds() == 2.0
