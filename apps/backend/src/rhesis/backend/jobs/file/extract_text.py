@@ -65,7 +65,10 @@ def extract_file_text(
         extracted = extract_with_vision_fallback(content, filename, content_type)
 
         with session() as db:
-            file_extraction.record_extraction(db, file_id, "done", extracted)
+            saved = file_extraction.record_extraction(db, file_id, "done", extracted)
+        if not saved:
+            logger.warning(f"[EXTRACT] Result not saved, file gone or already done: {file_id}")
+            return
 
         logger.info(
             f"[EXTRACT] Extracted {len(extracted or '')} chars from file_id={file_id} ({filename})"

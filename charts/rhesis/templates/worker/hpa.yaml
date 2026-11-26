@@ -19,6 +19,8 @@ metadata:
     scaledobject.keda.sh/transfer-hpa-ownership: "true"
 spec:
   scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
     name: worker-{{ .name }}
   minReplicaCount: {{ .hpa.minReplicas }}
   maxReplicaCount: {{ .hpa.maxReplicas }}

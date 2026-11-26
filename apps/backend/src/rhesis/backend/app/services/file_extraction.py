@@ -4,12 +4,15 @@ Extraction itself (OCR, vision models) can take minutes, so callers hold no
 database session while it runs. These helpers each take a short session.
 """
 
+import logging
 import uuid
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.file import File
+
+logger = logging.getLogger(__name__)
 
 EXTRACTABLE_PREFIXES = ("image/", "application/pdf", "text/")
 
@@ -21,7 +24,11 @@ def _file(db: Session, file_id: str) -> Optional[File]:
 def needs_extraction(db: Session, file_id: str, content_type: str) -> bool:
     """Whether the file still needs extracting. Marks other types not applicable."""
     file_row = _file(db, file_id)
-    if file_row is None or file_row.extraction_status == "done":
+    if file_row is None:
+        # Also what a project_id that does not match the row looks like under RLS.
+        logger.warning(f"[EXTRACT] File row not found: file_id={file_id}")
+        return False
+    if file_row.extraction_status == "done":
         return False
     if not content_type.startswith(EXTRACTABLE_PREFIXES):
         file_row.extraction_status = "not_applicable"

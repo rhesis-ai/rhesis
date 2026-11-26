@@ -56,6 +56,13 @@ class TestExtractFileText:
             extract_file_text.run(*_ARGS)
         assert record.call_args.args[1:] == ("f1", "done", "text")
 
+    def test_an_unsaved_result_is_not_reported_as_extracted(self, caplog):
+        with _job(_Sessions()) as record:
+            record.return_value = False
+            extract_file_text.run(*_ARGS)
+        assert "Result not saved" in caplog.text
+        assert "Extracted" not in caplog.text
+
     def test_skips_files_that_need_nothing(self):
         with _job(_Sessions(), needs=False, extract=AssertionError) as record:
             extract_file_text.run(*_ARGS)
@@ -94,8 +101,9 @@ class TestFileExtraction:
         assert file_extraction.needs_extraction(_db(row), _ID, content_type) is expected
         assert row.extraction_status == after
 
-    def test_a_missing_file_needs_nothing(self):
+    def test_a_missing_file_needs_nothing_and_is_logged(self, caplog):
         assert file_extraction.needs_extraction(_db(None), _ID, "text/plain") is False
+        assert "File row not found" in caplog.text
 
     def test_record_leaves_a_finished_file_alone(self):
         row = SimpleNamespace(extraction_status="done", extracted_text="old")
