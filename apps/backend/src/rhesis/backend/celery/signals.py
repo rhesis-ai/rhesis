@@ -1,3 +1,4 @@
+import inspect
 import logging
 import time
 
@@ -149,7 +150,7 @@ def check_storage_configuration(**kwargs):
         raise SystemExit(1) from e
 
 
-def _task_organization_id(task, task_kwargs):
+def _task_organization_id(task, task_args, task_kwargs):
     """Resolve the org for a task that is starting, from the raw message.
 
     Cannot read ``task.request.organization_id``: Celery's tracer fires
@@ -160,12 +161,13 @@ def _task_organization_id(task, task_kwargs):
 
     Mirrors ``BaseJob.before_start``'s own precedence, including kwargs
     winning over headers, so attribution matches what the task body will see
-    a moment later rather than disagreeing with it on retries.
+    a moment later rather than disagreeing with it on retries. A task that takes the
+    org as a positional argument (the trace evaluations) is read from its args.
     """
-    return _task_value(task, task_kwargs, "organization_id")
+    return _task_value(task, task_args, task_kwargs, "organization_id")
 
 
-def _task_value(task, task_kwargs, key):
+def _task_value(task, task_args, task_kwargs, key):
     """``key`` from a starting task's raw message; see :func:`_task_organization_id`."""
     request = getattr(task, "request", None)
     headers = getattr(request, "headers", None) or {}
@@ -173,14 +175,25 @@ def _task_value(task, task_kwargs, key):
     value = headers.get(key) if hasattr(headers, "get") else None
     if (task_kwargs or {}).get(key):
         value = task_kwargs[key]
+    if not value and task_args:
+        value = _positional_arg(task, task_args, key)
     if not value:
         # Anything that set it directly, e.g. a task invoked in-process.
         value = getattr(request, key, None)
     return value
 
 
+def _positional_arg(task, task_args, key):
+    """The argument named *key* when the task was called with it by position."""
+    try:
+        bound = inspect.signature(task.run).bind_partial(*task_args)
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return bound.arguments.get(key)
+
+
 @task_prerun.connect
-def bind_provenance_for_task(task_id=None, task=None, kwargs=None, **_):
+def bind_provenance_for_task(task_id=None, task=None, args=None, kwargs=None, **_):
     """Attribute writes on any session this task opens to the job, for the audit log.
 
     ``BaseJob.get_db_session`` binds the same thing onto its own sessions; this
@@ -193,7 +206,7 @@ def bind_provenance_for_task(task_id=None, task=None, kwargs=None, **_):
     headers = getattr(getattr(task, "request", None), "headers", None) or {}
     _provenance_tokens[task_id] = bind_task_provenance(
         job_provenance(
-            user_id=_task_value(task, kwargs, "user_id"),
+            user_id=_task_value(task, args, kwargs, "user_id"),
             # launch_job's headers only; a task kwarg of the same name is not this.
             job_id=headers.get("job_id"),
             request_id=headers.get("request_id"),
@@ -211,7 +224,7 @@ def reset_provenance_for_task(task_id=None, **kwargs):
 
 
 @task_prerun.connect
-def bind_usage_attribution_for_task(task_id=None, task=None, kwargs=None, **_):
+def bind_usage_attribution_for_task(task_id=None, task=None, args=None, kwargs=None, **_):
     """Name the org to bill for any LLM tokens this task spends.
 
     The org rides in on the task headers and is already unpacked onto
@@ -237,7 +250,7 @@ def bind_usage_attribution_for_task(task_id=None, task=None, kwargs=None, **_):
         logger.warning("task_prerun without a task_id; usage will not be attributed")
         return
 
-    _usage_attribution_tokens[task_id] = bind_usage_org(_task_organization_id(task, kwargs))
+    _usage_attribution_tokens[task_id] = bind_usage_org(_task_organization_id(task, args, kwargs))
 
 
 @task_postrun.connect

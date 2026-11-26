@@ -49,6 +49,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ### Fixed
 
+- Model tokens spent by trace-metric evaluations now count toward the organization's model token usage and limit. Jobs that receive the organization as a positional argument were not attributed to it.
 - `GET /telemetry/traces/{trace_id}` and `GET /telemetry/metrics` read the project named by `project_id` when the session's project is another one, as the trace list does, instead of answering 404 or empty metrics. Both now check access to that project and answer 403 without it.
 - SDK connectors are no longer disconnected every 5 minutes while idle or waiting on a long function call. The backend now sends an app-level `ping` that the SDK answers, so a call in flight no longer loses its result to an idle-timeout reconnect.
 - Requests from Python's built-in `urllib` with its default User-Agent are no longer rejected with a 403 (error 1010) by the hosted API, telemetry, Polyphemus and demo chatbot hosts.
