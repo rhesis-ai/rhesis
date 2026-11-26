@@ -217,13 +217,11 @@ workers:
       requests:
         # Live: ~900Mi+ per worker; 250m CPU request improves spread across nodes.
         cpu: "250m"
-        # Raised from 1Gi: real usage sits at ~1.0-1.3Gi per pod, already above the
-        # old request, which pinned the memory metric near/over target regardless
-        # of actual queue load.
-        memory: "1.5Gi"
+        # The split layout uses about 2.1Gi per pod under load.
+        memory: "2Gi"
       limits:
         # Same as backend: heavy ML imports (litellm, garak) OOMKill at 1Gi
-        memory: "2Gi"
+        memory: "3Gi"
         cpu: "1000m"
     hpa:
       enabled: true
@@ -233,7 +231,8 @@ workers:
       # headroom (30-50% used) to support more pods.
       maxReplicas: 4
       targetCPUUtilizationPercentage: 60
-      targetMemoryUtilizationPercentage: 75
+      # No memory target (as in prd): Python RSS does not come back down after a run,
+      # so memory would pin the workers at maxReplicas.
     # Dev: Celery worker loads heavy ML imports (LiteLLM, Garak) on startup.
     # Allow extra headroom vs backend (no StatReload, but Garak cache pre-warm).
     # Liveness worst-case ≈ 240 + 29×45 = 1545s (~26m) before restart.
@@ -252,6 +251,11 @@ workers:
       timeoutSeconds: 15
       failureThreshold: 90
     env:
+      # One Celery process per kind of job (apps/worker/start.sh): test runs and long jobs,
+      # trace ingest, trace evaluation and short jobs, Architect, CPU-bound. Uses about
+      # 2.1 GiB per pod under load; "combined" goes back to one main process.
+      - name: WORKER_LAYOUT
+        value: "split"
       - name: CELERY_WORKER_CONCURRENCY
         value: "16"
       - name: CELERY_ARCHITECT_CONCURRENCY
