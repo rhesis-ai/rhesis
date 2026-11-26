@@ -27,6 +27,7 @@ from rhesis.backend.jobs.telemetry.evaluate import (
 )
 from rhesis.sdk.entities.trace import Trace
 
+LOAD_METRICS = "rhesis.backend.app.services.telemetry.evaluation_context.load_project_trace_metrics"
 TRACE_ID = "trace-uuid-1"
 PROJECT_ID = "project-uuid-1"
 ORG_ID = "org-uuid-1"
@@ -91,6 +92,8 @@ def _db_mock_turn(project, root_span, status_row) -> MagicMock:
             q.first.return_value = root_span
         elif model is models.Status:
             q.first.return_value = status_row
+        elif model is models.Organization:
+            q.first.return_value = MagicMock(deleted_at=None)
         return q
 
     db = MagicMock(spec=Session)
@@ -195,7 +198,7 @@ class TestEvaluateTurnTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ) as mock_load,
             patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics") as mock_turn,
@@ -236,7 +239,7 @@ class TestEvaluateTurnTraceMetrics:
             patch("rhesis.backend.jobs.telemetry.evaluate.SessionLocal", return_value=db),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[_mock_metric_model()],
             ) as load,
             patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics"),
@@ -283,7 +286,7 @@ class TestEvaluateTurnTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ) as mock_load,
             patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics"),
@@ -316,7 +319,7 @@ class TestEvaluateTurnTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ) as mock_load,
             patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics"),
@@ -347,7 +350,7 @@ class TestEvaluateTurnTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
             ) as mock_load,
         ):
             out = evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
@@ -368,7 +371,7 @@ class TestEvaluateTurnTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
             ) as mock_load,
         ):
             out = evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
@@ -387,7 +390,7 @@ class TestEvaluateTurnTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
             ) as mock_load,
             patch(
                 "rhesis.backend.jobs.telemetry.evaluate.random.random",
@@ -447,7 +450,7 @@ class TestEvaluateTurnTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ),
             patch(
@@ -474,7 +477,7 @@ class TestEvaluateTurnTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ),
             patch(
@@ -507,7 +510,7 @@ class TestEvaluateTurnTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics") as mock_turn,
@@ -541,7 +544,7 @@ class TestEvaluateTurnTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics") as mock_turn,
@@ -582,7 +585,7 @@ class TestEvaluateTurnWithRootSpanId:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics") as mock_turn,
@@ -624,7 +627,7 @@ class TestEvaluateTurnWithRootSpanId:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics") as mock_turn,
@@ -700,7 +703,7 @@ class TestEvaluateConversationTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics"),
@@ -755,7 +758,7 @@ class TestEvaluateConversationTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[],
             ),
         ):
@@ -778,7 +781,7 @@ class TestEvaluateConversationTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
             ) as mock_load,
         ):
             out = evaluate_conversation_trace_metrics.run(
@@ -811,7 +814,7 @@ class TestEvaluateConversationTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ),
             patch(
@@ -854,7 +857,7 @@ class TestEvaluateConversationTraceMetrics:
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[mock_metric],
             ),
             patch(
@@ -956,7 +959,7 @@ class TestTurnTraceLoader:
             patch("rhesis.backend.jobs.telemetry.evaluate.SessionLocal", return_value=db),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate._load_project_trace_metrics",
+                LOAD_METRICS,
                 return_value=[_mock_metric_model()],
             ),
             patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics"),
@@ -969,3 +972,42 @@ class TestTurnTraceLoader:
         _, trace = mock_eval_cls.return_value.evaluate.call_args.args
         assert (trace.input, trace.output) == ("user says hi", "assistant replies")
         load.assert_not_called()
+
+
+@pytest.mark.unit
+class TestEvaluationContext:
+    def test_an_invalid_metric_gets_an_error_result_and_the_others_still_run(self):
+        from rhesis.backend.app.services.telemetry.evaluation_context import (
+            project_metric_configs,
+        )
+
+        broken = _mock_metric_model("broken")
+        broken.score_type = "not-a-score-type"
+        with patch(LOAD_METRICS, return_value=[_mock_metric_model("ok"), broken]):
+            configs, invalid = project_metric_configs(
+                MagicMock(), ORG_ID, PROJECT_ID, {"metric_ids": ["ok-id", "broken-id"]}, "turn"
+            )
+
+        assert [config.name for config in configs] == ["ok"]
+        assert len(invalid) == 1
+        assert next(iter(invalid.values()))["is_successful"] is False
+
+    def test_a_failed_judge_lookup_is_not_cached(self):
+        from rhesis.backend.app.services.telemetry.evaluation_context import (
+            project_judge_models,
+        )
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = _mock_project()
+        model = MagicMock()
+        resolve = "rhesis.backend.app.utils.user_model_utils.resolve_model"
+        text_model = "rhesis.backend.app.utils.user_model_utils.text_model_for"
+        with (
+            patch(resolve, side_effect=[RuntimeError("db blip"), model]),
+            patch(text_model, return_value=None),
+        ):
+            first = project_judge_models(db, ORG_ID, PROJECT_ID, TRACE_ID)
+            second = project_judge_models(db, ORG_ID, PROJECT_ID, TRACE_ID)
+
+        assert first == (None, None)
+        assert second == (model, None)

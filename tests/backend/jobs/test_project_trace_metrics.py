@@ -1,10 +1,12 @@
-"""Which metrics a project's traces are evaluated with (``_load_project_trace_metrics``)."""
+"""Which metrics a project's traces are evaluated with (``load_project_trace_metrics``)."""
 
 import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.jobs.telemetry.evaluate import _load_project_trace_metrics
+from rhesis.backend.app.services.telemetry.evaluation_context import (
+    load_project_trace_metrics,
+)
 from tests.backend.routes.fixtures.data_factories import MetricDataFactory
 
 
@@ -30,13 +32,13 @@ class TestLoadProjectTraceMetrics:
 
     def _load(self, db, org_id, metrics, phase):
         assigned = [str(metrics[k].id) for k in ("single", "multi", "both")]
-        loaded = _load_project_trace_metrics(db, org_id, {"metric_ids": assigned}, phase=phase)
+        loaded = load_project_trace_metrics(db, org_id, {"metric_ids": assigned}, phase=phase)
         return {m.id for m in loaded}
 
     def test_nothing_assigned_loads_nothing(self, test_db, test_org_id, metrics):
-        assert _load_project_trace_metrics(test_db, test_org_id, {}, phase="turn") == []
+        assert load_project_trace_metrics(test_db, test_org_id, {}, phase="turn") == []
         assert (
-            _load_project_trace_metrics(test_db, test_org_id, {"metric_ids": []}, phase="turn")
+            load_project_trace_metrics(test_db, test_org_id, {"metric_ids": []}, phase="turn")
             == []
         )
 

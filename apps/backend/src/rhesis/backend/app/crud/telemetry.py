@@ -1368,6 +1368,7 @@ def mark_trace_processed(
     db: Session,
     trace_id: str,
     enriched_data: dict,
+    commit: bool = True,
 ) -> int:
     """
     Mark all spans in a trace as processed.
@@ -1376,6 +1377,8 @@ def mark_trace_processed(
         db: Database session
         trace_id: OpenTelemetry trace ID
         enriched_data: Enriched attributes to store
+        commit: False leaves the write in the caller's transaction, e.g. to commit it
+            with the spans being inserted while the trace's ingest lock is held.
 
     Returns:
         Number of spans updated
@@ -1391,7 +1394,8 @@ def mark_trace_processed(
         },
     )
 
-    db.commit()
+    if commit:
+        db.commit()
     return len(ids)
 
 

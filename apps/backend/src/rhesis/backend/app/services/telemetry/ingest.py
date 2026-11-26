@@ -18,7 +18,6 @@ from sqlalchemy.exc import DataError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import TraceIngestSettings
-from rhesis.backend.app.crud.telemetry import lock_traces_for_ingest
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.services.telemetry.span_storage import store_spans
 from rhesis.backend.app.utils.crud_utils import clean_strings_recursive
@@ -241,8 +240,8 @@ def process_ingest_job(db: Session, job: IngestJob) -> StoredBatch:
         with temporary_project_scope(db, organization_id, job.user_id or "", project_id):
             # Hooks run first and take their own locks, in an order of their
             # choosing; a hook that re-files spans locks the traces it writes.
+            # store_spans locks the traces it stores.
             _run_pre_store_hooks(db, job)
-            lock_traces_for_ingest(db, organization_id, [s.trace_id for s in spans])
             stored = store_spans(db, spans, organization_id)
         db.commit()
     except DataError as exc:

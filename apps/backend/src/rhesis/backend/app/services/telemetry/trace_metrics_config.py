@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.crud.project import find_project
 from rhesis.backend.app.utils.ttl_cache import TTLCache
 
 
@@ -55,7 +56,7 @@ def project_trace_metrics_config(
     """
 
     def load() -> Optional[Dict[str, Any]]:
-        project = db.query(models.Project).filter(models.Project.id == project_id).first()
+        project = find_project(db, project_id)
         return None if project is None else dict(trace_metrics_config(project))
 
     return _configs.get_or_load((str(organization_id), str(project_id)), load)

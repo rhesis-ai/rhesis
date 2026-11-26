@@ -14,7 +14,10 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
-from rhesis.backend.app.services.telemetry.post_ingest import process_stored_spans
+from rhesis.backend.app.services.telemetry.post_ingest import (
+    enrich_unprocessed_traces,
+    process_stored_spans,
+)
 from rhesis.backend.celery.core import app
 
 logger = logging.getLogger(__name__)
@@ -58,6 +61,8 @@ def post_ingest_link(
             )
             return {"status": "no_spans", "trace_ids": unique_trace_ids}
 
+        # The previous release stored these spans unenriched and left that to a job.
+        enrich_unprocessed_traces(db, stored_spans, organization_id, project_id)
         result = process_stored_spans(
             db, stored_spans, unique_trace_ids, organization_id, project_id
         )

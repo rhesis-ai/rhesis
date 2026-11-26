@@ -8,7 +8,7 @@ query per batch.
 """
 
 import logging
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 from sqlalchemy.orm import Session
 
@@ -38,47 +38,39 @@ def process_stored_spans(
     from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
     from rhesis.backend.app.services.telemetry.linking_service import TraceLinkingService
 
-    linked_count = conversation_linked = files_created = 0
-
-    try:
-        linked_count = TraceLinkingService(db).link_traces_for_incoming_batch(
-            spans=stored_spans, organization_id=organization_id
-        )
-        if linked_count > 0:
-            logger.info(f"Linked {linked_count} traces to test result (traces={unique_trace_ids})")
-    except Exception as link_error:
-        logger.warning(f"Failed to link traces (traces={unique_trace_ids}): {link_error}")
-        logger.debug("Trace linking traceback:", exc_info=True)
-
-    try:
-        conversation_linked = apply_pending_conversation_links(db, stored_spans)
-        if conversation_linked > 0:
-            logger.info(
-                f"Applied {conversation_linked} pending conversation "
-                f"links (traces={unique_trace_ids})"
-            )
-    except Exception as conversation_error:
-        logger.warning(
-            f"Failed to apply conversation links (traces={unique_trace_ids}): {conversation_error}"
-        )
-        logger.debug("Conversation linking traceback:", exc_info=True)
-
-    try:
-        files_created = apply_pending_files(db, stored_spans)
-        if files_created > 0:
-            logger.info(f"Created {files_created} pending file(s) (traces={unique_trace_ids})")
-    except Exception as file_error:
-        logger.warning(f"Failed to apply pending files (traces={unique_trace_ids}): {file_error}")
-        logger.debug("File linking traceback:", exc_info=True)
-
-    # Linking ran on this session; commit it before queueing work that reads it.
-    db.commit()
-
-    queued, _ = EnrichmentService(db).dispatch_for_spans(stored_spans, project_id, organization_id)
-
-    # Summed and queued, never written on `db`: metering must not be able to fail
-    # the batch it measures.
+    # Metered first, summed and queued, never written on `db`: metering must not be able
+    # to fail the batch it measures.
     usage_coalescer.add(organization_id, QuotaResource.TRACING_SPANS, len(stored_spans))
+
+    linked_count = _step(
+        db,
+        "link traces to test results",
+        unique_trace_ids,
+        lambda: TraceLinkingService(db).link_traces_for_incoming_batch(
+            spans=stored_spans, organization_id=organization_id
+        ),
+    )
+    conversation_linked = _step(
+        db,
+        "apply pending conversation links",
+        unique_trace_ids,
+        lambda: apply_pending_conversation_links(db, stored_spans),
+    )
+    files_created = _step(
+        db,
+        "apply pending files",
+        unique_trace_ids,
+        lambda: apply_pending_files(db, stored_spans),
+    )
+
+    queued = 0
+    try:
+        queued, _ = EnrichmentService(db).dispatch_for_spans(
+            stored_spans, project_id, organization_id
+        )
+    except Exception:
+        db.rollback()
+        logger.warning(f"Failed to queue evaluations (traces={unique_trace_ids})", exc_info=True)
 
     return {
         "linked": linked_count,
@@ -86,3 +78,42 @@ def process_stored_spans(
         "files_created": files_created,
         "evaluations_queued": queued,
     }
+
+
+def _step(db: Session, what: str, trace_ids: List[str], run: Callable[[], int]) -> int:
+    """Run one linking step and commit what it wrote; on failure roll back and go on.
+
+    Committed per step, so a later failure cannot undo an earlier step's writes. A
+    step that changed nothing leaves the transaction to the next one.
+    """
+    try:
+        count = run()
+        if count:
+            db.commit()
+            logger.info(f"{what}: {count} (traces={trace_ids})")
+        return count
+    except Exception:
+        db.rollback()
+        logger.warning(f"Failed to {what} (traces={trace_ids})", exc_info=True)
+        return 0
+
+
+def enrich_unprocessed_traces(
+    db: Session, stored_spans: List[models.Trace], organization_id: str, project_id: str
+) -> int:
+    """Enrich the traces of *stored_spans* that were stored without enrichment.
+
+    Only spans stored by the previous release need it (they were enriched by a
+    follow-up job). Returns the number of traces enriched.
+    """
+    from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
+
+    trace_ids = sorted({span.trace_id for span in stored_spans if span.processed_at is None})
+    enricher = TraceEnricher(db)
+    for trace_id in trace_ids:
+        try:
+            enricher.enrich_trace(trace_id, project_id, organization_id)
+        except Exception:
+            db.rollback()
+            logger.warning(f"Enrichment failed for trace {trace_id}", exc_info=True)
+    return len(trace_ids)

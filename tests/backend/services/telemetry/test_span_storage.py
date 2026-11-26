@@ -117,3 +117,99 @@ def test_a_batch_is_stored_with_one_insert(test_db, test_organization, db_projec
     assert len(inserts) == 1
     assert len(stored) == 9
     assert len(_stored(test_db, trace_id)) == 9
+
+
+@pytest.mark.integration
+def test_a_later_batch_commits_once_with_the_lock_held(test_db, test_organization, db_project):
+    # A commit before the insert would release the trace's ingest lock mid-store.
+    from sqlalchemy import event
+
+    trace_id = uuid4().hex
+    project = str(db_project.id)
+    store_spans(test_db, [_span(trace_id, project, "a" * 16)], str(test_organization.id))
+    statements = []
+
+    def record(conn, cursor, statement, *args):
+        statements.append(" ".join(statement.split())[:40])
+
+    engine = test_db.get_bind()
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        store_spans(
+            test_db,
+            [_span(trace_id, project, "b" * 16, parent="a" * 16, offset=1)],
+            str(test_organization.id),
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+
+    lock = next(i for i, s in enumerate(statements) if "pg_advisory_xact_lock" in s)
+    ends = [i for i, s in enumerate(statements) if s.startswith(("COMMIT", "RELEASE SAVEPOINT"))]
+    writes = [
+        i for i, s in enumerate(statements) if s.startswith(("UPDATE trace", "INSERT INTO trace"))
+    ]
+    assert len(ends) == 1, statements
+    assert lock < min(writes) and max(writes) < ends[0]
+
+
+@pytest.mark.integration
+def test_naive_timestamps_are_enriched_with_stored_spans(test_db, test_organization, db_project):
+    trace_id = uuid4().hex
+    project = str(db_project.id)
+    store_spans(test_db, [_span(trace_id, project, "a" * 16)], str(test_organization.id))
+    later = _span(trace_id, project, "b" * 16, parent="a" * 16, offset=1)
+    later.start_time = later.start_time.replace(tzinfo=None)
+    later.end_time = later.end_time.replace(tzinfo=None)
+
+    store_spans(test_db, [later], str(test_organization.id))
+
+    assert {row.enriched_data["metrics"]["span_count"] for row in _stored(test_db, trace_id)} == {2}
+
+
+@pytest.mark.integration
+def test_spans_stored_unenriched_are_enriched_for_legacy_messages(
+    test_db, test_organization, db_project
+):
+    from rhesis.backend.app.crud.telemetry import create_trace_spans
+    from rhesis.backend.app.services.telemetry.post_ingest import enrich_unprocessed_traces
+
+    trace_id = uuid4().hex
+    rows = create_trace_spans(
+        test_db, [_span(trace_id, str(db_project.id), "a" * 16)], str(test_organization.id)
+    )
+
+    enriched = enrich_unprocessed_traces(
+        test_db, rows, str(test_organization.id), str(db_project.id)
+    )
+
+    assert enriched == 1
+    assert all(row.processed_at is not None for row in _stored(test_db, trace_id))
+
+
+@pytest.mark.unit
+def test_a_failed_linking_step_still_queues_evaluations_and_meters():
+    from unittest.mock import MagicMock
+
+    from rhesis.backend.app.services.telemetry.post_ingest import process_stored_spans
+
+    db = MagicMock()
+    spans = [MagicMock()]
+    service = "rhesis.backend.app.services.telemetry"
+    with (
+        patch(
+            f"{service}.linking_service.TraceLinkingService.link_traces_for_incoming_batch",
+            side_effect=RuntimeError("statement timeout"),
+        ),
+        patch(f"{service}.conversation_linking.apply_pending_conversation_links", return_value=0),
+        patch(f"{service}.conversation_linking.apply_pending_files", return_value=0),
+        patch(
+            f"{service}.enrichment.EnrichmentService.dispatch_for_spans", return_value=(1, 0)
+        ) as dispatch,
+        patch(f"{service}.post_ingest.usage_coalescer.add") as meter,
+    ):
+        result = process_stored_spans(db, spans, ["t"], "org", "project")
+
+    db.rollback.assert_called()
+    dispatch.assert_called_once()
+    meter.assert_called_once()
+    assert result["evaluations_queued"] == 1

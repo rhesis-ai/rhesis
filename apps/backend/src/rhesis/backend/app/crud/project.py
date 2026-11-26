@@ -30,6 +30,14 @@ _PROJECT_RELATED_FIELDS = (include(models.Project.owner),)
 logger = logging.getLogger(__name__)
 
 
+def find_project(db: Session, project_id: str) -> Optional[models.Project]:
+    """The project row, for background work already bound to the project's scope.
+
+    No relationships loaded and no membership check (see :func:`get_project`).
+    """
+    return db.query(models.Project).filter(models.Project.id == project_id).first()
+
+
 def get_project(
     db: Session,
     project_id: uuid.UUID,
