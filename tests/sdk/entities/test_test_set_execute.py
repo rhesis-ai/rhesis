@@ -103,6 +103,17 @@ class TestExecute:
         body = kwargs["json"]
         assert body["execution_options"]["execution_mode"] == "Sequential"
 
+    @patch("requests.request")
+    def test_execute_only_tagged_tests(self, mock_request, test_set, endpoint):
+        """tests_tagged is sent at the top level of the body."""
+        mock_request.return_value = MagicMock(json=MagicMock(return_value={}))
+
+        test_set.execute(endpoint, tests_tagged=["smoke", "billing"])
+
+        body = mock_request.call_args.kwargs["json"]
+        assert body["tests_tagged"] == ["smoke", "billing"]
+        assert "tests_tagged" not in body["execution_options"]
+
     def test_execute_invalid_mode_raises(self, test_set, endpoint):
         """Invalid execution mode raises ValueError."""
         with pytest.raises(ValueError, match="Invalid execution mode"):

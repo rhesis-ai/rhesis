@@ -299,6 +299,7 @@ class TestSet(BaseEntity):
         experiment_id: Optional[str] = None,
         version: Optional[str] = None,
         environment: Optional[str] = None,
+        tests_tagged: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Build the request body for the execute endpoint."""
         resolved_mode = ExecutionMode.from_string(mode)
@@ -321,6 +322,8 @@ class TestSet(BaseEntity):
             body["version"] = version
         if environment is not None:
             body["environment"] = environment
+        if tests_tagged:
+            body["tests_tagged"] = list(tests_tagged)
         return body
 
     # ------------------------------------------------------------------
@@ -414,6 +417,7 @@ class TestSet(BaseEntity):
         experiment_id: Optional[str] = None,
         version: Optional[str] = None,
         environment: Optional[str] = None,
+        tests_tagged: Optional[List[str]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Execute the test set against the given endpoint.
 
@@ -443,6 +447,8 @@ class TestSet(BaseEntity):
                 experiment's latest version automatically.
             version: Optional version pin for parameter resolution.
             environment: Optional environment name for parameter resolution.
+            tests_tagged: Optional tag names. Only the tests carrying any of
+                them run; omit to run every test in the set.
 
         Returns:
             Dict containing the execution submission response.
@@ -464,6 +470,8 @@ class TestSet(BaseEntity):
             ... )
             >>> # Raw experiment_id (resolves to latest version)
             >>> result = test_set.execute(endpoint, experiment_id="<uuid>")
+            >>> # Only the tests tagged "smoke"
+            >>> result = test_set.execute(endpoint, tests_tagged=["smoke"])
         """
         if not self.id:
             raise ValueError("Test set ID must be set before executing")
@@ -493,6 +501,7 @@ class TestSet(BaseEntity):
             experiment_id=experiment_id,
             version=version,
             environment=environment,
+            tests_tagged=tests_tagged,
         )
         client = APIClient()
         return client.send_request(
