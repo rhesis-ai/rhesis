@@ -18,10 +18,12 @@ set -e
 : "${WORKER_LAYOUT:=combined}"
 : "${CELERY_WORKER_CONCURRENCY:=2}"            # combined: threads for the main worker
 : "${CELERY_ARCHITECT_CONCURRENCY:=2}"         # threads for the architect worker
-# Prefetch above 1: with acks_late on Redis a worker fetches roughly one message per
-# poll per prefetch slot, so at 1 short tasks leave most threads idle (measured: 24 %
-# of slots busy at 1, 97 % at 8). Long jobs keep 1 so one replica cannot hoard runs.
-: "${CELERY_WORKER_PREFETCH_MULTIPLIER:=4}"    # combined: main worker
+# Prefetch: with acks_late on Redis a worker fetches roughly one message per poll per
+# prefetch slot, so at 1 short jobs leave most threads idle (measured: 24 % of slots
+# busy at 1, 97 % at 8). Long jobs need 1 so one replica cannot hoard runs that idle
+# replicas could start, and the combined main process carries both, so it keeps 1;
+# split gives the short-job processes their own prefetch.
+: "${CELERY_WORKER_PREFETCH_MULTIPLIER:=1}"    # combined: main worker
 : "${CELERY_ARCHITECT_PREFETCH_MULTIPLIER:=1}"
 : "${CELERY_LONG_CONCURRENCY:=24}"             # split: test-runs, long-jobs
 : "${CELERY_INGEST_CONCURRENCY:=16}"           # split: trace-ingest

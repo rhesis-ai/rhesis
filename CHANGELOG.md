@@ -31,7 +31,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ### Changed
 
-- Background workers keep their threads busy. A worker took short jobs from the broker one at a time, so most of its threads sat idle while trace evaluations and usage counts queued; it now prefetches several (`CELERY_WORKER_PREFETCH_MULTIPLIER`, default 4). Long jobs (test runs, generation, tuning) no longer share a queue with short ones. Set `WORKER_LAYOUT=split` to run one worker process per kind of job, each sized for it; the default, `combined`, keeps one main process and one for the Architect.
+- Long background jobs (test runs, generation, tuning) no longer share a queue with short ones. Set `WORKER_LAYOUT=split` on the worker to run one process per kind of job, each sized for it: short jobs are prefetched (`CELERY_FAST_PREFETCH_MULTIPLIER`, default 8) so threads no longer sit idle waiting on the broker between them, and long jobs are taken one at a time. The default, `combined`, keeps one main process and one for the Architect, as before.
 - Each worker process sizes its database pool with `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` (default 10 and 20, as before).
 - The worker container no longer imports the backend three extra times at startup for its self-checks; it checks the broker with a plain Redis ping.
 - Embedding generation is off unless `EMBEDDINGS_ENABLED` is set. While it is off, saving tests, test results, traces and source chunks no longer queues embedding jobs, `POST /services/generate/embedding` returns 404, and embedding models are hidden on the Models page.
