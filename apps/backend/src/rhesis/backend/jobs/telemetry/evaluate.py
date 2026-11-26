@@ -121,13 +121,14 @@ def _resolve_status_id(
     trace's status in that case.
     """
 
-    status_id = test_result_status_id(db, organization_id, status_name)
-    if status_id is None:
+    try:
+        return test_result_status_id(db, organization_id, status_name)
+    except ValueError:
         logger.warning(
             f"Status '{status_name}' not found for org {organization_id}; "
             f"trace_metrics_status will not be set"
         )
-    return status_id
+        return None
 
 
 def _turn_root_span(db: Session, trace_id: str, root_span_id: Optional[str]):

@@ -49,3 +49,15 @@ class TestTestResultStatusId:
 
         assert created is not None
         assert (org, name) not in test_result_status._status_ids._values
+
+    def test_a_status_created_in_this_session_is_not_cached_on_a_later_call(
+        self, test_db, test_organization
+    ):
+        org = str(test_organization.id)
+        name = f"New-{uuid.uuid4().hex[:6]}"
+
+        first = test_result_status.test_result_status_id(test_db, org, name)
+        second = test_result_status.test_result_status_id(test_db, org, name)
+
+        assert first == second
+        assert (org, name) not in test_result_status._status_ids._values

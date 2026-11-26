@@ -151,8 +151,10 @@ def insert_run_test_result(
 ) -> uuid.UUID:
     """Insert a result a test run produced and return its id, in one statement.
 
-    Unlike :func:`create_test_result` it neither checks the references nor reads the row
-    back: the run resolved every id itself, inside the organization, and needs only the id.
+    Only for rows the run built itself. Unlike :func:`create_test_result` it neither checks
+    the references nor reads the row back: the run resolved every id inside the
+    organization, and needs only the id. Anything built from request input goes through
+    :func:`create_test_result`.
     """
     data = _prepare_item_data(models.TestResult, test_result, organization_id, user_id)
     row = models.TestResult(**data)
