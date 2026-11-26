@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { requireSession } from '@/utils/require-session';
+import { entityErrorView } from '@/utils/entity-error-view';
 import { traceDrawerHref } from '@/app/(protected)/traces/components/trace-links';
 
 interface TraceByIdPageProps {
@@ -22,7 +23,14 @@ export default async function TraceByIdPage({ params }: TraceByIdPageProps) {
 
   const clientFactory = await createServerApiFactory();
   const client = clientFactory.getTelemetryClient();
-  const lookup = await client.lookupSpan(identifier);
+  let lookup;
+  try {
+    lookup = await client.lookupSpan(identifier);
+  } catch (error) {
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
+    throw error;
+  }
 
   redirect(
     traceDrawerHref({

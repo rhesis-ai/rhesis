@@ -11,6 +11,7 @@ import {
   fetchProjectTraceMetrics,
   projectTraceMetricIds,
 } from '../components/project-data';
+import { entityErrorView } from '@/utils/entity-error-view';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -34,6 +35,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     // re-enroll anyone — so a restored project would be invisible to everyone. Treat
     // gone and missing the same way.
     if (isNotFoundApiError(error)) notFound();
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 

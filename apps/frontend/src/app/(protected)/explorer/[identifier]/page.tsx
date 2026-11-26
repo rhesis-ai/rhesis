@@ -1,5 +1,6 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import ExplorerDetail from './components/ExplorerDetail';
 import { requireSession } from '@/utils/require-session';
 import DocumentTitle from '@/components/common/DocumentTitle';
@@ -56,7 +57,8 @@ export default async function ExplorerDetailPage({
       </>
     );
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 }

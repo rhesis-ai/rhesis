@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { redirect } from 'next/navigation';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import MetricDetailPageTabs from './MetricDetailPageTabs';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
@@ -29,7 +29,8 @@ export default async function MetricDetailPage({ params }: PageProps) {
   try {
     metric = await client.getMetric(identifier as UUID);
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 

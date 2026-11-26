@@ -5,20 +5,22 @@ import { Paper, Typography, Button, Box, Alert } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { usePathname } from 'next/navigation';
-import { DeletedEntityAlert } from '@/components/common/DeletedEntityAlert';
 import DetailNotFoundState from '@/components/common/DetailNotFoundState';
+import EntityErrorState, {
+  useEntityErrorContext,
+} from '@/components/common/EntityErrorState';
 import {
   getDeletedEntityData,
   getNotFoundEntityData,
   getErrorMessage,
   isForbiddenError,
-  parseEntityFromPathname,
   urlSegmentToResolveEntityType,
 } from '@/utils/entity-error-handler';
 import { publicEnv } from '@/config/runtime-config';
+
+const SERVER_ERROR_MESSAGE =
+  "This page couldn't be loaded. Try again, or go back and open it from there.";
 
 interface ErrorProps {
   error: Error & {
@@ -34,6 +36,9 @@ interface ErrorProps {
  *
  * Entity 404s render DetailNotFoundState (with cross-project resolution).
  * Deleted entities, forbidden access, and other errors have dedicated UI.
+ * Server-rendered detail pages render the deleted and forbidden pages
+ * themselves (`entityErrorView`): production builds strip a server error's
+ * details before it gets here, so these checks only see client-side errors.
  */
 export default function ProtectedError({ error, reset }: ErrorProps) {
   const [isResetting, setIsResetting] = useState(false);
@@ -44,60 +49,8 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
   );
   const isForbidden = useMemo(() => isForbiddenError(error), [error]);
   const deletedEntityData = useMemo(() => getDeletedEntityData(error), [error]);
-
-  const pathname = usePathname();
-  const pathSegments = useMemo(
-    () => pathname.split('/').filter(Boolean),
-    [pathname]
-  );
-  const parsedPathEntity = useMemo(
-    () => parseEntityFromPathname(pathname),
-    [pathname]
-  );
-
-  const backUrl = useMemo(() => {
-    if (parsedPathEntity?.listUrl) {
-      return parsedPathEntity.listUrl;
-    }
-    if (pathSegments.length > 1) {
-      return `/${pathSegments[0]}`;
-    }
-    return '/';
-  }, [parsedPathEntity, pathSegments]);
-
-  const formatEntityName = (segment: string): string => {
-    return segment
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  const breadcrumbs = useMemo(() => {
-    if (pathSegments.length === 0) return [];
-
-    const entityName = formatEntityName(pathSegments[0]);
-    const crumbs = [{ label: entityName, href: `/${pathSegments[0]}` }];
-
-    if (pathSegments.length > 1) {
-      const itemId = pathSegments[1];
-      let itemTitle = itemId;
-
-      if (deletedEntityData?.item_name) {
-        itemTitle = deletedEntityData.item_name;
-      } else if (deletedEntityData) {
-        const displayName =
-          deletedEntityData.model_name_display || deletedEntityData.model_name;
-        itemTitle = `${displayName} (${itemId.substring(0, 8)}...)`;
-      }
-
-      crumbs.push({
-        label: itemTitle,
-        href: pathname,
-      });
-    }
-
-    return crumbs;
-  }, [pathSegments, deletedEntityData, pathname]);
+  const { pathSegments, parsedPathEntity, backUrl, breadcrumbs, backLabel } =
+    useEntityErrorContext(deletedEntityData);
 
   useEffect(() => {
     if (notFoundEntityData) {
@@ -121,31 +74,6 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
       });
     }
   }, [error, notFoundEntityData, deletedEntityData]);
-
-  const pageTitle = useMemo(() => {
-    if (isForbidden) {
-      if (pathSegments.length > 0) {
-        return `${formatEntityName(pathSegments[0])} — Access denied`;
-      }
-      return 'Access denied';
-    }
-    if (deletedEntityData) {
-      if (deletedEntityData.item_name) {
-        return `${deletedEntityData.item_name} (Deleted)`;
-      }
-      const displayName =
-        deletedEntityData.model_name_display || deletedEntityData.model_name;
-      return `${displayName} Deleted`;
-    }
-    return 'Error';
-  }, [deletedEntityData, isForbidden, pathSegments]);
-
-  const backLabel = useMemo(() => {
-    if (pathSegments.length > 0) {
-      return `Back to ${formatEntityName(pathSegments[0])}`;
-    }
-    return 'Back';
-  }, [pathSegments]);
 
   const handleReset = () => {
     setIsResetting(true);
@@ -175,89 +103,75 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
     );
   }
 
+  if (deletedEntityData) {
+    return (
+      <EntityErrorState kind="deleted" deletedEntity={deletedEntityData} />
+    );
+  }
+
+  if (isForbidden) {
+    return <EntityErrorState kind="forbidden" />;
+  }
+
   return (
-    <PageLayout title={pageTitle} breadcrumbs={breadcrumbs}>
-      {deletedEntityData ? (
-        <DeletedEntityAlert
-          entityData={deletedEntityData}
-          backUrl={backUrl}
-          backLabel={backLabel}
-          onRestoreSuccess={() => {
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
-          }}
-        />
-      ) : isForbidden ? (
-        <Alert severity="warning" icon={<LockOutlinedIcon />}>
-          <Box mb={2}>
-            <Typography>
-              You don't have permission to view this{' '}
-              {pathSegments.length > 0
-                ? formatEntityName(pathSegments[0])
-                    .toLowerCase()
-                    .replace(/s$/, '')
-                : 'resource'}
-              . Contact your project administrator if you need access.
-            </Typography>
-          </Box>
-          <Box display="flex" gap={2} flexWrap="wrap">
-            <Button
-              variant="outlined"
-              size="medium"
-              startIcon={<ArrowBackIcon />}
-              onClick={() => window.history.back()}
+    <PageLayout title="Error" breadcrumbs={breadcrumbs}>
+      <Paper role="alert" aria-live="assertive" aria-atomic="true">
+        <Box p={3}>
+          <Typography variant="h6" color="error" gutterBottom>
+            Something went wrong
+          </Typography>
+
+          <Typography color="error" paragraph>
+            {/* A server error's message is React's placeholder in production
+                builds, which tells the reader nothing. */}
+            {error.digest ? SERVER_ERROR_MESSAGE : getErrorMessage(error)}
+          </Typography>
+
+          {error.digest && (
+            <Typography
+              variant="caption"
+              component="p"
+              color="text.secondary"
+              paragraph
             >
-              Back
+              Reference for support: {error.digest}
+            </Typography>
+          )}
+
+          {publicEnv().environment === 'development' && error.digest && (
+            <Alert severity="info">
+              <Typography variant="caption" component="div">
+                <strong>Error:</strong> {error.message}
+              </Typography>
+              <Typography variant="caption" component="div">
+                Shown in development only; the reference matches the server log.
+              </Typography>
+            </Alert>
+          )}
+
+          <Box display="flex" gap={2} flexWrap="wrap" mt={2}>
+            <Button
+              variant="contained"
+              onClick={handleReset}
+              disabled={isResetting}
+              startIcon={<RefreshIcon />}
+              aria-label="Try again to reload this page"
+            >
+              {isResetting ? 'Reloading...' : 'Try Again'}
+            </Button>
+            <Button
+              component={Link}
+              href={backUrl}
+              variant="outlined"
+              startIcon={<ArrowBackIcon />}
+              disabled={isResetting}
+              aria-label={backLabel}
+            >
+              {backLabel}
             </Button>
           </Box>
-        </Alert>
-      ) : (
-        <Paper role="alert" aria-live="assertive" aria-atomic="true">
-          <Box p={3}>
-            <Typography variant="h6" color="error" gutterBottom>
-              Something went wrong
-            </Typography>
-
-            <Typography color="error" paragraph>
-              {getErrorMessage(error)}
-            </Typography>
-
-            {publicEnv().environment === 'development' && error.digest && (
-              <Alert severity="info">
-                <Typography variant="caption" component="div">
-                  <strong>Error Digest:</strong> {error.digest}
-                </Typography>
-                <Typography variant="caption" component="div">
-                  This information helps with debugging in development.
-                </Typography>
-              </Alert>
-            )}
-
-            <Box display="flex" gap={2} flexWrap="wrap" mt={2}>
-              <Button
-                variant="contained"
-                onClick={handleReset}
-                disabled={isResetting}
-                startIcon={<RefreshIcon />}
-                aria-label="Try again to reload this page"
-              >
-                {isResetting ? 'Reloading...' : 'Try Again'}
-              </Button>
-              <Button
-                component={Link}
-                href={backUrl}
-                variant="outlined"
-                startIcon={<ArrowBackIcon />}
-                disabled={isResetting}
-                aria-label={backLabel}
-              >
-                {backLabel}
-              </Button>
-            </Box>
-          </Box>
-        </Paper>
-      )}
+        </Box>
+      </Paper>
     </PageLayout>
   );
 }

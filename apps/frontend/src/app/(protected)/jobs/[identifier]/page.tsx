@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import JobDetailClient from './components/JobDetailClient';
 import { requireSession } from '@/utils/require-session';
 
@@ -20,7 +20,8 @@ export default async function JobDetailPage({ params }: PageProps) {
     client.getJobActivity(identifier),
   ]);
   if (jobResult.status === 'rejected') {
-    notFoundIfEntityMissing(jobResult.reason);
+    const errorView = entityErrorView(jobResult.reason);
+    if (errorView) return errorView;
     throw jobResult.reason;
   }
   const activity =

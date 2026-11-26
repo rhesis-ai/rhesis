@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import TaskDetailClient from './components/TaskDetailClient';
 import { prefetch } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
@@ -26,7 +26,8 @@ export default async function TaskDetailPage({ params }: PageProps) {
   try {
     task = await client.getTask(identifier);
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 

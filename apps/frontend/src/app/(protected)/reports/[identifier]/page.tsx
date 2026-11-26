@@ -1,5 +1,5 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import { requireSession } from '@/utils/require-session';
 import ReportDetailClient from './components/ReportDetailClient';
 
@@ -15,7 +15,8 @@ export default async function ReportDetailPage({ params }: PageProps) {
   try {
     report = await factory.getReportsClient().getReport(identifier);
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
   return <ReportDetailClient initialReport={report} />;

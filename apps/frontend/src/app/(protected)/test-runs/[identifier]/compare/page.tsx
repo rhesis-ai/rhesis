@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { requireSession } from '@/utils/require-session';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -33,7 +33,8 @@ export default async function TestRunComparePage({
   try {
     testRun = await testRunsClient.getTestRun(identifier);
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 

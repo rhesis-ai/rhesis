@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
+import { entityErrorView } from '@/utils/entity-error-view';
 import SourcePreviewClientWrapper from './components/SourcePreviewClientWrapper';
 import { requireSession } from '@/utils/require-session';
 
@@ -32,7 +32,8 @@ export default async function SourcePreviewPage({
       resolvedParams.identifier as `${string}-${string}-${string}-${string}-${string}`
     );
   } catch (error) {
-    notFoundIfEntityMissing(error);
+    const errorView = entityErrorView(error);
+    if (errorView) return errorView;
     throw error;
   }
 
