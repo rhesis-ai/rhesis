@@ -31,6 +31,10 @@ _containers = ensure_test_containers()
 # _prepare_worker_database() below creates the database itself.
 _XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER", "main")
 
+# Model-token accruals dispatch per call in tests, so assertions see them at once.
+# test_usage_coalescer.py covers the summing path.
+os.environ.setdefault("USAGE_ACCRUAL_FLUSH_SECONDS", "0")
+
 # EE bootstrap installs SignedTokenLicenseProvider unconditionally (see
 # ee/backend/.../ee/__init__.py:bootstrap()), which enforces a real signed
 # license with no environment-based bypass. RBAC/SSO tests elsewhere in the

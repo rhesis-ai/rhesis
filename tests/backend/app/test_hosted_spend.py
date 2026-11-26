@@ -624,7 +624,7 @@ class TestSdkWiring:
         return model
 
     def test_the_usage_sink_leaves_hosted_spend_to_the_settle(self, monkeypatch):
-        monkeypatch.setattr(usage_tracking, "dispatch_accrual", lambda *a, **k: None)
+        monkeypatch.setattr(usage_tracking.usage_coalescer, "add", lambda *a, **k: None)
         touched = MagicMock()
         monkeypatch.setattr(usage_tracking, "hosted_spend", touched)
         usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
