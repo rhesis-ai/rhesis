@@ -1,11 +1,17 @@
-"""How long each kind of job may run.
+"""How long each kind of job may run, and failing the job rows that outlived it.
 
 Long jobs stop themselves at their limit (see ``app/utils/deadline.py``); the CPU-bound
 ones get Celery time limits, which the prefork pool enforces by killing the child.
+A job whose worker died, or whose child was killed, never writes a terminal status,
+so :func:`fail_overdue_jobs` marks its row failed once it is past its limit plus
+:data:`RUNNING_JOB_MARGIN`. Job capacity (``job_capacity.py``) stops counting a row
+at the same point.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
+
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_job_limit_settings
 
@@ -44,3 +50,27 @@ def running_job_window(job_type: str) -> Optional[timedelta]:
     seconds = job_time_limits().get(job_type)
     return None if seconds is None else timedelta(seconds=seconds) + RUNNING_JOB_MARGIN
 
+
+def fail_overdue_jobs(db: Session, organization_id: str, now: Optional[datetime] = None) -> int:
+    """Mark the org's job rows that outlived their limit as failed. Returns how many.
+
+    A running job counts from its start, a queued one from when it was queued. Does
+    not commit.
+    """
+    # Here, not at the top: celery/config.py reads the limits above and must not need a database.
+    from rhesis.backend.app.crud.job import fail_overdue_jobs_in_scope
+    from rhesis.backend.app.database import sum_over_org_projects
+
+    now = now or datetime.now(timezone.utc)
+    started_before = {
+        job_type: now - running_job_window(job_type) for job_type in job_time_limits()
+    }
+    queued_before = now - QUEUED_JOB_WINDOW
+    return sum_over_org_projects(
+        db,
+        organization_id,
+        "",
+        lambda project_id: fail_overdue_jobs_in_scope(
+            db, organization_id, project_id, started_before, queued_before, now
+        ),
+    )

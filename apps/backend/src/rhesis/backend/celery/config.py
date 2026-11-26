@@ -120,6 +120,7 @@ CELERY_CONFIG = {
         "rhesis.backend.jobs.telemetry.ingest",
         "rhesis.backend.jobs.telemetry.post_ingest",
         "rhesis.backend.jobs.retention",
+        "rhesis.backend.jobs.job_deadlines",
         "rhesis.backend.jobs.trace_retention",
         "rhesis.backend.jobs.heartbeat",
         "rhesis.backend.jobs.audit_retention",
@@ -145,6 +146,12 @@ CELERY_CONFIG = {
             "task": "rhesis.backend.jobs.test_run_schedules.dispatch_due_schedules",
             "schedule": 60.0,
             "options": {"expires": 50},
+        },
+        # Fails job rows that outlived their time limit. Expires so a backlog runs once.
+        "overdue-job-sweep": {
+            "task": "rhesis.backend.jobs.job_deadlines.sweep_overdue_jobs",
+            "schedule": 900.0,
+            "options": {"expires": 840},
         },
         "job-retention-sweep": {
             "task": "rhesis.backend.jobs.retention.sweep_expired_jobs",
