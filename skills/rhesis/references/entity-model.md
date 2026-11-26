@@ -131,7 +131,7 @@ flowchart TB
 | Endpoint | `list_endpoints` | `get_endpoint` | `create_endpoint` | `update_endpoint` | `check_endpoint`, `explore_endpoint` |
 | Requirement | `list_requirements` | `get_requirement` | `create_requirement` | `update_requirement` | — |
 | Metric | `list_metrics` | `get_metric` | `create_metric`, `generate_metric` | `update_metric`, `improve_metric` | `add_requirement_to_metric`, `remove_requirement_from_metric`, `get_metric_requirements` |
-| TestSet | `list_test_sets` | `get_test_set` | `generate_test_set`, `create_test_set_bulk` | `update_test_set` | `list_test_set_tests`, `get_test_set_metrics`, `get_test_set_last_run`, `execute_test_set` |
+| TestSet | `list_test_sets` | `get_test_set` | `generate_test_set`, `create_test_set_bulk` | `update_test_set` | `list_test_set_tests`, `list_test_set_test_tags`, `get_test_set_metrics`, `get_test_set_last_run`, `execute_test_set` |
 | Test | `list_tests`, `list_test_set_tests` | `get_test` | (via test set tools) | `update_test` | — |
 | Source | `list_sources` | — | `create_source` | — | — |
 | TestRun | `list_test_runs` | `get_test_run` | (via `execute_test_set`) | — | `get_insights` with `entity=test_run` (volume, status, who ran what) |

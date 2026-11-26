@@ -47,6 +47,17 @@ the click starts.
 The test set to execute. It is fixed when you start from a test set's page or select test sets in
 the list. From **Test Runs › New Test Run**, pick the test set here.
 
+### Only tests tagged
+
+To run part of a test set, pick one or more of its tests' tags in **Only tests tagged**. The run
+includes the tests that carry any of the picked tags, and the list shows how many tests carry
+each one. Leave it empty to run every test. The field appears once the set's tests carry tags.
+With several test sets selected, it lists only the tags that every set's tests carry.
+
+A re-run starts with the same tags picked. **Reuse Outputs** needs an earlier run that ran every
+test this run includes: reusing a run limited to some tags is refused when this run picks tests
+outside them. The run's **Configuration** tab lists the tags under **Tests**.
+
 ## Run against
 
 ### Endpoint
