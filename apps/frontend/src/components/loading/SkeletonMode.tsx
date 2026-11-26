@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext } from 'react';
+import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { delayedRevealSx } from './DelayedReveal';
@@ -27,6 +28,27 @@ export function SkeletonMode({
     <SkeletonModeContext.Provider value={active}>
       {children}
     </SkeletonModeContext.Provider>
+  );
+}
+
+/**
+ * In a loading view, `children` drawn for real from rows an earlier visit
+ * cached (see `useList`), but inert: the fresh page replaces them, and a click,
+ * sort or search started here would be lost with it. When `active` is false,
+ * `children` as they are.
+ */
+export function CachedContent({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  if (!active) return <>{children}</>;
+  return (
+    <Box inert sx={{ display: 'contents' }}>
+      <SkeletonMode active={false}>{children}</SkeletonMode>
+    </Box>
   );
 }
 

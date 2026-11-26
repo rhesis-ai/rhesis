@@ -36,6 +36,7 @@ import RequirementCard, {
   RequirementCardPlaceholders,
 } from './RequirementCard';
 import {
+  CachedContent,
   SkeletonSlot,
   useSkeletonMode,
 } from '@/components/loading/SkeletonMode';
@@ -89,7 +90,8 @@ export default function RequirementsClient({
 }: RequirementsClientProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  // As the route's loading view: no list fetch, cards drawn as placeholders.
+  // As the route's loading view: no list fetch, cards drawn as placeholders
+  // unless an earlier visit's requirements are cached (`placeholders` below).
   const skeleton = useSkeletonMode();
   const canCreateRequirement = useCan(Capability.Requirement.CREATE);
   const canManageOptions = useCan(Capability.Requirement.UPDATE);
@@ -172,6 +174,7 @@ export default function RequirementsClient({
     refresh: handleRefresh,
     ready,
     gateNode,
+    fromCache,
   } = useList(requirementsList, {
     filters,
     enabled: !skeleton,
@@ -539,6 +542,8 @@ export default function RequirementsClient({
     { value: 'no_metrics', label: 'No Metrics' },
   ];
 
+  const placeholders = skeleton && !fromCache;
+
   // First load — no data at all yet, show a full-page spinner
   const isInitialLoad =
     !skeleton && isLoading && requirements.length === 0 && totalCount === 0;
@@ -582,170 +587,172 @@ export default function RequirementsClient({
         </FabGroup>
       }
     >
-      <GridToolbar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Search requirements…"
-        onFilterClick={() => setFilterDrawerOpen(true)}
-        hasActiveFilters={hasActiveRequirementFilters(drawerFilters)}
-        activeFilterCount={countActiveRequirementFilters(drawerFilters)}
-        {...directoryToolbarProps}
-        leadingContent={
-          canManageOptions && (
-            <SkeletonSlot>
-              <FilterButton
-                icon={<SettingsIcon sx={{ fontSize: rem(20) }} />}
-                tooltip="Requirement options"
-                aria-label="Requirement options"
-                onClick={() => setOptionsOpen(true)}
-              />
-            </SkeletonSlot>
-          )
-        }
-        middleContent={
-          <ToolbarPillTabs
-            tabs={metricOptions}
-            activeValue={metricCountFilter}
-            onChange={v => setMetricCountFilter(v as MetricFilter)}
-          />
-        }
-        // Same switch as the test run's Split/Table toggle.
-        rightContent={
-          <SkeletonSlot>
-            <ButtonGroup size="small" variant="outlined">
-              <Button
-                onClick={() => changeView('cards')}
-                variant={view === 'cards' ? 'contained' : 'outlined'}
-                startIcon={<ViewModuleIcon fontSize="small" />}
-                sx={toggleButtonSx}
-              >
-                Cards
-              </Button>
-              <Button
-                onClick={() => changeView('table')}
-                variant={view === 'table' ? 'contained' : 'outlined'}
-                startIcon={<TableRowsIcon fontSize="small" />}
-                sx={toggleButtonSx}
-              >
-                Table
-              </Button>
-            </ButtonGroup>
-          </SkeletonSlot>
-        }
-      />
-
-      {/* Error state */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Subtle loading indicator for subsequent fetches — always
-          mounted so its height never shifts the grid below */}
-      <LinearProgress
-        aria-label="Loading requirements"
-        sx={{
-          mb: 1,
-          borderRadius: theme => theme.shape.borderRadius,
-          visibility: isLoading ? 'visible' : 'hidden',
-        }}
-      />
-
-      {/* Requirements grid / empty states */}
-      {requirements.length === 0 && !skeleton ? (
-        hasActiveFilters ? (
-          <EntityEmptyState
-            icon={PsychologyIcon}
-            title="No requirements match your filters"
-            description="Try adjusting your search or filter to find the requirements you're looking for."
-            actionLabel="Reset filters"
-            onAction={handleResetFilters}
-          />
-        ) : (
-          <EntityEmptyState
-            card
-            icon={PsychologyIcon}
-            title="No requirement yet"
-            description="Create your first requirement to define atomic expectations for your AI applications. Requirements are measured through metrics to ensure your requirements are met."
-            actionLabel={
-              canCreateRequirement ? 'Create requirement' : undefined
-            }
-            onAction={
-              canCreateRequirement ? handleAddNewRequirement : undefined
-            }
-            enrichment={getEntityEmptyStateEnrichment('requirements')}
-          />
-        )
-      ) : view === 'table' ? (
-        <Box sx={{ mb: 4 }}>
-          <RequirementsTable
-            requirements={requirements}
-            loading={skeleton || isLoading}
-            totalCount={totalCount}
-            page={page}
-            rowsPerPage={rowsPerPage}
-            onPageChange={setPage}
-            onRowsPerPageChange={handleRowsPerPageChange}
-          />
-        </Box>
-      ) : (
-        <Box
-          sx={theme => ({
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: '1fr 1fr',
-              md: 'repeat(3, 1fr)',
-            },
-            gap: theme.spacing(3),
-            mb: 4,
-          })}
-        >
-          {skeleton && <RequirementCardPlaceholders />}
-          {requirements.map(requirement => (
-            <RequirementCard
-              key={requirement.id}
-              requirement={requirement}
-              onClick={() =>
-                router.push(`${API_ENDPOINTS.requirements}/${requirement.id}`)
-              }
-              onEdit={() =>
-                handleEditRequirement(
-                  requirement.id,
-                  requirement.name,
-                  requirement.description || '',
-                  (requirement.tags ?? []).map(t => t.name)
-                )
-              }
-              onDuplicate={() =>
-                handleDuplicateRequirement(
-                  requirement.id,
-                  requirement.name,
-                  requirement.description || ''
-                )
-              }
-              onViewMetrics={() => handleViewMetrics(requirement)}
-              onRefresh={handleRefresh}
-            />
-          ))}
-        </Box>
-      )}
-      {totalCount > 0 && (
-        <TablePagination
-          component="div"
-          count={totalCount}
-          page={page}
-          onPageChange={(_event, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={event =>
-            handleRowsPerPageChange(parseInt(event.target.value, 10))
+      <CachedContent active={skeleton && fromCache}>
+        <GridToolbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search requirements…"
+          onFilterClick={() => setFilterDrawerOpen(true)}
+          hasActiveFilters={hasActiveRequirementFilters(drawerFilters)}
+          activeFilterCount={countActiveRequirementFilters(drawerFilters)}
+          {...directoryToolbarProps}
+          leadingContent={
+            canManageOptions && (
+              <SkeletonSlot>
+                <FilterButton
+                  icon={<SettingsIcon sx={{ fontSize: rem(20) }} />}
+                  tooltip="Requirement options"
+                  aria-label="Requirement options"
+                  onClick={() => setOptionsOpen(true)}
+                />
+              </SkeletonSlot>
+            )
           }
-          rowsPerPageOptions={[25, 50, 100]}
-          labelRowsPerPage="Requirements per page:"
-          sx={{ mb: 2 }}
+          middleContent={
+            <ToolbarPillTabs
+              tabs={metricOptions}
+              activeValue={metricCountFilter}
+              onChange={v => setMetricCountFilter(v as MetricFilter)}
+            />
+          }
+          // Same switch as the test run's Split/Table toggle.
+          rightContent={
+            <SkeletonSlot>
+              <ButtonGroup size="small" variant="outlined">
+                <Button
+                  onClick={() => changeView('cards')}
+                  variant={view === 'cards' ? 'contained' : 'outlined'}
+                  startIcon={<ViewModuleIcon fontSize="small" />}
+                  sx={toggleButtonSx}
+                >
+                  Cards
+                </Button>
+                <Button
+                  onClick={() => changeView('table')}
+                  variant={view === 'table' ? 'contained' : 'outlined'}
+                  startIcon={<TableRowsIcon fontSize="small" />}
+                  sx={toggleButtonSx}
+                >
+                  Table
+                </Button>
+              </ButtonGroup>
+            </SkeletonSlot>
+          }
         />
-      )}
+
+        {/* Error state */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Subtle loading indicator for subsequent fetches — always
+          mounted so its height never shifts the grid below */}
+        <LinearProgress
+          aria-label="Loading requirements"
+          sx={{
+            mb: 1,
+            borderRadius: theme => theme.shape.borderRadius,
+            visibility: isLoading ? 'visible' : 'hidden',
+          }}
+        />
+
+        {/* Requirements grid / empty states */}
+        {requirements.length === 0 && !placeholders ? (
+          hasActiveFilters ? (
+            <EntityEmptyState
+              icon={PsychologyIcon}
+              title="No requirements match your filters"
+              description="Try adjusting your search or filter to find the requirements you're looking for."
+              actionLabel="Reset filters"
+              onAction={handleResetFilters}
+            />
+          ) : (
+            <EntityEmptyState
+              card
+              icon={PsychologyIcon}
+              title="No requirement yet"
+              description="Create your first requirement to define atomic expectations for your AI applications. Requirements are measured through metrics to ensure your requirements are met."
+              actionLabel={
+                canCreateRequirement ? 'Create requirement' : undefined
+              }
+              onAction={
+                canCreateRequirement ? handleAddNewRequirement : undefined
+              }
+              enrichment={getEntityEmptyStateEnrichment('requirements')}
+            />
+          )
+        ) : view === 'table' ? (
+          <Box sx={{ mb: 4 }}>
+            <RequirementsTable
+              requirements={requirements}
+              loading={placeholders || isLoading}
+              totalCount={totalCount}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={setPage}
+              onRowsPerPageChange={handleRowsPerPageChange}
+            />
+          </Box>
+        ) : (
+          <Box
+            sx={theme => ({
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: '1fr 1fr',
+                md: 'repeat(3, 1fr)',
+              },
+              gap: theme.spacing(3),
+              mb: 4,
+            })}
+          >
+            {placeholders && <RequirementCardPlaceholders />}
+            {requirements.map(requirement => (
+              <RequirementCard
+                key={requirement.id}
+                requirement={requirement}
+                onClick={() =>
+                  router.push(`${API_ENDPOINTS.requirements}/${requirement.id}`)
+                }
+                onEdit={() =>
+                  handleEditRequirement(
+                    requirement.id,
+                    requirement.name,
+                    requirement.description || '',
+                    (requirement.tags ?? []).map(t => t.name)
+                  )
+                }
+                onDuplicate={() =>
+                  handleDuplicateRequirement(
+                    requirement.id,
+                    requirement.name,
+                    requirement.description || ''
+                  )
+                }
+                onViewMetrics={() => handleViewMetrics(requirement)}
+                onRefresh={handleRefresh}
+              />
+            ))}
+          </Box>
+        )}
+        {totalCount > 0 && (
+          <TablePagination
+            component="div"
+            count={totalCount}
+            page={page}
+            onPageChange={(_event, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={event =>
+              handleRowsPerPageChange(parseInt(event.target.value, 10))
+            }
+            rowsPerPageOptions={[25, 50, 100]}
+            labelRowsPerPage="Requirements per page:"
+            sx={{ mb: 2 }}
+          />
+        )}
+      </CachedContent>
 
       {/* Requirement Edit Drawer */}
       {editingRequirement && (

@@ -22,7 +22,10 @@ import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-en
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { InsertChartIcon, SearchIcon } from '@/components/icons';
 import MetricCard, { MetricCardPlaceholders } from './MetricCard';
-import { useSkeletonMode } from '@/components/loading/SkeletonMode';
+import {
+  CachedContent,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -66,6 +69,8 @@ interface MetricsDirectoryTabProps {
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   setMetrics: React.Dispatch<React.SetStateAction<MetricDetail[]>>;
   assignMode?: boolean;
+  /** In a loading view, `metrics` are an earlier visit's, drawn for real. */
+  fromCache?: boolean;
 }
 
 // Add type guard function
@@ -105,6 +110,7 @@ export default function MetricsDirectoryTab({
   setFilters,
   setMetrics,
   assignMode = false,
+  fromCache = false,
 }: MetricsDirectoryTabProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,8 +118,10 @@ export default function MetricsDirectoryTab({
   const { status } = useSession();
   const canCreate = useCan(Capability.Metric.CREATE);
   const canDelete = useCan(Capability.Metric.DELETE);
-  // As the route's loading view: cards drawn as placeholders, no empty states.
+  // As the route's loading view: cards drawn as placeholders, no empty states,
+  // unless an earlier visit's metrics are cached.
   const skeleton = useSkeletonMode();
+  const placeholders = skeleton && !fromCache;
 
   // Dialog state
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
@@ -154,13 +162,13 @@ export default function MetricsDirectoryTab({
 
   // True empty = server returned zero results and no filters are active
   const isTrueEmpty =
-    !skeleton &&
+    !placeholders &&
     totalCount === 0 &&
     !filters.search &&
     filters.backend.length === 0 &&
     activeAdvancedFilterCount === 0;
 
-  const isFilteredEmpty = !skeleton && totalCount === 0 && !isTrueEmpty;
+  const isFilteredEmpty = !placeholders && totalCount === 0 && !isTrueEmpty;
 
   const clearFilters = () => {
     setFilters({
@@ -351,203 +359,207 @@ export default function MetricsDirectoryTab({
         </FabGroup>
       }
     >
-      {isTrueEmpty ? (
-        <EntityEmptyState
-          card
-          icon={InsertChartIcon}
-          title="No metrics yet"
-          description="Create your first metric to measure requirements and evaluate whether your AI applications meet requirements."
-          actionLabel={canCreate ? 'Create metric' : undefined}
-          onAction={
-            canCreate
-              ? () => router.push('/metrics/new?type=custom-prompt')
-              : undefined
-          }
-          enrichment={getEntityEmptyStateEnrichment('metrics')}
-        />
-      ) : (
-        <>
-          <GridToolbar
-            searchQuery={filters.search}
-            onSearchChange={value => handleFilterChange('search', value)}
-            searchPlaceholder="Search metrics..."
-            onFilterClick={() => setFilterDrawerOpen(true)}
-            hasActiveFilters={activeAdvancedFilterCount > 0}
-            activeFilterCount={activeAdvancedFilterCount}
-            {...directoryToolbarProps}
-            middleContent={
-              <PrimarySegmentedPills
-                mode="multi"
-                tabs={[
-                  { value: '', label: 'All' },
-                  ...filterOptions.backend.map(o => ({
-                    value: o.type_value.toLowerCase(),
-                    label: o.type_value,
-                  })),
-                  {
-                    value: OWASP_METRIC_FILTER_VALUE,
-                    label: OWASP_METRIC_TAG_NAME,
-                  },
-                ]}
-                selectedValues={filters.backend}
-                onMultiChange={values => handleFilterChange('backend', values)}
-                clearValue=""
-              />
+      <CachedContent active={skeleton && fromCache}>
+        {isTrueEmpty ? (
+          <EntityEmptyState
+            card
+            icon={InsertChartIcon}
+            title="No metrics yet"
+            description="Create your first metric to measure requirements and evaluate whether your AI applications meet requirements."
+            actionLabel={canCreate ? 'Create metric' : undefined}
+            onAction={
+              canCreate
+                ? () => router.push('/metrics/new?type=custom-prompt')
+                : undefined
             }
+            enrichment={getEntityEmptyStateEnrichment('metrics')}
           />
-
-          {/* Advanced Filters Drawer */}
-          <MetricFilterDrawer
-            open={filterDrawerOpen}
-            onClose={() => setFilterDrawerOpen(false)}
-            filters={{
-              type: filters.type,
-              scoreType: filters.scoreType,
-              metricScope: filters.metricScope,
-              requirement:
-                typeof filters.requirement === 'string'
-                  ? filters.requirement
-                  : '',
-            }}
-            filterOptions={{
-              type: filterOptions.type,
-              scoreType: filterOptions.scoreType,
-              metricScope: filterOptions.metricScope,
-              requirement: filterOptions.requirement,
-            }}
-            onApply={drawerFilters => {
-              setFilters(prev => ({
-                ...prev,
-                type: drawerFilters.type,
-                scoreType: drawerFilters.scoreType,
-                metricScope: drawerFilters.metricScope,
-                requirement: drawerFilters.requirement,
-              }));
-            }}
-          />
-
-          {/* Subtle loading indicator for subsequent fetches — always
-              mounted so its height never shifts the grid below */}
-          <LinearProgress
-            aria-label="Loading metrics"
-            sx={{
-              mb: 1,
-              borderRadius: theme => theme.shape.borderRadius,
-              visibility: isLoading ? 'visible' : 'hidden',
-            }}
-          />
-
-          {/* Metrics grid */}
-          {isFilteredEmpty ? (
-            <EntityEmptyState
-              icon={SearchIcon}
-              title="No metrics match your filters"
-              description="Try adjusting your search or filters to find what you're looking for."
-              actionLabel="Reset filters"
-              onAction={clearFilters}
+        ) : (
+          <>
+            <GridToolbar
+              searchQuery={filters.search}
+              onSearchChange={value => handleFilterChange('search', value)}
+              searchPlaceholder="Search metrics..."
+              onFilterClick={() => setFilterDrawerOpen(true)}
+              hasActiveFilters={activeAdvancedFilterCount > 0}
+              activeFilterCount={activeAdvancedFilterCount}
+              {...directoryToolbarProps}
+              middleContent={
+                <PrimarySegmentedPills
+                  mode="multi"
+                  tabs={[
+                    { value: '', label: 'All' },
+                    ...filterOptions.backend.map(o => ({
+                      value: o.type_value.toLowerCase(),
+                      label: o.type_value,
+                    })),
+                    {
+                      value: OWASP_METRIC_FILTER_VALUE,
+                      label: OWASP_METRIC_TAG_NAME,
+                    },
+                  ]}
+                  selectedValues={filters.backend}
+                  onMultiChange={values =>
+                    handleFilterChange('backend', values)
+                  }
+                  clearValue=""
+                />
+              }
             />
-          ) : (
-            <Box
-              sx={theme => ({
-                display: 'grid',
-                gridTemplateColumns: {
-                  xs: '1fr',
-                  sm: '1fr 1fr',
-                  md: 'repeat(3, 1fr)',
-                },
-                gap: theme.spacing(3),
-                mb: 4,
-              })}
-            >
-              {skeleton && <MetricCardPlaceholders />}
-              {metrics.map(metric => {
-                const requirementNames = getAssignedRequirementNames(metric);
-                const hasAssignedRequirements =
-                  Array.isArray(metric.requirements) &&
-                  metric.requirements.length > 0;
 
-                const backendType =
-                  metric.backend_type?.type_value?.toLowerCase();
-
-                return (
-                  <MetricCard
-                    key={metric.id}
-                    type={
-                      isValidMetricType(metric.metric_type?.type_value)
-                        ? metric.metric_type.type_value
-                        : undefined
-                    }
-                    title={metric.name}
-                    description={metric.description}
-                    backend={metric.backend_type?.type_value}
-                    metricType={metric.metric_type?.type_value}
-                    scoreType={metric.score_type}
-                    metricScope={metric.metric_scope}
-                    usedIn={requirementNames}
-                    tuningCases={
-                      backendType === 'custom'
-                        ? (metric.tuning_cases_count ?? undefined)
-                        : undefined
-                    }
-                    showUsage={true}
-                    onClick={
-                      assignMode
-                        ? () => {
-                            setSelectedMetric(metric);
-                            setAssignDialogOpen(true);
-                          }
-                        : () => router.push(`/metrics/${metric.id}`)
-                    }
-                    onDelete={
-                      canDelete &&
-                      !hasAssignedRequirements &&
-                      metric.backend_type?.type_value?.toLowerCase() ===
-                        'custom'
-                        ? () => handleDeleteMetric(metric.id, metric.name)
-                        : undefined
-                    }
-                  />
-                );
-              })}
-            </Box>
-          )}
-          {totalCount > 0 && (
-            <TablePagination
-              component="div"
-              count={totalCount}
-              page={page}
-              onPageChange={(_event, newPage) => onPageChange(newPage)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={event => {
-                onRowsPerPageChange(parseInt(event.target.value, 10));
+            {/* Advanced Filters Drawer */}
+            <MetricFilterDrawer
+              open={filterDrawerOpen}
+              onClose={() => setFilterDrawerOpen(false)}
+              filters={{
+                type: filters.type,
+                scoreType: filters.scoreType,
+                metricScope: filters.metricScope,
+                requirement:
+                  typeof filters.requirement === 'string'
+                    ? filters.requirement
+                    : '',
               }}
-              rowsPerPageOptions={[25, 50, 100]}
-              labelRowsPerPage="Metrics per page:"
-              sx={{ mb: 2 }}
+              filterOptions={{
+                type: filterOptions.type,
+                scoreType: filterOptions.scoreType,
+                metricScope: filterOptions.metricScope,
+                requirement: filterOptions.requirement,
+              }}
+              onApply={drawerFilters => {
+                setFilters(prev => ({
+                  ...prev,
+                  type: drawerFilters.type,
+                  scoreType: drawerFilters.scoreType,
+                  metricScope: drawerFilters.metricScope,
+                  requirement: drawerFilters.requirement,
+                }));
+              }}
             />
-          )}
-          {/* Dialogs */}
-          <DeleteModal
-            open={deleteMetricDialogOpen}
-            onClose={handleCancelDeleteMetric}
-            onConfirm={handleConfirmDeleteMetric}
-            isLoading={isDeletingMetric}
-            itemType="metric"
-            itemName={metricToDeleteCompletely?.name}
-          />
-          <SelectRequirementsDialog
-            open={assignDialogOpen}
-            onClose={() => {
-              setAssignDialogOpen(false);
-              setSelectedMetric(null);
-            }}
-            onSelect={handleAssignMetric}
-            excludeRequirementIds={(selectedMetric?.requirements ?? []).map(
-              r => r.id
+
+            {/* Subtle loading indicator for subsequent fetches — always
+              mounted so its height never shifts the grid below */}
+            <LinearProgress
+              aria-label="Loading metrics"
+              sx={{
+                mb: 1,
+                borderRadius: theme => theme.shape.borderRadius,
+                visibility: isLoading ? 'visible' : 'hidden',
+              }}
+            />
+
+            {/* Metrics grid */}
+            {isFilteredEmpty ? (
+              <EntityEmptyState
+                icon={SearchIcon}
+                title="No metrics match your filters"
+                description="Try adjusting your search or filters to find what you're looking for."
+                actionLabel="Reset filters"
+                onAction={clearFilters}
+              />
+            ) : (
+              <Box
+                sx={theme => ({
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: '1fr 1fr',
+                    md: 'repeat(3, 1fr)',
+                  },
+                  gap: theme.spacing(3),
+                  mb: 4,
+                })}
+              >
+                {placeholders && <MetricCardPlaceholders />}
+                {metrics.map(metric => {
+                  const requirementNames = getAssignedRequirementNames(metric);
+                  const hasAssignedRequirements =
+                    Array.isArray(metric.requirements) &&
+                    metric.requirements.length > 0;
+
+                  const backendType =
+                    metric.backend_type?.type_value?.toLowerCase();
+
+                  return (
+                    <MetricCard
+                      key={metric.id}
+                      type={
+                        isValidMetricType(metric.metric_type?.type_value)
+                          ? metric.metric_type.type_value
+                          : undefined
+                      }
+                      title={metric.name}
+                      description={metric.description}
+                      backend={metric.backend_type?.type_value}
+                      metricType={metric.metric_type?.type_value}
+                      scoreType={metric.score_type}
+                      metricScope={metric.metric_scope}
+                      usedIn={requirementNames}
+                      tuningCases={
+                        backendType === 'custom'
+                          ? (metric.tuning_cases_count ?? undefined)
+                          : undefined
+                      }
+                      showUsage={true}
+                      onClick={
+                        assignMode
+                          ? () => {
+                              setSelectedMetric(metric);
+                              setAssignDialogOpen(true);
+                            }
+                          : () => router.push(`/metrics/${metric.id}`)
+                      }
+                      onDelete={
+                        canDelete &&
+                        !hasAssignedRequirements &&
+                        metric.backend_type?.type_value?.toLowerCase() ===
+                          'custom'
+                          ? () => handleDeleteMetric(metric.id, metric.name)
+                          : undefined
+                      }
+                    />
+                  );
+                })}
+              </Box>
             )}
-          />
-        </>
-      )}
+            {totalCount > 0 && (
+              <TablePagination
+                component="div"
+                count={totalCount}
+                page={page}
+                onPageChange={(_event, newPage) => onPageChange(newPage)}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={event => {
+                  onRowsPerPageChange(parseInt(event.target.value, 10));
+                }}
+                rowsPerPageOptions={[25, 50, 100]}
+                labelRowsPerPage="Metrics per page:"
+                sx={{ mb: 2 }}
+              />
+            )}
+            {/* Dialogs */}
+            <DeleteModal
+              open={deleteMetricDialogOpen}
+              onClose={handleCancelDeleteMetric}
+              onConfirm={handleConfirmDeleteMetric}
+              isLoading={isDeletingMetric}
+              itemType="metric"
+              itemName={metricToDeleteCompletely?.name}
+            />
+            <SelectRequirementsDialog
+              open={assignDialogOpen}
+              onClose={() => {
+                setAssignDialogOpen(false);
+                setSelectedMetric(null);
+              }}
+              onSelect={handleAssignMetric}
+              excludeRequirementIds={(selectedMetric?.requirements ?? []).map(
+                r => r.id
+              )}
+            />
+          </>
+        )}
+      </CachedContent>
     </PageLayout>
   );
 }
