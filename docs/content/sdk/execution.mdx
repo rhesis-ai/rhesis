@@ -43,6 +43,16 @@ result = test_set.execute(endpoint, mode="sequential")  # string also valid`}
 Use sequential for endpoints with strict rate limits or where request order matters. Invalid mode
 values raise `ValueError`.
 
+### Only Tagged Tests
+
+Pass `tests_tagged` to run only the tests carrying any of the given tag names:
+
+<CodeBlock filename="execute_tagged.py" language="python">
+{`result = test_set.execute(endpoint, tests_tagged=["smoke"])`}
+</CodeBlock>
+
+A set with no test carrying any of the tags is refused with an error that names them.
+
 ### Experiment Parameters
 
 Pass an `Experiment` object to execute with its parameter values. You can also provide inline

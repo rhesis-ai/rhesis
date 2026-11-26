@@ -325,12 +325,18 @@ tools:
       list_test_results filtered by test_run_id. The backend auto-creates
       the internal test configuration — do NOT create test configurations
       manually. Response includes test_run_id, test_run_name and
-      task_id — refer to the new run by test_run_name.
+      task_id — refer to the new run by test_run_name. To run only part
+      of the set, pass tests_tagged: only tests carrying any of those tags
+      run (list_test_set_test_tags shows the names and counts).
     parameters:
       test_set_identifier:
         description: "REQUIRED. Test set UUID, nano_id, or slug (path parameter)."
       endpoint_id:
         description: "REQUIRED. The UUID of the target endpoint (path parameter)."
+      tests_tagged:
+        description: >
+          Optional. Test tag names; only the tests carrying any of them
+          run. Omit to run every test in the set.
 
   # ── Test Run Schedules ───────────────────────────────────
   - name: schedule_test_set
@@ -371,7 +377,8 @@ tools:
         description: >
           Optional. Same options as execute_test_set: execution_options
           ({execution_mode: Parallel|Sequential}), metrics,
-          execution_model_id, evaluation_model_id. Omit for defaults.
+          execution_model_id, evaluation_model_id, tests_tagged. Omit for
+          defaults.
 
   - name: list_test_run_schedules
     label: Listing schedules
@@ -497,6 +504,20 @@ tools:
       generate_test_set completes, call get_test_set then this tool to
       verify prompts before execute_test_set. NEVER: use org-wide
       list_tests when you already have the test set ID.
+    parameters:
+      test_set_identifier:
+        description: "REQUIRED. Test set UUID, nano_id, or slug."
+
+  - name: list_test_set_test_tags
+    label: Listing tags in test set
+    method: GET
+    path: /test_sets/{test_set_identifier}/test-tags
+    description: >
+      List the tags used on one test set's tests, each with test_count
+      (how many of its tests carry it). ENTITY: Tag (on Tests in a
+      TestSet). CHAIN: pass chosen names as tests_tagged to
+      execute_test_set to run only those tests. An empty list means the
+      set's tests carry no tags, so it can only run whole.
     parameters:
       test_set_identifier:
         description: "REQUIRED. Test set UUID, nano_id, or slug."

@@ -1,4 +1,9 @@
-import { pollForTestRun, getTestRunDisplayTimestamp } from '../test-run-utils';
+import {
+  pollForTestRun,
+  getTestRunDisplayTimestamp,
+  runTestsTagged,
+} from '../test-run-utils';
+import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
 type MockTestRunsClient = {
   getTestRunsByTestConfiguration: jest.Mock;
@@ -191,5 +196,32 @@ describe('pollForTestRun', () => {
       'my-config-id',
       expect.any(Object)
     );
+  });
+});
+
+describe('runTestsTagged', () => {
+  const run = (attributes: object, configAttributes?: object) =>
+    ({
+      id: 'run-1',
+      attributes,
+      test_configuration: { attributes: configAttributes },
+    }) as unknown as TestRunDetail;
+
+  it("prefers the run's own snapshot over the live configuration", () => {
+    expect(
+      runTestsTagged(
+        run({ run_config: { tests_tagged: ['smoke'] } }, { tests_tagged: [] })
+      )
+    ).toEqual(['smoke']);
+  });
+
+  it('falls back to the configuration for runs without a snapshot', () => {
+    expect(runTestsTagged(run({}, { tests_tagged: ['billing', 3] }))).toEqual([
+      'billing',
+    ]);
+  });
+
+  it('is empty when the run ran every test', () => {
+    expect(runTestsTagged(run({ run_config: {} }))).toEqual([]);
   });
 });

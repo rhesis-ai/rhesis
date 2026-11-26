@@ -92,10 +92,17 @@ const mockGetTestSetTests = jest.fn(() =>
   })
 );
 
+/** The tags on the drawer's test set's tests. */
+let mockTestSetTestTags: { name: string; test_count: number }[] = [];
+const mockGetTestSetTestTags = jest.fn((_id: string) =>
+  Promise.resolve(mockTestSetTestTags)
+);
+
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getTestSetsClient: () => ({
       getTestSetTests: mockGetTestSetTests,
+      getTestSetTestTags: mockGetTestSetTestTags,
       getTestSet: jest.fn().mockResolvedValue({
         name: 'Safety checks',
         test_set_type: { type_value: 'single_turn' },
@@ -314,6 +321,73 @@ describe('RunDrawer sections', () => {
     expect(
       screen.getByText("Schedules don't keep test run tags.")
     ).toBeInTheDocument();
+  });
+
+  it('hides "Only tests tagged" when the tests carry no tags', async () => {
+    mockTestSetTestTags = [];
+    renderExecuteDrawer();
+
+    await waitFor(() => expect(mockGetTestSetTestTags).toHaveBeenCalled());
+    expect(screen.queryByLabelText('Only tests tagged')).toBeNull();
+  });
+
+  it('counts only the tagged tests once a tag is picked', async () => {
+    mockTestSetTestTags = [
+      { name: 'billing', test_count: 2 },
+      { name: 'smoke', test_count: 5 },
+    ];
+    renderExecuteDrawer();
+
+    const field = await screen.findByLabelText('Only tests tagged');
+    fireEvent.mouseDown(field);
+    fireEvent.click(await screen.findByRole('option', { name: /smoke/ }));
+
+    await waitFor(() =>
+      expect(mockGetTestSetTests).toHaveBeenLastCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          $filter: "(_tags_relationship/any(t: t/tag/name eq 'smoke'))",
+        })
+      )
+    );
+    expect(screen.getByLabelText('Test Set')).toHaveValue('Safety checks');
+    const whatToRun = screen.getByRole('button', { name: /what to run/i });
+    fireEvent.click(whatToRun);
+    expect(
+      within(whatToRun).getByText('Safety checks · tests tagged smoke')
+    ).toBeInTheDocument();
+    mockTestSetTestTags = [];
+  });
+
+  it('offers only the tags every selected test set carries', async () => {
+    mockGetTestSetTestTags.mockImplementation(id =>
+      Promise.resolve(
+        id === 'ts-1'
+          ? [
+              { name: 'billing', test_count: 2 },
+              { name: 'smoke', test_count: 5 },
+            ]
+          : [{ name: 'smoke', test_count: 1 }]
+      )
+    );
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <RunDrawer
+          open
+          onClose={jest.fn()}
+          mode="createFromGrid"
+          data={{ selectedTestSetIds: ['ts-1', 'ts-2'] }}
+        />
+      </QueryClientProvider>
+    );
+
+    fireEvent.mouseDown(await screen.findByLabelText('Only tests tagged'));
+    const options = await screen.findAllByRole('option');
+    expect(options.map(o => o.textContent)).toEqual(['smoke6 tests']);
+    mockGetTestSetTestTags.mockImplementation(() =>
+      Promise.resolve(mockTestSetTestTags)
+    );
   });
 
   it('names the one test set picked in the list', async () => {

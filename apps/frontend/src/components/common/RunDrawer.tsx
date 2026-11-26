@@ -26,6 +26,7 @@ import type {
   TestSetMetric,
   LastTestRunSummary,
   TestSet,
+  TestSetTestTag,
 } from '@/utils/api-client/interfaces/test-set';
 import type { ExperimentDetail } from '@/utils/api-client/interfaces/parameters';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -47,6 +48,11 @@ import { useRunTestCount } from '@/hooks/useRunTestCount';
 import { Capability } from '@/constants/capabilities';
 import { useCan } from '@/components/common/Can';
 import RunDrawerSection from '@/components/common/run-drawer/RunDrawerSection';
+import TestsTaggedField from '@/components/common/run-drawer/TestsTaggedField';
+import {
+  plural,
+  summaryOf,
+} from '@/components/common/run-drawer/run-drawer-format';
 import WhenField from '@/components/common/run-drawer/WhenField';
 import {
   EndpointField,
@@ -118,6 +124,7 @@ export interface RerunConfig {
       version?: string;
       label?: string;
     };
+    tests_tagged?: string[];
     [key: string]: unknown;
   };
 }
@@ -237,13 +244,6 @@ const METRIC_MODE_SUMMARY: Record<MetricMode, string> = {
 
 /** Shown in "What to run" when the fixed test set's name can't be loaded. */
 const UNKNOWN_TEST_SET_NAME = 'Selected test set';
-
-const plural = (count: number, word: string) =>
-  `${count} ${word}${count === 1 ? '' : 's'}`;
-
-/** Joins the parts of a section's one-line summary, skipping empty ones. */
-const summaryOf = (...parts: (string | false | null | undefined)[]) =>
-  parts.filter(Boolean).join(' · ');
 
 const whenFor = (form: ScheduleForm): RunWhen =>
   form.repeat ? RUN_WHEN.REPEAT : RUN_WHEN.ONCE;
@@ -368,6 +368,10 @@ export default function RunDrawer(props: RunDrawerProps) {
   // ---- Tags ----
   const [tags, setTags] = useState<string[]>([]);
 
+  // Run only the tests carrying any of these tags; empty runs every test.
+  const [testsTagged, setTestsTagged] = useState<string[]>([]);
+  const [testTagOptions, setTestTagOptions] = useState<TestSetTestTag[]>([]);
+
   // ---- Preflight ----
   const [preflightEnabled, setPreflightEnabled] = useState(true);
   const [preflightDialogOpen, setPreflightDialogOpen] = useState(false);
@@ -418,6 +422,8 @@ export default function RunDrawer(props: RunDrawerProps) {
     setTestSetName(null);
     setReuseDropped(false);
     setTags([]);
+    setTestsTagged([]);
+    setTestTagOptions([]);
     setExecutionMode(EXECUTION_MODE.PARALLEL);
     setScoringTarget(SCORING_TARGET.FRESH);
     setLastTestRun(null);
@@ -559,6 +565,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   useEffect(() => {
     if (!open || !editingSchedule) return;
     const settings = editingSchedule.run_settings;
+    setTestsTagged(settings.tests_tagged ?? []);
     setExecutionMode(settings.execution_mode ?? EXECUTION_MODE.PARALLEL);
     setSelectedExecutionModelId(settings.execution_model_id ?? '');
     setSelectedEvaluationModelId(settings.evaluation_model_id ?? '');
@@ -600,6 +607,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   // instead of the model that happened to be active on the original run.
   useEffect(() => {
     if (!open || mode !== 'rerunTestRun' || !rerunConfig) return;
+    setTestsTagged(rerunConfig.originalAttributes?.tests_tagged ?? []);
     const origMetrics = rerunConfig.originalAttributes?.metrics;
     if (origMetrics && origMetrics.length > 0) {
       setMetricMode(METRIC_MODE.CUSTOM);
@@ -792,6 +800,42 @@ export default function RunDrawer(props: RunDrawerProps) {
     }
   };
 
+  // The tags on the chosen sets' tests, for "Only tests tagged". With several sets, only
+  // tags every set carries: a set with no matching test would refuse its run.
+  const testSetIdsKey = resolveTestSetIds().join(',');
+  useEffect(() => {
+    if (!open || !testSetIdsKey) {
+      setTestTagOptions([]);
+      return;
+    }
+    let mounted = true;
+    const client = apiFactory.getTestSetsClient();
+    Promise.all(
+      testSetIdsKey.split(',').map(id => client.getTestSetTestTags(id))
+    )
+      .then(perSet => {
+        if (!mounted) return;
+        const counts = new Map<string, number>();
+        const sets = new Map<string, number>();
+        perSet.flat().forEach(tag => {
+          counts.set(tag.name, (counts.get(tag.name) ?? 0) + tag.test_count);
+          sets.set(tag.name, (sets.get(tag.name) ?? 0) + 1);
+        });
+        setTestTagOptions(
+          [...counts]
+            .filter(([name]) => sets.get(name) === perSet.length)
+            .map(([name, test_count]) => ({ name, test_count }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        );
+      })
+      .catch(() => {
+        if (mounted) setTestTagOptions([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [open, testSetIdsKey, apiFactory]);
+
   const resolveEndpointId = (): string | null => {
     if (mode === 'rerunTestRun') return props.data.endpointId;
     return selectedEndpoint;
@@ -934,6 +978,8 @@ export default function RunDrawer(props: RunDrawerProps) {
         baseAttributes.evaluation_model_id = selectedEvaluationModelId;
       }
 
+      if (testsTagged.length > 0) baseAttributes.tests_tagged = testsTagged;
+
       if (scoringTarget === SCORING_TARGET.REUSE) {
         if (mode === 'rerunTestRun' && rerunConfig?.testRunId) {
           baseAttributes.reference_test_run_id = rerunConfig.testRunId;
@@ -1043,6 +1089,8 @@ export default function RunDrawer(props: RunDrawerProps) {
         // The selectors use '' for "default model"; the API wants null.
         execution_model_id: selectedExecutionModelId || null,
         evaluation_model_id: selectedEvaluationModelId || null,
+        // Always sent: saving a schedule replaces all its run settings.
+        tests_tagged: testsTagged,
       };
       if (editingSchedule) {
         await saveScheduleSettings(editingSchedule, endpointId, runSettings);
@@ -1123,7 +1171,8 @@ export default function RunDrawer(props: RunDrawerProps) {
   const runTestCount = useRunTestCount(
     resolveTestSetIds(),
     Math.max(resolveExperiments().length, 1),
-    open
+    open,
+    testsTagged
   );
   const executionQuota = useQuotaGate(
     QuotaResource.TEST_EXECUTIONS,
@@ -1172,13 +1221,17 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Section summaries (shown while a section is folded)
   // -----------------------------------------------------------------------
 
-  const testSetSummary =
+  const setNameSummary =
     gridTestSetIds && gridTestSetIds.length > 1
       ? plural(gridTestSetIds.length, 'test set')
       : (rerunConfig?.testSetName ??
         selectedTestSet?.name ??
         testSetName ??
         (cfg.testSetMode === 'fixed' ? 'Loading…' : 'Choose a test set'));
+  const testSetSummary = summaryOf(
+    setNameSummary,
+    testsTagged.length > 0 && `tests tagged ${testsTagged.join(', ')}`
+  );
 
   const endpointName =
     rerunConfig?.endpointName ??
@@ -1232,7 +1285,10 @@ export default function RunDrawer(props: RunDrawerProps) {
         <TestSetField
           testSets={testSets}
           value={selectedTestSet}
-          onChange={setSelectedTestSet}
+          onChange={testSet => {
+            setSelectedTestSet(testSet);
+            setTestsTagged([]);
+          }}
         />
       );
     }
@@ -1244,7 +1300,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         />
       );
     }
-    return <FixedField label="Test Set" value={testSetSummary} />;
+    return <FixedField label="Test Set" value={setNameSummary} />;
   };
 
   const renderEndpointField = () =>
@@ -1358,6 +1414,13 @@ export default function RunDrawer(props: RunDrawerProps) {
         >
           <RunDrawerSection title="What to run" summary={testSetSummary}>
             {renderTestSetField()}
+            {(testTagOptions.length > 0 || testsTagged.length > 0) && (
+              <TestsTaggedField
+                tags={testTagOptions}
+                value={testsTagged}
+                onChange={setTestsTagged}
+              />
+            )}
           </RunDrawerSection>
 
           <RunDrawerSection title="Run against" summary={targetSummary}>

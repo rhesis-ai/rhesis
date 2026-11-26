@@ -75,6 +75,7 @@ run is skipped because your organization reached its test execution limit.
 | The previous run of the schedule is still going | Skips this run |
 | Your organization reached its test execution limit | Skips this run |
 | The endpoint or test set was deleted, or the test set is empty | Pauses the schedule |
+| The schedule runs only tagged tests, and no test carries those tags any more | Pauses the schedule |
 | A model the runs need isn't available | Pauses the schedule |
 | Five runs in a row failed | Pauses the schedule |
 | The owner can no longer run tests in the project | Pauses and shows **Needs a new owner** |

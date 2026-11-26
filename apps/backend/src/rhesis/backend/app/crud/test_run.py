@@ -18,7 +18,7 @@ the cascade to test results is driven by ``config/cascade_config.py`` inside
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import Integer, cast, func, or_
 from sqlalchemy.engine import Row
@@ -568,9 +568,14 @@ def get_test_run_task_ids(
 
 
 def get_ordered_tests_for_test_set(
-    db: Session, test_set_id: uuid.UUID, organization_id: str | None = None
+    db: Session,
+    test_set_id: uuid.UUID,
+    organization_id: str | None = None,
+    tests_tagged: Sequence[str] = (),
 ) -> List[Tuple[str, Optional[str], bool]]:
     """Return ``[(test_id, requirement_id, is_multi_turn)]`` for a test set, ordered by test id.
+
+    With ``tests_tagged``, only the tests carrying any of them, like the run itself.
 
     Lean projection query (no ORM model hydration) used to snapshot the metric
     plan's ``test_order`` at dispatch time, as the fallback column list for a
@@ -592,6 +597,11 @@ def get_ordered_tests_for_test_set(
     )
     if organization_id:
         query = query.filter(Test.organization_id == uuid.UUID(str(organization_id)))
+    if tests_tagged:
+        from rhesis.backend.app.crud.tag import tagged_entity_ids
+        from rhesis.backend.app.schemas.tag import EntityType
+
+        query = query.filter(Test.id.in_(tagged_entity_ids(EntityType.TEST, tests_tagged)))
 
     rows = query.order_by(Test.id).all()
     return [

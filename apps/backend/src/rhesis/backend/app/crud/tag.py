@@ -19,9 +19,10 @@ in the organization, and returns the existing tag untouched when the link is alr
 
 import logging
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Sequence
 from uuid import UUID
 
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -36,6 +37,18 @@ from rhesis.backend.app.utils.crud_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def tagged_entity_ids(entity_type: EntityType, tag_names: Sequence[str]) -> Select:
+    """Ids of the entities of one type that carry any of ``tag_names``, for use in ``IN``."""
+    return (
+        select(models.TaggedItem.entity_id)
+        .join(models.Tag, models.Tag.id == models.TaggedItem.tag_id)
+        .where(
+            models.TaggedItem.entity_type == entity_type.value,
+            models.Tag.name.in_(list(tag_names)),
+        )
+    )
 
 
 def get_tag(

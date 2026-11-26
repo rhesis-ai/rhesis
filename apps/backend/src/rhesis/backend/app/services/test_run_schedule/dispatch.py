@@ -192,14 +192,15 @@ def _submit(
 
 
 def _check_targets(db: Session, config: TestConfiguration) -> None:
-    from rhesis.backend.app.services.test_set import count_test_set_tests
+    from rhesis.backend.app.services.test_set import count_test_set_tests, tagged_test_filter
 
     if config.endpoint is None or config.endpoint.deleted_at is not None:
         raise TargetMissing("endpoint_missing")
     if config.test_set is None or config.test_set.deleted_at is not None:
         raise TargetMissing("test_set_missing")
-    if count_test_set_tests(db, config.test_set_id) == 0:
-        raise TargetMissing("test_set_empty")
+    tests_tagged = tagged_test_filter(config.attributes)
+    if count_test_set_tests(db, config.test_set_id, tests_tagged) == 0:
+        raise TargetMissing("no_tagged_tests" if tests_tagged else "test_set_empty")
 
 
 def _creator_can_run(db: Session, creator, config: TestConfiguration) -> bool:

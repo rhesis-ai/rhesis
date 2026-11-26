@@ -21,7 +21,11 @@ from rhesis.backend.app.outcomes import (
     VERDICT_CHAR,
     Outcome,
 )
-from rhesis.backend.app.services.test_set import enforce_test_run_quota
+from rhesis.backend.app.services.test_set import (
+    TESTS_TAGGED_KEY,
+    enforce_test_run_quota,
+    run_tests_tagged,
+)
 from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 from rhesis.backend.app.utils.csv_safety import neutralize_formula
 
@@ -255,8 +259,9 @@ def rescore_test_run(
     ref_config = ref_run.test_configuration
     if not ref_config:
         raise ValueError(f"Test run {reference_test_run_id} has no test configuration")
+    tests_tagged = run_tests_tagged(ref_run)
     if ref_config.test_set_id:
-        enforce_test_run_quota(db, org_id, uid, ref_config.test_set_id)
+        enforce_test_run_quota(db, org_id, uid, ref_config.test_set_id, tests_tagged)
 
     # 2. Build attributes for the new test configuration
     attributes = {
@@ -264,6 +269,9 @@ def rescore_test_run(
         "is_rescore": True,
         "execution_mode": "Parallel",
     }
+    # Re-score the same tests the reference run ran.
+    if tests_tagged:
+        attributes[TESTS_TAGGED_KEY] = tests_tagged
 
     if metrics:
         attributes["metrics"] = metrics

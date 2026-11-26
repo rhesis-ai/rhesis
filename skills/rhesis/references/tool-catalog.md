@@ -539,6 +539,8 @@ The response includes `test_run_id` and `task_id`. Poll `get_job_status` with `t
 **Key parameters:**
 - `test_set_identifier` (required, path parameter) — test set UUID, nano_id, or slug
 - `endpoint_id` (required, path parameter) — UUID of the target endpoint
+- `tests_tagged` — tag names; only the set's tests carrying any of them run. Omit to run every
+  test. `list_test_set_test_tags` shows which tags the set's tests carry.
 
 ---
 
@@ -562,7 +564,7 @@ Create a schedule. Asks for confirmation.
   - `notify`: `problems` (default), `always` or `never`
   - leave `name` empty to name it after the test set
 - `run_settings` — same options as `execute_test_set`: `execution_options`, `metrics`,
-  `execution_model_id`, `evaluation_model_id`
+  `execution_model_id`, `evaluation_model_id`, `tests_tagged`
 
 Schedules run at most once an hour unless the deployment allows more; the error names the limit.
 
@@ -912,6 +914,16 @@ List tests inside a single test set.
 **CHAIN:** prefer over org-wide `list_tests` when you have the test set ID.
 
 **Default `$select`:** `id,prompt,requirement,category,topic`
+
+**Key parameters:** `test_set_identifier` (required)
+
+---
+
+### `list_test_set_test_tags`
+List the tags on a test set's tests, each with `test_count`.
+
+**CHAIN:** before `execute_test_set` with `tests_tagged`, to run only part of a set. An empty list
+means the set's tests carry no tags.
 
 **Key parameters:** `test_set_identifier` (required)
 

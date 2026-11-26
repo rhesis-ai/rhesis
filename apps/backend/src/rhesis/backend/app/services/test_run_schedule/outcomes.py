@@ -33,6 +33,7 @@ PAUSE_REASONS = {
     "endpoint_missing": "the endpoint was deleted",
     "test_set_missing": "the test set was deleted",
     "test_set_empty": "the test set has no tests",
+    "no_tagged_tests": "none of its tests carry the chosen tags",
     "model_unavailable": "a model its runs need isn't available",
     "failure_streak": f"its last {FAILURE_STREAK_LIMIT} runs failed",
     "creator_access": "its owner can no longer run tests here",

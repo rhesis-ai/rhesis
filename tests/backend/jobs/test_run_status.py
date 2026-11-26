@@ -43,9 +43,8 @@ def _make_test_config(test_set_id=None):
 def _mock_session_with_test_count(count=5):
     """Create a mock session that returns a test count query."""
     session = MagicMock()
-    (
-        session.query.return_value.select_from.return_value.filter.return_value.scalar.return_value
-    ) = count
+    query = session.query.return_value.select_from.return_value.join.return_value
+    query.filter.return_value.scalar.return_value = count
     return session
 
 

@@ -569,6 +569,22 @@ def download_test_set_prompts(
     return response
 
 
+@router.get("/{test_set_identifier}/test-tags", response_model=list[schemas.TestSetTestTag])
+def get_test_set_test_tags(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """The tags on this set's tests, each with how many tests carry it."""
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+    return [
+        schemas.TestSetTestTag(name=name, test_count=count)
+        for name, count in test_set_crud.get_test_set_test_tags(db, db_test_set.id)
+    ]
+
+
 @router.get("/{test_set_identifier}/tests", response_model=list[schemas.TestDetail])
 def get_test_set_tests(
     test_set_identifier: str,
@@ -622,6 +638,7 @@ def execute_test_set(
                and requirement metrics. Each metric should have id, name, and scope.
     - reference_test_run_id: Optional UUID of a previous test run whose outputs
                should be reused (re-scoring mode).
+    - tests_tagged: Optional tag names; only the tests carrying any of them run.
     """
     try:
         attributes = None
@@ -667,6 +684,9 @@ def execute_test_set(
             experiment_id=experiment_id,
             experiment_version=experiment_version,
             experiment_environment=experiment_environment,
+            tests_tagged=test_configuration_attributes.tests_tagged
+            if test_configuration_attributes
+            else (),
         )
         return result
 

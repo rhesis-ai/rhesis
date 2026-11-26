@@ -538,3 +538,13 @@ export function countActiveJobFilters(f: JobFilters): number {
     (f.createdTo !== '' ? 1 : 0)
   );
 }
+
+/** Rows carrying any of `names`, matched exactly the way a run matches its tests. */
+export function anyTagFilter(names: string[]): string {
+  return `(${names
+    .map(
+      name =>
+        `_tags_relationship/any(t: t/tag/name eq '${escapeODataValue(name)}')`
+    )
+    .join(' or ')})`;
+}

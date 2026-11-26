@@ -24,6 +24,7 @@ export interface ScheduleRunSettings {
   metrics?: { id: string; name: string; scope?: string[] }[];
   execution_model_id?: string | null;
   evaluation_model_id?: string | null;
+  tests_tagged?: string[];
 }
 
 export interface TestRunScheduleCreate {
@@ -107,6 +108,7 @@ export interface TestRunScheduleDetail extends TestRunSchedule {
     execution_model_id: string | null;
     evaluation_model_id: string | null;
     execution_mode: string | null;
+    tests_tagged: string[];
   };
 }
 

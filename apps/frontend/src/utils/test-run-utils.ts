@@ -84,3 +84,25 @@ export async function pollForTestRun(
   // Test run not found after all attempts
   return null;
 }
+
+const asTagList = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((tag): tag is string => typeof tag === 'string')
+    : [];
+
+const asObject = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+/**
+ * The tags a run filtered its tests by; empty when it ran every test. Reads the run's
+ * own snapshot first: a schedule's configuration may have changed since the run.
+ */
+export function runTestsTagged(testRun: TestRunDetail): string[] {
+  const snapshot = asObject(testRun.attributes?.run_config);
+  if (snapshot) return asTagList(snapshot.tests_tagged);
+  return asTagList(
+    asObject(testRun.test_configuration?.attributes)?.tests_tagged
+  );
+}

@@ -4,11 +4,10 @@ import random
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 from uuid import UUID
 
 from pydantic import ValidationError
-from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, contains_eager
 
@@ -25,7 +24,6 @@ from rhesis.backend.app.constants import (
 from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.organization import Organization
-from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.quota.enforcement import enforce_quota
 from rhesis.backend.app.services.test import bulk_create_test_set_associations, bulk_create_tests
@@ -724,11 +722,13 @@ def resolve_execution_targets(
     test_set_identifier: str,
     endpoint_id: uuid.UUID,
     current_user: models.User,
+    tests_tagged: Sequence[str] = (),
 ) -> tuple[models.TestSet, models.Endpoint]:
     """The test set and endpoint a run would use, checked the way a run checks them.
 
-    Raises ``ValueError`` when either is missing or the set has no tests, and
-    ``PermissionError`` when either belongs to another organization.
+    Raises ``ValueError`` when either is missing or the set has no tests (none carrying
+    ``tests_tagged``, when given), and ``PermissionError`` when either belongs to another
+    organization.
     """
     from rhesis.backend.app.crud import endpoint as endpoint_crud
 
@@ -757,7 +757,7 @@ def resolve_execution_targets(
     logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
 
     _validate_user_access(current_user, db_test_set, db_endpoint)
-    _validate_test_set_not_empty(db, db_test_set)
+    _validate_test_set_not_empty(db, db_test_set, tests_tagged)
     return db_test_set, db_endpoint
 
 
@@ -794,6 +794,7 @@ def execute_test_set_on_endpoint(
     experiment_id: uuid.UUID | None = None,
     experiment_version: str | None = None,
     experiment_environment: str | None = None,
+    tests_tagged: Sequence[str] = (),
 ) -> Dict[str, Any]:
     """
     Execute a test set against an endpoint by creating a test configuration
@@ -811,6 +812,7 @@ def execute_test_set_on_endpoint(
                  Each metric should have: id, name, and optionally scope.
         reference_test_run_id: Optional UUID of a previous test run whose outputs
                  should be reused instead of calling the endpoint (re-scoring).
+        tests_tagged: Run only the tests carrying any of these tags.
 
     Returns:
         Dict containing execution status and metadata
@@ -825,15 +827,23 @@ def execute_test_set_on_endpoint(
         f"and endpoint: {endpoint_id}, user: {current_user.id}"
     )
     db_test_set, db_endpoint = resolve_execution_targets(
-        db, test_set_identifier, endpoint_id, current_user
+        db, test_set_identifier, endpoint_id, current_user, tests_tagged
     )
     enforce_test_run_quota(
-        db, str(current_user.organization_id), str(current_user.id), db_test_set.id
+        db, str(current_user.organization_id), str(current_user.id), db_test_set.id, tests_tagged
     )
+    # Only the checked ``tests_tagged`` argument sets the slice, never a key in execution_options.
+    test_configuration_attributes = {
+        k: v for k, v in (test_configuration_attributes or {}).items() if k != TESTS_TAGGED_KEY
+    }
+    if tests_tagged:
+        test_configuration_attributes[TESTS_TAGGED_KEY] = list(tests_tagged)
 
     # Validate reference test run if provided (output reuse / re-scoring)
     if reference_test_run_id:
-        _validate_reference_test_run(db, reference_test_run_id, db_test_set, current_user)
+        _validate_reference_test_run(
+            db, reference_test_run_id, db_test_set, current_user, tests_tagged
+        )
         logger.info(f"Output reuse enabled: reference_test_run_id={reference_test_run_id}")
 
     metrics_source = resolve_metrics_source(db, db_test_set.id, metrics)
@@ -895,22 +905,50 @@ def execute_test_set_on_endpoint(
     return response_data
 
 
-def count_test_set_tests(db: Session, test_set_id: uuid.UUID) -> int:
-    """Count active tests associated with a test set.
+#: Where the tags a run filters its tests by live in ``test_configuration.attributes``.
+TESTS_TAGGED_KEY = "tests_tagged"
 
-    Join the test table explicitly so stale association rows do not count tests
-    that have been soft-deleted.
+
+def tagged_test_filter(attributes: Dict[str, Any] | None) -> List[str]:
+    """The tags a run filters its tests by; empty means every test in the set."""
+    tags = (attributes or {}).get(TESTS_TAGGED_KEY)
+    return [t for t in tags if isinstance(t, str)] if isinstance(tags, list) else []
+
+
+def run_tests_tagged(test_run: models.TestRun) -> List[str]:
+    """The tags a finished run filtered its tests by, from its own snapshot first.
+
+    A schedule reuses one configuration for all its runs, so the live configuration
+    may have changed since this run started.
     """
-    return (
-        db.query(func.count(models.Test.id))
-        .select_from(test_test_set_association)
-        .join(models.Test, models.Test.id == test_test_set_association.c.test_id)
-        .filter(
-            test_test_set_association.c.test_set_id == test_set_id,
-            models.Test.deleted_at.is_(None),
-        )
-        .scalar()
-    ) or 0
+    from rhesis.backend.app.services.run_config import RUN_CONFIG_KEY
+
+    run_config = (test_run.attributes or {}).get(RUN_CONFIG_KEY)
+    if isinstance(run_config, dict):
+        return tagged_test_filter(run_config)
+    config = test_run.test_configuration
+    return tagged_test_filter(config.attributes if config else None)
+
+
+def no_tagged_tests_message(test_set_name: str, tests_tagged: Sequence[str]) -> str:
+    return f"No tests in {test_set_name} carry the tags: {', '.join(tests_tagged)}."
+
+
+def count_test_set_tests(
+    db: Session, test_set_id: uuid.UUID, tests_tagged: Sequence[str] = ()
+) -> int:
+    """Count active tests in a test set, or only those carrying any of ``tests_tagged``."""
+    return test_set_crud.count_set_tests(db, test_set_id, tests_tagged)
+
+
+def filter_tests_by_tags(
+    db: Session, test_set_id: uuid.UUID, tests: List[models.Test], tests_tagged: Sequence[str]
+) -> List[models.Test]:
+    """Keep the set's tests carrying any of ``tests_tagged``; all of them when there are none."""
+    if not tests_tagged:
+        return tests
+    tagged = test_set_crud.tagged_set_test_ids(db, test_set_id, tests_tagged)
+    return [t for t in tests if t.id in tagged]
 
 
 #: Queued or running runs older than this stop holding quota back. A run stops
@@ -941,7 +979,11 @@ def _in_flight_run_tests(db: Session, organization_id: str, user_id: str) -> int
 
 
 def enforce_test_run_quota(
-    db: Session, organization_id: str, user_id: str, test_set_id: uuid.UUID
+    db: Session,
+    organization_id: str,
+    user_id: str,
+    test_set_id: uuid.UUID,
+    tests_tagged: Sequence[str] = (),
 ) -> None:
     """Refuse a run whose tests don't fit in the org's remaining test executions.
 
@@ -955,15 +997,20 @@ def enforce_test_run_quota(
         str(organization_id),
         org,
         QuotaResource.TEST_EXECUTIONS,
-        amount=count_test_set_tests(db, test_set_id),
+        amount=count_test_set_tests(db, test_set_id, tests_tagged),
         reserved=_in_flight_run_tests(db, str(organization_id), str(user_id)),
     )
 
 
-def _validate_test_set_not_empty(db: Session, test_set: models.TestSet) -> None:
-    """Reject execution when a test set has no associated tests."""
-    if count_test_set_tests(db, test_set.id) == 0:
-        raise ValueError("Cannot execute test set with 0 tests. Please add tests before executing.")
+def _validate_test_set_not_empty(
+    db: Session, test_set: models.TestSet, tests_tagged: Sequence[str] = ()
+) -> None:
+    """Reject execution when a test set has no tests, or none carrying ``tests_tagged``."""
+    if count_test_set_tests(db, test_set.id, tests_tagged) > 0:
+        return
+    if tests_tagged:
+        raise ValueError(no_tagged_tests_message(test_set.name, tests_tagged))
+    raise ValueError("Cannot execute test set with 0 tests. Please add tests before executing.")
 
 
 def _validate_user_access(
@@ -1000,9 +1047,11 @@ def _validate_reference_test_run(
     reference_test_run_id: uuid.UUID,
     db_test_set: models.TestSet,
     current_user: models.User,
+    tests_tagged: Sequence[str] = (),
 ) -> None:
     """Validate that the reference test run exists, belongs to the same
-    organization, and is associated with the same test set.
+    organization, is associated with the same test set, and ran every test
+    this run will reuse outputs for.
 
     Raises:
         ValueError: If validation fails
@@ -1023,6 +1072,20 @@ def _validate_reference_test_run(
         ref_test_set_id = str(db_ref_run.test_configuration.test_set_id)
         if ref_test_set_id != str(db_test_set.id):
             raise ValueError("Reference test run belongs to a different test set")
+
+    missing = test_set_crud.count_set_tests(
+        db, db_test_set.id, tests_tagged, without_output_in_run=db_ref_run.id
+    )
+    if missing:
+        ref_tags = run_tests_tagged(db_ref_run)
+        if ref_tags:
+            raise ValueError(
+                f"The reused run only ran the tests tagged {', '.join(ref_tags)}. "
+                "Run those tags, or use fresh outputs."
+            )
+        raise ValueError(
+            f"The reused run has no output for {missing} of this run's tests. Use fresh outputs."
+        )
 
 
 def _create_test_configuration(
