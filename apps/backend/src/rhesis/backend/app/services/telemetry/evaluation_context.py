@@ -77,6 +77,8 @@ def project_judge_models(db: Session, organization_id: str, project_id: str, tra
         text_model_for,
     )
 
+    # Cached across threads: these are SDK model objects, not ORM rows; nothing in them
+    # is bound to a session.
     def load():
         project = find_project(db, project_id)
         project_user = (project.owner or project.user) if project else None
