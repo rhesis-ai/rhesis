@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { redirect } from 'next/navigation';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import MetricDetailPageTabs from './MetricDetailPageTabs';
@@ -31,12 +30,6 @@ export default async function MetricDetailPage({ params }: PageProps) {
   } catch (error) {
     notFoundIfEntityMissing(error);
     throw error;
-  }
-
-  // The detail page only knows how to render rhesis and custom metrics.
-  const backendType = metric.backend_type?.type_value?.toLowerCase();
-  if (backendType !== 'rhesis' && backendType !== 'custom') {
-    redirect('/metrics');
   }
 
   // The other tabs' data; the tuning routes reject non-custom metrics.

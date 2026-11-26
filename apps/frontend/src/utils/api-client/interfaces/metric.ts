@@ -31,6 +31,10 @@ export interface Metric {
   threshold_operator?: ThresholdOperator;
   explanation: string;
   ground_truth_required: boolean;
+  /** Whether evaluating needs retrieved context alongside input and output. */
+  context_required?: boolean;
+  /** The implementing class, e.g. a framework metric's DeepEvalAnswerRelevancy. */
+  class_name?: string | null;
   evaluation_examples?: string;
   metric_scope?: MetricScope[];
   organization_id?: UUID;

@@ -67,6 +67,11 @@ import {
 import { SCORE_TYPES } from '@/constants/score-types';
 import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 import InfoRow from './MetricInfoRow';
+import FrameworkEvaluation from './FrameworkEvaluation';
+import {
+  isFrameworkMetric,
+  isFrameworkPlaceholder,
+} from '@/utils/metric-framework';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
@@ -189,6 +194,9 @@ export function MetricDetailView({
     initialMetric ?? null
   );
   const [loading, setLoading] = useState(initialMetric === undefined);
+  // A framework metric's definition is the framework's: shown, never edited.
+  const isFramework = metric ? isFrameworkMetric(metric) : false;
+  const canEditDefinition = canEditMetric && !isFramework;
   const [missingError, setMissingError] = useState<unknown>(null);
   const notifications = useNotifications();
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
@@ -270,23 +278,6 @@ export function MetricDetailView({
         // Model data is already included in the metric response
         if (metricData.model) {
           setModels([metricData.model]);
-        }
-
-        // Check if this is NOT a rhesis or custom metric - redirect other metrics
-        const backendType = metricData.backend_type?.type_value?.toLowerCase();
-        if (backendType !== 'rhesis' && backendType !== 'custom') {
-          notifications.show(
-            'This metric type cannot be viewed through the detail page',
-            {
-              severity: 'warning',
-            }
-          );
-          if (mode === 'embedded') {
-            onCloseRef.current?.();
-          } else {
-            router.push('/metrics');
-          }
-          return;
         }
       } catch (error: unknown) {
         if (isNotFoundApiError(error)) {
@@ -912,7 +903,7 @@ export function MetricDetailView({
         <Stack spacing={3}>
           {/* General Information Section */}
           <EditableSection
-            editable={canEditMetric}
+            editable={canEditDefinition}
             title="General Information"
             section="general"
             isEditing={isEditing}
@@ -959,230 +950,238 @@ export function MetricDetailView({
           </EditableSection>
 
           {/* Evaluation Process Section */}
-          <EditableSection
-            editable={canEditMetric}
-            title="Evaluation Process"
-            section="evaluation"
-            isEditing={isEditing}
-            onEdit={handleEdit}
-            onCancel={handleCancelEdit}
-            onConfirm={handleConfirmEdit}
-            isSaving={isSaving}
-            checkChanges={checkForChanges}
-          >
-            <InfoRow label="LLM Judge Model">
-              {isEditing === 'evaluation' ? (
-                <FormControl fullWidth>
-                  <InputLabel id={`${a11yId}-model`}>Model</InputLabel>
-                  <Select
-                    labelId={`${a11yId}-model`}
-                    value={editData.model_id || ''}
-                    onChange={e =>
-                      setEditData(prev => ({
-                        ...prev,
-                        model_id: e.target.value as UUID,
-                      }))
-                    }
-                    label="Model"
-                  >
-                    {models
-                      .filter(model => !isEmbeddingModel(model))
-                      .map(model => {
-                        // Score type is edited in another section, so a model that can't
-                        // judge it is shown disabled rather than hidden.
-                        const canJudge = canJudgeScoreType(
-                          model,
-                          metric.score_type
-                        );
-                        return (
-                          <MenuItem
-                            key={model.id}
-                            value={model.id}
-                            disabled={!canJudge}
-                          >
-                            <Box>
-                              <Typography variant="subtitle2">
-                                {model.name}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                display="block"
-                              >
-                                {canJudge
-                                  ? model.description
-                                  : 'Categorical metrics only'}
-                              </Typography>
-                            </Box>
-                          </MenuItem>
-                        );
-                      })}
-                  </Select>
-                </FormControl>
-              ) : (
-                <>
-                  <Typography>
-                    {models.length > 0
-                      ? models.find(model => model.id === metric.model_id)
-                          ?.name || 'Using default model'
-                      : metric.model_id
-                        ? 'Loading model...'
-                        : 'Using default model'}
-                  </Typography>
-                  {models.length > 0 && metric.model_id && (
-                    <Typography variant="body2" color="text.secondary">
-                      {models.find(model => model.id === metric.model_id)
-                        ?.description || ''}
+          {isFramework ? (
+            <FrameworkEvaluation metric={metric} />
+          ) : (
+            <EditableSection
+              editable={canEditDefinition}
+              title="Evaluation Process"
+              section="evaluation"
+              isEditing={isEditing}
+              onEdit={handleEdit}
+              onCancel={handleCancelEdit}
+              onConfirm={handleConfirmEdit}
+              isSaving={isSaving}
+              checkChanges={checkForChanges}
+            >
+              <InfoRow label="LLM Judge Model">
+                {isEditing === 'evaluation' ? (
+                  <FormControl fullWidth>
+                    <InputLabel id={`${a11yId}-model`}>Model</InputLabel>
+                    <Select
+                      labelId={`${a11yId}-model`}
+                      value={editData.model_id || ''}
+                      onChange={e =>
+                        setEditData(prev => ({
+                          ...prev,
+                          model_id: e.target.value as UUID,
+                        }))
+                      }
+                      label="Model"
+                    >
+                      {models
+                        .filter(model => !isEmbeddingModel(model))
+                        .map(model => {
+                          // Score type is edited in another section, so a model that can't
+                          // judge it is shown disabled rather than hidden.
+                          const canJudge = canJudgeScoreType(
+                            model,
+                            metric.score_type
+                          );
+                          return (
+                            <MenuItem
+                              key={model.id}
+                              value={model.id}
+                              disabled={!canJudge}
+                            >
+                              <Box>
+                                <Typography variant="subtitle2">
+                                  {model.name}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  display="block"
+                                >
+                                  {canJudge
+                                    ? model.description
+                                    : 'Categorical metrics only'}
+                                </Typography>
+                              </Box>
+                            </MenuItem>
+                          );
+                        })}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <>
+                    <Typography>
+                      {models.length > 0
+                        ? models.find(model => model.id === metric.model_id)
+                            ?.name || 'Using default model'
+                        : metric.model_id
+                          ? 'Loading model...'
+                          : 'Using default model'}
                     </Typography>
-                  )}
-                </>
-              )}
-            </InfoRow>
+                    {models.length > 0 && metric.model_id && (
+                      <Typography variant="body2" color="text.secondary">
+                        {models.find(model => model.id === metric.model_id)
+                          ?.description || ''}
+                      </Typography>
+                    )}
+                  </>
+                )}
+              </InfoRow>
 
-            <InfoRow label="Evaluation Prompt">
-              {isEditing === 'evaluation' ? (
-                <TextField
-                  key={`evaluation-prompt-field-${metric.id}`}
-                  fullWidth
-                  multiline
-                  rows={4}
-                  inputRef={evaluationPromptRef}
-                  defaultValue={metric.evaluation_prompt || ''}
-                  placeholder="Enter evaluation prompt"
-                  onChange={markTextFieldDirty}
-                  onBlur={handleTextFieldBlur}
-                />
-              ) : (
-                <Typography
-                  component="pre"
-                  variant="body2"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    fontFamily: 'monospace',
-                    bgcolor: 'action.hover',
-                    borderRadius: theme => theme.shape.borderRadius * 0.25,
-                    padding: 1,
-                    minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {metric.evaluation_prompt || '-'}
-                </Typography>
-              )}
-            </InfoRow>
-
-            <InfoRow label="Evaluation Steps">
-              {isEditing === 'evaluation' ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {stepsWithIds.map((step, index) => (
-                    <Box key={step.id} sx={{ display: 'flex', gap: 1 }}>
-                      <TextField
-                        fullWidth
-                        multiline
-                        rows={2}
-                        inputRef={getStepRef(step.id)}
-                        defaultValue={step.content}
-                        placeholder={`Step ${index + 1}: Describe this evaluation step...`}
-                        onChange={markTextFieldDirty}
-                        onBlur={handleTextFieldBlur}
-                      />
-                      <IconButton
-                        aria-label={`Remove step ${index + 1}`}
-                        onClick={() => removeStep(step.id)}
-                        disabled={stepsWithIds.length === 1}
-                        sx={{ mt: 1 }}
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Box>
-                  ))}
-                  <Button
-                    startIcon={<AddIcon />}
-                    onClick={addStep}
-                    sx={{ alignSelf: 'flex-start' }}
+              <InfoRow label="Evaluation Prompt">
+                {isEditing === 'evaluation' ? (
+                  <TextField
+                    key={`evaluation-prompt-field-${metric.id}`}
+                    fullWidth
+                    multiline
+                    rows={4}
+                    inputRef={evaluationPromptRef}
+                    defaultValue={metric.evaluation_prompt || ''}
+                    placeholder="Enter evaluation prompt"
+                    onChange={markTextFieldDirty}
+                    onBlur={handleTextFieldBlur}
+                  />
+                ) : (
+                  <Typography
+                    component="pre"
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: 'monospace',
+                      bgcolor: 'action.hover',
+                      borderRadius: theme => theme.shape.borderRadius * 0.25,
+                      padding: 1,
+                      minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
+                      wordBreak: 'break-word',
+                    }}
                   >
-                    Add Step
-                  </Button>
-                </Box>
-              ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {metric.evaluation_steps ? (
-                    parseEvaluationSteps(metric.evaluation_steps).map(
-                      (step, index) => {
-                        // Create stable key from step content
-                        const stepKey = `step-${index}-${step.substring(0, 30).replace(/\s+/g, '-')}`;
-                        return (
-                          <Paper
-                            key={stepKey}
-                            variant="outlined"
-                            sx={{
-                              p: 2,
-                              bgcolor: 'background.paper',
-                              position: 'relative',
-                              pl: 6,
-                            }}
-                          >
-                            <Typography
+                    {metric.evaluation_prompt || '-'}
+                  </Typography>
+                )}
+              </InfoRow>
+
+              <InfoRow label="Evaluation Steps">
+                {isEditing === 'evaluation' ? (
+                  <Box
+                    sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+                  >
+                    {stepsWithIds.map((step, index) => (
+                      <Box key={step.id} sx={{ display: 'flex', gap: 1 }}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={2}
+                          inputRef={getStepRef(step.id)}
+                          defaultValue={step.content}
+                          placeholder={`Step ${index + 1}: Describe this evaluation step...`}
+                          onChange={markTextFieldDirty}
+                          onBlur={handleTextFieldBlur}
+                        />
+                        <IconButton
+                          aria-label={`Remove step ${index + 1}`}
+                          onClick={() => removeStep(step.id)}
+                          disabled={stepsWithIds.length === 1}
+                          sx={{ mt: 1 }}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    ))}
+                    <Button
+                      startIcon={<AddIcon />}
+                      onClick={addStep}
+                      sx={{ alignSelf: 'flex-start' }}
+                    >
+                      Add Step
+                    </Button>
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+                  >
+                    {metric.evaluation_steps ? (
+                      parseEvaluationSteps(metric.evaluation_steps).map(
+                        (step, index) => {
+                          // Create stable key from step content
+                          const stepKey = `step-${index}-${step.substring(0, 30).replace(/\s+/g, '-')}`;
+                          return (
+                            <Paper
+                              key={stepKey}
+                              variant="outlined"
                               sx={{
-                                position: 'absolute',
-                                left: 16,
-                                color: 'primary.main',
-                                fontWeight: 'bold',
+                                p: 2,
+                                bgcolor: 'background.paper',
+                                position: 'relative',
+                                pl: 6,
                               }}
                             >
-                              {index + 1}
-                            </Typography>
-                            <Typography sx={{ whiteSpace: 'pre-wrap' }}>
-                              {step}
-                            </Typography>
-                          </Paper>
-                        );
-                      }
-                    )
-                  ) : (
-                    <Typography>-</Typography>
-                  )}
-                </Box>
-              )}
-            </InfoRow>
+                              <Typography
+                                sx={{
+                                  position: 'absolute',
+                                  left: 16,
+                                  color: 'primary.main',
+                                  fontWeight: 'bold',
+                                }}
+                              >
+                                {index + 1}
+                              </Typography>
+                              <Typography sx={{ whiteSpace: 'pre-wrap' }}>
+                                {step}
+                              </Typography>
+                            </Paper>
+                          );
+                        }
+                      )
+                    ) : (
+                      <Typography>-</Typography>
+                    )}
+                  </Box>
+                )}
+              </InfoRow>
 
-            <InfoRow label="Reasoning Instructions">
-              {isEditing === 'evaluation' ? (
-                <TextField
-                  key={`reasoning-field-${metric.id}`}
-                  fullWidth
-                  multiline
-                  rows={4}
-                  inputRef={reasoningRef}
-                  defaultValue={metric.reasoning || ''}
-                  placeholder="Enter reasoning instructions"
-                  onChange={markTextFieldDirty}
-                  onBlur={handleTextFieldBlur}
-                />
-              ) : (
-                <Typography
-                  component="pre"
-                  variant="body2"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    fontFamily: 'monospace',
-                    bgcolor: 'action.hover',
-                    borderRadius: theme => theme.shape.borderRadius * 0.25,
-                    padding: 1,
-                    minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {metric.reasoning || '-'}
-                </Typography>
-              )}
-            </InfoRow>
-          </EditableSection>
+              <InfoRow label="Reasoning Instructions">
+                {isEditing === 'evaluation' ? (
+                  <TextField
+                    key={`reasoning-field-${metric.id}`}
+                    fullWidth
+                    multiline
+                    rows={4}
+                    inputRef={reasoningRef}
+                    defaultValue={metric.reasoning || ''}
+                    placeholder="Enter reasoning instructions"
+                    onChange={markTextFieldDirty}
+                    onBlur={handleTextFieldBlur}
+                  />
+                ) : (
+                  <Typography
+                    component="pre"
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: 'monospace',
+                      bgcolor: 'action.hover',
+                      borderRadius: theme => theme.shape.borderRadius * 0.25,
+                      padding: 1,
+                      minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {metric.reasoning || '-'}
+                  </Typography>
+                )}
+              </InfoRow>
+            </EditableSection>
+          )}
 
           {/* Result Configuration Section */}
           <EditableSection
-            editable={canEditMetric}
+            editable={canEditDefinition}
             title="Result Configuration"
             section="configuration"
             isEditing={isEditing}
@@ -1622,7 +1621,10 @@ export function MetricDetailView({
                     wordBreak: 'break-word',
                   }}
                 >
-                  {metric.explanation || '-'}
+                  {metric.explanation &&
+                  !isFrameworkPlaceholder(metric.explanation)
+                    ? metric.explanation
+                    : '-'}
                 </Typography>
               )}
             </InfoRow>
@@ -1718,18 +1720,21 @@ export function MetricDetailView({
         { label: metric.name, href: `/metrics/${metricId}` },
       ]}
       actions={
-        <FabGroup>
-          <Can capability={Capability.Metric.CREATE}>
-            <Fab
-              icon={<ContentCopyIcon />}
-              tooltip="Duplicate"
-              aria-label="Duplicate metric"
-              onClick={handleDuplicate}
-              loading={isDuplicating}
-              disabled={!!isEditing}
-            />
-          </Can>
-        </FabGroup>
+        // A copy of a framework metric would be another framework metric.
+        isFramework ? undefined : (
+          <FabGroup>
+            <Can capability={Capability.Metric.CREATE}>
+              <Fab
+                icon={<ContentCopyIcon />}
+                tooltip="Duplicate"
+                aria-label="Duplicate metric"
+                onClick={handleDuplicate}
+                loading={isDuplicating}
+                disabled={!!isEditing}
+              />
+            </Can>
+          </FabGroup>
+        )
       }
     >
       {tabNav && <Box sx={{ mb: 2 }}>{tabNav}</Box>}

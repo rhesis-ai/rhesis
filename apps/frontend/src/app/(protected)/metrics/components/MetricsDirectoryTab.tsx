@@ -468,8 +468,6 @@ export default function MetricsDirectoryTab({
 
                 const backendType =
                   metric.backend_type?.type_value?.toLowerCase();
-                const isClickableMetric =
-                  backendType === 'custom' || backendType === 'rhesis';
 
                 return (
                   <MetricCard
@@ -498,9 +496,7 @@ export default function MetricsDirectoryTab({
                             setSelectedMetric(metric);
                             setAssignDialogOpen(true);
                           }
-                        : isClickableMetric
-                          ? () => router.push(`/metrics/${metric.id}`)
-                          : undefined
+                        : () => router.push(`/metrics/${metric.id}`)
                     }
                     onDelete={
                       canDelete &&

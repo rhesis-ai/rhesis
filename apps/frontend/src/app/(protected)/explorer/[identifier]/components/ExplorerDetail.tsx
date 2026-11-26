@@ -141,17 +141,6 @@ function getLabelColor(label: string): 'success' | 'error' | 'default' {
 }
 
 /**
- * Matches /metrics/[identifier] — only rhesis and custom backend types have a
- * configuration detail page; other types redirect away.
- */
-function metricSupportsDetailPage(metric: {
-  backend_type?: { type_value?: string | null } | null;
-}): boolean {
-  const v = metric.backend_type?.type_value?.toLowerCase();
-  return v === 'rhesis' || v === 'custom';
-}
-
-/**
  * Build a hierarchical tree from flat topic list and tests.
  */
 function buildTopicTree(topics: Topic[], tests: TestNode[]): TopicTreeNode[] {
@@ -2058,19 +2047,12 @@ export default function ExplorerDetail({
           const full = metrics.find(mm => mm.id === m.id);
           const name = full?.name ?? m.name;
           if (full) {
-            return {
-              id: m.id,
-              name,
-              hasDetailPage: metricSupportsDetailPage(full),
-            };
+            return { id: m.id, name, hasDetailPage: true };
           }
+          // Not in the loaded list: link only once it is known to exist.
           try {
-            const detail = await metricsClient.getMetric(m.id as UUID);
-            return {
-              id: m.id,
-              name,
-              hasDetailPage: metricSupportsDetailPage(detail),
-            };
+            await metricsClient.getMetric(m.id as UUID);
+            return { id: m.id, name, hasDetailPage: true };
           } catch {
             return { id: m.id, name, hasDetailPage: false };
           }
@@ -2905,7 +2887,7 @@ export default function ExplorerDetail({
                 {
                   id: settingsMetric.id,
                   name: settingsMetric.name,
-                  hasDetailPage: metricSupportsDetailPage(settingsMetric),
+                  hasDetailPage: true,
                 },
               ]
             : [],
