@@ -63,7 +63,8 @@ def fail_overdue_jobs(db: Session, organization_id: str, now: Optional[datetime]
 
     now = now or datetime.now(timezone.utc)
     started_before = {
-        job_type: now - running_job_window(job_type) for job_type in job_time_limits()
+        job_type: now - timedelta(seconds=seconds) - RUNNING_JOB_MARGIN
+        for job_type, seconds in job_time_limits().items()
     }
     queued_before = now - QUEUED_JOB_WINDOW
     return sum_over_org_projects(
