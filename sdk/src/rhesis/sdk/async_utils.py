@@ -20,6 +20,7 @@ _background_thread = None
 # Threads making their first run_sync() call at the same moment would otherwise each start
 # a loop, and litellm's Vertex client then mixes state across them and hangs.
 _loop_lock = threading.Lock()
+_loop_executor: ThreadPoolExecutor | None = None
 
 
 def _loop_threads() -> int:
@@ -145,15 +146,16 @@ def use_per_loop_litellm_logging_worker() -> None:
 
 def _get_background_loop():
     """Lazily create a single background thread with its own event loop."""
-    global _background_loop, _background_thread
+    global _background_loop, _background_thread, _loop_executor
     with _loop_lock:
         if _background_loop is None or _background_loop.is_closed():
             if _background_loop is not None and _background_loop.is_closed():
                 reset_litellm_vertex_async_locks()
             _background_loop = asyncio.new_event_loop()
-            _background_loop.set_default_executor(
-                ThreadPoolExecutor(max_workers=_loop_threads(), thread_name_prefix="rhesis-sdk-io")
+            _loop_executor = ThreadPoolExecutor(
+                max_workers=_loop_threads(), thread_name_prefix="rhesis-sdk-io"
             )
+            _background_loop.set_default_executor(_loop_executor)
             _background_thread = Thread(
                 target=_background_loop.run_forever,
                 daemon=True,
@@ -169,7 +171,7 @@ def close_background_loop():
     Call explicitly in long-running processes or test suites to avoid resource
     leaks. Also registered as an atexit handler when the loop is first created.
     """
-    global _background_loop, _background_thread
+    global _background_loop, _background_thread, _loop_executor
     with _loop_lock:
         if _background_loop is None or _background_loop.is_closed():
             _background_loop = None
@@ -185,8 +187,12 @@ def close_background_loop():
                 _background_loop.close()
             except Exception:
                 pass
+            if _loop_executor is not None:
+                # Its threads would outlive the loop; a new loop builds its own pool.
+                _loop_executor.shutdown(wait=False)
             _background_loop = None
             _background_thread = None
+            _loop_executor = None
 
 
 def run_sync(coro, timeout: float | None = None):

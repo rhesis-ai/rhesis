@@ -451,3 +451,20 @@ class TestBackgroundLoopThreads:
         monkeypatch.setenv("RHESIS_SDK_LOOP_THREADS", "128")
 
         assert self._pool_size() == 128
+
+
+def test_closing_the_loop_shuts_its_thread_pool_down():
+    from rhesis.sdk import async_utils
+
+    async def in_pool():
+        import asyncio
+
+        return await asyncio.to_thread(lambda: 1)
+
+    assert async_utils.run_sync(in_pool()) == 1
+    pool = async_utils._loop_executor
+
+    async_utils.close_background_loop()
+
+    assert pool._shutdown
+    assert async_utils._loop_executor is None
