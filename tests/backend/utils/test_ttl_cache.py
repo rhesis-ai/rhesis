@@ -74,3 +74,15 @@ class TestTTLCache:
 
         assert results == ["v"] * 16
         assert len(calls) == 1
+
+    def test_it_keeps_no_state_for_expired_or_finished_keys(self):
+        ttl = {"s": 0.01}
+        cache = TTLCache(lambda: ttl["s"])
+        for key in range(50):
+            cache.get_or_load(key, lambda: "v")
+        time.sleep(0.02)
+
+        cache.get_or_load("live", lambda: "v")
+
+        assert list(cache._values) == ["live"]
+        assert cache._loading == {}

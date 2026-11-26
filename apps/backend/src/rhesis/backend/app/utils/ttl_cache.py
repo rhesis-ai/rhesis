@@ -49,12 +49,26 @@ class TTLCache:
             found, value = self._fresh(key)
             if found:
                 return value
-            value = load()
-            ttl = self._ttl()
-            if ttl > 0:
+            try:
+                value = load()
+                self._store(key, value)
+                return value
+            finally:
+                # Dropped once loaded: a thread already waiting holds this lock object
+                # and finds the stored value; a later one finds it without locking.
                 with self._lock:
-                    self._values[key] = (time.monotonic() + ttl, value)
-            return value
+                    self._loading.pop(key, None)
+
+    def _store(self, key: Hashable, value: Any) -> None:
+        ttl = self._ttl()
+        if ttl <= 0:
+            return
+        now = time.monotonic()
+        with self._lock:
+            # Expired entries go on each store, so the cache holds only live keys.
+            for stale in [k for k, (expires, _) in self._values.items() if expires <= now]:
+                del self._values[stale]
+            self._values[key] = (now + ttl, value)
 
     def clear(self) -> None:
         with self._lock:

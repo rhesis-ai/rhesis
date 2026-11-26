@@ -213,3 +213,31 @@ def test_a_failed_linking_step_still_queues_evaluations_and_meters():
     dispatch.assert_called_once()
     meter.assert_called_once()
     assert result["evaluations_queued"] == 1
+
+
+@pytest.mark.integration
+def test_stored_rows_are_persistent_and_load_server_defaults(
+    test_db, test_organization, db_project
+):
+    from sqlalchemy import event, inspect
+
+    rows = store_spans(
+        test_db, [_span(uuid4().hex, str(db_project.id), "a" * 16)], str(test_organization.id)
+    )
+    row = rows[0]
+    statements = []
+
+    def record(conn, cursor, statement, *args):
+        statements.append(statement.lstrip().split()[0].upper())
+
+    engine = test_db.get_bind()
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        test_db.flush()
+        created_at = row.created_at
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+
+    assert inspect(row).persistent
+    assert "INSERT" not in statements
+    assert created_at is not None
