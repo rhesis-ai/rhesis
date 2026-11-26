@@ -31,14 +31,18 @@ def _sessions(opened):
         yield
 
 
-async def _until(condition):
-    # Yields to the loop until condition holds; no wall-clock waits.
-    while not condition():
-        await asyncio.sleep(0)
+async def _until(condition, timeout=5):
+    """Yield to the loop until *condition* holds; fail instead of hanging."""
+
+    async def spin():
+        while not condition():
+            await asyncio.sleep(0)
+
+    await asyncio.wait_for(spin(), timeout)
 
 
-async def _wait_event(event: threading.Event):
-    await asyncio.get_running_loop().run_in_executor(None, event.wait, 5)
+async def _wait_event(event: threading.Event, timeout=5):
+    assert await asyncio.get_running_loop().run_in_executor(None, event.wait, timeout)
 
 
 @pytest.mark.unit
