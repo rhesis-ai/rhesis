@@ -632,6 +632,9 @@ opentelemetry-collector:
 externalDatabase:
   host: ""
   port: "5432"
+  # Optional PgBouncer in transaction mode (e.g. a CNPG Pooler) for the API, workers and
+  # beat. Migrations always connect to host, since they hold a session-level lock.
+  poolerHost: ""
 
 # Analytics database — used by telemetry-processor.
 # For dev: points at the same Bitnami PostgreSQL subchart (rhesis-analytics-db database).

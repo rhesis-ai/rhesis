@@ -9,7 +9,7 @@ data:
   # -------------------------------------------------------------------------
   # Database — host/name/user resolved from subchart or externalDatabase
   # -------------------------------------------------------------------------
-  DB_HOST: {{ include "rhesis.postgresql.host" . | quote }}
+  DB_HOST: {{ include "rhesis.postgresql.appHost" . | quote }}
   DB_DRIVER: {{ .Values.config.dbDriver | quote }}
   DB_PORT: {{ .Values.config.dbPort | quote }}
   DB_NAME: {{ .Values.config.dbName | quote }}

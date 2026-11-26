@@ -252,6 +252,8 @@ externalDatabase:
   # Must match the CNPG read-write Service for your Cluster (metadata.name = rhesis-stg)
   host: "rhesis-stg-rw.rhesis.svc.cluster.local"
   port: "5432"
+  # PgBouncer for the app (kubernetes/clusters/stg/cnpg-cluster/pooler.yaml).
+  poolerHost: "rhesis-stg-pooler-rw.rhesis.svc.cluster.local"
 
 # Analytics DB — lives in the same CNPG cluster as the main DB (rhesis-stg).
 # Created by postInitSQL in kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml.
