@@ -11,7 +11,7 @@ set -e
 # WORKER_LAYOUT picks how the queues are spread over Celery processes:
 #   combined  two processes, main (every queue but architect) and architect.
 #             For one worker container (docker compose, ./rh start).
-#   split     one process per execution class (celery/config.py QUEUES), each
+#   split     one process per execution class (celery/queues.py QUEUES), each
 #             sized for its work. For replicated deployments (the Helm chart).
 # All processes share the container's CPU; an idle thread costs none.
 # ---------------------------------------------------------------------------
@@ -196,7 +196,7 @@ if [ "$WORKER_LAYOUT" = "split" ]; then
         "cpu|cpu-bound|prefork|1|1|2|2|10"
     )
 else
-    # Every queue in celery/config.py QUEUES but architect.
+    # Every queue in celery/queues.py QUEUES but architect.
     MAIN_QUEUES="test-runs,long-jobs,trace-ingest,trace-eval,quick-tasks,cpu-bound,maintenance,celery,execution,telemetry"
     WORKERS=(
         "main|$MAIN_QUEUES|threads|$CELERY_WORKER_CONCURRENCY|$CELERY_WORKER_PREFETCH_MULTIPLIER|10|20|0"

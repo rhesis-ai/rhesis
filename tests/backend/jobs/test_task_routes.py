@@ -1,13 +1,13 @@
 """Every job is routed to a named queue, and the stock worker consumes every queue.
 
 A job with no route lands on Celery's default queue, behind whatever else is there.
-Add a new job to the queue in celery/config.py QUEUES whose rule it fits.
+Add a new job to the queue in celery/queues.py QUEUES whose rule it fits.
 """
 
 import pathlib
 import re
 
-from rhesis.backend.celery.config import QUEUES, TASK_ROUTES
+from rhesis.backend.celery.queues import QUEUES, TASK_ROUTES
 from rhesis.backend.worker import app
 
 ROOT = pathlib.Path(__file__).parents[3]
@@ -22,7 +22,7 @@ def _core_jobs() -> set[str]:
 
 def test_every_job_has_a_queue():
     unrouted = sorted(_core_jobs() - set(TASK_ROUTES))
-    assert not unrouted, f"Add these to a queue in celery/config.py QUEUES: {unrouted}"
+    assert not unrouted, f"Add these to a queue in celery/queues.py QUEUES: {unrouted}"
 
 
 def test_every_route_names_a_real_job():
@@ -40,7 +40,8 @@ def _start_sh_layouts() -> dict[str, set[str]]:
     def queues_in(block: str) -> set[str]:
         found = set()
         for spec in re.findall(r'^\s+"([^"]+)"$', block, re.M):
-            found |= set(spec.replace("$MAIN_QUEUES", ",".join(main_queues)).split("|")[1].split(","))
+            spec = spec.replace("$MAIN_QUEUES", ",".join(main_queues))
+            found |= set(spec.split("|")[1].split(","))
         return found
 
     return {"split": queues_in(split), "combined": queues_in(combined)}
