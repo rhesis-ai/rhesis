@@ -8,6 +8,8 @@ without re-running OCR/vision per invocation.
 
 import logging
 
+from celery.exceptions import SoftTimeLimitExceeded
+
 from rhesis.backend.celery.core import app
 
 logger = logging.getLogger(__name__)
@@ -99,4 +101,6 @@ def extract_file_text(
                     db.commit()
         except Exception:
             pass
+        if isinstance(exc, SoftTimeLimitExceeded):
+            raise  # The same file would hit the limit again.
         raise self.retry(exc=exc)

@@ -1,11 +1,12 @@
 """Unit tests for the Garak import/sync Celery tasks."""
 
 from contextlib import contextmanager
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
+from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.jobs.garak import import_garak_probes_task, sync_garak_test_set_task
 
@@ -180,7 +181,11 @@ class TestSyncGarakTestSetTask:
         # No probe data through the broker: the sync service extracts the test
         # set's probe class(es) itself in the worker.
         mock_sync_service.preload_probes.assert_not_called()
-        mock_sync_service.sync_test_set.assert_called_once_with("test-set-id", "org", "user")
+        mock_sync_service.sync_test_set.assert_called_once_with(
+            "test-set-id", "org", "user", deadline=ANY
+        )
+        deadline = mock_sync_service.sync_test_set.call_args.kwargs["deadline"]
+        assert deadline.seconds == get_job_limit_settings().garak_sync_time_limit
 
         assert result == {
             "added": 1,

@@ -1,6 +1,7 @@
 import logging
 from typing import Any, List, Optional, Union
 
+from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud import user as user_crud
@@ -17,6 +18,7 @@ from rhesis.backend.app.services.test_set import (
     load_defaults,
 )
 from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+from rhesis.backend.app.utils.deadline import Deadline, JobTimeLimitExceeded
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.celery.core import app
@@ -194,6 +196,17 @@ def _save_test_set_to_database(
     )
 
     return db_test_set
+
+
+def _generate_within_limit(synthesizer, num_tests: int, on_progress):
+    """Run *synthesizer*, stopping at the next progress report past GENERATION_TIME_LIMIT.
+
+    Raises:
+        JobTimeLimitExceeded: the limit passed while it was generating.
+    """
+    deadline = Deadline(get_job_limit_settings().generation_time_limit, "Test set generation")
+    with deadline.enforced():
+        return synthesizer.generate(num_tests=num_tests, on_progress=deadline.guard(on_progress))
 
 
 def _resolve_generation_model(
@@ -558,7 +571,7 @@ def generate_and_save_test_set(
             self.emit(f"Generated {current} of {total} tests")
 
         gen_start = time.time()
-        test_set = synthesizer.generate(num_tests=num_tests, on_progress=_progress_and_emit)
+        test_set = _generate_within_limit(synthesizer, num_tests, _progress_and_emit)
         gen_elapsed = time.time() - gen_start
 
         self.log_with_context(
@@ -625,6 +638,11 @@ def generate_and_save_test_set(
 
         return result
 
+    except JobTimeLimitExceeded as e:
+        self.log_with_context("error", "Generation stopped at its time limit", error=str(e))
+        if test_set_id:
+            _mark_test_set_generation_failed(self, test_set_id, org_id, user_id, str(e))
+        raise
     except ValueError as e:
         error_msg = str(e)
         error_msg_lower = error_msg.lower()
@@ -767,7 +785,7 @@ def generate_and_save_owasp_test_set(
             self.emit(f"Generated {current} of {total} tests")
 
         gen_start = time.time()
-        test_set = synthesizer.generate(num_tests=num_tests, on_progress=_progress_and_emit)
+        test_set = _generate_within_limit(synthesizer, num_tests, _progress_and_emit)
         gen_elapsed = time.time() - gen_start
 
         self.log_with_context(
@@ -846,6 +864,9 @@ def generate_and_save_owasp_test_set(
                 "result_build_error": str(post_save_error),
             }
 
+    except JobTimeLimitExceeded as e:
+        self.log_with_context("error", "Generation stopped at its time limit", error=str(e))
+        raise
     except ValueError as e:
         error_msg = str(e)
         self.log_with_context("error", "User model configuration error", error=error_msg)

@@ -324,6 +324,7 @@ class TestCeleryLimitsFollowTheExecutionLimit:
         assert visibility > JobLimitSettings().execution_time_limit
 
     def test_exploration_time_limit_is_not_retried(self):
-        from rhesis.backend.jobs.base import BaseJob, JobTimeLimitExceeded
+        from rhesis.backend.app.utils.deadline import JobTimeLimitExceeded
+        from rhesis.backend.jobs.base import BaseJob
 
         assert JobTimeLimitExceeded in BaseJob.dont_autoretry_for

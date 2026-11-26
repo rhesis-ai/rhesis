@@ -13,8 +13,10 @@ import logging
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
+from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.models.enums import NotificationEventType
 from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.utils.deadline import Deadline
 from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.base import EmailEnabledJob, email_notification, in_app_notification
 from rhesis.backend.notifications.email.template_service import EmailTemplate
@@ -136,7 +138,8 @@ def sync_garak_test_set_task(
 
     with self.get_db_session() as db:
         sync_service = GarakSyncService(db)
-        result = sync_service.sync_test_set(test_set_id, org_id, user_id)
+        deadline = Deadline(get_job_limit_settings().garak_sync_time_limit, "Garak sync")
+        result = sync_service.sync_test_set(test_set_id, org_id, user_id, deadline=deadline)
 
     total = result.added + result.removed + result.unchanged
     self.set_progress(total, total)

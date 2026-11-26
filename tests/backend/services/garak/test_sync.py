@@ -12,6 +12,7 @@ from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
 from rhesis.backend.app.services.garak.sync import GarakSyncService, SyncResult
+from rhesis.backend.app.utils.deadline import Deadline, JobTimeLimitExceeded
 
 fake = Faker()
 
@@ -394,6 +395,54 @@ class TestGarakSyncServiceLegacySyncSafety:
         service._sync_legacy_test_set(
             test_set, ["dan", "encoding"], str(test_org_id), str(authenticated_user_id)
         )
+
+
+@pytest.mark.unit
+class TestGarakSyncServiceDeadline:
+    def test_a_sync_past_its_deadline_stops_without_changing_the_test_set(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        test_set = TestSet(
+            name="Garak Test Set",
+            description="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "source": "garak",
+                "garak_module": "dan",
+                "garak_probe_class": "Dan_11_0",
+                "garak_version": "old",
+            },
+        )
+        test_db.add(test_set)
+        test_db.commit()
+        service = GarakSyncService(test_db)
+        service.preload_probes(
+            {
+                "dan": [
+                    GarakProbeInfo(
+                        module_name="dan",
+                        class_name="Dan_11_0",
+                        full_name="dan.Dan_11_0",
+                        description="d",
+                        prompts=["hello"],
+                    )
+                ]
+            }
+        )
+
+        with pytest.raises(JobTimeLimitExceeded, match="Garak sync stopped"):
+            service.sync_test_set(
+                str(test_set.id),
+                str(test_org_id),
+                str(authenticated_user_id),
+                deadline=Deadline(0, "Garak sync"),
+            )
+        test_db.rollback()
+
+        test_db.refresh(test_set)
+        assert test_set.attributes["garak_version"] == "old"
+        assert service._get_existing_probe_ids(test_set) == set()
 
 
 @pytest.mark.unit

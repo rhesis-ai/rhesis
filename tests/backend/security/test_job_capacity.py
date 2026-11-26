@@ -18,15 +18,15 @@ from rhesis.backend.app.models.enums import JobStatus
 from rhesis.backend.app.models.job import Job
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.services.job_capacity import (
-    QUEUED_JOB_WINDOW,
     JobCapacityExceededError,
     enforce_job_capacity,
-    running_job_window,
 )
+from rhesis.backend.app.services.job_deadlines import QUEUED_JOB_WINDOW, running_job_window
 from rhesis.backend.jobs import launch_job
 from tests.backend.fixtures.rls import scope_to_project
 
 LIMIT = 3
+RUN = "execute_test_configuration"
 
 
 @pytest.fixture(autouse=True)
@@ -90,8 +90,8 @@ def test_finished_light_and_stale_jobs_do_not_count(test_db, test_org_id, db_use
         test_db,
         test_org_id,
         status=JobStatus.RUNNING.value,
-        queued_at=now - running_job_window() - timedelta(hours=1),
-        started_at=now - running_job_window() - timedelta(minutes=1),
+        queued_at=now - running_job_window(RUN) - timedelta(hours=1),
+        started_at=now - running_job_window(RUN) - timedelta(minutes=1),
     )
     _add_job(test_db, test_org_id, queued_at=now - QUEUED_JOB_WINDOW - timedelta(minutes=1))
 
@@ -109,24 +109,27 @@ def test_long_waits_and_long_runs_still_count(test_db, test_org_id, db_user):
         test_org_id,
         status=JobStatus.RUNNING.value,
         queued_at=now - timedelta(hours=10),
-        started_at=now - running_job_window() + timedelta(minutes=5),
+        started_at=now - running_job_window(RUN) + timedelta(minutes=5),
     )
 
     with pytest.raises(JobCapacityExceededError):
         enforce_job_capacity(test_db, test_org_id, str(db_user.id))
 
 
-def test_untimed_job_types_keep_counting_while_they_run(test_db, test_org_id, db_user):
-    long_ago = datetime.now(timezone.utc) - running_job_window() - timedelta(hours=1)
-    # No in-job limit yet, so still holding a worker past the timed window.
+def test_each_job_type_counts_for_its_own_limit(test_db, test_org_id, db_user, monkeypatch):
+    monkeypatch.setenv("GENERATION_TIME_LIMIT", str(10 * 3600))
+    settings.get_job_limit_settings.cache_clear()
+    now = datetime.now(timezone.utc)
+    # Past a test run's window, inside a generation's.
+    started = now - running_job_window(RUN) - timedelta(minutes=5)
     for _ in range(LIMIT):
         _add_job(
             test_db,
             test_org_id,
             job_type="generate_and_save_test_set",
             status=JobStatus.RUNNING.value,
-            queued_at=long_ago,
-            started_at=long_ago,
+            queued_at=started,
+            started_at=started,
         )
 
     with pytest.raises(JobCapacityExceededError):
@@ -137,7 +140,7 @@ def test_running_window_follows_the_time_limits(monkeypatch):
     monkeypatch.setenv("EXECUTION_TIME_LIMIT", str(5 * 3600))
     settings.get_job_limit_settings.cache_clear()
 
-    assert running_job_window() > timedelta(hours=5)
+    assert running_job_window(RUN) > timedelta(hours=5)
 
 
 def test_zero_turns_the_cap_off(test_db, test_org_id, db_user, monkeypatch):

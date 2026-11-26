@@ -16,10 +16,11 @@ from typing import Any, ClassVar, Dict, List, Literal, Optional
 from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.utils.deadline import JobTimeLimitExceeded
 from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.architect.progress import publish_task_progress
-from rhesis.backend.jobs.base import JobTimeLimitExceeded, SilentJob
+from rhesis.backend.jobs.base import SilentJob
 from rhesis.backend.jobs.endpoint.target import make_target_factory
 
 # ExploreEndpointTool is imported lazily inside the task to avoid pulling

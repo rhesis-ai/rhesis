@@ -212,6 +212,52 @@ def count_active_jobs(
         ) or 0
 
 
+def fail_overdue_jobs_in_scope(
+    db: Session,
+    organization_id: str,
+    project_id: Optional[UUID],
+    started_before: Dict[str, datetime],
+    queued_before: datetime,
+    now: datetime,
+) -> int:
+    """Fail one project's jobs that outlived their limit, in one statement. Returns how many.
+
+    Running (or cancelling) jobs of the types in *started_before* that started before
+    their type's entry, and queued jobs of any type queued before *queued_before*.
+    ``project_id=None`` covers the org's project-less jobs; the session must be scoped
+    to *project_id*, as for :func:`count_active_jobs`.
+    """
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    job = models.Job
+    project_filter = (
+        job.project_id.is_(None) if project_id is None else job.project_id == project_id
+    )
+    running = [JobStatus.RUNNING.value, JobStatus.CANCELLING.value]
+    started = func.coalesce(job.started_at, job.queued_at, job.created_at)
+    queued = func.coalesce(job.queued_at, job.created_at)
+    overdue = or_(
+        and_(job.status == JobStatus.QUEUED.value, queued < queued_before),
+        *(
+            and_(job.job_type == job_type, job.status.in_(running), started < before)
+            for job_type, before in started_before.items()
+        ),
+    )
+    with bypass_tenant_filter():
+        result = db.execute(
+            update(job)
+            .where(job.organization_id == UUID(str(organization_id)), project_filter, overdue)
+            .values(
+                status=JobStatus.FAILED.value,
+                finished_at=now,
+                error_type="JobTimeLimitExceeded",
+                error_message="The job did not finish within its time limit.",
+            )
+            .execution_options(synchronize_session=False)
+        )
+    return result.rowcount or 0
+
+
 def claim_quota_reservation(db: Session, celery_task_id: str) -> Optional[dict]:
     """Mark this task's quota reservation settled and return it, or None if there is none left.
 

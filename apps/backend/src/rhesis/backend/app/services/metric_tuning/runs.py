@@ -37,6 +37,7 @@ from rhesis.backend.app.services.metric_tuning.invoke import (
 from rhesis.backend.app.services.metric_tuning.payload import parse_payload
 from rhesis.backend.app.services.metric_tuning.staleness import abandoned, run_is_stale
 from rhesis.backend.app.services.metric_tuning.test_sets import get_tuning_test_set
+from rhesis.backend.app.utils.deadline import Deadline
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +135,11 @@ def _clear_previous_results(db: Session, cases: List[models.Test]) -> None:
 
 
 def execute_tuning_run(
-    db: Session, metric: models.Metric, organization_id: str, user_id: Optional[str]
+    db: Session,
+    metric: models.Metric,
+    organization_id: str,
+    user_id: Optional[str],
+    deadline: Optional[Deadline] = None,
 ) -> MetricTuningRunSummary:
     """Run the metric over every one of its cases, writing results as it goes.
 
@@ -144,6 +149,10 @@ def execute_tuning_run(
 
     A case whose metric call fails is recorded as errored and the run carries on
     -- one unreachable provider must not cost the results of every other case.
+
+    Raises:
+        JobTimeLimitExceeded: *deadline* passed before every case was judged; the
+            cases already judged keep their results.
     """
     test_set = get_tuning_test_set(db, metric.id, organization_id)
     if not test_set:
@@ -178,6 +187,8 @@ def execute_tuning_run(
     db.commit()
 
     for db_test in cases:
+        if deadline:
+            deadline.check()
         payload = parse_payload(db_test.prompt.content if db_test.prompt else None)
         result = invoke_metric_on_case(db, metric, payload, organization_id, model)
 

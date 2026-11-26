@@ -348,6 +348,9 @@ rejected.
 | `MAX_RECOVERY_ROUNDS` | Most extra passes over tests that failed with a transient error | `3` |
 | `EXECUTION_TIME_LIMIT` | Seconds after which a test run stops; unfinished tests are recorded as errors | `MAX_PER_TEST_TIMEOUT` + 900 (at least `6600`) |
 | `EXPLORATION_TIME_LIMIT` | Seconds after which an endpoint exploration stops | `3600` |
+| `GENERATION_TIME_LIMIT` | Seconds after which a test set generation stops | `7200` |
+| `METRIC_TUNING_TIME_LIMIT` | Seconds after which a metric tuning run stops; cases already judged keep their results | `3600` |
+| `GARAK_SYNC_TIME_LIMIT` | Seconds after which a Garak test set sync stops, without changing the test set | `1800` |
 | `MAX_ACTIVE_JOBS_PER_ORG` | Test runs, generations, Garak imports, explorations and tuning runs an organization may have queued or running at once (`0` turns the cap off) | `10` |
 | `IMPORT_MAX_SESSIONS_PER_ORG` | File imports an organization may have open at once | `5` |
 

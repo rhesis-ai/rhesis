@@ -50,3 +50,21 @@ def test_soft_limits_stay_below_their_hard_limits():
     for name, opts in CELERY_CONFIG.get("task_annotations", {}).items():
         if "soft_time_limit" in opts and "time_limit" in opts:
             assert opts["soft_time_limit"] < opts["time_limit"], name
+
+
+def test_visibility_timeout_outlasts_every_in_job_limit():
+    from rhesis.backend.app.services.job_deadlines import job_time_limits
+
+    visibility = CELERY_CONFIG["broker_transport_options"]["visibility_timeout"]
+    assert visibility > max(job_time_limits().values())
+
+
+def test_cpu_bound_jobs_have_hard_limits():
+    from rhesis.backend.app.services.job_deadlines import CPU_JOB_TIME_LIMITS
+
+    annotations = CELERY_CONFIG["task_annotations"]
+    for job_type, (soft, hard) in CPU_JOB_TIME_LIMITS.items():
+        assert annotations[f"rhesis.backend.jobs.{job_type}"] == {
+            "soft_time_limit": soft,
+            "time_limit": hard,
+        }

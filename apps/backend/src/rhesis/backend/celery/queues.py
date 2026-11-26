@@ -66,6 +66,7 @@ QUEUES: dict[str, tuple[str, list[str]]] = {
             _J + "trace_retention.sweep_expired_traces",
             _J + "audit_retention.sweep_expired_audit_events",
             _J + "test_run_schedules.dispatch_due_schedules",
+            _J + "job_deadlines.sweep_overdue_jobs",
         ],
     ),
 }
