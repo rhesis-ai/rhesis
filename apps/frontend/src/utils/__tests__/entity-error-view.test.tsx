@@ -37,6 +37,10 @@ describe('entityErrorView', () => {
     expect(
       screen.getByRole('heading', { name: 'Requirements — Access denied' })
     ).toBeInTheDocument();
+    // Leads to the list, which works even when the page was opened directly.
+    expect(
+      screen.getByRole('link', { name: 'Back to Requirements' })
+    ).toHaveAttribute('href', '/requirements');
   });
 
   it('renders the restore page for a deleted record', () => {

@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Alert, Box, Button, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
@@ -125,13 +126,16 @@ export default function EntityErrorState(props: EntityErrorStateProps) {
           </Typography>
         </Box>
         <Box display="flex" gap={2} flexWrap="wrap">
+          {/* The list, not history.back(): a page opened from a link has no
+              history to go back to. */}
           <Button
+            component={Link}
+            href={backUrl}
             variant="outlined"
             size="medium"
             startIcon={<ArrowBackIcon />}
-            onClick={() => window.history.back()}
           >
-            Back
+            {backLabel}
           </Button>
         </Box>
       </Alert>
