@@ -351,3 +351,28 @@ describe('MetricDetailView — framework metrics', () => {
     expect(screen.queryByText('[deepeval]')).not.toBeInTheDocument();
   });
 });
+
+describe('MetricDetailView — tab panel', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetMetric.mockResolvedValue(mockMetric);
+    mockGetModels.mockResolvedValue({ data: [] });
+  });
+
+  it('labels the content as the panel the selected tab points at', async () => {
+    await act(async () => {
+      render(
+        <MetricDetailView
+          metricId="metric-1"
+          tabNav={<div role="tablist" />}
+          activeTabIndex={1}
+          tabBody={<p>Linked requirements</p>}
+        />
+      );
+    });
+    const panel = await screen.findByRole('tabpanel');
+    expect(panel).toHaveAttribute('id', 'metric-detail-tabpanel-1');
+    expect(panel).toHaveAttribute('aria-labelledby', 'metric-detail-tab-1');
+    expect(panel).toHaveTextContent('Linked requirements');
+  });
+});

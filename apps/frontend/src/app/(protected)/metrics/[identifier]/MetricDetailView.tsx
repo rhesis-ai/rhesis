@@ -164,6 +164,11 @@ export interface MetricDetailViewProps {
   /** Optional content to replace the detail body (e.g. for secondary tabs). */
   tabBody?: React.ReactNode;
   /**
+   * The tab `tabNav` has selected, so the content below is labelled as its
+   * panel: the tabs point at `metric-detail-tabpanel-<index>`.
+   */
+  activeTabIndex?: number;
+  /**
    * Bump to make this view re-read the metric.
    *
    * The fetch is guarded to run once per metric id, which is right while this
@@ -183,6 +188,7 @@ export function MetricDetailView({
   onSaved,
   tabNav,
   tabBody,
+  activeTabIndex = 0,
   refreshKey = 0,
 }: MetricDetailViewProps) {
   const a11yId = React.useId();
@@ -1738,7 +1744,19 @@ export function MetricDetailView({
       }
     >
       {tabNav && <Box sx={{ mb: 2 }}>{tabNav}</Box>}
-      {tabBody !== undefined ? tabBody : detailBody}
+      {tabNav ? (
+        <div
+          role="tabpanel"
+          id={`metric-detail-tabpanel-${activeTabIndex}`}
+          aria-labelledby={`metric-detail-tab-${activeTabIndex}`}
+        >
+          {tabBody !== undefined ? tabBody : detailBody}
+        </div>
+      ) : tabBody !== undefined ? (
+        tabBody
+      ) : (
+        detailBody
+      )}
     </PageLayout>
   );
 }
