@@ -223,7 +223,7 @@ workers:
         memory: "1.5Gi"
       limits:
         # Same as backend: heavy ML imports (litellm, garak) OOMKill at 1Gi
-        memory: "2Gi"
+        memory: "3Gi"
         cpu: "1000m"
     hpa:
       enabled: true
@@ -252,6 +252,11 @@ workers:
       timeoutSeconds: 15
       failureThreshold: 90
     env:
+      # One Celery process per kind of job (apps/worker/start.sh): test runs and long jobs,
+      # trace ingest, trace evaluation and short jobs, Architect, CPU-bound. Uses about
+      # 2.1 GiB per pod under load; "combined" goes back to one main process.
+      - name: WORKER_LAYOUT
+        value: "split"
       - name: CELERY_WORKER_CONCURRENCY
         value: "16"
       - name: CELERY_ARCHITECT_CONCURRENCY
