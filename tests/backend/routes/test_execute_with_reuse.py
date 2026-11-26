@@ -216,6 +216,26 @@ def db_test_results(test_db, test_org_id, authenticated_user_id, db_test_run):
     return results
 
 
+@pytest.fixture
+def db_reference_output(test_db, test_org_id, authenticated_user_id, db_test_set, db_test_run):
+    """A stored output in the reference run for the set's test, so it can be reused."""
+    test_id = test_db.execute(
+        models.test_test_set_association.select().where(
+            models.test_test_set_association.c.test_set_id == db_test_set.id
+        )
+    ).first()[0]
+    result = models.TestResult(
+        test_run_id=db_test_run.id,
+        test_id=test_id,
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        test_output={"output": "stored"},
+    )
+    test_db.add(result)
+    test_db.flush()
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Tests: _validate_reference_test_run
 # ---------------------------------------------------------------------------
@@ -230,6 +250,7 @@ class TestValidateReferenceTestRun:
         db_test_set,
         db_test_run,
         db_test_config,
+        db_reference_output,
     ):
         """Validation passes when reference run exists and matches
         the same test set and organization."""
@@ -240,6 +261,15 @@ class TestValidateReferenceTestRun:
 
         # Should not raise
         _validate_reference_test_run(test_db, db_test_run.id, db_test_set, user)
+
+    def test_reference_run_without_outputs(self, test_db, db_test_set, db_test_run):
+        """A run holding no output for the set's tests can't be reused."""
+        user = MagicMock()
+        user.organization_id = db_test_run.organization_id
+        user.id = db_test_run.user_id
+
+        with pytest.raises(ValueError, match="no output for 1 of this run's tests"):
+            _validate_reference_test_run(test_db, db_test_run.id, db_test_set, user)
 
     def test_nonexistent_reference_run(self, test_db, db_test_set):
         """Validation raises ValueError for a non-existent run ID."""
@@ -417,6 +447,7 @@ class TestExecuteWithReuse:
         db_test_set,
         db_endpoint,
         db_test_run,
+        db_reference_output,
     ):
         """When reference_test_run_id is provided, it is stored in the
         test configuration attributes along with is_rescore=True."""

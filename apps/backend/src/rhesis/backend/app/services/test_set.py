@@ -1073,11 +1073,18 @@ def _validate_reference_test_run(
         if ref_test_set_id != str(db_test_set.id):
             raise ValueError("Reference test run belongs to a different test set")
 
-    ref_tags = run_tests_tagged(db_ref_run)
-    if ref_tags and test_set_crud.count_set_tests(db, db_test_set.id, tests_tagged, ref_tags):
+    missing = test_set_crud.count_set_tests(
+        db, db_test_set.id, tests_tagged, without_output_in_run=db_ref_run.id
+    )
+    if missing:
+        ref_tags = run_tests_tagged(db_ref_run)
+        if ref_tags:
+            raise ValueError(
+                f"The reused run only ran the tests tagged {', '.join(ref_tags)}. "
+                "Run those tags, or use fresh outputs."
+            )
         raise ValueError(
-            f"The reused run only ran the tests tagged {', '.join(ref_tags)}. "
-            "Run those tags, or use fresh outputs."
+            f"The reused run has no output for {missing} of this run's tests. Use fresh outputs."
         )
 
 

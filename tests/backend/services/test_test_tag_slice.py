@@ -12,6 +12,7 @@ from rhesis.backend.app.crud.test_run import get_ordered_tests_for_test_set
 from rhesis.backend.app.models.tag import Tag, TaggedItem
 from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_configuration import TestConfiguration
+from rhesis.backend.app.models.test_result import TestResult
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.test_set import TestSetExecutionRequest
@@ -200,8 +201,19 @@ def test_a_run_reports_its_own_snapshot_over_the_live_config(test_db, tagged_set
 
 
 def test_reused_run_must_cover_the_new_runs_tests(test_db, tagged_set, db_endpoint):
-    test_set, _ = tagged_set
+    test_set, tests = tagged_set
     reference = _run_with(test_db, test_set, db_endpoint, snapshot_tags=["smoke"])
+    for key in ("a", "b", "c"):
+        test_db.add(
+            TestResult(
+                test_run_id=reference.id,
+                test_id=tests[key].id,
+                organization_id=test_set.organization_id,
+                user_id=test_set.user_id,
+                test_output={"output": key},
+            )
+        )
+    test_db.commit()
     user = _user(test_set)
 
     # "billing" is a subset of "smoke" here, so its outputs are all there.

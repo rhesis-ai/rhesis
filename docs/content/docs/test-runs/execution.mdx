@@ -54,9 +54,9 @@ includes the tests that carry any of the picked tags, and the list shows how man
 each one. Leave it empty to run every test. The field appears once the set's tests carry tags.
 With several test sets selected, it lists only the tags that every set's tests carry.
 
-A re-run starts with the same tags picked. **Reuse Outputs** needs an earlier run that ran every
-test this run includes: reusing a run limited to some tags is refused when this run picks tests
-outside them. The run's **Configuration** tab lists the tags under **Tests**.
+A re-run starts with the same tags picked. **Reuse Outputs** needs an output in the earlier run for
+every test this run includes, so it is refused when this run picks tests outside that run's tags,
+or tests added since. The run's **Configuration** tab lists the tags under **Tests**.
 
 ## Run against
 

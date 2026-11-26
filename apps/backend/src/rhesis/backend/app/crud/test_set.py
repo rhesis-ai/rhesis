@@ -4,7 +4,7 @@ import logging
 import uuid
 from typing import Dict, List, Optional, Sequence, Set
 
-from sqlalchemy import and_, delete, func, insert
+from sqlalchemy import and_, delete, func, insert, select
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -290,15 +290,22 @@ def count_set_tests(
     db: Session,
     test_set_id: uuid.UUID,
     tests_tagged: Sequence[str] = (),
-    not_tagged: Sequence[str] = (),
+    without_output_in_run: uuid.UUID | None = None,
 ) -> int:
-    """Active tests in the set, only those carrying any of ``tests_tagged`` when given,
-    and leaving out those carrying any of ``not_tagged``."""
+    """Active tests in the set, only those carrying any of ``tests_tagged`` when given.
+
+    With ``without_output_in_run``, only the tests that run holds no stored output for.
+    """
     query = _active_set_tests(db, test_set_id, [func.count(models.Test.id)])
     if tests_tagged:
         query = query.filter(_tagged(tests_tagged))
-    if not_tagged:
-        query = query.filter(~_tagged(not_tagged))
+    if without_output_in_run is not None:
+        with_output = select(models.TestResult.test_id).where(
+            models.TestResult.test_run_id == without_output_in_run,
+            models.TestResult.deleted_at.is_(None),
+            models.TestResult.test_output.isnot(None),
+        )
+        query = query.filter(~models.Test.id.in_(with_output))
     return query.scalar() or 0
 
 
