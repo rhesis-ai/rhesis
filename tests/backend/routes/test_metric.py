@@ -216,7 +216,7 @@ class TestMetricSoftDeleteContract(MetricTestMixin, BaseEntityTests):
 class TestMetricDetailAccessRestriction(MetricTestMixin, BaseEntityTests):
     """Every metric can be read; a framework metric's definition can't be edited."""
 
-    @pytest.mark.parametrize("backend", ["deepeval", "garak"])
+    @pytest.mark.parametrize("backend", ["deepeval", "garak", "ragas"])
     def test_get_framework_metric_returns_200(self, backend, metric_factory):
         """GET /metrics/{id} serves a metric owned by an evaluation framework."""
         data = self.get_sample_data()
@@ -227,7 +227,7 @@ class TestMetricDetailAccessRestriction(MetricTestMixin, BaseEntityTests):
         assert get_resp.status_code == status.HTTP_200_OK
         assert get_resp.json()["backend_type"]["type_value"] == backend
 
-    @pytest.mark.parametrize("backend", ["deepeval", "garak"])
+    @pytest.mark.parametrize("backend", ["deepeval", "garak", "ragas"])
     def test_update_framework_metric_returns_403(self, backend, metric_factory):
         """PUT /metrics/{id} refuses a framework metric and leaves it unchanged."""
         data = self.get_sample_data()
@@ -243,7 +243,7 @@ class TestMetricDetailAccessRestriction(MetricTestMixin, BaseEntityTests):
         get_resp = metric_factory.client.get(self.endpoints.get(metric["id"]))
         assert get_resp.json()["threshold"] == metric["threshold"]
 
-    @pytest.mark.parametrize("backend", ["deepeval", "garak"])
+    @pytest.mark.parametrize("backend", ["deepeval", "garak", "ragas"])
     def test_improve_framework_metric_returns_403(self, backend, metric_factory):
         """POST /metrics/{id}/improve refuses a framework metric before any generation."""
         data = self.get_sample_data()
