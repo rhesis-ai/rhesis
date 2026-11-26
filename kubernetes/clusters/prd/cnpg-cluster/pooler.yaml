@@ -1,0 +1,64 @@
+# PgBouncer in front of the rhesis-prd primary. Service: rhesis-prd-pooler-rw.
+# Transaction mode: the app sets its tenant GUCs with set_config(..., true) and takes
+# only transaction-level advisory locks, so a server connection holds no state between
+# transactions. Migrations keep the direct rhesis-prd-rw Service (session advisory lock).
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: rhesis-prd-pooler-rw
+  namespace: rhesis
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  cluster:
+    name: rhesis-prd
+  instances: 2
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      # Server connections per instance for each user and database pair.
+      default_pool_size: "40"
+      reserve_pool_size: "10"
+      max_client_conn: "2000"
+      # psycopg prepares a statement once it has run five times on a connection.
+      max_prepared_statements: "200"
+      # CNPG drops the client's "options" startup parameter, which is how the app sets
+      # its 30 min idle-in-transaction limit (app/database.py). Keep that limit here.
+      idle_transaction_timeout: "1800"
+  template:
+    spec:
+      containers:
+        - name: pgbouncer
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: rhesis-prd-pooler-rw
+---
+# Scrapes the PgBouncer exporter (port "metrics", 9127) on each pooler pod.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: rhesis-prd-pooler-rw
+  namespace: rhesis
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: rhesis-prd-pooler-rw
+  podMetricsEndpoints:
+    - port: metrics

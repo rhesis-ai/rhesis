@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - ../../../base/cnpg-cluster
   - cnpg-podmonitor.yaml
+  - pooler.yaml
   - rhesis-enterprise-database.yaml
 
 patches:
