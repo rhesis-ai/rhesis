@@ -50,7 +50,7 @@ When the plan calls for a metric:
 
 1. `list_metrics` to see what already exists (include `metric_scope` in `$select`)
 2. If a matching metric exists and is suitable — use it directly (note its ID)
-3. If a matching metric exists but needs changes — call `get_metric` first to read the current `evaluation_prompt`, then `improve_metric` (natural-language edits) or `update_metric` (precise field changes)
+3. If a matching metric exists but needs changes — call `get_metric` first to read the current `evaluation_prompt`, then `improve_metric` (natural-language edits) or `update_metric` (precise field changes). A framework metric (backend type `deepeval`, `garak`, `ragas`) can't be changed; create a custom metric instead
 4. If no match — call `create_metric` with the exact name and `metric_scope` from the plan
 5. After creating or selecting a metric, link it to relevant requirements via `add_requirement_to_metric`
 6. Verify links with `get_metric_requirements`; undo mistakes with `remove_requirement_from_metric`
