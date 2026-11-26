@@ -95,6 +95,7 @@ export default function MetricsClientComponent({
     refresh: handleRefresh,
     ready,
     gateNode,
+    fromCache,
   } = useList(metricsList, {
     filters,
     enabled: !skeleton,
@@ -159,6 +160,7 @@ export default function MetricsClientComponent({
         setFilters={setFilters}
         setMetrics={setMetrics}
         assignMode={assignMode}
+        fromCache={fromCache}
       />
     </ErrorBoundary>
   );
