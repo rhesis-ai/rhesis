@@ -36,13 +36,8 @@ async function openAndFillCreateTestRunDrawer(page: Page) {
 
   // Preflight pings the endpoint and model, which E2E can't reach, so it would
   // stop at "Retry". Skipping it is the drawer's own option for that case.
-  // The select's label isn't linked to it, so find it through its form control.
-  await drawer
-    .locator('.MuiFormControl-root')
-    .filter({ hasText: 'Run Preflight Checks' })
-    .getByRole('combobox')
-    .click();
-  await page.getByRole('option', { name: /^no\b/i }).click();
+  await drawer.getByRole('button', { name: /more options/i }).click();
+  await drawer.getByLabel(/run preflight checks/i).uncheck();
   return drawer;
 }
 

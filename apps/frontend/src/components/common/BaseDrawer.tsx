@@ -6,13 +6,9 @@ import {
   Box,
   Typography,
   Button,
-  ButtonGroup,
   Stack,
   CircularProgress,
-  Menu,
-  MenuItem,
 } from '@mui/material';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { BACKDROP_COLORS } from '@/styles/theme';
 import {
   drawerFooterCancelButtonSx,
@@ -41,8 +37,8 @@ export interface BaseDrawerProps {
   saveButtonText?: string;
   /** Save button text while `loading`. */
   loadingText?: string;
-  /** Other ways to save, behind an arrow next to the save button (a split button). */
-  saveMenu?: { label: string; onClick: () => void }[];
+  /** One line beside the footer buttons, e.g. what the save button will do. */
+  footerSummary?: React.ReactNode;
   /** Optional data-tour attribute for onboarding (save button). */
   saveDataTour?: string;
   closeButtonText?: string;
@@ -98,7 +94,7 @@ export default function BaseDrawer({
   errorId,
   saveButtonText = 'Save Changes',
   loadingText = 'Executing...',
-  saveMenu,
+  footerSummary,
   saveDataTour,
   closeButtonText = 'Cancel',
   onBack,
@@ -112,7 +108,6 @@ export default function BaseDrawer({
   disablePadding = false,
 }: BaseDrawerProps) {
   const hasFooter = !!(closeButtonText || onSave || onDelete || error);
-  const [menuAnchor, setMenuAnchor] = React.useState<HTMLElement | null>(null);
   const isFillLayout = contentLayout === 'fill';
   const paperRef = React.useRef<HTMLDivElement>(null);
 
@@ -227,8 +222,25 @@ export default function BaseDrawer({
               </Box>
             ))}
           <Box
-            sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 1.25,
+            }}
           >
+            {footerSummary && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                role="status"
+                aria-live="polite"
+                sx={{ flex: 1, minWidth: 0 }}
+              >
+                {footerSummary}
+              </Typography>
+            )}
             {closeButtonText && (
               <Button
                 variant="outlined"
@@ -260,44 +272,7 @@ export default function BaseDrawer({
                 Back
               </Button>
             )}
-            {onSave &&
-              (saveMenu && saveMenu.length > 0 ? (
-                <ButtonGroup variant="contained" disableElevation>
-                  {saveButton}
-                  <Button
-                    size="small"
-                    aria-label="More ways to run"
-                    aria-haspopup="menu"
-                    disabled={loading}
-                    onClick={event => setMenuAnchor(event.currentTarget)}
-                  >
-                    <ArrowDropDownIcon />
-                  </Button>
-                </ButtonGroup>
-              ) : (
-                saveButton
-              ))}
-            {saveMenu && (
-              <Menu
-                anchorEl={menuAnchor}
-                open={Boolean(menuAnchor)}
-                onClose={() => setMenuAnchor(null)}
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-              >
-                {saveMenu.map(item => (
-                  <MenuItem
-                    key={item.label}
-                    onClick={() => {
-                      setMenuAnchor(null);
-                      item.onClick();
-                    }}
-                  >
-                    {item.label}
-                  </MenuItem>
-                ))}
-              </Menu>
-            )}
+            {onSave && saveButton}
           </Box>
         </Box>
       )}

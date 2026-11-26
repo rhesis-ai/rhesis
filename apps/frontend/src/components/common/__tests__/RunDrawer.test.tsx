@@ -1,5 +1,13 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@testing-library/jest-dom';
 import RunDrawer from '../RunDrawer';
 import type { BaseDrawerProps } from '../BaseDrawer';
@@ -7,14 +15,10 @@ import { QuotaResource } from '@/constants/quota';
 import type { UsageResourceItem } from '@/utils/api-client/usage-client';
 
 /**
- * Covers only the quota-gate logic RunDrawer added on top of its existing
- * (untested) execute-configuration form: `canExecute` blocking on the
- * resource's `ceiling`, not its `limit`. `rerunTestRun` mode is used because
- * it takes `endpointId`/`testSetId` directly as props (`RerunConfig`) rather
- * than through dropdown selection, and its config renders read-only fields
- * instead of the editable project/endpoint pickers -- the minimal surface
- * that reaches `canExecute` without exercising the rest of this 2000+ line
- * form, which has no existing test coverage of its own.
+ * The quota gate (`canExecute` blocking on the resource's `ceiling`, not its
+ * `limit`) uses `rerunTestRun` mode, which takes `endpointId`/`testSetId` as
+ * props instead of through dropdowns. The section tests use `executeTestSet`,
+ * the mode with every section, including "When".
  */
 
 jest.mock('../BaseDrawer', () => ({
@@ -27,12 +31,14 @@ jest.mock('../BaseDrawer', () => ({
     saveDisabled,
     error,
     title,
+    footerSummary,
   }: BaseDrawerProps) =>
     open ? (
       <div data-testid="base-drawer">
         <h2>{title}</h2>
         {error && <div role="alert">{error}</div>}
         {children}
+        <p data-testid="footer-summary">{footerSummary}</p>
         <button onClick={onSave} disabled={saveDisabled}>
           {saveButtonText}
         </button>
@@ -45,8 +51,11 @@ jest.mock('../ModelSelector', () => ({
   default: () => <div data-testid="model-selector-stub" />,
 }));
 
+// One array for every render, as React Query gives: a fresh one each call
+// re-runs the drawer's endpoint filter forever.
+const mockEndpointsResult = { data: [], isLoading: false };
 jest.mock('@/hooks/useEndpoints', () => ({
-  useEndpoints: jest.fn(() => ({ data: [], isLoading: false })),
+  useEndpoints: jest.fn(() => mockEndpointsResult),
 }));
 
 jest.mock('next-auth/react', () => ({
@@ -87,10 +96,15 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getTestSetsClient: () => ({
       getTestSetTests: mockGetTestSetTests,
-      getTestSet: jest
-        .fn()
-        .mockResolvedValue({ test_set_type: { type_value: 'single_turn' } }),
+      getTestSet: jest.fn().mockResolvedValue({
+        name: 'Safety checks',
+        test_set_type: { type_value: 'single_turn' },
+      }),
       getTestSetMetrics: jest.fn().mockResolvedValue([]),
+      getLastTestRun: jest.fn().mockResolvedValue(null),
+    }),
+    getTestRunSchedulesClient: () => ({
+      preview: jest.fn().mockResolvedValue({ repeats: 'Every day', next: [] }),
     }),
     getParametersClient: () => ({
       getExperiment: jest.fn().mockResolvedValue(null),
@@ -226,5 +240,97 @@ describe('RunDrawer quota gate', () => {
     // Let the fetched count land, so the gate is judging 20 tests, not 1.
     await act(async () => {});
     expect(screen.getByRole('button', { name: /re-run tests/i })).toBeEnabled();
+  });
+});
+
+function renderExecuteDrawer() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <RunDrawer
+        open
+        onClose={jest.fn()}
+        mode="executeTestSet"
+        data={{ testSetId: 'ts-1' }}
+      />
+    </QueryClientProvider>
+  );
+}
+
+describe('RunDrawer sections', () => {
+  beforeEach(() => mockExecutionUsage(usageItem(0, 100)));
+  afterEach(() => jest.clearAllMocks());
+
+  it('groups the fields into five sections', async () => {
+    renderExecuteDrawer();
+
+    for (const name of [
+      'What to run',
+      'Run against',
+      'Scoring',
+      'When',
+      'More options',
+    ]) {
+      expect(
+        screen.getByRole('button', { name: new RegExp(name) })
+      ).toBeVisible();
+    }
+    await waitFor(() =>
+      expect(screen.getByLabelText('Test Set')).toHaveValue('Safety checks')
+    );
+  });
+
+  it('shows a folded section as one summary line', () => {
+    renderExecuteDrawer();
+
+    const moreOptions = screen.getByRole('button', { name: /more options/i });
+    expect(moreOptions).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      within(moreOptions).getByText('Parallel · preflight on')
+    ).toBeInTheDocument();
+
+    fireEvent.click(moreOptions);
+    expect(moreOptions).toHaveAttribute('aria-expanded', 'true');
+    expect(within(moreOptions).queryByText(/preflight on/)).toBeNull();
+  });
+
+  it('turns the drawer into a schedule when "Repeat" is picked', async () => {
+    renderExecuteDrawer();
+
+    expect(screen.getByTestId('footer-summary')).toHaveTextContent(/1 run/);
+    fireEvent.click(screen.getByRole('button', { name: 'Repeat' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'Schedule Test Set' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Schedule Run' })
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('footer-summary')).toHaveTextContent(
+      'Creates 1 schedule'
+    );
+    expect(
+      screen.getByText("Schedules don't keep test run tags.")
+    ).toBeInTheDocument();
+  });
+
+  it('names the one test set picked in the list', async () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <RunDrawer
+          open
+          onClose={jest.fn()}
+          mode="createFromGrid"
+          data={{ selectedTestSetIds: ['ts-1'] }}
+        />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Test Set')).toHaveValue('Safety checks')
+    );
   });
 });

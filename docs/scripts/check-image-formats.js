@@ -48,7 +48,6 @@ const BASELINE = new Set([
   'screenshots/rhesis-ai-projects-overview.png',
   'screenshots/rhesis-ai-team.png',
   'screenshots/rhesis-ai-test-generation.png',
-  'screenshots/rhesis-ai-test-set-execution.png',
   'screenshots/rhesis-ai-testsets-import-file.png',
   'screenshots/rhesis-ai-testsets-import-garak.png',
   'screenshots/rhesis-ai-testsets-inspect-data.png',

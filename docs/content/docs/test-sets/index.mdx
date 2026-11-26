@@ -62,23 +62,11 @@ The test set type is set when the test set is created and determines which metri
 
 Executing a test set runs all its tests against your LLM application endpoint to see how your application responds. This creates a [Test Run](/docs/test-runs) that captures all results.
 
-To execute a test set, select it from the [Test Sets page](https://app.rhesis.ai/test-sets) and configure:
-
-**Execution Target**
-- **Project**: The current project
-- **Endpoint**: The endpoint within the project to execute tests against
-
-**Execution Mode**
-- **Parallel** (default): Tests run simultaneously for faster execution
-- **Sequential**: Tests run one after another, better for rate-limited endpoints
-
-**Model Settings**
-- **Evaluation Model**: Override the default evaluation model for this run
-- **Execution Model** (multi-turn only): Override the default execution model used by Penelope
-
-For details on all execution options, see [Test Execution](/docs/test-runs/execution).
-
-**Tags**: Optional tags to categorize and find this test run
+To execute a test set, open it from the [Test Sets page](https://app.rhesis.ai/test-sets), click
+the **Execute test set** (play) button, choose an endpoint under **Run against**, and click
+**Execute Test Set**. The
+drawer's other sections set the metrics, models, timing and execution options; see
+[Test Execution](/docs/test-runs/execution).
 
 ## Next steps
 

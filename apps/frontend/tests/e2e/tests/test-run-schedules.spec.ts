@@ -131,8 +131,7 @@ test.describe('Test run schedules @crud', () => {
   }) => {
     await page.goto('/test-runs');
     await page.getByRole('button', { name: 'New Test Run' }).first().click();
-    await page.getByRole('button', { name: 'More ways to run' }).click();
-    await page.getByRole('menuitem', { name: 'Schedule run…' }).click();
+    await page.getByRole('button', { name: 'Repeat', exact: true }).click();
     await expect(
       page.getByText('Each run uses the tests in the set').first()
     ).toBeVisible({ timeout: 10_000 });
