@@ -118,6 +118,7 @@ export default function MetricDetailPageTabs({
       mode="page"
       refreshKey={metricRevision}
       tabNav={tabNav}
+      activeTabIndex={activeTab}
       tabBody={
         activeTab === 1 ? (
           <MetricLinkedRequirements

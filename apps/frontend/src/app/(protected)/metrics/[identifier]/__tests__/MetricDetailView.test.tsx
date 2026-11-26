@@ -302,3 +302,77 @@ describe('MetricDetailView — evaluation step formats (issue #3011)', () => {
     });
   });
 });
+
+describe('MetricDetailView — framework metrics', () => {
+  const frameworkMetric = {
+    ...mockMetric,
+    name: 'Test Metric',
+    evaluation_prompt: '[deepeval]',
+    evaluation_steps: '[deepeval]',
+    reasoning: '[deepeval]',
+    explanation: '[deepeval]',
+    class_name: 'DeepEvalContextualRelevancy',
+    context_required: true,
+    backend_type: {
+      id: 'bt-2',
+      type_name: 'BackendType',
+      type_value: 'deepeval',
+    },
+  } as unknown as MetricDetail;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetMetric.mockResolvedValue(frameworkMetric);
+    mockGetModels.mockResolvedValue({ data: [] });
+  });
+
+  it('shows the metric instead of sending the reader away', async () => {
+    await renderAndViewMetric();
+    expect(screen.getByText('DeepEvalContextualRelevancy')).toBeInTheDocument();
+    expect(
+      screen.getByText('Input, output and retrieved context')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /About DeepEval metrics/ })
+    ).toHaveAttribute('href', 'https://docs.rhesis.ai/docs/metrics/deepeval');
+  });
+
+  it('offers no way to edit or duplicate it', async () => {
+    await renderAndViewMetric();
+    // Tags stay editable: they are how the organization files the metric.
+    expect(screen.getAllByRole('button', { name: /^edit$/i })).toHaveLength(1);
+    expect(
+      screen.queryByRole('button', { name: /duplicate metric/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('never shows the framework marker as content', async () => {
+    await renderAndViewMetric();
+    expect(screen.queryByText('[deepeval]')).not.toBeInTheDocument();
+  });
+});
+
+describe('MetricDetailView — tab panel', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetMetric.mockResolvedValue(mockMetric);
+    mockGetModels.mockResolvedValue({ data: [] });
+  });
+
+  it('labels the content as the panel the selected tab points at', async () => {
+    await act(async () => {
+      render(
+        <MetricDetailView
+          metricId="metric-1"
+          tabNav={<div role="tablist" />}
+          activeTabIndex={1}
+          tabBody={<p>Linked requirements</p>}
+        />
+      );
+    });
+    const panel = await screen.findByRole('tabpanel');
+    expect(panel).toHaveAttribute('id', 'metric-detail-tabpanel-1');
+    expect(panel).toHaveAttribute('aria-labelledby', 'metric-detail-tab-1');
+    expect(panel).toHaveTextContent('Linked requirements');
+  });
+});

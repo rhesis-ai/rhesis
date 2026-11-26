@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.constants import MetricBackendType
 from rhesis.backend.app.crud import metric as metric_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -133,10 +134,7 @@ def generate_metric(
     score_type, thresholds, etc.) from the description. The resulting
     metric is persisted and returned.
     """
-    from rhesis.backend.app.constants import (
-        MetricBackendType,
-        MetricType,
-    )
+    from rhesis.backend.app.constants import MetricType
     from rhesis.backend.app.schemas.metric import MetricScope
     from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
 
@@ -197,6 +195,18 @@ def generate_metric(
         raise internal_error(e, context="generating metric") from e
 
 
+_FRAMEWORK_READ_ONLY = "Framework metrics are read-only; their definition comes from the framework"
+
+
+def _is_framework_metric(db_metric: models.Metric) -> bool:
+    """A metric an evaluation framework (DeepEval, Ragas, Garak) defines, not the org."""
+    backend_type = (getattr(db_metric.backend_type, "type_value", None) or "").lower()
+    return bool(backend_type) and backend_type not in {
+        MetricBackendType.RHESIS,
+        MetricBackendType.CUSTOM,
+    }
+
+
 @router.post(
     "/{metric_id}/improve",
     response_model=schemas.Metric,
@@ -226,6 +236,8 @@ def improve_metric(
     db_metric = metric_crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
+    if _is_framework_metric(db_metric):
+        raise HTTPException(status_code=403, detail=_FRAMEWORK_READ_ONLY)
 
     try:
         existing = {
@@ -356,21 +368,10 @@ def read_metric(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get a specific metric by ID with its related objects"""
-    from rhesis.backend.app.constants import MetricBackendType
-
     organization_id, user_id = tenant_context
     db_metric = metric_crud.get_metric(db, metric_id, organization_id, user_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
-    # Custom metrics belong here as much as Rhesis ones: the organization owns their
-    # evaluation prompt, the metrics grid links to them, and metric tuning runs on
-    # nothing else. Only the framework backends have no detail page to serve.
-    allowed_backends = {MetricBackendType.RHESIS, MetricBackendType.CUSTOM}
-    if db_metric.backend_type and db_metric.backend_type.type_value not in allowed_backends:
-        raise HTTPException(
-            status_code=403,
-            detail="Detail access is restricted to Rhesis and custom metrics",
-        )
     return db_metric
 
 
@@ -390,6 +391,8 @@ def update_metric(
     db_metric = metric_crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
+    if _is_framework_metric(db_metric):
+        raise HTTPException(status_code=403, detail=_FRAMEWORK_READ_ONLY)
 
     # A null model_id doesn't clear it (the update drops nulls), so the stored one stays in force.
     _refuse_decision_model_on_metric(

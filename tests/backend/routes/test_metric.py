@@ -209,23 +209,66 @@ class TestMetricSoftDeleteContract(MetricTestMixin, BaseEntityTests):
         assert response.status_code == status.HTTP_410_GONE
 
 
-# === METRIC DETAIL ACCESS RESTRICTION TESTS ===
+# === FRAMEWORK METRIC ACCESS TESTS ===
 
 
 @pytest.mark.integration
 class TestMetricDetailAccessRestriction(MetricTestMixin, BaseEntityTests):
-    """Framework metrics must return 403 on detail access; Rhesis and custom must not."""
+    """Every metric can be read; a framework metric's definition can't be edited."""
 
-    @pytest.mark.parametrize("backend", ["deepeval", "garak"])
-    def test_get_framework_metric_returns_403(self, backend, metric_factory):
-        """GET /metrics/{id} returns 403 for a metric owned by an evaluation framework."""
+    @pytest.mark.parametrize("backend", ["deepeval", "garak", "ragas"])
+    def test_get_framework_metric_returns_200(self, backend, metric_factory):
+        """GET /metrics/{id} serves a metric owned by an evaluation framework."""
         data = self.get_sample_data()
         data["backend_type"] = backend
         metric = metric_factory.create(data)
 
         get_resp = metric_factory.client.get(self.endpoints.get(metric["id"]))
-        assert get_resp.status_code == status.HTTP_403_FORBIDDEN
-        assert "restricted" in get_resp.json()["detail"].lower()
+        assert get_resp.status_code == status.HTTP_200_OK
+        assert get_resp.json()["backend_type"]["type_value"] == backend
+
+    @pytest.mark.parametrize("backend", ["deepeval", "garak", "ragas"])
+    def test_update_framework_metric_returns_403(self, backend, metric_factory):
+        """PUT /metrics/{id} refuses a framework metric and leaves it unchanged."""
+        data = self.get_sample_data()
+        data["backend_type"] = backend
+        metric = metric_factory.create(data)
+
+        put_resp = metric_factory.client.put(
+            self.endpoints.put(metric["id"]), json={"threshold": 0.9}
+        )
+        assert put_resp.status_code == status.HTTP_403_FORBIDDEN
+        assert "read-only" in put_resp.json()["detail"]
+
+        get_resp = metric_factory.client.get(self.endpoints.get(metric["id"]))
+        assert get_resp.json()["threshold"] == metric["threshold"]
+
+    @pytest.mark.parametrize("backend", ["deepeval", "garak", "ragas"])
+    def test_improve_framework_metric_returns_403(self, backend, metric_factory):
+        """POST /metrics/{id}/improve refuses a framework metric before any generation."""
+        data = self.get_sample_data()
+        data["backend_type"] = backend
+        metric = metric_factory.create(data)
+
+        response = metric_factory.client.post(
+            self.endpoints.improve(metric["id"]), json={"prompt": "make it stricter"}
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "read-only" in response.json()["detail"]
+
+    @pytest.mark.parametrize("backend", ["custom", None])
+    def test_update_own_metric_still_allowed(self, backend, metric_factory):
+        """PUT /metrics/{id} still edits custom metrics and ones with no backend type."""
+        data = self.get_sample_data()
+        if backend:
+            data["backend_type"] = backend
+        metric = metric_factory.create(data)
+
+        put_resp = metric_factory.client.put(
+            self.endpoints.put(metric["id"]), json={"threshold": 0.9}
+        )
+        assert put_resp.status_code == status.HTTP_200_OK
+        assert put_resp.json()["threshold"] == 0.9
 
     def test_get_custom_metric_returns_200(self, metric_factory):
         """GET /metrics/{id} returns 200 for a custom metric.
