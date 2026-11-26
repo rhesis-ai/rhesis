@@ -21,7 +21,7 @@ from rhesis.backend.app.outcomes import (
     outcome_of,
     outcome_to_test_result_status_name,
 )
-from rhesis.backend.app.utils.crud_utils import get_or_create_status
+from rhesis.backend.app.services.test_result_status import test_result_status_id
 from rhesis.backend.app.utils.response_extractor import (
     has_endpoint_failure_in_result,
     is_unfinished_conversation,
@@ -289,9 +289,7 @@ def create_test_result_record(
     outcome = outcome_of(execution, verdict)
     status_value = outcome_to_test_result_status_name(outcome)
 
-    test_result_status = get_or_create_status(
-        db, status_value, "TestResult", organization_id=organization_id
-    )
+    status_id = test_result_status_id(db, organization_id, status_value)
 
     # Build test_metrics with optional provenance metadata
     test_metrics: Dict[str, Any] = {
@@ -331,7 +329,7 @@ def create_test_result_record(
         "test_run_id": UUID(test_run_id),
         "test_id": UUID(test_id),
         "prompt_id": test.prompt_id,
-        "status_id": test_result_status.id,
+        "status_id": UUID(status_id),
         "execution": execution.value,
         "verdict": verdict.value if verdict else None,
         "user_id": UUID(user_id) if user_id else None,
@@ -341,23 +339,12 @@ def create_test_result_record(
     }
 
     try:
-        result = test_result_crud.create_test_result(
+        result_id = test_result_crud.insert_run_test_result(
             db,
             schemas.TestResultCreate(**test_result_data),
             organization_id=organization_id,
             user_id=user_id,
         )
-
-        # Validate that the result has a valid ID
-        if not result or not hasattr(result, "id") or result.id is None:
-            logger.error(
-                f"[TEST_RESULT] Failed to create test result: CRUD operation returned "
-                f"invalid result for test_id={test_id}, test_run_id={test_run_id}, "
-                f"test_config_id={test_config_id}"
-            )
-            return None
-
-        result_id = result.id
         logger.debug(
             f"[TEST_RESULT] Successfully created test result with ID: {result_id} "
             f"for test_id={test_id}, test_run_id={test_run_id}, "

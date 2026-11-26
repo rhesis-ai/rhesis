@@ -95,6 +95,40 @@ class TestCreateTestResultRecordOutcome:
         setup["db"].refresh(row, attribute_names=["status"])
         return row
 
+    def test_saving_reads_nothing_back(self, outcome_writer_setup):
+        """Once the status is cached, a result costs its INSERT and the span link UPDATE."""
+        from sqlalchemy import event
+
+        from rhesis.backend.jobs.execution.executors.results import create_test_result_record
+
+        setup = outcome_writer_setup
+        self._create(setup, {"Accuracy": {"is_successful": True}})
+        statements = []
+
+        def record(conn, cursor, statement, *args):
+            if "set_config" not in statement and "SAVEPOINT" not in statement:
+                statements.append(" ".join(statement.split()[:3]))
+
+        engine = setup["db"].get_bind()
+        event.listen(engine, "before_cursor_execute", record)
+        try:
+            create_test_result_record(
+                db=setup["db"],
+                test=setup["test"],
+                test_config_id=setup["test_config_id"],
+                test_run_id=setup["test_run_id"],
+                test_id=str(setup["test"].id),
+                organization_id=setup["org_id"],
+                user_id=setup["user_id"],
+                execution_time=100.0,
+                metrics_results={"Accuracy": {"is_successful": True}},
+                processed_result={"output": "hi", "status_code": 200},
+            )
+        finally:
+            event.remove(engine, "before_cursor_execute", record)
+
+        assert statements == ["INSERT INTO test_result", "UPDATE trace SET"], statements
+
     def test_all_metrics_passed(self, outcome_writer_setup):
         row = self._create(outcome_writer_setup, {"Accuracy": {"is_successful": True}})
         assert (row.execution, row.verdict) == ("ok", "pass")

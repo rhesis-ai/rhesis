@@ -508,6 +508,10 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.jobs.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
+            patch(
+                "rhesis.backend.jobs.telemetry.evaluate.test_result_status_id",
+                side_effect=lambda db, org, status_name: f"derived-{status_name.lower()}-id",
+            ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 LOAD_METRICS,
@@ -520,10 +524,8 @@ class TestEvaluateTurnTraceMetrics:
             ) as mock_eval_cls,
         ):
             mock_eval_cls.return_value.evaluate.return_value = {
-                "metrics": {
-                    "a": {"is_successful": True},
-                    "b": {"is_successful": True},
-                },
+                "a": {"is_successful": True},
+                "b": {"is_successful": True},
             }
             evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
 
@@ -542,6 +544,10 @@ class TestEvaluateTurnTraceMetrics:
                 "rhesis.backend.jobs.telemetry.evaluate.SessionLocal",
                 return_value=db,
             ),
+            patch(
+                "rhesis.backend.jobs.telemetry.evaluate.test_result_status_id",
+                side_effect=lambda db, org, status_name: f"derived-{status_name.lower()}-id",
+            ),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
             patch(
                 LOAD_METRICS,
@@ -554,10 +560,8 @@ class TestEvaluateTurnTraceMetrics:
             ) as mock_eval_cls,
         ):
             mock_eval_cls.return_value.evaluate.return_value = {
-                "metrics": {
-                    "a": {"is_successful": True},
-                    "b": {"is_successful": False},
-                },
+                "a": {"is_successful": True},
+                "b": {"is_successful": False},
             }
             evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
 
