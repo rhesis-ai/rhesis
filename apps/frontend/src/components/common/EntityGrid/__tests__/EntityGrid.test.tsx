@@ -5,6 +5,8 @@ import '@testing-library/jest-dom';
 import EntityGrid from '../EntityGrid';
 import { defineList } from '@/utils/list';
 import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import { ACTIVE_PROJECT_COOKIE } from '@/utils/active-project';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockRouterPush, refresh: jest.fn() }),
@@ -14,7 +16,7 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('next-auth/react', () => ({
   useSession: () => ({
-    data: { user: { id: 'u1', name: 'Alice' } },
+    data: { user: { id: 'u1', name: 'Alice', organization_id: 'org-1' } },
     status: 'authenticated',
   }),
 }));
@@ -389,5 +391,94 @@ describe('EntityGrid', () => {
     await waitFor(() =>
       expect(mockList.mock.calls.length).toBeGreaterThan(callsBefore)
     );
+  });
+
+  describe('as a loading view on a return visit', () => {
+    const setProject = (id: string) => {
+      document.cookie = `${ACTIVE_PROJECT_COOKIE}=${id}; path=/`;
+    };
+    const visit = async () => {
+      const view = render(
+        <EntityGrid descriptor={widgetsList} {...baseProps} />
+      );
+      await waitFor(() => expect(mockList).toHaveBeenCalled());
+      return view;
+    };
+    const loadingView = () =>
+      render(
+        <SkeletonMode>
+          <EntityGrid descriptor={widgetsList} {...baseProps} />
+        </SkeletonMode>
+      );
+
+    beforeEach(() => setProject('p-1'));
+
+    it('draws the rows of the last visit, inert, without fetching', async () => {
+      const first = await visit();
+      await screen.findByTestId('row-w-1');
+      first.unmount();
+      mockList.mockClear();
+
+      loadingView();
+
+      const row = screen.getByTestId('row-w-1');
+      expect(row.closest('[inert]')).not.toBeNull();
+      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument();
+      expect(mockList).not.toHaveBeenCalled();
+    });
+
+    it('draws the first page the server sent', () => {
+      const first = render(
+        <EntityGrid
+          descriptor={widgetsList}
+          {...baseProps}
+          initialData={[makeWidget('w-9')]}
+          initialTotalCount={1}
+        />
+      );
+      first.unmount();
+
+      loadingView();
+
+      expect(screen.getByTestId('row-w-9')).toBeInTheDocument();
+      expect(mockList).not.toHaveBeenCalled();
+    });
+
+    it('draws the empty state the last visit ended on', async () => {
+      mockList.mockResolvedValue(makeResponse([]));
+      const first = await visit();
+      await screen.findByTestId('empty-state');
+      first.unmount();
+
+      loadingView();
+
+      expect(screen.getByTestId('empty-state')).toBeInTheDocument();
+    });
+
+    it('keeps the first page, not a filtered one', async () => {
+      const first = await visit();
+      await screen.findByTestId('row-w-1');
+      mockList.mockResolvedValue(makeResponse([makeWidget('w-2')]));
+      await userEvent.setup().type(screen.getByRole('textbox'), 'two');
+      await screen.findByTestId('row-w-2');
+      first.unmount();
+
+      loadingView();
+
+      expect(screen.getByTestId('row-w-1')).toBeInTheDocument();
+      expect(screen.queryByTestId('row-w-2')).not.toBeInTheDocument();
+    });
+
+    it('draws placeholders in another project', async () => {
+      const first = await visit();
+      await screen.findByTestId('row-w-1');
+      first.unmount();
+      setProject('p-2');
+
+      loadingView();
+
+      expect(screen.queryByTestId('row-w-1')).not.toBeInTheDocument();
+      expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
+    });
   });
 });

@@ -32,7 +32,10 @@ import { HIGHLIGHTED_ROW_CLASS } from '@/constants/notifications';
 import type { WithPermittedActions } from '@/types/affordances';
 import type { FilterSpecMap, FiltersOf } from '@/utils/list';
 import type { EntityGridProps, EntityGridSelectionContext } from './types';
-import { useSkeletonMode } from '@/components/loading/SkeletonMode';
+import {
+  SkeletonMode,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 
 function capitalize(label: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
@@ -145,6 +148,7 @@ export default function EntityGrid<
     onPaginationModelChange,
     sortModel,
     onSortModelChange,
+    fromCache,
   } = useList(descriptor, {
     filters,
     extraFilters,
@@ -453,7 +457,10 @@ export default function EntityGrid<
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const deleteCount = pendingDeleteId ? 1 : selectedRows.length;
-  const loading = skeleton || isLoading || extraLoading;
+  // A loading view with this list's rows from an earlier visit draws them, and
+  // the fresh page replaces them; without, it draws placeholders.
+  const placeholders = skeleton && !fromCache;
+  const loading = placeholders || isLoading || extraLoading;
 
   const content = (
     <EntityGridToolbarContext.Provider value={toolbarContextValue}>
@@ -464,55 +471,59 @@ export default function EntityGrid<
       )}
       {banner}
       <Box sx={{ position: 'relative' }}>
-        <BaseDataGrid
-          rows={rows}
-          columns={gridColumns}
-          loading={loading}
-          getRowId={getRowId}
-          serverSidePagination={true}
-          totalRows={totalCount}
-          paginationModel={paginationModel}
-          onPaginationModelChange={onPaginationModelChange}
-          pageSizeOptions={pageSizeOptions}
-          toolbarSlot={EntityGridToolbarSlot}
-          disablePaperWrapper={true}
-          persistState={persistState}
-          storageKey={storageKey}
-          density={density}
-          initialState={initialState}
-          sx={sx}
-          {...(serverSort && {
-            sortingMode: 'server' as const,
-            sortModel,
-            onSortModelChange,
-          })}
-          getRowUrl={
-            checkboxSelectionMode || !getRowUrl ? undefined : resolveRowUrl
-          }
-          onRowClick={
-            checkboxSelectionMode || !wantsRowClick ? undefined : handleRowClick
-          }
-          getRowClassName={
-            highlightSection || rowClassName ? getRowClassName : undefined
-          }
-          checkboxSelection={checkboxSelectionMode}
-          disableRowSelectionOnClick={checkboxSelectionMode || undefined}
-          rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
-          onRowSelectionModelChange={
-            checkboxSelectionMode ? handleSelectionChange : undefined
-          }
-          isRowSelectable={
-            checkboxSelectionMode && deleteSpec?.capabilityMode === 'row'
-              ? params => canDeleteRow(params.row)
-              : undefined
-          }
-          rowSelectionDisabledTooltip={
-            checkboxSelectionMode && deleteSpec?.capabilityMode === 'row'
-              ? (deleteSpec.notSelectableReason ??
-                `Only the owner can delete this ${deleteSpec.labelSingular}`)
-              : undefined
-          }
-        />
+        <SkeletonMode active={placeholders}>
+          <BaseDataGrid
+            rows={rows}
+            columns={gridColumns}
+            loading={loading}
+            getRowId={getRowId}
+            serverSidePagination={true}
+            totalRows={totalCount}
+            paginationModel={paginationModel}
+            onPaginationModelChange={onPaginationModelChange}
+            pageSizeOptions={pageSizeOptions}
+            toolbarSlot={EntityGridToolbarSlot}
+            disablePaperWrapper={true}
+            persistState={persistState}
+            storageKey={storageKey}
+            density={density}
+            initialState={initialState}
+            sx={sx}
+            {...(serverSort && {
+              sortingMode: 'server' as const,
+              sortModel,
+              onSortModelChange,
+            })}
+            getRowUrl={
+              checkboxSelectionMode || !getRowUrl ? undefined : resolveRowUrl
+            }
+            onRowClick={
+              checkboxSelectionMode || !wantsRowClick
+                ? undefined
+                : handleRowClick
+            }
+            getRowClassName={
+              highlightSection || rowClassName ? getRowClassName : undefined
+            }
+            checkboxSelection={checkboxSelectionMode}
+            disableRowSelectionOnClick={checkboxSelectionMode || undefined}
+            rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
+            onRowSelectionModelChange={
+              checkboxSelectionMode ? handleSelectionChange : undefined
+            }
+            isRowSelectable={
+              checkboxSelectionMode && deleteSpec?.capabilityMode === 'row'
+                ? params => canDeleteRow(params.row)
+                : undefined
+            }
+            rowSelectionDisabledTooltip={
+              checkboxSelectionMode && deleteSpec?.capabilityMode === 'row'
+                ? (deleteSpec.notSelectableReason ??
+                  `Only the owner can delete this ${deleteSpec.labelSingular}`)
+                : undefined
+            }
+          />
+        </SkeletonMode>
 
         {deleteEnabled && (
           <DeleteModal
@@ -548,15 +559,26 @@ export default function EntityGrid<
     </EntityGridToolbarContext.Provider>
   );
 
-  return (
+  const grid = (
     <GridStateGate
       active={!embedded}
-      data={skeleton || hasLoadedOnce.current ? {} : null}
+      data={placeholders || hasLoadedOnce.current ? {} : null}
       error={error}
-      isEmpty={!skeleton && !loading && totalCount === 0 && !filtersActive}
-      emptyState={emptyState}
+      isEmpty={!placeholders && !loading && totalCount === 0 && !filtersActive}
+      emptyState={
+        <SkeletonMode active={placeholders}>{emptyState}</SkeletonMode>
+      }
     >
       {embedded ? content : <Paper sx={GRID_PAPER_SX}>{content}</Paper>}
     </GridStateGate>
+  );
+  // Rows from the cache are seen, not used: the fresh page replaces this view,
+  // and a sort, page or click started here would be lost with it.
+  return skeleton && fromCache ? (
+    <Box inert sx={{ display: 'contents' }}>
+      {grid}
+    </Box>
+  ) : (
+    grid
   );
 }
