@@ -7,16 +7,33 @@ set -e
 # Defaults — single source of truth for all tunables.
 # Override any of these by setting the corresponding environment variable
 # before starting the container.
+#
+# WORKER_LAYOUT picks how the queues are spread over Celery processes:
+#   combined  two processes, main (every queue but architect) and architect.
+#             For one worker container (docker compose, ./rh start).
+#   split     one process per execution class (celery/queues.py QUEUES), each
+#             sized for its work. For replicated deployments (the Helm chart).
+# All processes share the container's CPU; an idle thread costs none.
 # ---------------------------------------------------------------------------
-: "${CELERY_WORKER_CONCURRENCY:=2}"            # threads for the main worker
+: "${WORKER_LAYOUT:=combined}"
+: "${CELERY_WORKER_CONCURRENCY:=2}"            # combined: threads for the main worker
 : "${CELERY_ARCHITECT_CONCURRENCY:=2}"         # threads for the architect worker
-: "${CELERY_WORKER_PREFETCH_MULTIPLIER:=1}"    # prefetch multiplier for the main worker (matches celery/config.py)
-: "${CELERY_ARCHITECT_PREFETCH_MULTIPLIER:=1}" # prefetch multiplier for the architect worker
+# Prefetch: with acks_late on Redis a worker fetches roughly one message per poll per
+# prefetch slot, so at 1 short jobs leave most threads idle (measured: 24 % of slots
+# busy at 1, 97 % at 8). Long jobs need 1 so one replica cannot hoard runs that idle
+# replicas could start, and the combined main process carries both, so it keeps 1;
+# split gives the short-job processes their own prefetch.
+: "${CELERY_WORKER_PREFETCH_MULTIPLIER:=1}"    # combined: main worker
+: "${CELERY_ARCHITECT_PREFETCH_MULTIPLIER:=1}"
+: "${CELERY_LONG_CONCURRENCY:=24}"             # split: test-runs, long-jobs
+: "${CELERY_INGEST_CONCURRENCY:=16}"           # split: trace-ingest
+: "${CELERY_FAST_CONCURRENCY:=32}"             # split: trace-eval, quick-tasks, maintenance
+: "${CELERY_FAST_PREFETCH_MULTIPLIER:=8}"      # split: trace-ingest and the fast queues
 : "${LOG_LEVEL:=INFO}"                         # application logs (set_logger() root logger)
 : "${CELERY_WORKER_LOGLEVEL:=$LOG_LEVEL}"      # celery's own task-lifecycle logger; defaults to LOG_LEVEL
-: "${CELERY_WORKER_OPTS:=}"                   # extra flags passed to both workers
+: "${CELERY_WORKER_OPTS:=}"                   # extra flags passed to every worker
 : "${ENABLE_FLOWER:=no}"
-export CELERY_WORKER_CONCURRENCY CELERY_ARCHITECT_CONCURRENCY \
+export WORKER_LAYOUT CELERY_WORKER_CONCURRENCY CELERY_ARCHITECT_CONCURRENCY \
     CELERY_WORKER_PREFETCH_MULTIPLIER CELERY_ARCHITECT_PREFETCH_MULTIPLIER \
     LOG_LEVEL CELERY_WORKER_LOGLEVEL CELERY_WORKER_OPTS ENABLE_FLOWER
 
@@ -28,11 +45,7 @@ echo "DB_HOST exists: $(if [ ! -z "$DB_HOST" ]; then echo "yes"; else echo "no";
 echo "Worker environment: ${WORKER_ENV:-not_set}"
 echo "Git branch: ${GIT_BRANCH:-unknown}"
 echo "Git commit: ${GIT_COMMIT:-unknown}"
-echo "Celery worker concurrency: $CELERY_WORKER_CONCURRENCY"
-echo "Celery architect concurrency: $CELERY_ARCHITECT_CONCURRENCY"
-echo "Celery worker prefetch multiplier: $CELERY_WORKER_PREFETCH_MULTIPLIER"
-echo "Celery architect prefetch multiplier: $CELERY_ARCHITECT_PREFETCH_MULTIPLIER"
-echo "Celery worker pool: threads"
+echo "Worker layout: $WORKER_LAYOUT (each worker's settings are printed when it starts)"
 
 echo "🔧 Application log level: ${LOG_LEVEL}"
 echo "🔧 Celery log level: ${CELERY_WORKER_LOGLEVEL}"
@@ -81,51 +94,18 @@ except ImportError:
     print('❌ Celery module not available')
 "
 
-# Test Celery app import before starting worker
-echo "Testing Celery app import..."
-python -c "
-import sys
-try:
-    from rhesis.backend.worker import app
-    print('✅ Celery app imported successfully')
-    print(f'Broker URL configured: {bool(app.conf.broker_url)}')
-    print(f'Result backend configured: {bool(app.conf.result_backend)}')
-except Exception as e:
-    print(f'❌ Failed to import Celery app: {e}')
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
-"
 
-# Test broker connectivity
+# Broker reachability, with redis-py alone: importing the app here would cost the
+# pod a full backend import at boot, on the same CPU the workers start on.
 echo "Testing broker connectivity..."
-# Use longer timeout for TLS connections
-if [[ "$BROKER_URL" == rediss://* ]]; then
-    TIMEOUT=15
-    echo "Detected TLS connection (rediss://), using longer timeout: ${TIMEOUT}s"
-else
-    TIMEOUT=10
-    echo "Using standard timeout: ${TIMEOUT}s"
-fi
-
-timeout $TIMEOUT python -c "
-import sys
-import os
+timeout 15 python -c "
+import os, redis
 try:
-    from rhesis.backend.worker import app
-    print(f'Broker URL type: {\"TLS\" if os.getenv(\"BROKER_URL\", \"\").startswith(\"rediss://\") else \"standard\"}')
-
-    # Test basic broker connection (lighter than worker ping)
-    with app.connection() as conn:
-        conn.connect()
-        # Test basic broker communication
-        conn.default_channel.basic_get('test_queue_connectivity_check', no_ack=True)
-        print('✅ Broker connection and communication successful')
+    redis.Redis.from_url(os.environ['BROKER_URL'], socket_connect_timeout=10).ping()
+    print('✅ Broker reachable')
 except Exception as e:
-    print(f'⚠️ Broker connection warning: {e}')
-    print('Note: This is expected during startup - workers will retry connections')
-    # Don't exit here - let the worker handle retries
-" || echo "⚠️ Broker connection test completed (timeouts are normal during startup)"
+    print(f'⚠️ Broker not reachable yet: {e} (workers retry on their own)')
+" || echo "⚠️ Broker check timed out (workers retry on their own)"
 
 # Start the health check server
 echo "Starting health check server on port 8080..."
@@ -192,234 +172,90 @@ if [ "$ENABLE_FLOWER" = "yes" ]; then
     echo "Flower started with PID: $FLOWER_PID"
 fi
 
-# Function to forward signals to children
+# ---------------------------------------------------------------------------
+# Celery workers
+# ---------------------------------------------------------------------------
+# Threads pool everywhere but the CPU class: no fork(), so no fork-safety issues with
+# native libraries (SSL, gRPC), and the work is I/O. No -E: celery/config.py turns task
+# events off; add it via CELERY_WORKER_OPTS when Flower needs a live task view.
+#
+# Each entry: node|queues|pool|concurrency|prefetch|db_pool|db_overflow|nice
+# db_pool/db_overflow size the process's SQLAlchemy pool (DB_POOL_SIZE/DB_MAX_OVERFLOW);
+# trace jobs hold a connection only for their queries, so their pools are far smaller
+# than their thread counts; a test run persists each running test's result, so the long
+# process needs about one per test in flight. nice lowers a process's CPU priority.
+#
+# The previous release's queue names (celery, execution, telemetry) are consumed too,
+# so messages it queued still drain after an upgrade.
+if [ "$WORKER_LAYOUT" = "split" ]; then
+    WORKERS=(
+        "long|test-runs,long-jobs,execution|threads|$CELERY_LONG_CONCURRENCY|1|10|14|0"
+        "ingest|trace-ingest|threads|$CELERY_INGEST_CONCURRENCY|$CELERY_FAST_PREFETCH_MULTIPLIER|4|4|0"
+        "fast|trace-eval,quick-tasks,maintenance,celery,telemetry|threads|$CELERY_FAST_CONCURRENCY|$CELERY_FAST_PREFETCH_MULTIPLIER|6|6|5"
+        "architect|architect|threads|$CELERY_ARCHITECT_CONCURRENCY|$CELERY_ARCHITECT_PREFETCH_MULTIPLIER|4|6|0"
+        "cpu|cpu-bound|prefork|1|1|2|2|10"
+    )
+else
+    # Every queue in celery/queues.py QUEUES but architect.
+    MAIN_QUEUES="test-runs,long-jobs,trace-ingest,trace-eval,quick-tasks,cpu-bound,maintenance,celery,execution,telemetry"
+    WORKERS=(
+        "main|$MAIN_QUEUES|threads|$CELERY_WORKER_CONCURRENCY|$CELERY_WORKER_PREFETCH_MULTIPLIER|10|20|0"
+        "architect|architect|threads|$CELERY_ARCHITECT_CONCURRENCY|$CELERY_ARCHITECT_PREFETCH_MULTIPLIER|4|6|0"
+    )
+fi
+
+echo ""
+echo "=== Celery Worker Startup ($WORKER_LAYOUT) ==="
+WORKER_PIDS=()
+WORKER_NAMES=()
+for spec in "${WORKERS[@]}"; do
+    IFS='|' read -r node queues pool concurrency prefetch db_pool db_overflow niceness <<< "$spec"
+    # -n gives each process its own node name; %h expands to the container hostname.
+    cmd="celery -A rhesis.backend.worker.app worker --pool $pool -n $node@%h --queues=$queues --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$concurrency --prefetch-multiplier=$prefetch --optimization=fair $CELERY_WORKER_OPTS"
+    # A forked child is recycled so a leak in native code cannot grow without bound.
+    [ "$pool" = "prefork" ] && cmd="$cmd --max-tasks-per-child=20"
+    echo "--- $node: $cmd (db pool $db_pool+$db_overflow, nice $niceness)"
+    # RHESIS_PROCESS_ROLE becomes the Postgres application_name (database.py), so
+    # pg_stat_activity can tell the processes and the API apart.
+    RHESIS_PROCESS_ROLE="rhesis-celery-$node" DB_POOL_SIZE="$db_pool" DB_MAX_OVERFLOW="$db_overflow" \
+        nice -n "$niceness" $cmd &
+    WORKER_PIDS+=($!)
+    WORKER_NAMES+=("$node")
+    echo "$node worker started with PID: $!"
+done
+
+# Forward a shutdown to every child and wait for the workers' warm shutdown.
 forward_signal() {
     echo "Received shutdown signal, stopping processes..."
-
-    if [ ! -z "$HEALTH_SERVER_PID" ] && kill -0 $HEALTH_SERVER_PID 2>/dev/null; then
-        echo "Stopping health check server (PID: $HEALTH_SERVER_PID)..."
-        kill -TERM $HEALTH_SERVER_PID || true
-    fi
-
-    if [ ! -z "$FLOWER_PID" ] && kill -0 $FLOWER_PID 2>/dev/null; then
-        echo "Stopping Flower (PID: $FLOWER_PID)..."
-        kill -TERM $FLOWER_PID || true
-    fi
-
-    if [ ! -z "$MAIN_PID" ] && kill -0 $MAIN_PID 2>/dev/null; then
-        echo "Stopping main Celery worker (PID: $MAIN_PID)..."
-        kill -TERM $MAIN_PID || true
-        wait $MAIN_PID 2>/dev/null || true
-    fi
-
-    if [ ! -z "$ARCHITECT_PID" ] && kill -0 $ARCHITECT_PID 2>/dev/null; then
-        echo "Stopping architect Celery worker (PID: $ARCHITECT_PID)..."
-        kill -TERM $ARCHITECT_PID || true
-        wait $ARCHITECT_PID 2>/dev/null || true
-    fi
-
+    for pid in $HEALTH_SERVER_PID $FLOWER_PID; do
+        kill -TERM "$pid" 2>/dev/null || true
+    done
+    for pid in "${WORKER_PIDS[@]}"; do
+        kill -TERM "$pid" 2>/dev/null || true
+    done
+    for pid in "${WORKER_PIDS[@]}"; do
+        wait "$pid" 2>/dev/null || true
+    done
     exit 0
 }
-
-# Set up signal handling
 trap forward_signal SIGTERM SIGINT
 
-# Start Celery worker with configuration from environment variables
-echo ""
-echo "=== Celery Worker Startup ==="
-echo "Starting Celery worker with full output..."
-
-# Two workers share the same hostname; -n gives each a unique node name so
-# they don't collide on the broker. %h expands to the container hostname.
-# CELERY_WORKER_CONCURRENCY           -> main worker  (celery, execution, telemetry, trace-ingest)
-# CELERY_ARCHITECT_CONCURRENCY        -> architect worker (architect queue only)
-# CELERY_WORKER_PREFETCH_MULTIPLIER   -> prefetch for main worker
-# CELERY_ARCHITECT_PREFETCH_MULTIPLIER -> prefetch for architect worker
-#
-# Uses the threads pool: no fork(), so no fork-safety issues with native
-# libraries (SSL, gRPC, Kerberos/CoreFoundation). Works well for I/O-bound
-# work (LLM API calls, DB queries). No -E: celery/config.py turns task events
-# off; add it via CELERY_WORKER_OPTS when Flower needs a live task view.
-
-MAIN_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n main@%h --queues=celery,execution,telemetry,trace-ingest --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_WORKER_CONCURRENCY --prefetch-multiplier=$CELERY_WORKER_PREFETCH_MULTIPLIER --optimization=fair $CELERY_WORKER_OPTS"
-ARCHITECT_CMD="celery -A rhesis.backend.worker.app worker --pool threads -n architect@%h --queues=architect --loglevel=$CELERY_WORKER_LOGLEVEL --concurrency=$CELERY_ARCHITECT_CONCURRENCY --prefetch-multiplier=$CELERY_ARCHITECT_PREFETCH_MULTIPLIER --optimization=fair $CELERY_WORKER_OPTS"
-
-echo "--- Main worker ---"
-echo "Command:     $MAIN_CMD"
-echo "Queues:      celery,execution,telemetry,trace-ingest"
-echo "Concurrency: $CELERY_WORKER_CONCURRENCY"
-echo "Prefetch:    $CELERY_WORKER_PREFETCH_MULTIPLIER"
-echo ""
-echo "--- Architect worker ---"
-echo "Command:     $ARCHITECT_CMD"
-echo "Queues:      architect"
-echo "Concurrency: $CELERY_ARCHITECT_CONCURRENCY"
-echo "Prefetch:    $CELERY_ARCHITECT_PREFETCH_MULTIPLIER"
-echo ""
-echo "Pool:        threads"
-echo "Log level:   $CELERY_WORKER_LOGLEVEL"
-echo "Extra opts:  ${CELERY_WORKER_OPTS:-none}"
-
-# Start main worker in background. RHESIS_PROCESS_ROLE becomes the Postgres
-# application_name (database.py), so pg_stat_activity can tell the two workers
-# and the API apart.
-RHESIS_PROCESS_ROLE=rhesis-celery-main $MAIN_CMD &
-MAIN_PID=$!
-echo "Main Celery worker started with PID: $MAIN_PID"
-
-# Start architect worker in background
-RHESIS_PROCESS_ROLE=rhesis-celery-architect $ARCHITECT_CMD &
-ARCHITECT_PID=$!
-echo "Architect Celery worker started with PID: $ARCHITECT_PID"
-
-# Enhanced startup monitoring — check both workers
-echo ""
-echo "=== Celery Worker Startup Monitoring ==="
-for i in {1..10}; do
-    MAIN_ALIVE=true
-    ARCHITECT_ALIVE=true
-
-    if ! kill -0 $MAIN_PID 2>/dev/null; then
-        MAIN_ALIVE=false
-    fi
-    if ! kill -0 $ARCHITECT_PID 2>/dev/null; then
-        ARCHITECT_ALIVE=false
-    fi
-
-    if [ "$MAIN_ALIVE" = "false" ] || [ "$ARCHITECT_ALIVE" = "false" ]; then
-        if [ "$MAIN_ALIVE" = "false" ]; then
-            echo "❌ Main Celery worker died after ${i} seconds!"
-            wait $MAIN_PID 2>/dev/null; EXIT_CODE=$?
-        else
-            echo "❌ Architect Celery worker died after ${i} seconds!"
-            wait $ARCHITECT_PID 2>/dev/null; EXIT_CODE=$?
+# Supervise: if any worker exits, stop the rest and exit non-zero so the orchestrator
+# (K8s/compose) restarts the pod. The pod's health checks cover readiness.
+set +e
+while true; do
+    for i in "${!WORKER_PIDS[@]}"; do
+        if ! kill -0 "${WORKER_PIDS[$i]}" 2>/dev/null; then
+            wait "${WORKER_PIDS[$i]}"; EXIT_CODE=$?
+            echo "❌ ${WORKER_NAMES[$i]} worker exited with code: $EXIT_CODE — stopping the others"
+            for pid in "${WORKER_PIDS[@]}" $HEALTH_SERVER_PID $FLOWER_PID; do
+                kill -TERM "$pid" 2>/dev/null || true
+            done
+            for pid in "${WORKER_PIDS[@]}"; do
+                wait "$pid" 2>/dev/null || true
+            done
+            exit "${EXIT_CODE:-1}"
         fi
-
-        echo "Worker exit code: $EXIT_CODE"
-        echo ""
-        echo "=== Failure Analysis ==="
-        echo "Checking system resources..."
-        free -h 2>/dev/null || echo "Memory info not available"
-        df -h 2>/dev/null || echo "Disk info not available"
-        echo "Checking for core dumps..."
-        ls -la core* 2>/dev/null || echo "No core dumps found"
-
-        # Terminate the survivor before exiting
-        kill -TERM $MAIN_PID 2>/dev/null || true
-        kill -TERM $ARCHITECT_PID 2>/dev/null || true
-        wait $MAIN_PID 2>/dev/null || true
-        wait $ARCHITECT_PID 2>/dev/null || true
-
-        exit $EXIT_CODE
-    fi
-
-    echo "Workers running... check $i/10 (main PID: $MAIN_PID, architect PID: $ARCHITECT_PID)"
-    sleep 1
-done
-
-echo "✅ Both Celery workers are stable after 10 seconds"
-
-# Test worker connectivity - wait for worker to be ready first
-echo ""
-echo "=== Worker Connectivity Test ==="
-echo "Waiting for worker to fully initialize before connectivity test..."
-
-# Give the worker time to fully start up
-sleep 5
-
-# Use same timeout logic as broker test
-if [[ "$BROKER_URL" == rediss://* ]]; then
-    CONNECTIVITY_TIMEOUT=20
-    echo "Using TLS timeout: ${CONNECTIVITY_TIMEOUT}s"
-else
-    CONNECTIVITY_TIMEOUT=15
-    echo "Using standard timeout: ${CONNECTIVITY_TIMEOUT}s"
-fi
-
-# Try multiple times with increasing delays
-for attempt in {1..3}; do
-    echo "Connectivity test attempt $attempt/3..."
-
-    timeout $CONNECTIVITY_TIMEOUT python -c "
-import sys
-import time
-try:
-    from rhesis.backend.worker import app
-
-    # Give a moment for workers to register
-    time.sleep(2)
-
-    # Both workers (main@ and architect@) should respond
-    result = app.control.inspect().ping()
-    if result:
-        print('✅ Workers are responding to ping')
-        print(f'Active workers: {list(result.keys())}')
-        print(f'Worker count: {len(result)}')
-        sys.exit(0)
-    else:
-        print('⚠️ No workers responded to ping (this may be normal during startup)')
-        sys.exit(1)
-except Exception as e:
-    print(f'❌ Worker connectivity test failed: {e}')
-    sys.exit(1)
-" && {
-    echo "✅ Worker connectivity confirmed!"
-    break
-} || {
-    if [ $attempt -eq 3 ]; then
-        echo "⚠️ Worker connectivity test failed after 3 attempts"
-        echo "Note: Workers may still be initializing - this is often normal"
-    else
-        echo "Retrying in 3 seconds..."
-        sleep 3
-    fi
-}
-done
-
-# Supervise both workers: if either exits unexpectedly, tear down the other
-# and exit non-zero so the orchestrator (K8s/compose) restarts the pod.
-supervise_workers() {
-    while true; do
-        MAIN_ALIVE=true
-        ARCHITECT_ALIVE=true
-
-        kill -0 $MAIN_PID 2>/dev/null || MAIN_ALIVE=false
-        kill -0 $ARCHITECT_PID 2>/dev/null || ARCHITECT_ALIVE=false
-
-        if [ "$MAIN_ALIVE" = "false" ]; then
-            wait $MAIN_PID 2>/dev/null; EXIT_CODE=$?
-            echo "❌ Main Celery worker exited with code: $EXIT_CODE — stopping architect worker and exiting"
-            kill -TERM $ARCHITECT_PID 2>/dev/null || true
-            wait $ARCHITECT_PID 2>/dev/null || true
-            return $EXIT_CODE
-        fi
-
-        if [ "$ARCHITECT_ALIVE" = "false" ]; then
-            wait $ARCHITECT_PID 2>/dev/null; EXIT_CODE=$?
-            echo "❌ Architect Celery worker exited with code: $EXIT_CODE — stopping main worker and exiting"
-            kill -TERM $MAIN_PID 2>/dev/null || true
-            wait $MAIN_PID 2>/dev/null || true
-            return $EXIT_CODE
-        fi
-
-        sleep 5
     done
-}
-
-supervise_workers
-EXIT_CODE=$?
-
-# Clean up remaining processes
-if [ ! -z "$HEALTH_SERVER_PID" ] && kill -0 $HEALTH_SERVER_PID 2>/dev/null; then
-    echo "Stopping health check server..."
-    kill -TERM $HEALTH_SERVER_PID || true
-    wait $HEALTH_SERVER_PID 2>/dev/null || true
-fi
-
-if [ ! -z "$FLOWER_PID" ] && kill -0 $FLOWER_PID 2>/dev/null; then
-    echo "Stopping Flower monitoring..."
-    kill -TERM $FLOWER_PID || true
-    wait $FLOWER_PID 2>/dev/null || true
-fi
-
-exit $EXIT_CODE
+    sleep 5
+done

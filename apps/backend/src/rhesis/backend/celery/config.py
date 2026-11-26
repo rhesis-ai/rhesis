@@ -2,6 +2,7 @@ from celery.schedules import crontab
 
 from rhesis.backend.app.config.settings import get_job_limit_settings, get_redis_settings
 from rhesis.backend.app.ee_bootstrap import ee_celery_jobs
+from rhesis.backend.celery.queues import TASK_ROUTES
 
 redis_settings = get_redis_settings()
 job_limits = get_job_limit_settings()
@@ -12,6 +13,7 @@ EXECUTION_HARD_LIMIT = job_limits.execution_time_limit + 300
 # Must outlast test runs and explorations, which stop themselves (see
 # broker_transport_options below), so it follows the execution limit up.
 VISIBILITY_TIMEOUT = max(7200, EXECUTION_HARD_LIMIT + 300)
+
 
 # Worker-context config: retry aggressively to ensure task delivery
 CELERY_CONFIG = {
@@ -63,14 +65,7 @@ CELERY_CONFIG = {
         },
     },
     # Task execution settings
-    "task_routes": {
-        "rhesis.backend.jobs.execution.*": {"queue": "execution"},
-        # Its own queue, so ingest admission measures only ingest and a backlog of
-        # trace evaluations cannot delay storing spans.
-        "rhesis.backend.jobs.telemetry.ingest.ingest_spans": {"queue": "trace-ingest"},
-        "rhesis.backend.jobs.telemetry.*": {"queue": "telemetry"},
-        "rhesis.backend.jobs.architect.*": {"queue": "architect"},
-    },
+    "task_routes": TASK_ROUTES,
     # Worker settings
     "worker_prefetch_multiplier": 1,
     "task_acks_late": True,

@@ -19,6 +19,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 2. If you set `MAX_PER_TEST_TIMEOUT` or `EXECUTION_TIME_LIMIT`, consider removing them. Unset, they now follow the new `MAX_ENDPOINT_TIMEOUT` (default 7200): a test may take the endpoint timeout plus 300s, and a run that plus 900s. Values you set still win, and the backend logs a warning at startup when they are lower than the endpoint ceiling.
 3. If API clients call `Endpoint.invoke()` on endpoints slower than a minute, raise the read timeout on the proxy in front of the API host to at least `MAX_ENDPOINT_TIMEOUT`. ingress-nginx defaults to 60 seconds; set the `nginx.ingress.kubernetes.io/proxy-read-timeout` annotation on the backend ingress.
 4. Make sure a Celery worker consumes the new `trace-ingest` queue. The stock worker image (`apps/worker/start.sh`), docker-compose and the Helm chart already do. A worker started with its own `--queues` list must add `trace-ingest`; without it, traces are accepted but never stored.
+5. Background jobs now run on named queues by kind: `test-runs`, `long-jobs`, `architect`, `trace-ingest`, `trace-eval`, `quick-tasks`, `cpu-bound` and `maintenance`. The stock worker image consumes all of them, plus the old `celery`, `execution` and `telemetry` queues so jobs queued before the upgrade still run. A worker started with its own `--queues` list must add the new names; without them, those jobs wait in the queue. During a rolling upgrade, jobs the new API queues wait until the new workers start; none are lost.
 
 ### Added
 
@@ -30,6 +31,9 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ### Changed
 
+- Long background jobs (test runs, generation, tuning) no longer share a queue with short ones. Set `WORKER_LAYOUT=split` on the worker to run one process per kind of job, each sized for it: short jobs are prefetched (`CELERY_FAST_PREFETCH_MULTIPLIER`, default 8) so threads no longer sit idle waiting on the broker between them, and long jobs are taken one at a time. The default, `combined`, keeps one main process and one for the Architect, as before.
+- Each worker process sizes its database pool with `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` (default 10 and 20, as before).
+- The worker container no longer imports the backend three extra times at startup for its self-checks; it checks the broker with a plain Redis ping.
 - Embedding generation is off unless `EMBEDDINGS_ENABLED` is set. While it is off, saving tests, test results, traces and source chunks no longer queues embedding jobs, `POST /services/generate/embedding` returns 404, and embedding models are hidden on the Models page.
 - A test run's per-test time limit now follows the endpoint's timeout: the timeout plus 300 seconds, and at least 1800 seconds as before. Endpoints with a timeout above 25 minutes no longer fail at 30 minutes. An explicit `per_test_timeout` in the run's execution options still wins.
 - Endpoint timeouts can be up to 7200 seconds (was 3600). Self-hosted deployments set the ceiling with `MAX_ENDPOINT_TIMEOUT`; the per-test and run limits are derived from it.

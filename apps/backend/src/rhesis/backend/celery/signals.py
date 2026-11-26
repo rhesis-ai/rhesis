@@ -120,6 +120,19 @@ def connect_permission_cache(**kwargs):
     initialize_cache()
 
 
+@worker_process_init.connect
+def drop_inherited_db_connections(**kwargs):
+    """Give a forked child (the prefork ``cpu`` worker) its own database connections.
+
+    A pool built in the parent holds sockets the child would share with it; per the
+    SQLAlchemy docs, ``dispose(close=False)`` drops them from the child's pool without
+    closing the parent's.
+    """
+    from rhesis.backend.app.database import engine
+
+    engine.dispose(close=False)
+
+
 @celeryd_init.connect
 def check_storage_configuration(**kwargs):
     """Build the storage backend once so a broken storage config stops the worker.

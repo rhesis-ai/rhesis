@@ -29,7 +29,7 @@ Usage (run from apps/backend so the backend venv resolves):
     cd apps/backend
     uv run python ../worker/queue_monitor.py                    # both tables
     uv run python ../worker/queue_monitor.py --peek 500         # + per-task backlog/wait
-    uv run python ../worker/queue_monitor.py --queues telemetry # one queue
+    uv run python ../worker/queue_monitor.py --queues trace-eval # one queue
     uv run python ../worker/queue_monitor.py --interval 1 --window 20
     uv run python ../worker/queue_monitor.py --csv run1.csv     # append samples to CSV
     uv run python ../worker/queue_monitor.py --no-events        # backlog only (no -E worker)
@@ -62,23 +62,16 @@ except Exception:
 import redis
 from celery import Celery
 
-# Task-name prefix -> queue. Mirrors task_routes in celery/config.py so that
-# event-derived metrics can be attributed to the right queue.
-ROUTE_PREFIXES = (
-    ("rhesis.backend.jobs.execution.", "execution"),
-    ("rhesis.backend.jobs.telemetry.", "telemetry"),
-    ("rhesis.backend.jobs.architect.", "architect"),
-)
-DEFAULT_QUEUES = ["celery", "execution", "telemetry", "architect"]
+from rhesis.backend.celery.queues import QUEUES, TASK_ROUTES
+
+# The previous release's queues still drain on upgraded workers (apps/worker/start.sh).
+LEGACY_QUEUES = ["celery", "execution", "telemetry"]
+DEFAULT_QUEUES = [*QUEUES, *LEGACY_QUEUES]
 
 
 def route_queue(task_name):
-    if not task_name:
-        return "celery"
-    for prefix, queue in ROUTE_PREFIXES:
-        if task_name.startswith(prefix):
-            return queue
-    return "celery"
+    """The queue a task is routed to, so event-derived metrics land on the right one."""
+    return TASK_ROUTES.get(task_name or "", {}).get("queue", "celery")
 
 
 def short_name(task_name):
@@ -128,10 +121,10 @@ class EventCollector:
         self.state = self.app.events.State()
         self.lock = threading.Lock()
         # each deque holds (timestamp, queue, name, value)
-        self.arrivals = deque()       # task-received      (value=None)
-        self.completions = deque()    # succeeded/failed   (value="ok"/"fail")
-        self.runtimes = deque()       # task runtime seconds
-        self.inworker = deque()       # started - received seconds
+        self.arrivals = deque()  # task-received      (value=None)
+        self.completions = deque()  # succeeded/failed   (value="ok"/"fail")
+        self.runtimes = deque()  # task runtime seconds
+        self.inworker = deque()  # started - received seconds
         self.events_seen = 0
         self._stop = threading.Event()
         self._thread = None
@@ -215,8 +208,7 @@ def compute_metrics(raw, window, key_index, keys=None):
     span = max(window, 1e-6)
     if keys is None:
         keys = sorted(
-            {s[key_index] for s in raw["arrivals"]}
-            | {s[key_index] for s in raw["completions"]}
+            {s[key_index] for s in raw["arrivals"]} | {s[key_index] for s in raw["completions"]}
         )
     out = {}
     for k in keys:
@@ -318,8 +310,10 @@ def _est_wait(backlog, comp):
 
 
 def _row(label, backlog, m, label_w):
-    backlog_s = "  -  " if backlog is None else (
-        str(int(round(backlog))) if isinstance(backlog, float) else str(backlog)
+    backlog_s = (
+        "  -  "
+        if backlog is None
+        else (str(int(round(backlog))) if isinstance(backlog, float) else str(backlog))
     )
     comp = m.get("completion_rate")
     est_wait = _est_wait(backlog, comp)
@@ -340,8 +334,21 @@ def _table_header(label, label_w):
     return [header, "  " + "-" * (len(header) - 2)]
 
 
-def render(broker_url, queues, backlogs, qmetrics, tmetrics, tbacklog, overall,
-           events_seen, events_enabled, now, interval, window, peek_on):
+def render(
+    broker_url,
+    queues,
+    backlogs,
+    qmetrics,
+    tmetrics,
+    tbacklog,
+    overall,
+    events_seen,
+    events_enabled,
+    now,
+    interval,
+    window,
+    peek_on,
+):
     lines = []
     lines.append(
         f"  Rhesis Celery queue monitor   "

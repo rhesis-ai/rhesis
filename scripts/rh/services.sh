@@ -240,7 +240,7 @@ start_worker() {
         -n "$CELERY_WORKER_NAME" \
         --pool threads \
         --loglevel=DEBUG \
-        --queues=celery,execution,telemetry,trace-ingest,architect \
+        --queues=test-runs,long-jobs,trace-ingest,trace-eval,quick-tasks,cpu-bound,maintenance,architect,celery,execution,telemetry \
         --concurrency="${CELERY_WORKER_CONCURRENCY}" \
         --prefetch-multiplier="${CELERY_WORKER_PREFETCH_MULTIPLIER}" \
         --optimization=fair &
