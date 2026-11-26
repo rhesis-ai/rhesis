@@ -46,11 +46,29 @@ def persist_result(
         with get_db_with_tenant_variables(
             ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
         ) as own:
-            _write(own, ctx, test_id, test, output, metrics_results, deferred_traces,
-                   execution_time, is_multi_turn)
+            _write(
+                own,
+                ctx,
+                test_id,
+                test,
+                output,
+                metrics_results,
+                deferred_traces,
+                execution_time,
+                is_multi_turn,
+            )
         return
-    _write(db, ctx, test_id, test, output, metrics_results, deferred_traces,
-           execution_time, is_multi_turn)
+    _write(
+        db,
+        ctx,
+        test_id,
+        test,
+        output,
+        metrics_results,
+        deferred_traces,
+        execution_time,
+        is_multi_turn,
+    )
 
 
 def _write(
