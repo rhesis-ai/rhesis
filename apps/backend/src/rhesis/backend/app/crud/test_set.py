@@ -255,6 +255,22 @@ def get_test_sets_for_test(
     return items, total_count
 
 
+def get_test_sets_tagged(db: Session, tag_name: str) -> List[models.TestSet]:
+    """The test sets carrying ``tag_name`` and not deleted, by name."""
+    from rhesis.backend.app.crud.tag import tagged_entity_ids
+    from rhesis.backend.app.schemas.tag import EntityType
+
+    return (
+        db.query(models.TestSet)
+        .filter(
+            models.TestSet.id.in_(tagged_entity_ids(EntityType.TEST_SET, [tag_name])),
+            models.TestSet.deleted_at.is_(None),
+        )
+        .order_by(models.TestSet.name, models.TestSet.id)
+        .all()
+    )
+
+
 def get_test_set_name(db: Session, test_set_id: uuid.UUID) -> Optional[str]:
     """The set's name in the session's scope, or ``None``."""
     row = db.query(models.TestSet.name).filter(models.TestSet.id == test_set_id).first()

@@ -47,6 +47,15 @@ the click starts.
 The test set to execute. It is fixed when you start from a test set's page or select test sets in
 the list. From **Test Runs › New Test Run**, pick the test set here.
 
+### Sets with a tag
+
+From **Test Runs › New Test Run**, pick **Sets with a tag** and a tag to run every test set
+carrying it. The field lists the sets the tag covers. Each set gets its own test run, and the runs
+share a group so they can be found together. Every set is checked, and the quota for all of their
+tests, before any run starts, so a refusal starts nothing. A group starts at most 50 runs.
+
+These runs start now and call the endpoint: **When** and **Reuse Outputs** don't apply.
+
 ### Only tests tagged
 
 To run part of a test set, pick one or more of its tests' tags in **Only tests tagged**. The run

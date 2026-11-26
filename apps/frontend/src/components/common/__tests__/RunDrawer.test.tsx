@@ -109,6 +109,17 @@ jest.mock('@/utils/api-client/client-factory', () => ({
       }),
       getTestSetMetrics: jest.fn().mockResolvedValue([]),
       getLastTestRun: jest.fn().mockResolvedValue(null),
+      getTestSets: jest.fn((params: { $filter?: string }) =>
+        Promise.resolve({
+          data: params?.$filter
+            ? [
+                { id: 'ts-a', name: 'Billing' },
+                { id: 'ts-b', name: 'Claims' },
+              ]
+            : [],
+          pagination: { totalCount: 0 },
+        })
+      ),
     }),
     getTestRunSchedulesClient: () => ({
       preview: jest.fn().mockResolvedValue({ repeats: 'Every day', next: [] }),
@@ -120,6 +131,9 @@ jest.mock('@/utils/api-client/client-factory', () => ({
       getProjects: jest.fn().mockResolvedValue({ data: [] }),
     }),
     getTestRunsClient: () => ({}),
+    getTagsClient: () => ({
+      getTags: jest.fn().mockResolvedValue([{ id: 'tag-1', name: 'nightly' }]),
+    }),
   })),
 }));
 
@@ -388,6 +402,31 @@ describe('RunDrawer sections', () => {
     mockGetTestSetTestTags.mockImplementation(() =>
       Promise.resolve(mockTestSetTestTags)
     );
+  });
+
+  it('runs every test set carrying a tag, now', async () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <RunDrawer open onClose={jest.fn()} mode="newTestRun" />
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByRole('button', { name: 'When' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Sets with a tag' }));
+    expect(screen.queryByRole('button', { name: 'When' })).toBeNull();
+
+    fireEvent.mouseDown(await screen.findByLabelText(/Test set tag/));
+    fireEvent.click(await screen.findByRole('option', { name: 'nightly' }));
+
+    expect(
+      await screen.findByText('2 test sets: Billing, Claims')
+    ).toBeInTheDocument();
+    const whatToRun = screen.getByRole('button', { name: /what to run/i });
+    fireEvent.click(whatToRun);
+    expect(
+      within(whatToRun).getByText('Sets tagged nightly · 2 test sets')
+    ).toBeInTheDocument();
   });
 
   it('names the one test set picked in the list', async () => {

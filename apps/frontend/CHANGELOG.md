@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Run Sets With a Tag**: New Test Run can run every test set carrying a tag, each as its own run, and lists the sets the tag covers. Runs of several sets or experiments now start through one server request, which checks every set and the quota before any run starts.
 - **Run Tagged Tests**: The run drawer's What to run section has an Only tests tagged field. Pick tags from the set's tests, with how many tests carry each, to run only those tests. Schedules keep the choice, re-runs start with it, and a run's Configuration tab and a schedule's run settings show it.
 
 ### Changed

@@ -9,6 +9,10 @@ import {
   VerdictMatrix,
 } from './interfaces/test-run';
 import { Requirement } from './interfaces/requirement';
+import type {
+  TestRunBatch,
+  TestRunBatchCreate,
+} from './interfaces/test-run-batch';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
 import type { ScheduleTrigger } from '@/constants/test-run-schedules';
@@ -95,6 +99,14 @@ export class TestRunsClient extends BaseApiClient {
   }
 
   // For backwards compatibility with components using the separate count endpoint
+  /** Start one run per test set and experiment version, checked as a group first. */
+  async startBatch(body: TestRunBatchCreate): Promise<TestRunBatch> {
+    return this.fetch<TestRunBatch>(`${API_ENDPOINTS.testRuns}/batches`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
   async getTestRunsCount(): Promise<number> {
     const response = await this.getTestRuns({
       skip: 0,

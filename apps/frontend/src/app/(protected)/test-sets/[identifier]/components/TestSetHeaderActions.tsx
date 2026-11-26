@@ -97,11 +97,8 @@ export default function TestSetHeaderActions({
     }
   };
 
-  // Once the worker has actually created the run, jump straight to it in
-  // Detail view so execution is visible as it happens -- executeTestSet only
-  // returns the test_configuration synchronously, so this polls for the run
-  // the same way tag assignment already does. A batch fan-out (more than one
-  // run queued) has no single run to jump to, so it's left as-is: toast only.
+  // Jump straight to the new run in Detail view so execution is visible as it
+  // happens. A group of several runs has no single run to jump to: toast only.
   const handleExecuted = React.useCallback(
     (outcome: BatchRunOutcome) => {
       void (async () => {

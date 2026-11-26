@@ -37,10 +37,11 @@ CAPPED_JOB_TYPES = frozenset(
 
 
 class JobCapacityExceededError(HTTPException):
-    def __init__(self, limit: int):
+    def __init__(self, limit: int, detail: str | None = None):
         super().__init__(
             status_code=429,
-            detail=(
+            detail=detail
+            or (
                 f"Your organization has reached its limit of {limit} jobs queued or "
                 "running at once. Wait for one to finish and try again."
             ),
@@ -65,9 +66,9 @@ def _count_org_active_jobs(db: Session, organization_id: str, user_id: str) -> i
 
 
 def enforce_job_capacity(
-    db: Session, organization_id: str, user_id: str, serialize: bool = False
+    db: Session, organization_id: str, user_id: str, serialize: bool = False, slots: int = 1
 ) -> None:
-    """Raise JobCapacityExceededError if the org is at its cap of capped jobs.
+    """Raise JobCapacityExceededError unless the org has ``slots`` free under its job cap.
 
     *serialize* holds a per-org lock until *db* commits, for a caller that inserts
     the counted job row in the same transaction.
@@ -77,7 +78,19 @@ def enforce_job_capacity(
         return
     if serialize:
         advisory_xact_lock(db, f"job-capacity:{organization_id}")
+    if slots > limit:
+        raise JobCapacityExceededError(
+            limit,
+            f"This would start {slots} jobs, and your organization can have at most "
+            f"{limit} queued or running at once. Start fewer at a time.",
+        )
     active = _count_org_active_jobs(db, str(organization_id), str(user_id or ""))
-    if active >= limit:
+    if active + slots > limit:
         logger.warning(f"Organization {organization_id} at its job cap ({active}/{limit})")
-        raise JobCapacityExceededError(limit)
+        if slots == 1:
+            raise JobCapacityExceededError(limit)
+        raise JobCapacityExceededError(
+            limit,
+            f"This would start {slots} jobs, but your organization has {max(limit - active, 0)} of "
+            f"its {limit} free. Wait for some to finish and try again.",
+        )

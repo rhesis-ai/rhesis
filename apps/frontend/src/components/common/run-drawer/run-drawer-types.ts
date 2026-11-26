@@ -28,6 +28,10 @@ export const RUN_WHEN_LABEL: Record<RunWhen, string> = {
   [RUN_WHEN.REPEAT]: 'Repeat',
 };
 
+/** What a new run covers: one picked test set, or every set carrying a tag. */
+export const RUN_TARGET = { SET: 'set', TAG: 'tag' } as const;
+export type RunTarget = (typeof RUN_TARGET)[keyof typeof RUN_TARGET];
+
 export interface SelectedMetric {
   id: UUID;
   name: string;

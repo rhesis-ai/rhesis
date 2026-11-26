@@ -1,32 +1,18 @@
 /**
- * Helper for fanning out a single "execute test set" intent into one
- * run per (test set × experiment) combination, grouped under a shared
- * ``batch_id`` so the resulting test runs can be discovered as a unit.
- *
- * Why fan-out instead of one parent run:
- * - Each run already owns its own status, results, and pass rate; a
- *   single row that hides N sub-runs would either lie about progress
- *   or require a new aggregating row type.
- * - The existing UI grid already displays many runs efficiently; with
- *   the ``batch_id`` stamped on each, filtering/grouping is additive
- *   instead of structural.
- *
- * The ``batch_*`` metadata rides through ``execution_options`` on the
- * request, lands on the test_configuration row, and is lifted onto
- * ``test_run.attributes`` by the worker (see
- * ``apps/backend/src/rhesis/backend/tasks/execution/run.py``). The
- * existing experiment fields (``experiment_id`` + ``experiment_version``)
- * keep their normal path through ``parameters_ref`` so the parameter
- * snapshot stays correct per run.
+ * Starts one run per (test set × experiment version) through the server, which checks
+ * every set and the quota for the whole group before any run starts. Runs of one group
+ * share a ``batch_id`` (``test_run.attributes.batch_*``), so they can be found as a unit.
  */
 
 import type { UUID } from 'crypto';
-import type { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import type { TestRunsClient } from '@/utils/api-client/test-runs-client';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import type {
+  TestRunBatchCreate,
+  TestRunBatchMember,
+} from '@/utils/api-client/interfaces/test-run-batch';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { EntityType, type TagCreate } from '@/utils/api-client/interfaces/tag';
-import { pollForTestRun } from '@/utils/test-run-utils';
 
 export interface SelectedExperiment {
   /** Experiment UUID. */
@@ -44,176 +30,120 @@ export interface SelectedExperiment {
 export interface BatchRunMember {
   test_set_id: string;
   experiment: SelectedExperiment | null;
-  /** Raw response from ``executeTestSet``. */
-  result: unknown;
+  /** The started run. */
+  result: TestRunBatchMember;
 }
 
 export interface BatchRunOutcome {
+  /** Empty when the group was a single run. */
   batch_id: string;
   members: BatchRunMember[];
 }
 
-/**
- * Generate a UUIDv4-shaped batch identifier.
- *
- * Uses ``crypto.randomUUID`` when available (every browser the app
- * targets supports it; ``randomUUID`` requires a secure context, which
- * Next.js dev / production both provide). Falls back to a
- * timestamp-suffixed random string for non-secure local fixtures only.
- */
-function generateBatchId(): string {
-  if (
-    typeof globalThis.crypto !== 'undefined' &&
-    typeof globalThis.crypto.randomUUID === 'function'
-  ) {
-    return globalThis.crypto.randomUUID();
-  }
-  const rand = Math.random().toString(36).slice(2);
-  return `batch_${Date.now().toString(36)}_${rand}`;
-}
-
 interface ExecuteBatchedTestRunsParams {
-  testSetsClient: TestSetsClient;
-  /** One or more test sets to execute. */
-  testSetIds: string[];
-  /** Target endpoint UUID. */
+  testRunsClient: TestRunsClient;
+  /** The test sets to run; or `testSetTag` to run every set carrying a tag. */
+  testSetIds?: string[];
+  testSetTag?: string;
   endpointId: string;
-  /**
-   * Experiments selected in the picker. Empty array runs each test
-   * set once with no experiment association (legacy behaviour).
-   */
+  /** Each set runs once per experiment; empty runs each set once. */
   selectedExperiments: SelectedExperiment[];
   /**
-   * Attributes shared by every member of the batch (execution mode,
-   * model overrides, metrics, scoring target, etc.). Per-member fields
-   * (``experiment_id``, ``experiment_version``, ``batch_*``) are added
-   * by this helper and must not be set by the caller.
+   * Settings shared by every run (execution mode, models, metrics, scoring target, …),
+   * in the shape the drawer builds them.
    */
   baseAttributes: Record<string, unknown>;
 }
 
-/**
- * Fan out into one ``executeTestSet`` call per (test set × experiment).
- *
- * - When ``selectedExperiments`` is empty: one call per test set,
- *   experiment fields omitted, no ``batch_*`` metadata written.
- * - When ``selectedExperiments`` has one entry and ``testSetIds`` has
- *   one entry: a single call with experiment fields set, no
- *   ``batch_*`` metadata written (it's not a batch).
- * - Otherwise: every effective combination becomes its own run, all
- *   sharing a single ``batch_id`` and the full ``batch_experiments``
- *   list so each run can discover its siblings.
- *
- * Returns the shared ``batch_id`` (empty string when not a batch) and
- * the per-member responses. Errors propagate from the underlying
- * ``Promise.all`` so the caller's error handler observes the first
- * failure; partial successes are not silently swallowed.
- */
+/** Splits the drawer's flat attributes into the request's run settings. */
+function toRunSettings(
+  attributes: Record<string, unknown>
+): NonNullable<TestRunBatchCreate['run_settings']> {
+  const {
+    metrics,
+    reference_test_run_id,
+    execution_model_id,
+    evaluation_model_id,
+    tests_tagged,
+    ...executionOptions
+  } = attributes;
+  return {
+    execution_options: executionOptions,
+    ...(Array.isArray(metrics) && metrics.length > 0
+      ? {
+          metrics: metrics as NonNullable<
+            TestRunBatchCreate['run_settings']
+          >['metrics'],
+        }
+      : {}),
+    ...(typeof reference_test_run_id === 'string'
+      ? { reference_test_run_id }
+      : {}),
+    ...(typeof execution_model_id === 'string' ? { execution_model_id } : {}),
+    ...(typeof evaluation_model_id === 'string' ? { evaluation_model_id } : {}),
+    ...(Array.isArray(tests_tagged) && tests_tagged.length > 0
+      ? { tests_tagged: tests_tagged as string[] }
+      : {}),
+  };
+}
+
+/** Starts the group. Errors propagate: the server starts nothing when it refuses. */
 export async function executeBatchedTestRuns({
-  testSetsClient,
+  testRunsClient,
   testSetIds,
+  testSetTag,
   endpointId,
   selectedExperiments,
   baseAttributes,
 }: ExecuteBatchedTestRunsParams): Promise<BatchRunOutcome> {
-  if (testSetIds.length === 0) {
+  if (!testSetTag && (!testSetIds || testSetIds.length === 0)) {
     return { batch_id: '', members: [] };
   }
 
-  const expEntries: Array<SelectedExperiment | null> =
-    selectedExperiments.length === 0
-      ? [null]
-      : (selectedExperiments as Array<SelectedExperiment | null>);
-
-  const totalMembers = testSetIds.length * expEntries.length;
-  const isBatch = totalMembers > 1;
-  const batchId = isBatch ? generateBatchId() : '';
-
-  const batchExperiments = isBatch
-    ? selectedExperiments.map(exp => ({
-        experiment_id: exp.experiment_id,
-        experiment_name: exp.experiment_name,
-        version: exp.version,
-      }))
-    : null;
-
-  const plans: Array<{
-    test_set_id: string;
-    experiment: SelectedExperiment | null;
-    attributes: Record<string, unknown>;
-  }> = [];
-
-  let index = 0;
-  for (const test_set_id of testSetIds) {
-    for (const exp of expEntries) {
-      const memberAttributes: Record<string, unknown> = { ...baseAttributes };
-      if (exp) {
-        memberAttributes.experiment_id = exp.experiment_id;
-        memberAttributes.experiment_version = exp.version;
-      }
-      if (isBatch) {
-        memberAttributes.batch_id = batchId;
-        memberAttributes.batch_size = totalMembers;
-        memberAttributes.batch_index = index;
-        if (batchExperiments) {
-          memberAttributes.batch_experiments = batchExperiments;
-        }
-      }
-      plans.push({
-        test_set_id,
-        experiment: exp,
-        attributes: memberAttributes,
-      });
-      index += 1;
-    }
-  }
-
-  const responses = await Promise.all(
-    plans.map(plan =>
-      testSetsClient.executeTestSet(
-        plan.test_set_id,
-        endpointId,
-        plan.attributes
-      )
-    )
-  );
+  const batch = await testRunsClient.startBatch({
+    ...(testSetTag
+      ? { test_set_tag: testSetTag }
+      : { test_set_ids: testSetIds }),
+    endpoint_id: endpointId,
+    experiments: selectedExperiments.map(exp => ({
+      experiment_id: String(exp.experiment_id),
+      version: exp.version,
+    })),
+    run_settings: toRunSettings(baseAttributes),
+  });
 
   return {
-    batch_id: batchId,
-    members: plans.map((plan, i) => ({
-      test_set_id: plan.test_set_id,
-      experiment: plan.experiment,
-      result: responses[i],
+    batch_id: batch.batch_id ?? '',
+    members: batch.members.map(member => ({
+      test_set_id: member.test_set_id,
+      experiment:
+        selectedExperiments.find(
+          exp =>
+            String(exp.experiment_id) === member.experiment_id &&
+            exp.version === member.version
+        ) ?? null,
+      result: member,
     })),
   };
 }
 
 /**
- * Resolves the single test run an ``executeTestSet``/rerun outcome created,
- * for callers that want to redirect straight to it (e.g. "show me the
- * execution taking place"). ``executeTestSet`` only returns the test set /
- * test_configuration synchronously -- the worker creates the test_run
- * itself, so this polls for it the same way ``assignTagsToRuns`` already
- * does.
- *
- * Returns null for a batch outcome (more than one run created -- no single
- * run to redirect to) or when the run hasn't shown up yet after polling;
- * callers should fall back to their pre-redirect behaviour in that case.
+ * The one run an execute/re-run outcome started, for callers that redirect straight to
+ * it. Null for a group of several runs (no single run to show) or when the run can't
+ * be loaded; callers keep their previous behaviour then.
  */
 export async function resolveSingleCreatedRun(
   outcome: BatchRunOutcome,
   testRunsClient: TestRunsClient
 ): Promise<TestRunDetail | null> {
   if (outcome.members.length !== 1) return null;
-
-  const resultRecord = outcome.members[0].result as
-    | Record<string, unknown>
-    | undefined;
-  const testConfigurationId =
-    (resultRecord?.test_configuration_id as string | undefined) ?? null;
-  if (!testConfigurationId) return null;
-
-  return pollForTestRun(testRunsClient, testConfigurationId);
+  const testRunId = outcome.members[0].result.test_run_id;
+  if (!testRunId) return null;
+  try {
+    return await testRunsClient.getTestRun(testRunId);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -229,7 +159,6 @@ export function watchRunHref(testRunId: string): string {
 
 interface AssignTagsToRunsParams {
   outcome: BatchRunOutcome;
-  testRunsClient: TestRunsClient;
   tags: string[];
   organizationId: UUID | string;
   userId?: string;
@@ -237,7 +166,6 @@ interface AssignTagsToRunsParams {
 
 export async function assignTagsToRuns({
   outcome,
-  testRunsClient,
   tags,
   organizationId,
   userId,
@@ -247,18 +175,8 @@ export async function assignTagsToRuns({
   const tagsClient = new TagsClient();
 
   for (const member of outcome.members) {
-    const resultRecord = member.result as Record<string, unknown>;
-    const testConfigurationId =
-      (resultRecord?.test_configuration_id as string | undefined) ?? null;
-    if (!testConfigurationId) continue;
-
-    const testRun = await pollForTestRun(testRunsClient, testConfigurationId);
-    if (!testRun) {
-      console.warn(
-        `Test run not found for configuration ${testConfigurationId}, tags will not be assigned`
-      );
-      continue;
-    }
+    const testRunId = member.result.test_run_id;
+    if (!testRunId) continue;
 
     for (const tagName of tags) {
       const tagPayload: TagCreate = {
@@ -268,7 +186,7 @@ export async function assignTagsToRuns({
       };
       await tagsClient.assignTagToEntity(
         EntityType.TEST_RUN,
-        testRun.id,
+        testRunId,
         tagPayload
       );
     }

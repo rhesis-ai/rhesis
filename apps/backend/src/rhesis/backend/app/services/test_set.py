@@ -779,6 +779,90 @@ def resolve_metrics_source(
     return MetricsSource.REQUIREMENT.value
 
 
+def create_test_set_configuration(
+    db: Session,
+    test_set_identifier: str,
+    endpoint_id: uuid.UUID,
+    current_user: models.User,
+    *,
+    test_configuration_attributes: Dict[str, Any] | None = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+    metrics: List[Dict[str, Any]] | None = None,
+    reference_test_run_id: uuid.UUID | None = None,
+    execution_model_id: uuid.UUID | None = None,
+    evaluation_model_id: uuid.UUID | None = None,
+    experiment_id: uuid.UUID | None = None,
+    experiment_version: str | None = None,
+    experiment_environment: str | None = None,
+    tests_tagged: Sequence[str] = (),
+    check_quota: bool = True,
+) -> tuple[models.TestSet, models.Endpoint, str]:
+    """Check a run's targets and options and create its configuration, without starting it.
+
+    ``check_quota`` is off when the caller already checked the quota for a whole group.
+    Returns the test set, the endpoint and the configuration id. Commits nothing.
+    """
+    logger.info(
+        f"Configuring test set execution for identifier: {test_set_identifier} "
+        f"and endpoint: {endpoint_id}, user: {current_user.id}"
+    )
+    db_test_set, db_endpoint = resolve_execution_targets(
+        db, test_set_identifier, endpoint_id, current_user, tests_tagged
+    )
+    if check_quota:
+        enforce_test_run_quota(
+            db,
+            str(current_user.organization_id),
+            str(current_user.id),
+            db_test_set.id,
+            tests_tagged,
+        )
+    # Only the checked ``tests_tagged`` argument sets the slice, never a key in execution_options.
+    test_configuration_attributes = {
+        k: v for k, v in (test_configuration_attributes or {}).items() if k != TESTS_TAGGED_KEY
+    }
+    if tests_tagged:
+        test_configuration_attributes[TESTS_TAGGED_KEY] = list(tests_tagged)
+
+    # Validate reference test run if provided (output reuse / re-scoring)
+    if reference_test_run_id:
+        _validate_reference_test_run(
+            db, reference_test_run_id, db_test_set, current_user, tests_tagged
+        )
+        logger.info(f"Output reuse enabled: reference_test_run_id={reference_test_run_id}")
+
+    metrics_source = resolve_metrics_source(db, db_test_set.id, metrics)
+
+    parameters_ref: Dict[str, Any] | None = None
+    has_version = bool(experiment_version and str(experiment_version).strip())
+    if experiment_id is not None or has_version or experiment_environment is not None:
+        parameters_ref = {}
+        if experiment_id is not None:
+            parameters_ref["experiment_id"] = str(experiment_id)
+        if experiment_version:
+            parameters_ref["version"] = experiment_version
+        if experiment_environment is not None:
+            parameters_ref["environment"] = experiment_environment
+
+    test_config_id = _create_test_configuration(
+        db,
+        endpoint_id,
+        db_test_set.id,
+        current_user,
+        test_configuration_attributes,
+        organization_id,
+        user_id,
+        metrics,
+        metrics_source,
+        reference_test_run_id=reference_test_run_id,
+        execution_model_id=execution_model_id,
+        evaluation_model_id=evaluation_model_id,
+        parameters_ref=parameters_ref,
+    )
+    return db_test_set, db_endpoint, test_config_id
+
+
 def execute_test_set_on_endpoint(
     db: Session,
     test_set_identifier: str,
@@ -822,60 +906,25 @@ def execute_test_set_on_endpoint(
         PermissionError: For access control errors
         RuntimeError: For execution errors
     """
-    logger.info(
-        f"Starting test set execution for identifier: {test_set_identifier} "
-        f"and endpoint: {endpoint_id}, user: {current_user.id}"
-    )
-    db_test_set, db_endpoint = resolve_execution_targets(
-        db, test_set_identifier, endpoint_id, current_user, tests_tagged
-    )
-    enforce_test_run_quota(
-        db, str(current_user.organization_id), str(current_user.id), db_test_set.id, tests_tagged
-    )
-    # Only the checked ``tests_tagged`` argument sets the slice, never a key in execution_options.
-    test_configuration_attributes = {
-        k: v for k, v in (test_configuration_attributes or {}).items() if k != TESTS_TAGGED_KEY
-    }
-    if tests_tagged:
-        test_configuration_attributes[TESTS_TAGGED_KEY] = list(tests_tagged)
-
-    # Validate reference test run if provided (output reuse / re-scoring)
-    if reference_test_run_id:
-        _validate_reference_test_run(
-            db, reference_test_run_id, db_test_set, current_user, tests_tagged
-        )
-        logger.info(f"Output reuse enabled: reference_test_run_id={reference_test_run_id}")
-
-    metrics_source = resolve_metrics_source(db, db_test_set.id, metrics)
-
-    parameters_ref: Dict[str, Any] | None = None
-    has_version = bool(experiment_version and str(experiment_version).strip())
-    if experiment_id is not None or has_version or experiment_environment is not None:
-        parameters_ref = {}
-        if experiment_id is not None:
-            parameters_ref["experiment_id"] = str(experiment_id)
-        if experiment_version:
-            parameters_ref["version"] = experiment_version
-        if experiment_environment is not None:
-            parameters_ref["environment"] = experiment_environment
-
     # A SAVEPOINT, so a refused run takes its configuration back with it.
     savepoint = db.begin_nested()
     try:
-        test_config_id = _create_test_configuration(
+        db_test_set, db_endpoint, test_config_id = create_test_set_configuration(
             db,
+            test_set_identifier,
             endpoint_id,
-            db_test_set.id,
             current_user,
-            test_configuration_attributes,
-            organization_id,
-            user_id,
-            metrics,
-            metrics_source,
+            test_configuration_attributes=test_configuration_attributes,
+            organization_id=organization_id,
+            user_id=user_id,
+            metrics=metrics,
             reference_test_run_id=reference_test_run_id,
             execution_model_id=execution_model_id,
             evaluation_model_id=evaluation_model_id,
-            parameters_ref=parameters_ref,
+            experiment_id=experiment_id,
+            experiment_version=experiment_version,
+            experiment_environment=experiment_environment,
+            tests_tagged=tests_tagged,
         )
 
         # Submit for execution (creates test run with Queued status)
@@ -988,7 +1037,18 @@ def enforce_test_run_quota(
     """Refuse a run whose tests don't fit in the org's remaining test executions.
 
     The job records one test execution per test once the run ends, so this
-    counts the same tests up front, plus the tests of runs still in flight.
+    counts the same tests up front. Raises ``QuotaExceededError``.
+    """
+    enforce_test_execution_quota(
+        db, organization_id, user_id, count_test_set_tests(db, test_set_id, tests_tagged)
+    )
+
+
+def enforce_test_execution_quota(
+    db: Session, organization_id: str, user_id: str, test_count: int
+) -> None:
+    """Refuse ``test_count`` more test executions unless they fit next to the runs in flight.
+
     Raises ``QuotaExceededError``.
     """
     org = db.get(Organization, organization_id)
@@ -997,7 +1057,7 @@ def enforce_test_run_quota(
         str(organization_id),
         org,
         QuotaResource.TEST_EXECUTIONS,
-        amount=count_test_set_tests(db, test_set_id, tests_tagged),
+        amount=test_count,
         reserved=_in_flight_run_tests(db, str(organization_id), str(user_id)),
     )
 

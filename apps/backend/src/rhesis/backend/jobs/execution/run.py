@@ -128,6 +128,7 @@ def create_test_run(
         "batch_size",
         "batch_index",
         "batch_experiments",
+        "batch_set_tag",
     ):
         if batch_key in cfg_attrs:
             attributes[batch_key] = cfg_attrs[batch_key]

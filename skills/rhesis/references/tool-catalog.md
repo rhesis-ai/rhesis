@@ -542,6 +542,19 @@ The response includes `test_run_id` and `task_id`. Poll `get_job_status` with `t
 - `tests_tagged` — tag names; only the set's tests carrying any of them run. Omit to run every
   test. `list_test_set_test_tags` shows which tags the set's tests carry.
 
+### `execute_test_set_group`
+Run several test sets against one endpoint at once: one run per set, and per experiment version
+when `experiments` is given. The runs share a `batch_id`. Every set and the quota are checked
+before any run starts, so a refusal starts nothing. At most 50 runs per group.
+
+**Key parameters:**
+- `test_set_ids` — the sets; or `test_set_tag` to run every set carrying that tag
+- `endpoint_id` (required)
+- `experiments` — `[{experiment_id, version}]`; omit to run each set once
+- `run_settings` — same options as `execute_test_set`, including `tests_tagged`
+
+The response lists `members` with `test_set_name`, `test_run_id` and `test_run_name`.
+
 ---
 
 ## Scheduling
