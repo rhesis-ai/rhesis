@@ -14,6 +14,7 @@ import {
   GenerateTestSetResponse,
   TestSetMetric,
   LastTestRunSummary,
+  TestSetTestTag,
 } from './interfaces/test-set';
 import { TestDetail, PriorityLevel } from './interfaces/tests';
 import { StatusClient } from './status-client';
@@ -308,6 +309,7 @@ export class TestSetsClient extends BaseApiClient {
       reference_test_run_id?: string;
       execution_model_id?: string;
       evaluation_model_id?: string;
+      tests_tagged?: string[];
       [key: string]: unknown;
     }
   ): Promise<TestSet> {
@@ -323,6 +325,7 @@ export class TestSetsClient extends BaseApiClient {
         experiment_version,
         experiment_environment,
         experiment_label,
+        tests_tagged,
         ...executionOptions
       } = testConfigurationAttributes;
 
@@ -357,6 +360,10 @@ export class TestSetsClient extends BaseApiClient {
       const resolvedEnvironment = experiment_environment ?? experiment_label;
       if (resolvedEnvironment) {
         requestBody.environment = resolvedEnvironment;
+      }
+
+      if (tests_tagged && tests_tagged.length > 0) {
+        requestBody.tests_tagged = tests_tagged;
       }
     }
 
@@ -437,6 +444,14 @@ export class TestSetsClient extends BaseApiClient {
       {
         cache: 'no-store',
       }
+    );
+  }
+
+  /** The tags on a test set's tests, each with how many tests carry it. */
+  async getTestSetTestTags(testSetId: string): Promise<TestSetTestTag[]> {
+    return this.fetch<TestSetTestTag[]>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/test-tags`,
+      { cache: 'no-store' }
     );
   }
 

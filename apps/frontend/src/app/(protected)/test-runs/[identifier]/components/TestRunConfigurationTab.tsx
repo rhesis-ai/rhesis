@@ -16,6 +16,7 @@ import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
 import { asVersionInfo, versionInfoSourceLabel } from '@/utils/version-info';
+import { runTestsTagged } from '@/utils/test-run-utils';
 import { rem } from '@/styles/theme-constants';
 
 interface TestRunConfigurationTabProps {
@@ -89,6 +90,7 @@ export default function TestRunConfigurationTab({
     'Default Model';
   const preflightEnabled =
     (attrs?.run_preflight_checks as boolean | undefined) ?? true;
+  const testsTagged = runTestsTagged(testRun);
 
   // Deliberately the run's own snapshot, not config.endpoint.version_info: the endpoint may
   // have been edited since, and a finished run must keep reporting what it actually tested.
@@ -148,6 +150,16 @@ export default function TestRunConfigurationTab({
               <ViewField
                 label="Project"
                 value={config?.endpoint?.project?.name}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <ViewField
+                label="Tests"
+                value={
+                  testsTagged.length > 0
+                    ? `Only tests tagged ${testsTagged.join(', ')}`
+                    : 'All tests'
+                }
               />
             </Grid>
             <Grid size={{ xs: 12 }}>

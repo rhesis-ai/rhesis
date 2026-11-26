@@ -51,6 +51,7 @@ export const PAUSED_REASON = {
   ENDPOINT_MISSING: 'endpoint_missing',
   TEST_SET_MISSING: 'test_set_missing',
   TEST_SET_EMPTY: 'test_set_empty',
+  NO_TAGGED_TESTS: 'no_tagged_tests',
   MODEL_UNAVAILABLE: 'model_unavailable',
   FAILURE_STREAK: 'failure_streak',
 } as const;
@@ -62,6 +63,7 @@ export const PAUSED_REASON_LABEL: Record<PausedReason, string> = {
   endpoint_missing: 'Paused: the endpoint was deleted',
   test_set_missing: 'Paused: the test set was deleted',
   test_set_empty: 'Paused: the test set has no tests',
+  no_tagged_tests: 'Paused: none of its tests carry the chosen tags',
   model_unavailable: "Paused: a model its runs need isn't available",
   failure_streak: 'Paused: the last 5 runs failed',
 };

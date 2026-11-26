@@ -234,6 +234,12 @@ export type TestPipelineEvent =
   | { type: 'error'; phase: string; message: string }
   | { type: 'done' };
 
+/** A tag used on a test set's tests, and how many of them carry it. */
+export interface TestSetTestTag {
+  name: string;
+  test_count: number;
+}
+
 /** Summary of the most recent test run for a test set + endpoint combo. */
 export interface LastTestRunSummary {
   id: string;

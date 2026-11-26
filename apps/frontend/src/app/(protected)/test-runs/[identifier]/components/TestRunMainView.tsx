@@ -53,6 +53,7 @@ import { TAB_KEYS, TAB_LABELS, tabIndexFromKey } from '../utils/tab-key';
 import TestRunAnnotationsTab from './TestRunAnnotationsTab';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
+import { runTestsTagged } from '@/utils/test-run-utils';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -706,7 +707,11 @@ export default function TestRunMainView({
           projectName:
             testRun.test_configuration?.endpoint?.project?.name || 'Unknown',
           testRunId: testRun.id,
-          originalAttributes: testRun.test_configuration?.attributes,
+          originalAttributes: {
+            ...testRun.test_configuration?.attributes,
+            // The run's own record: a schedule's configuration may have changed since.
+            tests_tagged: runTestsTagged(testRun),
+          },
         }}
         onSuccess={handleRerunSuccess}
         onExecuted={handleRerunExecuted}

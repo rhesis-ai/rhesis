@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Run Tagged Tests**: The run drawer's What to run section has an Only tests tagged field. Pick tags from the set's tests, with how many tests carry each, to run only those tests. Schedules keep the choice, re-runs start with it, and a run's Configuration tab and a schedule's run settings show it.
+
 ### Changed
 
 - **Run Drawer Sections**: The run drawer groups its fields into What to run, Run against, Scoring, When and More options. A folded section shows its settings on one line. Reuse Outputs is now disabled wherever there is no earlier run to reuse; before, it could be picked and the run called the endpoint anyway. Scheduling moved from the save button's menu into the When section, and the footer says how many runs and tests a click starts.

@@ -95,6 +95,17 @@ export default function ScheduleConfiguration({
           </Box>
         )}
       </Row>
+      <Row label="Tests">
+        {settings.tests_tagged.length > 0 ? (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            {settings.tests_tagged.map(tag => (
+              <Chip key={tag} size="small" label={tag} />
+            ))}
+          </Box>
+        ) : (
+          <Typography variant="body2">All tests</Typography>
+        )}
+      </Row>
       <Row label="Execution model">
         <Typography variant="body2">{executionModel}</Typography>
       </Row>
