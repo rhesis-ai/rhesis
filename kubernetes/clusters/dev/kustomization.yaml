@@ -23,6 +23,8 @@ resources:
   - alloy.yaml
   - grafana-resources.yaml
   # CNPG: not deployed in dev; Rhesis uses Bitnami PostgreSQL (see charts/rhesis/values-dev.yaml). Stg/prd use operator + CNPG.
+  # KEDA: scales the rhesis workers on queue length
+  - keda.yaml
   - rhesis/namespace.yaml
   # rhesis-app-secrets: see clusters/dev/external-secrets/kustomization.yaml (same sync tree as ESO)
   - rhesis/rhesis-application.yaml

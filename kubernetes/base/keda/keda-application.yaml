@@ -1,0 +1,49 @@
+# KEDA scales Deployments on external metrics, here the Celery queue lengths in Valkey
+# (the rhesis chart's worker ScaledObject). Its metrics API server listens on 6443 and its
+# admission webhook on 9443; the GKE control plane reaches both through the
+# gke-master-to-nodes firewall rule (terraform/infrastructure/modules/kubernetes/gcp).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keda
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://kedacore.github.io/charts
+    chart: keda
+    targetRevision: 2.21.0
+    helm:
+      valuesObject:
+        resources:
+          operator:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+            limits:
+              memory: 500Mi
+          metricServer:
+            requests:
+              cpu: 50m
+              memory: 100Mi
+            limits:
+              memory: 500Mi
+          webhooks:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keda
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      # The CRDs are too large for the last-applied annotation of a client-side apply.
+      - ServerSideApply=true

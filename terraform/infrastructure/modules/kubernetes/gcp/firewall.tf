@@ -1,6 +1,7 @@
 # GKE firewall rules (priority 900, lower than deny-all baseline at 1000)
 
-# Master to nodes: health checks and API
+# Master to nodes: health checks and API, plus the KEDA metrics API server (6443) and
+# admission webhooks (9443) the API server calls (kubernetes/base/keda).
 resource "google_compute_firewall" "gke_master_to_nodes" {
   name     = "gke-master-to-nodes-${var.environment}"
   network  = var.vpc_name
@@ -9,7 +10,7 @@ resource "google_compute_firewall" "gke_master_to_nodes" {
 
   allow {
     protocol = "tcp"
-    ports    = ["443", "10250"]
+    ports    = ["443", "6443", "9443", "10250"]
   }
 
   source_ranges = [var.master_cidr]

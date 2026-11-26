@@ -26,6 +26,8 @@ resources:
   - loki.yaml
   - alloy.yaml
   - grafana-resources.yaml
+  # KEDA: scales the rhesis workers on queue length
+  - keda.yaml
   - rhesis/namespace.yaml
   # DB cluster: dedicated Application (sync-wave 5) waits for CNPG operator CRDs
   - cnpg-cluster-application.yaml

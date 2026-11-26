@@ -113,6 +113,7 @@ jobs:
             kubernetes/clusters/prd/alloy.yaml
             kubernetes/clusters/prd/cluster-dns-application.yaml
             kubernetes/clusters/prd/external-dns.yaml
+            kubernetes/clusters/prd/keda.yaml
             kubernetes/clusters/prd/argocd/argocd-application.yaml
           )
           # rhesis-application.yaml is left out on purpose: its chart revision is
