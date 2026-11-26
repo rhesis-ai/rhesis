@@ -42,63 +42,40 @@ def extract_file_text(
     no project can only see ``project_id IS NULL`` rows, so a project-scoped file
     would otherwise be invisible here and extraction would silently no-op.
     """
-    import uuid
-
     from rhesis.backend.app.database import get_db_with_tenant_variables
-    from rhesis.backend.app.models.file import File
+    from rhesis.backend.app.services import file_extraction
     from rhesis.backend.app.services.storage_service import StorageService
 
+    def session():
+        return get_db_with_tenant_variables(organization_id, "", project_id)
+
     try:
+        with session() as db:
+            if not file_extraction.needs_extraction(db, file_id, content_type):
+                logger.debug(f"[EXTRACT] Nothing to extract for file_id={file_id}")
+                return
+
+        # No session is open from here: extraction can take minutes.
         storage = StorageService()
+        with storage.fs.open(storage._full_path(storage_path), "rb") as f:
+            content = f.read()
 
-        with get_db_with_tenant_variables(organization_id, "", project_id) as db:
-            file_row = db.query(File).filter(File.id == uuid.UUID(file_id)).first()
-            if not file_row:
-                logger.warning(f"[EXTRACT] File row not found: file_id={file_id}")
-                return
+        from rhesis.sdk.services.extractor import extract_with_vision_fallback
 
-            # Idempotency: skip if already done
-            if file_row.extraction_status == "done":
-                logger.debug(f"[EXTRACT] Already done for file_id={file_id}, skipping.")
-                return
+        extracted = extract_with_vision_fallback(content, filename, content_type)
 
-            # Non-extractable MIME types
-            extractable_prefixes = ("image/", "application/pdf", "text/")
-            if not any(content_type.startswith(p) for p in extractable_prefixes):
-                file_row.extraction_status = "not_applicable"
-                db.commit()
-                logger.debug(
-                    f"[EXTRACT] MIME type {content_type} not extractable — "
-                    f"marked not_applicable for file_id={file_id}"
-                )
-                return
+        with session() as db:
+            file_extraction.record_extraction(db, file_id, "done", extracted)
 
-            # Read bytes from storage (synchronous fsspec read in worker context)
-            full_path = storage._full_path(storage_path)
-            with storage.fs.open(full_path, "rb") as f:
-                content = f.read()
-
-            from rhesis.sdk.services.extractor import extract_with_vision_fallback
-
-            extracted = extract_with_vision_fallback(content, filename, content_type)
-
-            file_row.extracted_text = extracted
-            file_row.extraction_status = "done"
-            db.commit()
-
-            logger.info(
-                f"[EXTRACT] Extracted {len(extracted or '')} chars "
-                f"from file_id={file_id} ({filename})"
-            )
+        logger.info(
+            f"[EXTRACT] Extracted {len(extracted or '')} chars from file_id={file_id} ({filename})"
+        )
 
     except Exception as exc:
         logger.error(f"[EXTRACT] Extraction failed for file_id={file_id}: {exc}", exc_info=True)
         try:
-            with get_db_with_tenant_variables(organization_id, "", project_id) as db:
-                file_row = db.query(File).filter(File.id == uuid.UUID(file_id)).first()
-                if file_row:
-                    file_row.extraction_status = "failed"
-                    db.commit()
+            with session() as db:
+                file_extraction.record_extraction(db, file_id, "failed")
         except Exception:
             pass
         if isinstance(exc, SoftTimeLimitExceeded):
