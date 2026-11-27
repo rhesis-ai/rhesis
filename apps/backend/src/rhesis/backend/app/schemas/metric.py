@@ -156,6 +156,28 @@ def check_updated_config(update: "MetricUpdate", stored: Any) -> Optional[Dict[s
     )
 
 
+_SCORE_FIELDS = ("min_score", "max_score", "threshold", "categories", "passing_categories")
+
+
+def check_updated_score_fields(update: "MetricUpdate", stored: Any) -> None:
+    """``check_score_fields`` for an update, reading what it doesn't send from the stored
+    metric, so a threshold sent alone is still checked against the stored range."""
+    sent = update.model_fields_set
+    if not sent & {"score_type", *_SCORE_FIELDS}:
+        return
+
+    def current(field: str) -> Any:
+        value = getattr(update, field)
+        return value if field in sent and value is not None else getattr(stored, field, None)
+
+    score_type = current("score_type")
+    check_score_fields(
+        ScoreType(getattr(score_type, "value", score_type)) if score_type else None,
+        partial=True,
+        **{field: current(field) for field in _SCORE_FIELDS},
+    )
+
+
 class _ChecksConfig:
     """Checked on writes only: a stored row is read back whatever it holds."""
 

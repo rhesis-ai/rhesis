@@ -127,6 +127,52 @@ class GeneratedTestsUnsavable(ValueError):
     """
 
 
+def _convert_generated_tests(self, test_set) -> list:
+    """The generated tests as TestData, dropping any that don't fit it.
+
+    One test that doesn't fit is dropped, not the whole set with it; when none fit,
+    raises GeneratedTestsUnsavable with the reasons. Dropped tests are removed from
+    ``test_set.tests`` too, since the job reports how many it generated from it.
+    """
+    from rhesis.backend.app.schemas.test_set import TestData
+
+    converted, kept, rejected = [], [], []
+    for test in test_set.tests:
+        # Get dict from test (handles both dict and Pydantic model)
+        if isinstance(test, dict):
+            test_dict = test.copy()
+        else:
+            test_dict = test.model_dump(exclude={"id", "endpoint"})
+
+        # Ensure required string fields have values (TestData requires non-None)
+        test_dict["requirement"] = test_dict.get("requirement") or ""
+        test_dict["category"] = test_dict.get("category") or ""
+        test_dict["topic"] = test_dict.get("topic") or ""
+
+        try:
+            converted.append(TestData(**test_dict))
+        except ValidationError as e:
+            rejected.append(e.errors()[0]["msg"])
+            continue
+        kept.append(test)
+
+    if rejected:
+        reasons = sorted(set(rejected))
+        self.log_with_context(
+            "warning",
+            "Dropped generated tests that do not fit the test schema",
+            dropped=len(rejected),
+            kept=len(converted),
+            reasons=reasons,
+        )
+        if not converted:
+            raise GeneratedTestsUnsavable(
+                f"None of the {len(rejected)} generated tests could be saved: {'; '.join(reasons)}"
+            )
+        test_set.tests = kept
+    return converted
+
+
 def _unsavable_failure(
     self, error: GeneratedTestsUnsavable, test_set_id, org_id: str, user_id: str
 ) -> ValueError:
@@ -161,47 +207,7 @@ def _save_test_set_to_database(
     if not test_set.tests:
         raise ValueError("No tests to save. Please add tests to the test set first.")
 
-    # Convert SDK Test objects/dicts to TestData format
-    from rhesis.backend.app.schemas.test_set import TestData
-
-    converted_tests = []
-    kept_tests = []
-    rejected: List[str] = []
-    for test in test_set.tests:
-        # Get dict from test (handles both dict and Pydantic model)
-        if isinstance(test, dict):
-            test_dict = test.copy()
-        else:
-            test_dict = test.model_dump(exclude={"id", "endpoint"})
-
-        # Ensure required string fields have values (TestData requires non-None)
-        test_dict["requirement"] = test_dict.get("requirement") or ""
-        test_dict["category"] = test_dict.get("category") or ""
-        test_dict["topic"] = test_dict.get("topic") or ""
-
-        # One generated test that doesn't fit is dropped, not the whole set with it.
-        try:
-            converted_tests.append(TestData(**test_dict))
-        except ValidationError as e:
-            rejected.append(e.errors()[0]["msg"])
-            continue
-        kept_tests.append(test)
-
-    if rejected:
-        self.log_with_context(
-            "warning",
-            "Dropped generated tests that do not fit the test schema",
-            dropped=len(rejected),
-            kept=len(converted_tests),
-            reasons=sorted(set(rejected)),
-        )
-        if not converted_tests:
-            raise GeneratedTestsUnsavable(
-                f"None of the {len(rejected)} generated tests could be saved: "
-                f"{'; '.join(sorted(set(rejected)))}"
-            )
-        # The job reports how many tests it generated from this list.
-        test_set.tests = kept_tests
+    converted_tests = _convert_generated_tests(self, test_set)
 
     if test_set.test_set_type:
         test_set_type_str = TestSetType.get_value(TestSetType.from_string(test_set.test_set_type))
@@ -345,8 +351,6 @@ def _attach_tests_to_existing_test_set(
     if not sdk_test_set.tests:
         raise ValueError("No tests to save. Please add tests to the test set first.")
 
-    from rhesis.backend.app.schemas.test_set import TestData
-
     # Resolve test_set_type string
     if sdk_test_set.test_set_type:
         test_set_type_value = TestSetType.get_value(
@@ -355,16 +359,7 @@ def _attach_tests_to_existing_test_set(
     else:
         test_set_type_value = TestSetType.SINGLE_TURN.value
 
-    converted_tests = []
-    for test in sdk_test_set.tests:
-        if isinstance(test, dict):
-            test_dict = test.copy()
-        else:
-            test_dict = test.model_dump(exclude={"id", "endpoint"})
-        test_dict["requirement"] = test_dict.get("requirement") or ""
-        test_dict["category"] = test_dict.get("category") or ""
-        test_dict["topic"] = test_dict.get("topic") or ""
-        converted_tests.append(TestData(**test_dict))
+    converted_tests = _convert_generated_tests(self, sdk_test_set)
 
     defaults = load_defaults()
 

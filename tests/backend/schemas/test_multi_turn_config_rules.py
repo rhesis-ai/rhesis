@@ -30,6 +30,9 @@ CASES = [
     {**CONFIG, "min_turns": 9, "max_turns": 8},
     {**CONFIG, "max_turns": 51},
     {**CONFIG, "min_turns": None, "max_turns": None},
+    # max_turns left out is stored as 10, so a min_turns above that does not save.
+    {"goal": "x", "min_turns": 15},
+    {"goal": "x", "min_turns": 5},
 ]
 
 

@@ -634,6 +634,28 @@ class TestSuggestionCount:
         assert [s.input for s in result.suggestions] == ["first"]
 
 
+class TestSuggestionStreamDropsBlanks:
+    async def test_a_blank_streamed_suggestion_is_not_yielded(self):
+        from rhesis.backend.app.services.explorer.suggestions import _generate_suggestions_stream
+
+        async def tokens(**_kwargs):
+            yield '{"suggestions": [{"input": "first"}, {"input": "  "}, {"input": "second"}]}'
+
+        model = MagicMock()
+        model.generate_stream = tokens
+        ctx = {
+            "model": model,
+            "response_model": MagicMock(),
+            "prompt_text": "p",
+            "topic_value": "",
+            "sample_size": 3,
+        }
+
+        items = [e async for e in _generate_suggestions_stream(ctx) if e["type"] == "item"]
+
+        assert [e["input"] for e in items] == ["first", "second"]
+
+
 class TestSuggestionsWithEmbeddingsOff:
     """generate_embeddings is ignored while EMBEDDINGS_ENABLED is off."""
 

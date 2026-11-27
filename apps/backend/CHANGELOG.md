@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`FROM_EMAIL` default**: unset, it now falls back to `noreply@example.com`, the same as docker-compose, instead of a Rhesis address. Helm installs that never set it now send from that placeholder, so set `FROM_EMAIL` to an address your SMTP server accepts.
 - **Generated tests that do not fit are dropped, not the whole set**: a test set generation job used to fail when any one generated test did not fit the test schema, and blamed the model settings. It now saves the tests that fit, and a set where none fit fails with the reason.
 - **Multi-turn test configuration**: a blank goal is refused instead of being stored as no goal, and `min_turns` cannot be above `max_turns`.
-- **Metric score fields are checked on save**: a numeric metric's `min_score` must be below `max_score` with the threshold between them, and a categorical metric's passing categories must be among its categories. Metric tuning reports a proposal that breaks these as unavailable instead of a server error.
+- **Metric score fields are checked on save**: a numeric metric's `min_score` must be below `max_score` with the threshold between them, and a categorical metric's passing categories must be among its categories. An update is checked together with the fields it doesn't send, so a threshold sent alone must fit the stored range. A generated or improved metric that still breaks these after one retry returns 422 with the reason instead of a server error, and metric tuning says so instead of blaming the model settings.
 - **Explorer suggestions**: a model that writes fewer suggestions than requested no longer fails the request, and blank suggestions are dropped.
 
 ## [0.23.0] - 2026-11-27

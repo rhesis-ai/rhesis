@@ -20,7 +20,7 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.schemas.metric import check_updated_config
+from rhesis.backend.app.schemas.metric import check_updated_config, check_updated_score_fields
 from rhesis.backend.app.services.metric_tuning import attach_tuning_case_counts
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -136,7 +136,7 @@ def generate_metric(
     """
     from rhesis.backend.app.constants import MetricType
     from rhesis.backend.app.schemas.metric import MetricScope
-    from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
+    from rhesis.sdk.metrics.synthesizer import GeneratedMetricRejected, MetricSynthesizer
 
     organization_id, user_id = tenant_context
 
@@ -173,6 +173,9 @@ def generate_metric(
         # The decorator above turns a duplicate name into "Metric with this name
         # already exists"; catching it here would replace that with nothing.
         raise
+    except GeneratedMetricRejected as e:
+        # The model broke the save rules twice; asking again may well work.
+        raise HTTPException(status_code=422, detail=f"{_REJECTED} {e}") from e
     except ValidationError as e:
         # The generated fields did not fit MetricCreate. That is our prompt or
         # our schema, not the caller's request, so it gets a 500 and a traceback.
@@ -194,6 +197,8 @@ def generate_metric(
     except Exception as e:
         raise internal_error(e, context="generating metric") from e
 
+
+_REJECTED = "The generation model's metric did not fit, even after one retry. Try again:"
 
 _FRAMEWORK_READ_ONLY = "Framework metrics are read-only; their definition comes from the framework"
 
@@ -229,7 +234,7 @@ def improve_metric(
     The LLM reads the current metric fields and the edit prompt, then
     returns updated fields. The metric is updated in place.
     """
-    from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
+    from rhesis.sdk.metrics.synthesizer import GeneratedMetricRejected, MetricSynthesizer
 
     organization_id, user_id = tenant_context
 
@@ -285,6 +290,8 @@ def improve_metric(
         raise
     except SQLAlchemyError:
         raise
+    except GeneratedMetricRejected as e:
+        raise HTTPException(status_code=422, detail=f"{_REJECTED} {e}") from e
     except ValidationError as e:
         raise internal_error(e, context=f"improving metric {metric_id}") from e
     except (ValueError, RuntimeError) as e:
@@ -406,6 +413,10 @@ def update_metric(
             metric.config = check_updated_config(metric, db_metric)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=f"Invalid config: {e}") from e
+    try:
+        check_updated_score_fields(metric, db_metric)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"Invalid score fields: {e}") from e
 
     return metric_crud.update_metric(
         db=db, metric_id=metric_id, metric=metric, organization_id=organization_id, user_id=user_id

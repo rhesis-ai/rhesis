@@ -98,6 +98,10 @@ class ImprovementUnavailable(Exception):
     """The generation model could not produce an improvement."""
 
 
+class ImprovementDoesNotFit(ImprovementUnavailable):
+    """The model's proposal breaks the metric's score rules, e.g. a re-cased category."""
+
+
 class Rejection(BaseModel):
     """One rejected case, as the model is shown it.
 
@@ -687,7 +691,7 @@ def improve_from_annotations(
             passing_categories=proposed.get("passing_categories"),
         )
     except ValueError as e:
-        raise ImprovementUnavailable(f"The proposed score fields do not fit the metric: {e}") from e
+        raise ImprovementDoesNotFit(f"The proposed score fields do not fit the metric: {e}") from e
 
     # Applying is an ordinary metric update, so what is proposed has to be one.
     # Checked here rather than left to fail on apply, and deliberately outside the

@@ -642,6 +642,7 @@ class TestTheImprovement:
         response = _improve(authenticated_client, categorical_metric.id)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "passing_categories must be among categories" in response.json()["detail"]
 
     def test_a_field_the_metric_has_is_never_proposed_empty(
         self,

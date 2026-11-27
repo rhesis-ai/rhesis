@@ -38,6 +38,7 @@ from rhesis.backend.app.services.metric_tuning.fingerprint import (
     run_predates_metric,
 )
 from rhesis.backend.app.services.metric_tuning.improve import (
+    ImprovementDoesNotFit,
     ImprovementUnavailable,
     NoStandingRejections,
     improve_from_annotations,
@@ -73,6 +74,7 @@ __all__ = [
     "STALE_RUN_AFTER",
     "STALE_RUN_MESSAGE",
     "AnnotationCommentRequired",
+    "ImprovementDoesNotFit",
     "ImprovementUnavailable",
     "MetricModelNotConfigured",
     "NoStandingRejections",

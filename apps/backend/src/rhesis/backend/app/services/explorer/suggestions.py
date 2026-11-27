@@ -239,7 +239,8 @@ async def _generate_suggestions_stream(
     async for chunk in token_stream:
         for item in parser.feed(chunk):
             text = str(item.get("input", "")).strip()
-            yield {"type": "item", "topic": topic_value, "input": text}
+            if text:  # a blank suggestion would be sent to the endpoint as it is
+                yield {"type": "item", "topic": topic_value, "input": text}
 
 
 async def generate_suggestions(
