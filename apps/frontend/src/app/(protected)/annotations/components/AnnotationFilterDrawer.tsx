@@ -362,11 +362,9 @@ export default function AnnotationFilterDrawer({
         <Autocomplete
           freeSolo
           options={metricOptions}
-          value={draft.metric || null}
+          // Bind only the text: binding `value` too stops MUI filtering as you type.
+          inputValue={draft.metric}
           loading={loadingFacets}
-          onChange={(_, value) =>
-            setDraft(prev => ({ ...prev, metric: (value as string) || '' }))
-          }
           onInputChange={(_, value) =>
             setDraft(prev => ({ ...prev, metric: value }))
           }

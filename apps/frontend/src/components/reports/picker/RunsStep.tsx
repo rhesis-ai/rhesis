@@ -232,7 +232,8 @@ export default function RunsStep({
         <Autocomplete
           freeSolo
           options={tagOptions}
-          value={tag}
+          // Bind only the text: binding `value` too stops MUI filtering as you type.
+          inputValue={tag}
           onInputChange={(_event, value) => onTagChange(value)}
           renderInput={params => (
             <TextField

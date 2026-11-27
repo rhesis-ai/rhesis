@@ -168,11 +168,9 @@ export default function TestRunFilterDrawer({
       <Autocomplete
         freeSolo
         options={options}
-        value={draft[field] || null}
+        // Bind only the text: binding `value` too stops MUI filtering as you type.
+        inputValue={draft[field]}
         loading={loadingOptions}
-        onChange={(_, value) =>
-          setDraft(prev => ({ ...prev, [field]: value || '' }))
-        }
         onInputChange={(_, value) =>
           setDraft(prev => ({ ...prev, [field]: value }))
         }
