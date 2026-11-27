@@ -295,7 +295,7 @@ Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
 | `SMTP_USER` | SMTP username | *(unset)* |
 | `SMTP_PASSWORD` | SMTP password | *(unset)* |
 | `FROM_EMAIL` | Default From address | `noreply@example.com` |
-| `EMAIL_ASSET_BASE_URL` | Where emails load their logo, header image and font from. Mail clients fetch these directly, so it must be publicly reachable. `docker-compose.yml` and the Helm chart do not pass it; add it to the backend and worker environment | `https://rhesis.ai` |
+| `EMAIL_ASSET_BASE_URL` | Where emails load their logo, header image and font from. Mail clients fetch these directly, so it must be publicly reachable. Helm: set it in `backend.env` and each `workers[].env` | `https://rhesis.ai` |
 
 ## Object storage
 
@@ -359,11 +359,9 @@ the main process, 10 for Architect); in `split` each of the five processes has i
 `max_connections` has to cover every API process and worker pod together, unless a pooler sits in
 between.
 
-`docker-compose.yml` does not pass `CELERY_ARCHITECT_CONCURRENCY`, `DB_POOL_SIZE`,
-`DB_MAX_OVERFLOW`, `TRACE_EVAL_CONTEXT_TTL_SECONDS` or `USAGE_ACCRUAL_FLUSH_SECONDS` to the
-containers; add them to the service's `environment` to change them. On Helm, set `DB_POOL_SIZE` and
-`DB_MAX_OVERFLOW` in `backend.env`, and `TRACE_EVAL_CONTEXT_TTL_SECONDS` and
-`USAGE_ACCRUAL_FLUSH_SECONDS` in `backend.env` and each `workers[].env`.
+The Helm chart has no keys for `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `TRACE_EVAL_CONTEXT_TTL_SECONDS`
+or `USAGE_ACCRUAL_FLUSH_SECONDS`. Set the first two in `backend.env`, and the last two in
+`backend.env` and each `workers[].env`.
 
 ## Background job limits
 
