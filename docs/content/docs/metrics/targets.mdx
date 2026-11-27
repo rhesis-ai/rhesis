@@ -88,6 +88,8 @@ A metric keeps its target in its `config`, as `config.target`. Send it when you 
 
 The whole `config` is replaced, so send a built-in metric's own settings, such as the [Tool Call Trajectory](/docs/metrics/tool-calls) metric's `match`, along with the target.
 
+A framework metric (DeepEval, Garak, Ragas) is read-only except its target. To point DeepEval answer relevancy at each retrieval, send `config` with the new target and its existing settings, and nothing else. In the app, the target has its own card on the metric's page.
+
 To list metrics by target, pass `target` with one or more choices: `GET /metrics/?target=turn,conversation`.
 
 In the SDK, a judge takes `target` in its constructor, and `push()` and `pull()` carry it in the metric's `config`:
