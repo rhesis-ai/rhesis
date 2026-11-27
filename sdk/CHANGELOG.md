@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metrics judging the conversation, and a `create_metric` call whose target differs from the
   planned one.
 - `MetricSynthesizer` proposes a `target` (`"turn"` or `"conversation"`) instead of a scope.
+- Each unit a target picks is judged as its own trace: the span and everything under it. Targets take `where`, attributes a unit's root span must have (a list means any of its values). A metric reading `trace` can take every target.
+- `Span.duration_ms` is `None` when timing is unknown, for reported spans and for traces built with `Trace.from_response` or `Trace.from_conversation`, instead of 0.
+- Built and reported invocation spans have the kind `endpoint.invoke`, and each `metadata` key is its own attribute (`rhesis.reported.metadata.<key>`). A reported `usage` becomes an `llm.invoke` span with the token counts.
 - `LiteLLMProxy.a_generate()` calls the proxy on an async HTTP client instead of running the blocking call in a thread, so many evaluations can wait on the proxy at once.
 - Blocking model calls made from the SDK's background event loop run on a pool of `RHESIS_SDK_LOOP_THREADS` threads (default 64). Before, a process made at most `os.cpu_count() + 4` such calls at once, and in a container that is the host's core count.
 - Creating a metric imports only its own provider. A Rhesis metric no longer imports deepeval and garak, which took seconds of CPU on a process's first evaluation.
