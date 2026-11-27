@@ -22,11 +22,16 @@ from rhesis.telemetry.schemas import SpanKind, StatusCode
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import REPORTED_SPAN_SOURCE, AISpanAttributes
-from rhesis.backend.app.crud.span_target_sql import postgres_pattern
+from rhesis.backend.app.crud.span_target_sql import (
+    _text_number,
+    condition_clause,
+    postgres_pattern,
+)
 from rhesis.backend.app.crud.telemetry import create_trace_spans, query_spans, span_facets
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, SpanFilters
 from rhesis.backend.app.services.telemetry.evaluation_trace import stored_trace
 from rhesis.sdk.entities.trace import FROM_CONVERSATION, TRACE_SOURCE_ATTRIBUTE, Trace
+from rhesis.sdk.metrics.conditions import Condition, ConditionOp, number
 from rhesis.sdk.metrics.targets import Target, TargetKind
 
 BASE = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
@@ -219,6 +224,11 @@ def _odd_values(s: Seed) -> None:
     )
     s.add("function.misc", r, at=90.3, attrs={"amount": "abc", "tags": ["a", "b"]})
     s.add("ai.tool.invoke", r, at=90.4, attrs=tool(" 200 "))
+    # Whitespace a number may and may not have around it, and an integer past a float's range:
+    # each once made the cast fail and the whole list answer 500.
+    s.add("function.spaced", r, at=90.5, attrs={"amount": "\t42\n", "size": 10**400})
+    s.add("function.nbsp", r, at=90.6, attrs={"amount": " 150"})
+    s.add("function.wide", r, at=90.7, attrs={"amount": "５", "size": "٥"})
 
 
 def seed(project_id: str) -> List[OTELSpanCreate]:
@@ -262,7 +272,13 @@ TARGETS = [
     ),
     ("kind and amount >", span(c("kind", "==", TOOL), c("amount", ">", 100)), False),
     ("amount >= text number", span(c("amount", ">=", 80)), False),
-    ("amount == 1000 underscores", span(c("amount", "==", 1000)), False),
+    ("amount == 1000 underscores", span(c("amount", "==", 1000)), True),
+    ("amount == text 1_000", span(c("amount", "==", "1_000")), False),
+    ("amount == 42 ascii spaces", span(c("amount", "==", 42)), False),
+    ("amount == 150 not nbsp", span(c("amount", "==", 150)), False),
+    ("amount == 5 not fullwidth", span(c("amount", "==", 5)), True),
+    ("size exists huge int", span(c("size", "exists")), False),
+    ("size > 0 huge int no number", span(c("size", ">", 0)), True),
     ("amount == 100 from 1e2", span(c("amount", "==", 100)), False),
     ("amount < 0 never -inf", span(c("amount", "<", 0)), True),
     ("amount > 1e300 never inf", span(c("amount", ">", 1e300)), True),
@@ -411,6 +427,81 @@ def test_spans_not_backfilled_look_their_parent_up(test_db, test_org_id, seeded,
     picked, _ = sql_picks(test_db, test_org_id, seeded, target)
 
     assert picked == sdk_picks(test_db, seeded, target)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"on": "tool_call", "within": "billing"},
+        {"on": "tool_call", "within": "support"},
+        {"on": "tool_call", "within": "nobody"},
+        {"on": "agent", "within": "triage"},
+        span(c("kind", "==", LLM), within="billing"),
+    ],
+    ids=["billing", "support", "nobody", "agent in triage", "llm in billing"],
+)
+def test_spans_without_an_agent_path_walk_up(test_db, test_org_id, seeded, value):
+    """Spans stored before ``agent_path`` existed hold NULL until the backfill reaches them."""
+    target = Target.coerce(value)
+    test_db.execute(
+        sa.update(models.Trace).where(models.Trace.project_id == seeded).values(agent_path=None)
+    )
+
+    picked, _ = sql_picks(test_db, test_org_id, seeded, target)
+
+    assert picked == sdk_picks(test_db, seeded, target)
+
+
+# Text at the edges of what reads as a number: the SDK's number() and the SQL must agree.
+NUMBER_EDGES = [
+    "5",
+    " 5",
+    "\t5\n",
+    "\v5\f",
+    "\r\n-5.5e3 ",
+    " 5",
+    "5 ",
+    " 5",
+    "1_000",
+    "５",
+    "٥",
+    ".5",
+    "5.",
+    "1.e5",
+    "+1",
+    "-0",
+    "1e999",
+    "-1e999",
+    "1e-999",
+    "1e9999",
+    "1e10000",
+    "0e10000",
+    "9" * 400,
+    "1" * 1001,
+    "inf",
+    "nan",
+    "0x10",
+    "",
+    " ",
+    "abc",
+]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("value", NUMBER_EDGES, ids=[repr(v)[:30] for v in NUMBER_EDGES])
+def test_text_reads_as_the_same_number(test_db, value):
+    in_sql = test_db.execute(sa.select(_text_number(sa.literal(value, sa.Text)))).scalar()
+    assert in_sql == number(value)
+
+
+def test_a_huge_integer_to_compare_with_is_no_number():
+    """A condition built around validation, with an integer past a float's range, still
+    makes a clause rather than raising ``OverflowError``."""
+    for op in (ConditionOp.EQ, ConditionOp.IN, ConditionOp.GT):
+        value = [10**400] if op is ConditionOp.IN else 10**400
+        condition = Condition.model_construct(field="amount", op=op, value=value)
+        assert condition_clause(models.Trace, condition) is not None
 
 
 @pytest.mark.integration

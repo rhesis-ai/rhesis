@@ -8,10 +8,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
+import sqlalchemy as sa
 from fastapi import HTTPException
 from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.schemas import SpanKind, StatusCode
 
+from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.crud.project import create_project
 from rhesis.backend.app.crud.telemetry import create_trace_spans, mark_trace_processed
@@ -186,6 +188,35 @@ class TestSpanRows:
         assert by_id[span_ids["root"]].is_root
         assert not by_id[span_ids["tool"]].is_root
         assert {s.trace_name for s in by_id.values()} == {"ai.agent.invoke"}
+
+    @pytest.mark.parametrize("backfilled", [True, False])
+    def test_a_span_whose_parent_is_missing_is_a_root(
+        self, test_db, test_org_id, db_project, backfilled
+    ):
+        """A root as the span tree has it (``trace.is_root``), in the row and the filter,
+        including a span stored before the column existed."""
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        orphan = uuid.uuid4().hex[:16]
+        create_trace_spans(
+            test_db,
+            [
+                make_span(
+                    trace_id, project_id, name="function.orphan", span_id=orphan, parent="f" * 16
+                )
+            ],
+            organization_id=test_org_id,
+        )
+        if not backfilled:
+            test_db.execute(
+                sa.update(models.Trace)
+                .where(models.Trace.trace_id == trace_id)
+                .values(is_root=None)
+            )
+
+        [row] = spans(test_db, test_org_id, project_id).spans
+        assert row.is_root
+        assert ids(spans(test_db, test_org_id, project_id, SpanFilters(is_root=True))) == {orphan}
 
     def test_span_types(self, test_db, test_org_id, agent_trace):
         project_id, _, span_ids = agent_trace

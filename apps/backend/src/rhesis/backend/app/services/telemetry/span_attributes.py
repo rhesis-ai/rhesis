@@ -1,12 +1,17 @@
 """The attribute catalogue: which keys each span kind carries, for building span targets."""
 
 import difflib
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.crud.telemetry import AttributeSample, span_attribute_stats
+from rhesis.backend.app.crud.telemetry import (
+    AttributeSample,
+    span_attribute_stats,
+    statement_time_limit,
+)
 from rhesis.backend.app.schemas.telemetry import (
     AttributeValueCount,
     AttributeValueType,
@@ -31,6 +36,10 @@ KEY_CHECK_DAYS = 7
 KEY_CHECK_LIMIT = 500
 #: How alike an unknown key and a known one must be for the known one to be suggested.
 KEY_SUGGESTION_CUTOFF = 0.6
+#: The key check gives up after this long, and the metric saves without warnings.
+KEY_CHECK_TIMEOUT_MS = 2000
+
+logger = logging.getLogger(__name__)
 
 
 def _value_type(types: list) -> AttributeValueType:
@@ -131,9 +140,11 @@ def target_key_warnings(
 ) -> List[str]:
     """Warnings for the attribute keys a metric's target reads that no recent span of its
     project carries. A key may be right before its first trace arrives, so this never
-    refuses. Reads the catalogue once, and only when there is a project and a key to check.
+    refuses, and never fails the write: on any error, or past ``KEY_CHECK_TIMEOUT_MS``, it
+    logs and returns none. Reads the catalogue once, and only when there is a project and a
+    key to check.
     """
-    target = (config or {}).get("target")
+    target = (config or {}).get("target") if isinstance(config, dict) else None
     if not project_id or target is None:
         return []
     try:
@@ -144,12 +155,18 @@ def target_key_warnings(
         return []
     if not keys:
         return []
-    catalogue = get_attribute_catalogue(
-        db,
-        organization_id,
-        str(project_id),
-        kind=None,
-        days=KEY_CHECK_DAYS,
-        limit=KEY_CHECK_LIMIT,
-    )
+    try:
+        # In a savepoint, so a cancelled query leaves the write's transaction usable.
+        with db.begin_nested(), statement_time_limit(db, KEY_CHECK_TIMEOUT_MS):
+            catalogue = get_attribute_catalogue(
+                db,
+                organization_id,
+                str(project_id),
+                kind=None,
+                days=KEY_CHECK_DAYS,
+                limit=KEY_CHECK_LIMIT,
+            )
+    except Exception:  # noqa: BLE001 -- a warning is never worth failing the write
+        logger.warning("Checking a metric's target keys failed", exc_info=True)
+        return []
     return unknown_key_warnings(keys, catalogue)

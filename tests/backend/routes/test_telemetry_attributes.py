@@ -98,6 +98,28 @@ class TestAttributeCatalogue:
         assert top["distinct"] == 12
         assert top["top_values"][0] == {"value": "tool_", "count": 1, "truncated": True}
 
+    def test_values_are_told_apart_by_their_start(
+        self, authenticated_client: TestClient, db_project, monkeypatch
+    ):
+        """Only the first ATTRIBUTE_VALUE_HASH_LENGTH characters are hashed, so a long value
+        isn't hashed whole; values alike that far count as one, still marked cut."""
+        from rhesis.backend.app.crud import telemetry as telemetry_crud
+
+        monkeypatch.setattr(telemetry_crud, "ATTRIBUTE_VALUE_HASH_LENGTH", 8)
+        monkeypatch.setattr(span_attributes, "VALUE_MAX_LENGTH", 5)
+        project_id = str(db_project.id)
+        prompts = ["abcdefgh-one", "abcdefgh-two", "abcdefXY"]
+        spans = [tool_span(project_id, "t", **{"app.prompt": p}) for p in prompts]
+        ingest(authenticated_client, project_id, spans)
+
+        prompt = attribute(catalogue(authenticated_client, project_id), TOOL, "app.prompt")
+
+        assert prompt["distinct"] == 2
+        assert prompt["top_values"] == [
+            {"value": "abcde", "count": 2, "truncated": True},
+            {"value": "abcde", "count": 1, "truncated": True},
+        ]
+
     def test_unique_flag(self, authenticated_client: TestClient, db_project):
         project_id = str(db_project.id)
         spans = [

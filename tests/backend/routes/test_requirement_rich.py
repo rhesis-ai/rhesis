@@ -592,8 +592,14 @@ class TestRequirementListMetrics:
             "metric_type",
             "project_id",
             "class_name",
+            "target_summary",
+            "target_summary_short",
         }
         assert listed_metric["id"] == metric["id"]
+        # The same words as the metric's own response, for the card's target line.
+        assert listed_metric["target_summary"] == metric["target_summary"]
+        assert listed_metric["target_summary_short"] == metric["target_summary_short"]
+        assert listed_metric["target_summary_short"]
         assert listed_metric["backend_type"]["type_value"]
         assert listed_metric["metric_type"]["type_value"]
 

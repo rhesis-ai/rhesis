@@ -133,7 +133,11 @@ class TestListSpans:
                 '{"on": "span", "where": [{"field": "kind", "op": "~", "value": "x"}]}',
                 "op must be one of",
             ),
+            ("null", "leave target out"),
+            ('{"on": "span", "where": 5}', "where is a list"),
+            ("[" * 5000, "not JSON"),
         ],
+        ids=["not json", "unknown on", "no conditions", "bad op", "null", "where 5", "deep"],
     )
     def test_bad_target_is_a_422(
         self, authenticated_client: TestClient, db_project, target, problem

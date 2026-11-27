@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext
 
+from rhesis.backend.app.crud.telemetry import RECENT_TRACE_DAYS
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.app.schemas.metric import (
@@ -196,6 +197,7 @@ class TestTargetPreview:
 
         assert body == {
             "traces": 3,
+            "partial": False,
             "matching_traces": 0,
             "units": 0,
             "not_applicable_traces": 3,
@@ -326,6 +328,54 @@ class TestTargetPreview:
 
         assert body.json()["traces"] == 0
 
+    def test_out_of_time_it_answers_with_what_it_read(
+        self, authenticated_client, traces, monkeypatch
+    ):
+        project_id, (refunds, _, _) = traces
+        monkeypatch.setattr(target_preview, "PREVIEW_TIME_BUDGET_S", 0.0)
+
+        body = _preview(authenticated_client, project_id, {"on": TargetKind.TOOL_CALL}).json()
+
+        assert body["partial"] is True
+        # The newest trace is always read whole.
+        assert (body["traces"], body["matching_traces"], body["units"]) == (1, 1, 2)
+        assert body["not_applicable_traces"] == 0
+        assert {sample["trace_id"] for sample in body["samples"]} == {refunds}
+
+    def test_in_time_it_is_not_partial(self, authenticated_client, traces):
+        project_id, _ = traces
+
+        body = _preview(authenticated_client, project_id, {"on": TargetKind.TOOL_CALL}).json()
+
+        assert body["partial"] is False
+
+    def test_a_trace_whose_root_is_an_orphan_counts(self, authenticated_client, db_project):
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        orphan = _span(
+            project_id,
+            trace_id,
+            TOOL_SPAN,
+            datetime.now(timezone.utc),
+            _tool("lookup_order", "{}", "found"),
+            parent=uuid.uuid4().hex[:16],
+        )
+        response = authenticated_client.post(TRACES, json={"spans": [orphan]})
+        assert response.status_code == status.HTTP_200_OK, response.text
+
+        body = _preview(authenticated_client, project_id, {"on": TargetKind.TOOL_CALL}).json()
+
+        assert (body["traces"], body["units"]) == (1, 1)
+
+    def test_traces_older_than_the_window_are_left_out(self, authenticated_client, db_project):
+        project_id = str(db_project.id)
+        old = datetime.now(timezone.utc) - timedelta(days=RECENT_TRACE_DAYS + 1)
+        _store(authenticated_client, project_id, old, [])
+
+        body = _preview(authenticated_client, project_id, {"on": TargetKind.RUN}).json()
+
+        assert body["traces"] == 0
+
 
 @pytest.mark.integration
 class TestTargetPreviewRefusals:
@@ -351,6 +401,7 @@ class TestTargetPreviewRefusals:
                 "compares with a number",
             ),
             ({"on": TargetKind.RUN, "read": {"input": "x"}}, "read is for a target"),
+            ({"on": TargetKind.SPAN, "where": 5}, "where is a list"),
         ],
     )
     def test_a_bad_target_is_refused_naming_the_problem(
@@ -361,6 +412,20 @@ class TestTargetPreviewRefusals:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         assert response.json()["detail"].startswith("Invalid target: ")
         assert named in response.json()["detail"]
+
+    @pytest.mark.parametrize("error", [TypeError, OverflowError, RecursionError])
+    def test_any_error_reading_a_target_is_a_422(
+        self, authenticated_client, db_project, monkeypatch, error
+    ):
+        def fails(*_args, **_kwargs):
+            raise error("the SDK tripped")
+
+        monkeypatch.setattr("rhesis.sdk.metrics.targets.Target.coerce", fails)
+
+        response = _preview(authenticated_client, str(db_project.id), {"on": TargetKind.RUN})
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.json()["detail"] == "Invalid target: the SDK tripped"
 
     def test_traces_below_one_is_refused(self, authenticated_client, db_project):
         response = _preview(

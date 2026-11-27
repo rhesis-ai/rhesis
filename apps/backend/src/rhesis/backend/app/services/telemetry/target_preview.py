@@ -4,6 +4,7 @@ The traces are built as evaluation builds them and matched with the SDK's ``Targ
 so the preview counts exactly the units a metric would be run on.
 """
 
+import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -21,6 +22,9 @@ from rhesis.sdk.metrics.targets import Target, TargetKind, Unit
 PREVIEW_SAMPLES = 5
 PREVIEW_TEXT_LIMIT = 500
 _CUT_MARK = "…"
+#: Matching stops once this many seconds have passed, and the preview says it is partial: a
+#: regular expression is matched in Python, which has no time limit of its own.
+PREVIEW_TIME_BUDGET_S = 5.0
 
 
 def _cut(value: Any) -> Optional[str]:
@@ -72,12 +76,18 @@ def _rows_by_trace(rows: Sequence[Any]) -> Dict[str, List[Any]]:
 
 def preview_target(db: Session, project_id: str, target: Target, traces: int) -> TargetPreview:
     """Match ``target`` on the project's ``traces`` latest traces: one query for their ids,
-    one for all their spans. ``db`` must be scoped to the project, so RLS lets its rows through."""
+    one for all their spans. ``db`` must be scoped to the project, so RLS lets its rows through.
+    Past ``PREVIEW_TIME_BUDGET_S`` it stops and counts the traces read so far (``partial``)."""
     trace_ids = recent_trace_ids(db, project_id, traces)
     rows = _rows_by_trace(load_trace_spans(db, trace_ids, project_id))
-    matching_traces = units = 0
+    matching_traces = units = read = 0
     samples: List[TargetPreviewSample] = []
+    deadline = time.monotonic() + PREVIEW_TIME_BUDGET_S
     for trace_id in trace_ids:
+        # Checked between traces: one trace is always read whole.
+        if read and time.monotonic() > deadline:
+            break
+        read += 1
         trace = stored_trace(trace_id, project_id, rows.get(trace_id, ()))
         picked = _units(target, trace)
         if not picked:
@@ -86,10 +96,11 @@ def preview_target(db: Session, project_id: str, target: Target, traces: int) ->
         units += len(picked)
         samples += [_sample(trace, unit) for unit in picked[: PREVIEW_SAMPLES - len(samples)]]
     return TargetPreview(
-        traces=len(trace_ids),
+        traces=read,
+        partial=read < len(trace_ids),
         matching_traces=matching_traces,
         units=units,
-        not_applicable_traces=len(trace_ids) - matching_traces,
+        not_applicable_traces=read - matching_traces,
         samples=samples,
         target_summary=target.describe(),
         target_summary_short=target.describe(short=True),

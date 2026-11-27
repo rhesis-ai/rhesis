@@ -174,7 +174,8 @@ def check_metric_config(
 
 def read_target(value: Any) -> Any:
     """``value`` as the SDK's ``Target``, or a ValueError ("Invalid target: …") naming each
-    problem. Raises ImportError on a core install."""
+    problem, whatever reading it raised, so a route answers 422 and never 500. Raises
+    ImportError on a core install."""
     from rhesis.sdk.metrics.targets import Target, UnsupportedTarget
 
     try:
@@ -187,6 +188,9 @@ def read_target(value: Any) -> Any:
         raise ValueError(f"Invalid target: {problems}") from None
     except UnsupportedTarget as e:
         raise ValueError(f"Invalid target: {e.reason}") from None
+    # A shape the SDK didn't expect ("where": 5), or a number too large for it.
+    except (ValueError, TypeError, OverflowError, RecursionError) as e:
+        raise ValueError(f"Invalid target: {e}") from None
 
 
 def check_updated_config(update: "MetricUpdate", stored: Any) -> Optional[Dict[str, Any]]:
@@ -228,13 +232,17 @@ class _ChecksConfig:
 
     @model_validator(mode="after")
     def validate_config(self):
-        self.config = check_metric_config(
-            self.class_name,
-            self.config,
-            ground_truth_required=bool(self.ground_truth_required),
-            accepted=accepted_params(self.evaluation_examples),
-            default_target=self.fills_default_target,
-        )
+        try:
+            self.config = check_metric_config(
+                self.class_name,
+                self.config,
+                ground_truth_required=bool(self.ground_truth_required),
+                accepted=accepted_params(self.evaluation_examples),
+                default_target=self.fills_default_target,
+            )
+        except (TypeError, OverflowError) as e:
+            # Pydantic turns only a ValueError into a 422; anything else would be a 500.
+            raise ValueError(str(e)) from None
         return self
 
 
@@ -390,6 +398,8 @@ class TargetPreview(BaseModel):
 
     traces: int
     """The traces read, at most the number asked for."""
+    partial: bool = False
+    """Matching ran out of time before every trace was read; the counts are of ``traces``."""
     matching_traces: int
     units: int
     """The units picked in all of them: what the metric would run on."""

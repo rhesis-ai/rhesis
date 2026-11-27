@@ -46,11 +46,18 @@ from sqlalchemy.orm import aliased
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import REPORTED_SPAN_SOURCE, AISpanAttributes
-from rhesis.backend.app.crud.span_sql import span_name_field_expr
+from rhesis.backend.app.crud.span_sql import (
+    same_trace,
+    span_is_root_expr,
+    span_name_field_expr,
+)
+from rhesis.backend.app.crud.telemetry import AGENT_PATH_MAX_DEPTH
 from rhesis.sdk.entities.trace import FROM_CONVERSATION, TRACE_SOURCE_ATTRIBUTE
 from rhesis.sdk.metrics.conditions import (
     ATTRIBUTE_PREFIX,
     MET_WHEN_MISSING,
+    NUMBER_TEXT,
+    NUMBER_TEXT_LIMIT,
     NUMERIC_OPS,
     REGEX_TEXT_LIMIT,
     Condition,
@@ -61,17 +68,15 @@ from rhesis.sdk.metrics.conditions import (
     text,
 )
 from rhesis.sdk.metrics.targets import Target, TargetKind
+from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext
 
 _CONVERSATION_INPUT = ConversationContext.SpanAttributes.CONVERSATION_INPUT
 _CONVERSATION_OUTPUT = ConversationContext.SpanAttributes.CONVERSATION_OUTPUT
 
-#: What Python's ``float()`` reads as a number, without ``inf`` and ``nan`` (which aren't
-#: finite, so not numbers to a condition). The exponent and the length are capped so the cast
-#: to numeric can't fail; past them Python's float is infinite, so not a number either.
-_DIGITS = "[0-9](_?[0-9])*"
-NUMBER_TEXT = rf"^\s*[-+]?({_DIGITS}(\.({_DIGITS})?)?|\.{_DIGITS})([eE][-+]?0*[0-9]{{1,4}})?\s*$"
-NUMBER_TEXT_LIMIT = 1000
+#: The whitespace ``NUMBER_TEXT`` allows around a number, and all the cast is left to trim:
+#: ASCII only, so text the pattern takes is always a numeric Postgres can read.
+_NUMBER_SPACE = " \t\n\r\f\v"
 #: A float's range: past the largest a number is infinite; below the smallest it is 0.
 _FLOAT_MAX = Decimal(repr(sys.float_info.max))
 _FLOAT_TINY = Decimal("1e-320")
@@ -114,10 +119,22 @@ def _as_float(value) -> Any:
 
 
 def _text_number(value) -> Any:
-    """Text as a number the way ``conditions.number`` reads it, NULL when it isn't one."""
+    """Text as a number the way ``conditions.number`` reads it, NULL when it isn't one.
+
+    ``NUMBER_TEXT`` is the SDK's own pattern: ASCII digits, an exponent of at most four
+    digits and at most ``NUMBER_TEXT_LIMIT`` characters, so the cast never fails."""
     readable = and_(func.length(value) <= NUMBER_TEXT_LIMIT, value.op("~")(NUMBER_TEXT))
-    cleaned = func.replace(func.btrim(value), "_", "")
+    cleaned = func.btrim(value, _NUMBER_SPACE)
     return case((readable, _as_float(cast(cleaned, Numeric))))
+
+
+def _number(value: Any) -> Optional[float]:
+    """``conditions.number`` of a value the target compares with; an integer too large for a
+    float is no number, rather than an ``OverflowError``."""
+    try:
+        return number(value)
+    except (OverflowError, ValueError):
+        return None
 
 
 def _json(trace, key: str) -> Any:
@@ -182,10 +199,10 @@ def _same_any(field: _Field, values: Sequence[Any]) -> Any:
     def as_text(value: Any) -> str:
         return text(value).lower() if field.any_case else text(value)
 
-    words = [as_text(v) for v in values if number(v) is None]
+    words = [as_text(v) for v in values if _number(v) is None]
     clauses = [measured.in_(words)] if words else []
     for value in values:
-        wanted = number(value)
+        wanted = _number(value)
         if wanted is None:
             continue
         if field.number is None:
@@ -201,9 +218,9 @@ def _same_any(field: _Field, values: Sequence[Any]) -> Any:
 
 
 def _numeric(field: _Field, op: ConditionOp, value: Any) -> Any:
-    if field.number is None:
+    wanted = _number(value)
+    if field.number is None or wanted is None:
         return false()
-    wanted = number(value)
     compared = {
         ConditionOp.LT: field.number < wanted,
         ConditionOp.LE: field.number <= wanted,
@@ -276,25 +293,61 @@ def condition_clause(trace, condition: Condition) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def _same_trace(other, trace) -> list:
-    return [
-        other.organization_id == trace.organization_id,
-        other.project_id == trace.project_id,
-        other.trace_id == trace.trace_id,
-        other.deleted_at.is_(None),
-    ]
-
-
 def _conditions(trace, conditions: Optional[Sequence[Condition]]) -> list:
     return [condition_clause(trace, condition) for condition in conditions or ()]
+
+
+def _inside_by_walk(trace, agent: str) -> Any:
+    """Whether an agent span named ``agent`` is above *trace*, found by walking up its
+    parents: for a span whose ``agent_path`` isn't filled yet (``update_agent_paths``)."""
+    first = aliased(models.Trace)
+    anchor = (
+        select(
+            first.span_id,
+            first.parent_span_id,
+            first.span_type,
+            span_name_field_expr(first).label("name"),
+            literal(1).label("depth"),
+        )
+        .where(*same_trace(first, trace), first.span_id == trace.parent_span_id)
+        .correlate(trace)
+    )
+    above = anchor.cte("above", recursive=True, nesting=True)
+    parent = aliased(models.Trace)
+    above = above.union_all(
+        select(
+            parent.span_id,
+            parent.parent_span_id,
+            parent.span_type,
+            span_name_field_expr(parent),
+            above.c.depth + 1,
+        ).where(
+            *same_trace(parent, trace),
+            parent.span_id == above.c.parent_span_id,
+            above.c.depth < AGENT_PATH_MAX_DEPTH,
+        )
+    )
+    return exists(
+        select(literal(1))
+        .select_from(above)
+        .where(
+            above.c.span_type == AIAttributes.OPERATION_AGENT_INVOKE,
+            above.c.name == agent,
+        )
+    )
+
+
+def _inside(trace, agent: str) -> Any:
+    """``targets._walk``'s agents above the span, read from ``agent_path``; a span stored
+    before the column existed walks up instead (``COALESCE`` reads that only for those)."""
+    return func.coalesce(trace.agent_path.contains([agent]), _inside_by_walk(trace, agent))
 
 
 def _picked(trace, target: Target) -> list:
     """The span meets the expanded target's conditions and is inside its agent."""
     clauses = _conditions(trace, target.where)
     if target.within is not None:
-        inside = trace.agent_path.contains([target.within])
-        clauses.append(func.coalesce(inside, false()))
+        clauses.append(_inside(trace, target.within))
     return clauses
 
 
@@ -305,23 +358,12 @@ def _span_units(target: Target) -> Any:
     target = target.expand()
     twin = aliased(models.Trace)
     recorded_twin = exists().where(
-        *_same_trace(twin, trace),
+        *same_trace(twin, trace),
         twin.span_type == trace.span_type,
         not_(_reported(twin)),
         *_picked(twin, target),
     )
     return and_(*_picked(trace, target), not_(and_(_reported(trace), recorded_twin)))
-
-
-def _is_root(trace) -> Any:
-    """A root of the span tree: its parent isn't stored in the trace. Read from ``is_root``;
-    a span stored before the column existed, and not backfilled yet, looks its parent up."""
-    parent = aliased(models.Trace)
-    stored_parent = exists().where(
-        *_same_trace(parent, trace), parent.span_id == trace.parent_span_id
-    )
-    looked_up = or_(trace.parent_span_id.is_(None), not_(stored_parent))
-    return func.coalesce(trace.is_root, looked_up)
 
 
 def _truthy(value) -> Any:
@@ -340,18 +382,18 @@ def _carries_turn(trace) -> Any:
 def _turn_roots(trace) -> Any:
     """The trace's other roots that carry a turn, as a subquery's WHERE."""
     other = aliased(models.Trace)
-    return other, [*_same_trace(other, trace), _is_root(other), _carries_turn(other)]
+    return other, [*same_trace(other, trace), span_is_root_expr(other), _carries_turn(other)]
 
 
 def _first_root(trace) -> Any:
     """The trace's first root by start time, which a whole-trace unit shows."""
     earlier = aliased(models.Trace)
     earlier_root = exists().where(
-        *_same_trace(earlier, trace),
-        _is_root(earlier),
+        *same_trace(earlier, trace),
+        span_is_root_expr(earlier),
         tuple_(earlier.start_time, earlier.id) < tuple_(trace.start_time, trace.id),
     )
-    return and_(_is_root(trace), not_(earlier_root))
+    return and_(span_is_root_expr(trace), not_(earlier_root))
 
 
 def _turn_units(target: Target) -> Any:
@@ -359,7 +401,7 @@ def _turn_units(target: Target) -> Any:
     trace = models.Trace
     _, any_turn = _turn_roots(trace)
     without_turns = and_(_first_root(trace), not_(exists().where(*any_turn)))
-    is_turn = or_(and_(_is_root(trace), _carries_turn(trace)), without_turns)
+    is_turn = or_(and_(span_is_root_expr(trace), _carries_turn(trace)), without_turns)
     return and_(is_turn, *_conditions(trace, target.where))
 
 

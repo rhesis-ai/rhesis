@@ -132,6 +132,29 @@ def span_name_field_sql() -> str:
     return str(compiled)
 
 
+def same_trace(other, trace) -> list:
+    """*other* (an alias of the table) is a stored span of *trace*'s trace."""
+    return [
+        other.organization_id == trace.organization_id,
+        other.project_id == trace.project_id,
+        other.trace_id == trace.trace_id,
+        other.deleted_at.is_(None),
+    ]
+
+
+def span_is_root_expr(trace=models.Trace) -> Any:
+    """Whether *trace* is a root of its span tree: its parent isn't stored in the trace.
+
+    Read from ``is_root``, which ingest keeps; a span stored before the column existed, and
+    not backfilled yet, looks its parent up (``COALESCE`` reads that only for those rows)."""
+    parent = aliased(models.Trace)
+    stored_parent = exists().where(
+        *same_trace(parent, trace), parent.span_id == trace.parent_span_id
+    )
+    looked_up = or_(trace.parent_span_id.is_(None), ~stored_parent)
+    return func.coalesce(trace.is_root, looked_up)
+
+
 def span_scope(trace, org_uuid, project_id: Optional[str]) -> list:
     clauses = [trace.organization_id == org_uuid, trace.deleted_at.is_(None)]
     if project_id:
@@ -187,7 +210,7 @@ def _row_clauses(filters: SpanFilters, skip: Collection[str]) -> list:
             )
         )
     if filters.is_root is not None:
-        is_root = trace.parent_span_id.is_(None)
+        is_root = span_is_root_expr(trace)
         clauses.append(is_root if filters.is_root else ~is_root)
     if filters.status_code:
         clauses.append(trace.status_code == filters.status_code)

@@ -17,12 +17,19 @@ walks every tenant scope and recomputes a batch of traces per statement: one
 project-wide recursive UPDATE took 14.5 minutes for 200k spans. Traces whose spans all
 have both values are skipped, so a rerun only does what's left.
 
+Each batch commits on its own (``autocommit_block()``), so no row stays locked for the
+whole backfill. FORCE RLS is in force outside the migration's transaction for an owner
+without BYPASSRLS, so the tenant scope is bound for the session rather than the
+transaction, and every batch sees exactly its project's rows either way. The 120 s
+``lock_timeout`` is the one the other trace migrations use.
+
 Revision ID: 1924e6ab1c6f
 Revises: b6f1d3a8c9e2
 Create Date: 2026-11-27
 """
 
-from typing import Sequence, Union
+from contextlib import contextmanager
+from typing import Iterator, Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
@@ -112,13 +119,37 @@ def _backfill_scope(conn, org_id: str, project_id: str, batch_size: int = _BATCH
     return written
 
 
+_UNBIND = sa.text("""
+    SELECT set_config('app.current_organization', '', false),
+           set_config('app.current_project', '', false)
+""")
+
+
 def _backfill(conn, batch_size: int = _BATCH_SIZE) -> int:
+    """Fill every project's traces, on a connection that commits each statement: the scope
+    is bound for the session, and blanked again at the end."""
     written = 0
-    for org_id, project_id in iter_tenant_scopes(conn):
-        # trace.project_id is NOT NULL: the org-only scope holds no spans.
-        if project_id is not None:
-            written += _backfill_scope(conn, org_id, project_id, batch_size)
+    try:
+        for org_id, project_id in iter_tenant_scopes(conn, local=False):
+            # trace.project_id is NOT NULL: the org-only scope holds no spans.
+            if project_id is not None:
+                written += _backfill_scope(conn, org_id, project_id, batch_size)
+    finally:
+        conn.execute(_UNBIND)
     return written
+
+
+@contextmanager
+def _autocommit_with_lock_timeout() -> Iterator[sa.engine.Connection]:
+    # SET LOCAL dies with the transaction autocommit_block() commits, so the timeout is set
+    # again for the session, for the work inside it.
+    with op.get_context().autocommit_block():
+        conn = op.get_bind()
+        conn.execute(sa.text(f"SET lock_timeout = '{_LOCK_TIMEOUT}'"))
+        try:
+            yield conn
+        finally:
+            conn.execute(sa.text("RESET lock_timeout"))
 
 
 def upgrade() -> None:
@@ -128,11 +159,10 @@ def upgrade() -> None:
         op.add_column("trace", sa.Column("agent_path", sa.ARRAY(sa.Text()), nullable=True))
     if not column_exists(conn, "trace", "is_root"):
         op.add_column("trace", sa.Column("is_root", sa.Boolean(), nullable=True))
-    # Commits the ALTER, so its lock isn't held through the backfill.
-    with op.get_context().autocommit_block():
-        pass
 
-    _backfill(op.get_bind())
+    # Entering the block commits the ALTER, so its lock isn't held through the backfill.
+    with _autocommit_with_lock_timeout() as autocommit_conn:
+        _backfill(autocommit_conn)
 
 
 def downgrade() -> None:

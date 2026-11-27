@@ -1269,6 +1269,68 @@ class TestWhereKeyWarnings(MetricTestMixin):
         assert response.json()["warnings"] == []
         assert catalogue_calls == []
 
+    def test_a_where_that_is_not_a_list_is_a_422(self, authenticated_client, in_project):
+        bad = {"target": {"on": "span", "where": 5}}
+        data = {**MetricDataFactory.sample_data(), "config": bad}
+
+        created = authenticated_client.post(self.endpoints.create, json=data)
+        assert created.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, created.text
+
+        metric = self._create(authenticated_client, _span_target(_condition(TIER, "exists")))
+        updated = authenticated_client.put(self.endpoints.put(metric["id"]), json={"config": bad})
+        assert updated.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, updated.text
+        assert "Invalid target:" in updated.text
+
+    def test_a_type_error_reading_a_target_is_a_422(
+        self, authenticated_client, in_project, monkeypatch
+    ):
+        def fails(*_args, **_kwargs):
+            raise TypeError("the SDK tripped")
+
+        monkeypatch.setattr("rhesis.sdk.metrics.targets.Target.coerce", fails)
+        data = {
+            **MetricDataFactory.sample_data(),
+            "config": _span_target(_condition(TIER, "exists")),
+        }
+
+        response = authenticated_client.post(self.endpoints.create, json=data)
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.text
+        assert "Invalid target: the SDK tripped" in response.text
+
+    def test_a_failing_key_check_never_fails_the_write(
+        self, authenticated_client, in_project, monkeypatch
+    ):
+        from rhesis.backend.app.services.telemetry import span_attributes
+
+        def fails(*_args, **_kwargs):
+            raise RuntimeError("catalogue down")
+
+        monkeypatch.setattr(span_attributes, "get_attribute_catalogue", fails)
+
+        metric = self._create(authenticated_client, _span_target(_condition("app.tier", "exists")))
+
+        assert metric["warnings"] == []
+
+    def test_a_slow_key_check_is_cut_short_and_the_write_goes_on(
+        self, authenticated_client, in_project, monkeypatch
+    ):
+        from sqlalchemy import text
+
+        from rhesis.backend.app.services.telemetry import span_attributes
+
+        def slow(db, *_args, **_kwargs):
+            db.execute(text("SELECT pg_sleep(5)"))
+
+        monkeypatch.setattr(span_attributes, "KEY_CHECK_TIMEOUT_MS", 50)
+        monkeypatch.setattr(span_attributes, "get_attribute_catalogue", slow)
+
+        metric = self._create(authenticated_client, _span_target(_condition("app.tier", "exists")))
+
+        assert metric["warnings"] == []
+        # Saved in the same transaction the cancelled query ran in.
+        assert authenticated_client.get(self.endpoints.get(metric["id"])).status_code == 200
+
     def test_an_invalid_target_reaches_mcp_with_the_message_intact(
         self, authenticated_client, in_project
     ):

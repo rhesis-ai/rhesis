@@ -398,6 +398,8 @@ def preview_metric_target(
         raise HTTPException(status_code=501, detail="Targets need the metrics SDK") from e
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    except (TypeError, OverflowError, RecursionError) as e:  # read_target turns these too
+        raise HTTPException(status_code=422, detail=f"Invalid target: {e}") from e
 
     organization_id, user_id = tenant_context
     project_id = assert_project_access(request, current_user, str(body.project_id), db=db)
@@ -507,7 +509,7 @@ def update_metric(
     if metric.config is not None:
         try:
             metric.config = check_updated_config(metric, db_metric)
-        except ValueError as e:
+        except (ValueError, TypeError, OverflowError) as e:
             raise HTTPException(status_code=422, detail=f"Invalid config: {e}") from e
     warnings = target_key_warnings(db, organization_id, db_metric.project_id, metric.config)
 

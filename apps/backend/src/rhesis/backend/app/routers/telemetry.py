@@ -531,13 +531,17 @@ def _parse_target(raw: Optional[str]) -> Any:
     """The ``target`` query parameter as the SDK's Target; 422 naming what is wrong."""
     if raw is None:
         return None
+
+    def invalid(detail: str) -> HTTPException:
+        return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
     try:
         value = json.loads(raw)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid target: not JSON ({e})",
-        ) from e
+    except (ValueError, RecursionError) as e:
+        raise invalid(f"Invalid target: not JSON ({e})") from e
+    if value is None:
+        # Not "no target": a caller that means none leaves the parameter out.
+        raise invalid("Invalid target: null; leave target out to list every span")
     try:
         return read_target(value)
     except ImportError as e:  # a core install, which runs no metric
@@ -545,7 +549,7 @@ def _parse_target(raw: Optional[str]) -> Any:
             status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Targets need the metrics SDK"
         ) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)) from e
+        raise invalid(str(e)) from e
 
 
 @contextmanager

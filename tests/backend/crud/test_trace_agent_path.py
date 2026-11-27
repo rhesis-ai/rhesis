@@ -8,8 +8,11 @@ carries its own copy of the SQL, so it is held to the same traces.
 
 import importlib.util
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 import sqlalchemy as sa
@@ -22,10 +25,12 @@ from rhesis.backend.app.crud.telemetry import (
     create_trace_spans,
     get_trace_by_id,
     move_spans_to_trace,
+    update_agent_paths,
 )
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 from rhesis.backend.app.services.telemetry.evaluation_trace import _from_rows, _trace
 from rhesis.sdk.metrics.targets import _walk
+from tests.backend.fixtures.rls import scope_to_org, scope_to_project
 
 BASE_TIME = datetime(2026, 11, 1, 12, 0, tzinfo=timezone.utc)
 
@@ -342,3 +347,67 @@ class TestBackfill:
 
         assert written == sum(len(paths) for paths, _ in expected.values())
         assert _stored(test_db, trace_id, other) == expected
+
+    def test_binds_each_scope_for_the_session(self, test_db, test_org_id, project_id, nested_trace):
+        """The backfill commits batch by batch, so it binds each tenant scope for the session,
+        not the transaction. Run as the app role, under RLS, it still reaches the project's
+        rows, and blanks the scope when done."""
+        trace_id, _ = nested_trace
+        expected = _stored(test_db, trace_id)
+        test_db.execute(
+            sa.update(models.Trace)
+            .where(models.Trace.trace_id == trace_id)
+            .values(agent_path=None, is_root=None)
+        )
+        conn = test_db.connection()
+
+        _load_migration()._backfill(conn, batch_size=1)
+
+        scope = sa.text("SELECT current_setting('app.current_project', true)")
+        assert conn.execute(scope).scalar() == ""
+        scope_to_org(test_db, test_org_id)
+        scope_to_project(test_db, project_id)
+        assert _stored(test_db, trace_id) == expected
+
+    def test_upgrade_backfills_committing_as_it_goes(self, monkeypatch):
+        migration = _load_migration()
+        events = []
+
+        class Context:
+            @contextmanager
+            def autocommit_block(self):
+                events.append("autocommit")
+                yield
+                events.append("done")
+
+        fake_op = SimpleNamespace(
+            get_bind=lambda: MagicMock(),
+            get_context=Context,
+            add_column=lambda table, column: events.append(f"add {column.name}"),
+        )
+        monkeypatch.setattr(migration, "op", fake_op)
+        monkeypatch.setattr(migration, "column_exists", lambda *_: False)
+        monkeypatch.setattr(migration, "_backfill", lambda *_args, **_kw: events.append("fill"))
+
+        migration.upgrade()
+
+        assert events == ["add agent_path", "add is_root", "autocommit", "fill", "done"]
+
+
+@pytest.mark.integration
+class TestExplicitScope:
+    def test_reads_only_the_named_project(self, test_db, test_org_id, project_id, nested_trace):
+        """The raw UPDATE names each trace's organization and project, not just RLS."""
+        trace_id, _ = nested_trace
+        expected = _stored(test_db, trace_id)
+        test_db.execute(
+            sa.update(models.Trace)
+            .where(models.Trace.trace_id == trace_id)
+            .values(agent_path=None, is_root=None)
+        )
+
+        update_agent_paths(test_db, [(test_org_id, uuid.uuid4(), trace_id)])
+        assert set(_roots(test_db, trace_id).values()) == {None}
+
+        update_agent_paths(test_db, [(test_org_id, project_id, trace_id)])
+        assert _stored(test_db, trace_id) == expected
