@@ -330,6 +330,7 @@ def read_metric_targets(current_user: User = Depends(require_current_user_or_tok
             label=preset.label,
             description=preset.description,
             per_span=preset.span_kind is not None,
+            span_kind=preset.span_kind,
         )
         for kind, preset in TARGETS.items()
     ]

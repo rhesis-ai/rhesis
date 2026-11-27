@@ -565,8 +565,11 @@ class TestMetricPerformance(MetricTestMixin, BaseEntityTests):
             "label": "Each turn",
             "description": TARGETS["turn"].description,
             "per_span": False,
+            "span_kind": None,
         }
-        assert next(c for c in choices if c["on"] == "tool_call")["per_span"] is True
+        tool_call = next(c for c in choices if c["on"] == "tool_call")
+        assert tool_call["per_span"] is True
+        assert tool_call["span_kind"] == "tool.invoke"
 
 
 # === METRIC GENERATE ENDPOINT TESTS ===

@@ -261,6 +261,8 @@ class TargetChoice(BaseModel):
     label: str
     description: str
     per_span: bool
+    span_kind: Optional[str] = None
+    """The span type a per-span target judges one by one (``tool.invoke``, ``retrieval``…)."""
 
 
 class ModelReference(Base, ServerIdentity):
