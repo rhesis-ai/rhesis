@@ -620,6 +620,29 @@ class TestTheImprovement:
         assert improvement["score_type"] == "categorical"
         assert improvement["categories"] == ["helpful", "harmful"]
 
+    def test_a_passing_category_that_is_not_a_category_is_a_400(
+        self,
+        authenticated_client: TestClient,
+        test_db: Session,
+        categorical_metric,
+        test_org_id,
+        generation_model,
+    ):
+        """A re-cased label would save a metric that never passes; it's the model's error."""
+        _create_case(authenticated_client, categorical_metric.id)
+        _run(test_db, categorical_metric, test_org_id, {"score": "helpful", "reason": "polite"})
+        cases = authenticated_client.get(f"/metrics/{categorical_metric.id}/tuning/cases").json()
+        _reject(authenticated_client, categorical_metric.id, cases[0]["id"])
+        generation_model.answers(
+            score_type="categorical",
+            categories=["helpful", "harmful"],
+            passing_categories=["Helpful"],
+        )
+
+        response = _improve(authenticated_client, categorical_metric.id)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_a_field_the_metric_has_is_never_proposed_empty(
         self,
         authenticated_client: TestClient,

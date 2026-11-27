@@ -49,6 +49,7 @@ from rhesis.backend.app.schemas.metric_tuning import (
     TuningDecision,
 )
 from rhesis.backend.app.schemas.metric_tuning_metadata import parse_metric_tuning_case_metadata
+from rhesis.backend.app.schemas.metric_types import check_score_fields
 from rhesis.backend.app.services.annotation_override.common import (
     annotation_passed,
     find_metric_key,
@@ -674,6 +675,19 @@ def improve_from_annotations(
     proposed = _refuse_to_blank(
         metric, _preserve_fixed_fields(metric, _ask_model(db, user, prompt))
     )
+    try:
+        # With score_type and categories put back, the model's bands must fit them,
+        # e.g. a passing category it re-cased no longer names one.
+        check_score_fields(
+            proposed.get("score_type"),
+            min_score=proposed.get("min_score"),
+            max_score=proposed.get("max_score"),
+            threshold=proposed.get("threshold"),
+            categories=proposed.get("categories"),
+            passing_categories=proposed.get("passing_categories"),
+        )
+    except ValueError as e:
+        raise ImprovementUnavailable(f"The proposed score fields do not fit the metric: {e}") from e
 
     # Applying is an ordinary metric update, so what is proposed has to be one.
     # Checked here rather than left to fail on apply, and deliberately outside the

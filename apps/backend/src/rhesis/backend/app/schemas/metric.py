@@ -5,7 +5,11 @@ from typing import Any, Dict, List, Optional
 from pydantic import UUID4, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
-from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
+from rhesis.backend.app.schemas.metric_types import (
+    ScoreType,
+    ThresholdOperator,
+    check_score_fields,
+)
 from rhesis.backend.app.schemas.references import RequirementReference
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
@@ -52,6 +56,15 @@ class MetricBase(Base):
     config: Optional[Dict[str, Any]] = None
     organization_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
+
+    def _score_fields(self) -> Dict[str, Any]:
+        return {
+            "min_score": self.min_score,
+            "max_score": self.max_score,
+            "threshold": self.threshold,
+            "categories": self.categories,
+            "passing_categories": self.passing_categories,
+        }
 
 
 def accepted_params(evaluation_examples: Optional[str]) -> Optional[List[str]]:
@@ -167,18 +180,7 @@ class MetricCreate(_ChecksConfig, MetricBase):
 
     @model_validator(mode="after")
     def validate_score_type_fields(self) -> "MetricCreate":
-        if self.score_type == ScoreType.NUMERIC:
-            if self.min_score is None:
-                raise ValueError("min_score is required for numeric metrics")
-            if self.max_score is None:
-                raise ValueError("max_score is required for numeric metrics")
-            if self.threshold is None:
-                raise ValueError("threshold is required for numeric metrics")
-        elif self.score_type == ScoreType.CATEGORICAL:
-            if not self.categories or len(self.categories) < 2:
-                raise ValueError("at least 2 categories are required for categorical metrics")
-            if not self.passing_categories or len(self.passing_categories) < 1:
-                raise ValueError("at least 1 passing category is required for categorical metrics")
+        check_score_fields(self.score_type, **self._score_fields())
         return self
 
 
@@ -190,6 +192,11 @@ class MetricUpdate(_ChecksConfig, MetricBase):
     evaluation_prompt: Optional[str] = None
     score_type: Optional[ScoreType] = None
     threshold_operator: Optional[ThresholdOperator] = None
+
+    @model_validator(mode="after")
+    def validate_score_type_fields(self) -> "MetricUpdate":
+        check_score_fields(self.score_type, partial=True, **self._score_fields())
+        return self
 
     @field_validator("metric_scope")
     @classmethod
