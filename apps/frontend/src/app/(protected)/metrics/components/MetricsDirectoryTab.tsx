@@ -34,7 +34,12 @@ import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { OWASP_METRIC_FILTER_VALUE, OWASP_METRIC_TAG_NAME } from './list';
+import {
+  OWASP_METRIC_FILTER_VALUE,
+  OWASP_METRIC_TAG_NAME,
+  backendLabel,
+  orderBackends,
+} from './list';
 import { PAGE_HEADERS } from '@/constants/page-headers';
 export interface FilterState {
   search: string;
@@ -386,23 +391,24 @@ export default function MetricsDirectoryTab({
               {...directoryToolbarProps}
               middleContent={
                 <PrimarySegmentedPills
-                  mode="multi"
+                  mode="single"
                   tabs={[
                     { value: '', label: 'All' },
-                    ...filterOptions.backend.map(o => ({
-                      value: o.type_value.toLowerCase(),
-                      label: o.type_value,
+                    ...orderBackends(
+                      filterOptions.backend.map(o => o.type_value)
+                    ).map(backend => ({
+                      value: backend.toLowerCase(),
+                      label: backendLabel(backend),
                     })),
                     {
                       value: OWASP_METRIC_FILTER_VALUE,
                       label: OWASP_METRIC_TAG_NAME,
                     },
                   ]}
-                  selectedValues={filters.backend}
-                  onMultiChange={values =>
-                    handleFilterChange('backend', values)
+                  activeValue={filters.backend[0] ?? ''}
+                  onSingleChange={value =>
+                    handleFilterChange('backend', value ? [value] : [])
                   }
-                  clearValue=""
                 />
               }
             />

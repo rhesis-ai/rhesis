@@ -12,6 +12,27 @@ export const OWASP_METRIC_TAG_NAME = 'OWASP';
  */
 export const OWASP_METRIC_FILTER_VALUE = 'owasp';
 
+/** Backends whose names are acronyms rather than words. */
+const BACKEND_LABELS: Record<string, string> = { sdk: 'SDK' };
+
+/** Quick-filter backends shown first, in this order; the rest follow alphabetically. */
+const LEADING_BACKENDS = ['custom', 'sdk'];
+
+/** Display name of a metric backend: "SDK" for sdk, otherwise the word capitalized. */
+export function backendLabel(backend: string): string {
+  const key = backend.toLowerCase();
+  return BACKEND_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+/** Backend values ordered for the quick filter: custom and sdk first. */
+export function orderBackends(backends: string[]): string[] {
+  const rank = (b: string) => {
+    const i = LEADING_BACKENDS.indexOf(b.toLowerCase());
+    return i === -1 ? LEADING_BACKENDS.length : i;
+  };
+  return [...backends].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
 /**
  * OData $select expression for the metrics list -- trims the
  * response to only the fields the grid/filters render. Shared between the

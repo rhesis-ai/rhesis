@@ -6,6 +6,7 @@ import EntityCard, {
 } from '@/components/common/EntityCard';
 import { TEST_TYPES } from '@/constants/test-types';
 import { RequirementsIcon, TuneIcon } from '@/components/icons';
+import { backendLabel } from './list';
 
 interface MetricCardProps {
   type?: 'custom-prompt' | 'api-call' | 'custom-code' | 'grading';
@@ -78,7 +79,7 @@ export default function MetricCard({
     <EntityCard
       title={title}
       description={description}
-      context={backend ? capitalize(backend) : undefined}
+      context={backend ? backendLabel(backend) : undefined}
       facts={facts}
       relations={
         showUsage
