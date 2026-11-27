@@ -181,6 +181,33 @@ describe('ConversationHistory', () => {
     expect(onConfirmAutomatedAnnotation).toHaveBeenCalled();
   });
 
+  it('puts a turn’s metadata and tool calls behind one line of toggles', async () => {
+    const user = userEvent.setup();
+    renderConversation({
+      conversationSummary: [
+        {
+          ...makeTurn(1),
+          metadata: { phase: 'escalated' },
+          tool_calls: [
+            { name: 'check_red_flags', arguments: {}, output: 'ok' },
+            { name: 'escalate', arguments: {}, output: 'Call 911' },
+          ],
+        },
+      ],
+    });
+
+    const metadata = screen.getByRole('button', { name: 'Expand Metadata' });
+    const toolCalls = screen.getByRole('button', {
+      name: 'Expand Tool calls (2)',
+    });
+    expect(metadata.parentElement).toBe(toolCalls.parentElement);
+    expect(screen.queryByText(/check_red_flags/)).toBeNull();
+
+    await user.click(toolCalls);
+    expect(toolCalls).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/check_red_flags/)).toBeInTheDocument();
+  });
+
   it('skips turns that have no penelope_message or target_response', () => {
     const silentTurn = {
       turn: 1,
