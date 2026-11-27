@@ -70,8 +70,9 @@ Endpoints
 | `output` | Always | Primary text response (JSONPath) |
 | `conversation_id` | Multi-turn only | Session/conversation ID from response (JSONPath). **WARNING**: Do NOT map `$.id` — this is usually a request/completion ID, not a conversation ID. Only map if the API explicitly returns a session/conversation/thread identifier. |
 | `context` | If available | Source documents, references, RAG context (JSONPath) |
-| `metadata` | If available | Usage stats, model info, token counts (JSONPath) |
+| `metadata` | If available | Model info and other details about the response (JSONPath) |
 | `tool_calls` | If available | Tool/function call data (JSONPath) |
+| `usage` | If available | Token counts for the call (JSONPath) |
 
 # Instructions
 

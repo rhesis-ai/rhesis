@@ -51,14 +51,15 @@ Available in request body templates via Jinja2 syntax (`{{ variable }}`).
 
 ### Response Variables
 
-Extracted from your API response using JSONPath or Jinja2 expressions in the response mapping.
+Extracted from your API response using JSONPath or Jinja2 expressions in the response mapping. [Response Mapping](/docs/endpoints/response-mapping#platform-managed-fields) says where each one goes in the call's trace.
 
 | Variable | Description |
 |---|---|
 | `output` | The main response text from your API. This is what Rhesis evaluates against your metrics. |
 | `context` | Additional context or reasoning provided by the response (e.g., retrieved documents, sources). |
-| `metadata` | Structured data about the response (e.g., model version, token counts, confidence scores). Stored with the test result and available to [custom metrics](/docs/metrics#using-metadata-in-evaluation) during evaluation. |
+| `metadata` | Structured data about the response (e.g., model version, confidence scores). Stored with the test result, recorded on the call's trace one key at a time, and available to [custom metrics](/docs/metrics#using-metadata-in-evaluation) during evaluation. |
 | `tool_calls` | Tool or function calls made by the API during response generation. Stored with the test result and available to metrics that evaluate tool use. |
+| `usage` | Token counts for the call, such as `$.usage`. Counted in the trace's token totals. |
 | `version_info` | The version of your application behind this endpoint, as a JSON object (prompt version, model, parameters). Recorded on the test run and shown in its Configuration tab, the test runs list, and trace span details. See [Version Information](/docs/endpoints/management#version-information). |
 | Conversation ID fields | Any of the recognized conversation identifiers: `conversation_id`, `session_id`, `thread_id`, `chat_id`, `dialog_id`, `dialogue_id`, `context_id`, `interaction_id`. Map one of these for multi-turn endpoints so Rhesis can track conversations across turns. |
 

@@ -382,6 +382,101 @@ async def test_create_invocation_trace_records_response_metadata(metadata, expec
     assert captured[0].attributes.get(EndpointAttributes.RESPONSE_METADATA) == expected
 
 
+def _rest_endpoint(response_mapping=None):
+    endpoint = MagicMock(spec=Endpoint)
+    endpoint.id = uuid4()
+    endpoint.name = "test-endpoint"
+    endpoint.connection_type = "REST"
+    endpoint.url = "https://api.example.com"
+    endpoint.project_id = uuid4()
+    endpoint.environment = "development"
+    endpoint.response_mapping = response_mapping
+    return endpoint
+
+
+async def _invoke(endpoint, result, input_data=None):
+    """The spans an invocation with this mapped result writes, invocation span first."""
+    async with create_invocation_trace(
+        None, endpoint, str(uuid4()), input_data=input_data, deferred=True
+    ) as trace_ctx:
+        trace_ctx["result"] = result
+    return trace_ctx["_deferred_trace"].spans
+
+
+class TestRestTraceMapping:
+    """Every field a response mapping exposes has one place in the call's trace."""
+
+    def test_the_invocation_span_is_an_endpoint_call(self):
+        attrs = create_endpoint_attributes(_rest_endpoint())
+        assert attrs["ai.operation.type"] == "endpoint.invoke"
+
+    @pytest.mark.asyncio
+    async def test_each_metadata_key_is_its_own_attribute(self):
+        spans = await _invoke(
+            _rest_endpoint(),
+            {
+                "output": "Hi",
+                "metadata": {"confidence": 0.82, "escalated": False, "blob": "x" * 20000},
+            },
+        )
+        attrs = spans[0].attributes
+
+        assert attrs["rhesis.reported.metadata.confidence"] == 0.82
+        assert attrs["rhesis.reported.metadata.escalated"] is False
+        # Cut on its own: a long value no longer costs the other keys.
+        assert attrs["rhesis.reported.metadata.blob"] == "x" * 2000
+
+    @pytest.mark.asyncio
+    async def test_other_mapped_fields_are_kept_as_attributes(self):
+        endpoint = _rest_endpoint(
+            {
+                "output": "$.answer",
+                "session_id": "$.session",
+                "intent": "$.intent",
+                "scores": "$.scores",
+            }
+        )
+        spans = await _invoke(
+            endpoint,
+            {"output": "Hi", "session_id": "s1", "intent": "refund", "scores": [1, 2]},
+        )
+        attrs = spans[0].attributes
+
+        assert attrs["rhesis.reported.intent"] == "refund"
+        assert attrs["rhesis.reported.scores"] == "[1, 2]"
+        assert "rhesis.reported.session_id" not in attrs
+        assert "rhesis.reported.output" not in attrs
+
+    @pytest.mark.asyncio
+    async def test_request_size_is_the_body_sent(self):
+        body = {"message": "Hello"}
+        spans = await _invoke(_rest_endpoint(), {"output": "Hi", "raw_request": {"body": body}})
+        assert spans[0].attributes[EndpointAttributes.REQUEST_SIZE] == len(json.dumps(body))
+
+    @pytest.mark.asyncio
+    async def test_request_size_falls_back_to_the_input_without_files(self):
+        spans = await _invoke(
+            _rest_endpoint(),
+            {"output": "Hi"},
+            input_data={"input": "Hello", "files": [{"data": "x" * 500}]},
+        )
+        expected = len(json.dumps({"input": "Hello"}))
+        assert spans[0].attributes[EndpointAttributes.REQUEST_SIZE] == expected
+
+    @pytest.mark.asyncio
+    async def test_usage_becomes_a_reported_model_call(self):
+        spans = await _invoke(
+            _rest_endpoint(),
+            {"output": "Hi", "usage": {"prompt_tokens": 12, "completion_tokens": 30}},
+        )
+        [model_call] = [s for s in spans if s.attributes.get("ai.operation.type") == "llm.invoke"]
+
+        assert model_call.parent_span_id == spans[0].span_id
+        assert model_call.attributes["ai.llm.tokens.input"] == 12
+        assert model_call.attributes["ai.llm.tokens.output"] == 30
+        assert model_call.attributes["rhesis.span.source"] == "reported"
+
+
 @pytest.mark.asyncio
 async def test_create_invocation_trace_span_name_format():
     """Test span name follows semantic conventions."""

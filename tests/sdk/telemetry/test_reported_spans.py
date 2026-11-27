@@ -1,11 +1,16 @@
-"""Tool calls and context a response reports become child spans of the invocation."""
+"""What a response reports becomes part of the invocation's trace."""
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
 from rhesis.telemetry.schemas import OTELSpan
 
-from rhesis.sdk.telemetry.reported_spans import reported_spans
 from rhesis.sdk.entities.trace import Span
+from rhesis.sdk.telemetry.reported_spans import (
+    MAX_REPORTED_VALUE_LENGTH,
+    reported_attributes,
+    reported_spans,
+)
 
 START = datetime(2026, 10, 26, 12, 0, tzinfo=timezone.utc)
 
@@ -114,3 +119,71 @@ def test_they_start_in_the_order_reported_so_storage_keeps_it():
 def test_a_response_that_reports_nothing_adds_nothing():
     assert reported_spans({"output": "Hi"}, _invocation()) == []
     assert reported_spans(None, _invocation()) == []
+
+
+def test_they_claim_no_timing_of_their_own():
+    """The endpoint said what happened, not how long it took."""
+    spans = reported_spans(
+        {"tool_calls": [{"name": "a", "output": "x"}], "context": "doc"}, _invocation()
+    )
+
+    assert all(s.start_time == s.end_time for s in spans)
+    assert all(e.timestamp == s.start_time for s in spans for e in s.events)
+
+
+@pytest.mark.parametrize(
+    "usage, expected",
+    [
+        (
+            {"prompt_tokens": 12, "completion_tokens": 30, "total_tokens": 42},
+            {"ai.llm.tokens.input": 12, "ai.llm.tokens.output": 30, "ai.llm.tokens.total": 42},
+        ),
+        (
+            {"input_tokens": 5, "output_tokens": 7},
+            {"ai.llm.tokens.input": 5, "ai.llm.tokens.output": 7},
+        ),
+        ('{"input_tokens": 5}', {"ai.llm.tokens.input": 5}),
+    ],
+    ids=["openai", "anthropic", "json text"],
+)
+def test_usage_is_one_model_call_with_its_token_counts(usage, expected):
+    [span] = reported_spans({"usage": usage}, _invocation())
+
+    assert span.attributes["ai.operation.type"] == "llm.invoke"
+    assert {k: v for k, v in span.attributes.items() if k.startswith("ai.llm.tokens")} == expected
+
+
+@pytest.mark.parametrize("usage", [None, {}, {"prompt_tokens": "many"}, "not json", 12])
+def test_usage_without_token_counts_adds_no_span(usage):
+    assert reported_spans({"usage": usage}, _invocation()) == []
+
+
+class TestReportedAttributes:
+    def test_each_metadata_key_is_one_attribute(self):
+        attrs = reported_attributes(
+            {"metadata": {"confidence": 0.7, "tags": ["a"], "note": None, "ok": True}}
+        )
+
+        assert attrs == {
+            "rhesis.reported.metadata.confidence": 0.7,
+            "rhesis.reported.metadata.tags": '["a"]',
+            "rhesis.reported.metadata.ok": True,
+        }
+
+    def test_a_long_value_is_cut_on_its_own(self):
+        attrs = reported_attributes({"metadata": {"blob": "x" * 5000, "short": "y"}})
+
+        assert len(attrs["rhesis.reported.metadata.blob"]) == MAX_REPORTED_VALUE_LENGTH
+        assert attrs["rhesis.reported.metadata.short"] == "y"
+
+    def test_metadata_given_as_json_text_is_read(self):
+        attrs = reported_attributes({"metadata": '{"channel": "email"}'})
+        assert attrs == {"rhesis.reported.metadata.channel": "email"}
+
+    def test_other_fields_are_kept_when_the_response_set_them(self):
+        attrs = reported_attributes({"intent": "refund", "missing": None}, ["intent", "missing"])
+        assert attrs == {"rhesis.reported.intent": "refund"}
+
+    def test_nothing_reported_gives_no_attributes(self):
+        assert reported_attributes(None) == {}
+        assert reported_attributes({"output": "Hi"}) == {}
