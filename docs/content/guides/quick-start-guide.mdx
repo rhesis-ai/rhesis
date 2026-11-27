@@ -8,7 +8,7 @@ Testing LLM and agentic apps is challenging: outputs are non-deterministic, edge
 
 ## Prerequisites
 
-- Docker running, and ports 3000, 8080, 8081, 5432, and 6379 free
+- Docker running. `./rh start` uses ports 3000 and 8080, and offers others if those are taken
 - A model to connect: a Rhesis API key from [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens), a provider account (OpenAI, Anthropic, Gemini, and others), or a local model
 
 ## Step 1: Clone and Start (5 minutes)
@@ -29,7 +29,9 @@ Once services are running:
 
 - **Frontend Dashboard**: http://localhost:3000 (auto-login enabled)
 - **Backend API Docs**: http://localhost:8080/docs
-- **Worker Health**: http://localhost:8081/health/basic
+
+The worker has no public port. `docker ps --filter name=worker` shows `(healthy)` in its status once
+it is ready.
 
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-dashboard-docker-spinup.png"
@@ -154,13 +156,14 @@ For complex conversations, use [Penelope](/docs/tests/conversation-simulation/ge
 Your local infrastructure includes:
 
 <Table
-  headers={['Service', 'Port', 'Description']}
+  headers={['Service', 'Host port', 'Description']}
   rows={[
     ['Backend API', '8080', 'FastAPI application handling test execution and evaluation'],
     ['Frontend', '3000', 'Next.js dashboard for managing tests and reviewing results'],
-    ['Worker', '8081', 'Celery worker processing test runs and AI evaluations'],
-    ['PostgreSQL', '5432', 'Database storing tests, results, and configurations'],
-    ['Redis', '6379', 'Message broker for worker tasks'],
+    ['Worker', 'None', 'Celery worker processing test runs and AI evaluations'],
+    ['Beat', 'None', 'Queues scheduled jobs for the worker'],
+    ['PostgreSQL', 'None', 'Database storing tests, results, and configurations'],
+    ['Redis', 'None', 'Message broker for worker tasks'],
   ]}
   align={['left', 'center', 'left']}
 />
@@ -171,9 +174,9 @@ Your local infrastructure includes:
 graph LR
     Frontend[Frontend :3000]
     Backend[Backend API :8080]
-    Worker[Worker :8081]
-    PostgreSQL[PostgreSQL :5432]
-    Redis[Redis :6379]
+    Worker[Worker]
+    PostgreSQL[PostgreSQL]
+    Redis[Redis]
 
     Frontend --> Backend
     Backend --> PostgreSQL
