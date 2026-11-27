@@ -45,6 +45,8 @@ x-common-smtp: &common-smtp
   FROM_EMAIL: ${FROM_EMAIL:-noreply@example.com}
   # Where emails load their logo and fonts; unset uses https://rhesis.ai.
   EMAIL_ASSET_BASE_URL: ${EMAIL_ASSET_BASE_URL:-}
+  # Your company's legal details at the foot of every email; see .env.example.
+  EMAIL_IMPRINT: ${EMAIL_IMPRINT:-}
 
 x-common-jwt: &common-jwt
   JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required, no safe default}
