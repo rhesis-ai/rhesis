@@ -9,6 +9,7 @@ describe('span types', () => {
   it('labels every span type the backend writes', () => {
     // Trace.span_type: ai.operation.type values, plus the generic "span".
     const expected: Record<string, string> = {
+      'endpoint.invoke': 'Endpoint call',
       'llm.invoke': 'LLM call',
       'tool.invoke': 'Tool',
       'agent.invoke': 'Agent',
