@@ -26,9 +26,14 @@ def settle_job_reservation(
     consumed: int,
 ) -> Settled:
     """Settle the reservation on this task's job row with *consumed* units, once."""
-    from rhesis.backend.app.crud.job import claim_quota_reservation, has_quota_reservation
+    from rhesis.backend.app.crud.job import (
+        claim_quota_reservation,
+        has_quota_reservation,
+        reclaim_swept_reservation,
+    )
     from rhesis.backend.app.database import get_db_with_tenant_variables
     from rhesis.backend.app.quota.enforcement import QuotaReservation
+    from rhesis.backend.app.services.usage import dispatch_accrual
 
     if not celery_task_id:
         return Settled.NO_ROW
@@ -37,6 +42,13 @@ def settle_job_reservation(
         claimed = claim_quota_reservation(db, celery_task_id)
         if claimed is None:
             db.rollback()
+            swept = reclaim_swept_reservation(db, celery_task_id)
+            if swept is not None:
+                # The sweep gave the whole reservation back, so charge all of it now.
+                db.commit()
+                reservation = QuotaReservation.from_wire(swept)
+                dispatch_accrual(reservation.org_id, reservation.resource, consumed)
+                return Settled.NOW
             if has_quota_reservation(db, celery_task_id):
                 return Settled.ALREADY
             return Settled.NO_ROW

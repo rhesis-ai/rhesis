@@ -240,3 +240,27 @@ class TestSettleAgainstTheDatabase:
     def test_a_task_without_a_job_row(self, reserved_job):
         _, tenant = reserved_job
         assert settle_job_reservation(str(uuid.uuid4()), tenant, 0) is Settled.NO_ROW
+
+    def test_a_job_that_runs_after_the_sweep_failed_it_is_charged_once(
+        self, reserved_job, test_db, test_org_id
+    ):
+        from datetime import datetime, timedelta, timezone
+
+        from rhesis.backend.app.services.job_deadlines import fail_overdue_jobs
+
+        task_id, tenant = reserved_job
+        now = datetime.now(timezone.utc)
+        job = test_db.query(Job).filter(Job.celery_task_id == task_id).one()
+        job.queued_at = now - timedelta(days=2)
+        test_db.commit()
+
+        fail_overdue_jobs(test_db, test_org_id, now=now)
+        test_db.commit()
+        assert _used(test_db, test_org_id) == 0
+
+        # The message was still in the broker, so the job ran after all.
+        with patch("rhesis.backend.app.services.usage.dispatch_accrual") as accrue:
+            assert settle_job_reservation(task_id, tenant, 4) is Settled.NOW
+            assert settle_job_reservation(task_id, tenant, 4) is Settled.ALREADY
+
+        accrue.assert_called_once_with(test_org_id, RESOURCE, 4)
