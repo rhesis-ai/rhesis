@@ -1266,15 +1266,15 @@ tools:
       spans inside the agent with that name.
 
       MISSING ATTRIBUTES. A span without the field meets only "!=",
-      "not_in" and "not_exists", and fails every other op. So "channel !=
-      internal" keeps spans that carry no channel; add {"field":
-      "app.channel", "op": "exists"} to leave those out.
+      "not_in" and "not_exists", and fails every other op. So
+      "app.customer_tier != gold" keeps spans that carry no tier; add
+      {"field": "app.customer_tier", "op": "exists"} to leave those out.
 
       Two examples:
-      - A tool-call policy, refunds inside billing_agent unless the channel
-        is internal: {"target": {"on": "tool_call", "name": "issue_refund",
-        "within": "billing_agent", "where": [{"field": "app.channel", "op":
-        "!=", "value": "internal"}]}}
+      - A tool-call policy, refunds inside billing_agent that went through:
+        {"target": {"on": "tool_call", "name": "issue_refund", "within":
+        "billing_agent", "where": [{"field": "status", "op": "==", "value":
+        "ok"}]}}
       - An attribute filter, every model call for gold customers: {"target":
         {"on": "span", "where": [{"field": "kind", "op": "==", "value":
         "model_call"}, {"field": "app.customer_tier", "op": "==", "value":

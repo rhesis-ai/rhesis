@@ -7,7 +7,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Metric Targets
 
-A metric's **target** says what it judges in a test's trace: each turn, the whole conversation, the whole run, or each span of one kind, such as every tool call or every retrieval. The target also decides which tests the metric runs on.
+A metric's **target** says what it judges in a test's trace: each turn, the whole conversation, the whole run, each span of one kind, such as every tool call or every retrieval, or each span that meets conditions you write. The target also decides which tests the metric runs on.
 
 ## Choices
 
@@ -21,25 +21,188 @@ A metric's **target** says what it judges in a test's trace: each turn, the whol
 | `model_call` | Each model call | Each model call | the prompt as input, the completion as output, and the call's trace |
 | `agent` | Each agent | Each agent run | the task as input, the final answer as output, and the agent's trace |
 | `guardrail` | Each guardrail check | Each guardrail check | what it checked as input, its decision as output, and the check's trace |
+| `span` | Custom spans | Each span that meets its conditions | the span's input and output as its kind reads them, unless `read` names others, and the span's trace |
 
 Each thing a target picks is judged as a trace of its own: the span and everything under it. A metric that reads the trace gets that, not the whole test's trace. On an agent, it holds the agent's own model and tool calls; on a turn, that turn's spans.
 
 A span or a turn is held to the test's goal, instructions and restrictions. A span is not held to the test's expected response or expected tool calls, which describe the whole response. A turn is held to its own expected tool calls: its entry in `expected_tool_calls_per_turn` on a multi-turn test, or the test's `expected_tool_calls` on a single-turn test. So a metric that needs a reference answer can't take a per-span target, and the [Tool Call Trajectory](/docs/metrics/tool-calls) metric takes `turn`, `conversation` or `run`.
 
-Otherwise a metric can take the targets that fit what it reads. A judge reads input and output, so it can judge turns and any kind of span. A [code metric](/docs/metrics/code-metrics) that declares `trace` can take every target. A conversational metric judges the conversation. A target the metric can't take is refused when it is saved, with the choices it can take. Each metric the API returns lists its `supported_targets`, and `GET /metrics/targets` lists every choice with its label.
+Otherwise a metric can take the targets that fit what it reads. A judge reads input and output, so it can judge turns and any kind of span. A [code metric](/docs/metrics/code-metrics) that declares `trace` can take every target. A conversational metric judges the conversation. A target the metric can't take is refused when it is saved, with the choices it can take. Each metric the API returns lists its `supported_targets`. `GET /metrics/targets` returns `targets`, every choice with its label and `span_kind`, along with `operators` and `special_fields`, the parts a span condition is built from (see [Span targets](#span-targets)).
 
-The per-span targets take two refinements:
+The per-span presets take two refinements. `name` keeps only spans with this tool, agent or model name, such as `"issue_refund"`. `within` keeps only spans inside the agent with this name, at any depth.
 
-- `name`: only spans with this tool, agent or model name, such as `"issue_refund"`.
-- `within`: only spans inside the agent with this name.
-
-The per-span targets and `turn` also take `where`: the attributes the span must have. A list of values means any of them, and numbers and booleans match their text form, so `200` matches `"200"`. For example, only the turns of email conversations, from a REST endpoint whose response mapping maps `metadata.channel`:
+The per-span presets and `turn` also take `where`, the [conditions](#conditions) the span must meet. A short form maps attribute keys to values, and a list of values means any of them. For example, only the turns of email conversations, from a REST endpoint whose response mapping maps `metadata.channel`:
 
 <CodeBlock filename="where.json" language="json">
 {`{"target": {"on": "turn", "where": {"rhesis.reported.metadata.channel": "email"}}}`}
 </CodeBlock>
 
-When `where` leaves nothing to judge, the metric is not applicable, and the reason names the attributes.
+The short form is stored as conditions with `==` (or `in` for a list), so the API always returns the list form. When `where` leaves nothing to judge, the metric is not applicable, and the reason names the conditions.
+
+## Span targets
+
+A span target, `on: "span"`, judges each span that meets its conditions. Use it when a preset can't say which spans you mean: spans told apart by an attribute, spans of several kinds, or slow or failed spans.
+
+<CodeBlock filename="span-target.json" language="json">
+{`{
+  "on": "span",
+  "where": [
+    {"field": "kind", "op": "==", "value": "tool.invoke"},
+    {"field": "ai.tool.name", "op": "in", "value": ["issue_refund", "cancel_order"]},
+    {"field": "status", "op": "==", "value": "ok"}
+  ],
+  "within": "billing_agent",
+  "aggregate": "share",
+  "min_share": 0.9
+}`}
+</CodeBlock>
+
+A span target needs at least one condition; to judge the whole trace, use `run`. It doesn't take `name`. Write a condition on `name` instead. `within`, `read`, `aggregate` and `min_share` work as on the presets.
+
+### Conditions
+
+`where` is a list of conditions, and a span must meet all of them. There is no "or" across conditions; use `in` for a field that may take one of several values. Each condition has a `field`, an `op` and, for most operators, a `value`.
+
+`field` is one of these special fields, or else any span attribute key, read exactly:
+
+| Field | Reads |
+| --- | --- |
+| `kind` | The span kind, such as `tool.invoke`, `retrieval`, `llm.invoke`, `agent.invoke`, `guardrail` or `endpoint.invoke`. A preset's name works too, and `tool_call` is stored as `tool.invoke` |
+| `name` | The tool, agent or model name, else the span name, as a preset's `name` reads it |
+| `span_name` | The span's own name |
+| `duration_ms` | How long the span took |
+| `status` | `ok` or `error`, compared without case |
+
+To read an attribute whose key is also a special field's name, write `attributes.` in front, such as `attributes.status`.
+
+| `op` | `value` |
+| --- | --- |
+| `==`, `!=` | Text, a number or true/false |
+| `<`, `<=`, `>`, `>=` | A number |
+| `in`, `not_in` | A list of at least one value |
+| `contains` | Text |
+| `matches` | A regular expression of at most 1000 characters (see [Regular expressions](#regular-expressions)) |
+| `exists`, `not_exists` | None |
+
+Numbers and text compare as the same value, so `200` matches `"200"`. A numeric comparison with a value that isn't a number doesn't match. An unknown operator, or a value of the wrong type for its operator, is refused with the valid choices.
+
+A span that doesn't have the field passes only `!=`, `not_in` and `not_exists`, and fails every other condition on it. So "`app.customer_tier` is not `gold`" keeps spans that carry no tier at all. A span the endpoint reported, rather than traced, has no `duration_ms` or `status`, and counts as missing both.
+
+### Inside an agent
+
+`within` keeps the spans that run inside the agent with this name, at any depth below it. The agent's name is read as the `name` field reads it. A preset's `within` and a span target's `within` mean the same.
+
+### What the metric reads
+
+`read` says what each unit hands the metric as its `input` and `output`. Without it, the metric gets the span kind's own: a tool call's arguments and result, a retrieval's query and documents, and so on. Each side is one of:
+
+- an attribute key, such as `ai.tool.arguments`
+- `input` or `output`, the span's own input or output
+- `conversation.input` or `conversation.output`, the span's `rhesis.conversation.input` or `rhesis.conversation.output` attribute, which a turn's root span carries
+- `event:` and an event name, such as `event:ai.retrieval.query`, which reads that event's attribute, or all its attributes when it has several
+
+A side left out keeps the kind's own. `read` works on targets with several units: `turn`, the per-span presets and `span`. It is refused on `conversation` and `run`.
+
+<CodeBlock filename="read.json" language="json">
+{`{"on": "retrieval", "read": {"input": "event:ai.retrieval.query"}}`}
+</CodeBlock>
+
+### Presets are short forms
+
+Each per-span preset is a short form of a span target. `{"on": "tool_call", "name": "issue_refund", "within": "billing_agent"}` means:
+
+<CodeBlock filename="expanded.json" language="json">
+{`{
+  "on": "span",
+  "where": [
+    {"field": "kind", "op": "==", "value": "tool.invoke"},
+    {"field": "name", "op": "==", "value": "issue_refund"}
+  ],
+  "within": "billing_agent"
+}`}
+</CodeBlock>
+
+Matching always uses this expanded form, so a preset and the span target it stands for pick the same spans. The SDK's `Target.expand()` gives it. `turn`, `conversation` and `run` are not spans and don't expand. When a preset picks the right spans, keep the preset: it is shorter and reads better in the app.
+
+### Summary text
+
+Each metric the API returns carries `target_summary`, its target in words, and `target_summary_short`. The target above reads "each tool call named `issue_refund` inside `billing_agent`". Kind and name conditions become the noun and "named …". Other conditions follow "where", joined with "and". The short form shows only the first of those and counts the rest, as in "…, where `status` is `ok`, and 1 more condition". The SDK's `Target.describe()` writes both, so the app, the API and the SDK say the same thing.
+
+### Regular expressions
+
+The platform matches `matches` patterns in two places: in Python when it evaluates, and in the database when it lists the spans a target picks. So `matches`, in targets and in `FieldRule` alike, accepts only patterns that mean the same in both. A pattern that uses one of these is refused, with the portable form where there is one:
+
+| Refused | Write instead |
+| --- | --- |
+| `\b` (word boundary) | `(^\|\W)` before the word, `(\W\|$)` after it |
+| `\A`, `\Z`, `\z` | `^`, `$` |
+| A named group, `(?P<name>...)` or `(?<name>...)` | A plain group, `(...)` |
+| An atomic group, `(?>...)` | A plain group, `(...)` |
+| Inline flags, such as `(?i)` | Both cases, such as `[Rr]efund` |
+| A possessive quantifier, such as `a++` | A plain quantifier, such as `a+` |
+| `\B`, `\G`, a named backreference `(?P=name)`, a lookbehind `(?<=...)` or `(?<!...)`, a comment `(?#...)` | No portable form; rewrite the pattern without it |
+
+The error names the construct and the portable form, for example `The regular expression uses \b (a word boundary in Python, a backspace in Postgres), which doesn't work the same everywhere Rhesis matches patterns; write (^|\W) or (\W|$) instead`.
+
+### Examples
+
+Each refund issued or order cancelled inside `billing_agent` that went through, with 90% of them required to pass. Failed calls changed nothing, so they are left out:
+
+<CodeBlock filename="refund-policy.json" language="json">
+{`{
+  "on": "span",
+  "where": [
+    {"field": "kind", "op": "==", "value": "tool.invoke"},
+    {"field": "name", "op": "in", "value": ["issue_refund", "cancel_order"]},
+    {"field": "status", "op": "==", "value": "ok"}
+  ],
+  "within": "billing_agent",
+  "aggregate": "share",
+  "min_share": 0.9
+}`}
+</CodeBlock>
+
+It reads "each tool call named `issue_refund` or `cancel_order` inside `billing_agent`, where `status` is `ok`". Conditions read the span's own attributes and fields. A reported span has no status, so a reported tool call is left out here.
+
+Each span of a gold-tier customer, whatever its kind, where the application sets `app.customer_tier` on its spans:
+
+<CodeBlock filename="gold-tier.json" language="json">
+{`{"on": "span", "where": [{"field": "app.customer_tier", "op": "==", "value": "gold"}]}`}
+</CodeBlock>
+
+It reads "each span where `app.customer_tier` is `gold`". To judge only one kind of span for those customers, add a `kind` condition.
+
+### Finding keys and checking a target
+
+Three endpoints help you write a span target that matches what your endpoint sends.
+
+- `GET /telemetry/attributes` lists the attribute keys each span kind carries.
+- `POST /metrics/targets/preview` tries a target on the project's latest traces.
+- `GET /telemetry/spans` with `target` lists exactly the spans a target picks.
+
+`GET /telemetry/attributes?project_id=…&kind=tool.invoke&days=7` reads the newest spans of each kind, at most 2000 per kind, from the last `days` (1 to 90, default 7). `kind` narrows it to one kind, and `limit` (default 100, at most 500) caps the keys per kind. For each key it returns the share of spans that carry it (`coverage`), its JSON `type`, its 10 most common values with their counts (`top_values`, long values cut) and its number of `distinct` values. A key where nearly every span has its own value, such as an id, is marked `unique: true`; it makes a poor condition.
+
+<CodeBlock filename="attributes.json" language="json">
+{`{
+  "kinds": {
+    "tool.invoke": {
+      "spans": 412,
+      "attributes": [
+        {"key": "ai.tool.name", "coverage": 1.0, "type": "string", "distinct": 7, "unique": false,
+         "top_values": [{"value": "issue_refund", "count": 120, "truncated": false}]}
+      ]
+    }
+  },
+  "sampled_spans": 412,
+  "since": "…"
+}`}
+</CodeBlock>
+
+`POST /metrics/targets/preview` takes `{"project_id": …, "target": …, "traces": 50}`. `target` is a target as `config.target` holds it, or a preset's name. It reads the project's latest `traces` traces (default 50, at most 200) and matches the target as evaluation does. It returns how many traces it read (`traces`), how many the target applies to (`matching_traces`) and doesn't (`not_applicable_traces`), how many units a metric would run on (`units`), up to 5 `samples` with each unit's name, input, output, duration and status, and the target's `target_summary`. It changes nothing, so it needs only read access to traces.
+
+`GET /telemetry/spans` takes `target`, a target as URL-encoded JSON, and returns exactly the spans it picks, matched as evaluation matches them. For a span target or a preset, that is each matching span; for `turn`, each turn's root span; for `run`, each trace's first root span; for `conversation`, the first root span of each conversation. It applies together with every other filter. A target that isn't JSON or isn't valid gets a 422 naming the problem. The spans facets take `target` too.
+
+Creating or updating a metric also checks the attribute keys in its `where` against the spans of the last 7 days. A key no recent span carries doesn't stop the save, since the endpoint may not have sent traces yet. The response's `warnings` names it and the nearest key that is carried, such as "No recent span carries app.tier; app.customer_tier is set on 92% of tool.invoke spans".
 
 ## Default target
 
@@ -96,11 +259,21 @@ A metric keeps its target in its `config`, as `config.target`. Send it when you 
 
 The whole `config` is replaced, so send a built-in metric's own settings, such as the [Tool Call Trajectory](/docs/metrics/tool-calls) metric's `match`, along with the target.
 
-A framework metric (DeepEval, Garak, Ragas) is read-only except its target. To point DeepEval answer relevancy at each retrieval, send `config` with the new target and its existing settings, and nothing else. In the app, the target has its own card on the metric's page.
+A framework metric (DeepEval, Garak, Ragas) is read-only except its target. To point DeepEval answer relevancy at each retrieval, send `config` with the new target and its existing settings, and nothing else.
 
 To list metrics by target, pass `target` with one or more choices: `GET /metrics/?target=turn,conversation`.
 
-On the metrics page, each card says what its metric judges under its name, such as "on each tool call named `issue_refund`". The target is a link to the Traces page filtered to those spans: a per-span target opens the spans of its kind and name, each turn opens the root spans, the conversation opens multi-turn traces, and the whole run opens every trace. A chip above the list names the target and its metric; removing it clears those filters. `GET /metrics/targets` gives each target's `span_kind` (`tool.invoke`, `retrieval`, `llm.invoke`, `agent.invoke`, `guardrail`), or `null` for a target judged as a turn, the conversation or the run.
+### In the app
+
+The metric's page has a **Target** card, and the new metric form has the same target builder. Out of edit mode, the card shows the target, the full summary ("Judges …") and a **Show the spans it judges** link.
+
+In the builder, **Start from** offers the presets as chips, plus **Custom spans** when the metric can take a span target. A per-span choice has an **Inside agent** field for `within`, and a preset also has a **Name** field. Custom spans list their conditions under **Judge each span where**. On a preset or a turn, the same list is optional and headed **Only … where**. Each condition row has a **Field**, an **Operator** and a **Value**. The field list holds the special fields and the attribute keys from the [attribute catalogue](#finding-keys-and-checking-a-target), grouped by span kind, and leaves out keys marked `unique`. The operators come from `GET /metrics/targets` and read as words, such as "is", "is not" and "is any of". The value field suggests the key's most common values. **The metric reads as input** and **And as output** set `read`; left empty, the metric reads the unit's own input and output. **The metric passes when** sets `aggregate` and `min_share`.
+
+Under the builder, a summary box shows the target in the API's words. Beside it, **Matches in recent traces** previews the target on the last 50 traces of the project. It shows how many units match in how many traces, how many traces would be not applicable, and a few samples. When nothing matches, it says what the endpoint must report for the metric to run. The preview reruns shortly after you stop editing, once the target is complete, and the summary box follows it.
+
+When a save returns `warnings`, such as a key no recent span carries, a notification shows them, and the Target card keeps them in an alert until you close it. The new metric form shows them in the notification after the metric is created.
+
+On the metrics page, each card says what its metric judges under its name, such as "on each tool call named `issue_refund`", from `target_summary_short`. When the short form counts conditions instead of listing them, the tooltip holds the full summary. The target is a link to the Traces page's spans view, with the target itself as the filter, so the list shows exactly the spans the metric judges: each matching span, each turn's root span, or each trace's first root span for the run and the conversation. The link is `/traces?view=spans&target=…&from_metric=…`, and links saved before span targets still open. A chip above the list reads "Target:" with the target's summary and "from" the metric's name. Removing it clears the target filter and keeps the filters you added.
 
 In the SDK, a judge takes `target` in its constructor, and `push()` and `pull()` carry it in the metric's `config`:
 
@@ -118,7 +291,7 @@ coherence = NumericJudge(
 coherence.push()`}
 </CodeBlock>
 
-A per-span target is a dict with `on` and, when needed, `name`, `within` and `aggregate`, as in the `targets.py` example below.
+A per-span target is a dict with `on` and, when needed, `name`, `within` and `aggregate`, as in the `targets.py` example below. To build a span target in Python, use `Target.spans(...)`; see [Metrics in the SDK](/sdk/metrics#span-targets).
 
 ## Trying a target locally
 

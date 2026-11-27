@@ -53,7 +53,7 @@ Four tiles above the list sum up what it holds: **Traces**, **Spans** (with erro
 
 The filter drawer's **Provider** section narrows the list to traces that used a given LLM provider. A trace not yet priced matches no provider, and `unknown` covers traces whose provider could not be identified. How cost and provider are worked out is on [Token Costs](/docs/tracing/costs).
 
-The spans list also filters by the model or tool a span called: `GET /telemetry/spans` takes `model` and `tool` (`ai.tool.name`), each repeatable. A metric card's target link opens the list with these filters set; see [Metric Targets](/docs/metrics/targets).
+The spans list also filters by the model or tool a span called. `GET /telemetry/spans` takes `model` and `tool` (`ai.tool.name`), each repeatable. It also takes `target`, a metric target as URL-encoded JSON, and then lists exactly the spans that target picks, together with any other filter. A metric card's target link opens the list filtered by its target; see [Metric Targets](/docs/metrics/targets#finding-keys-and-checking-a-target).
 
 The dashboard shows traces for the active project. If the list looks empty or
 stale, check the **Project** box in the sidebar and switch to the project that

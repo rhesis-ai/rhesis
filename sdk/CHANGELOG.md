@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Architect plans a rule, not a judge, for a requirement that is a limit (`MetricSpec.rule`, `rule_settings`), and checks a planned rule is created with that class.
 - `metric.evaluate()` without `target=` uses the metric's own target, so a pulled metric judges a trace locally the way the platform does.
 - `UnsupportedTarget`: a target this SDK can't read, such as one a newer Rhesis version wrote, raises it with the valid targets and a note to upgrade `rhesis-sdk`, instead of a validation error.
+- Span targets. `{"on": "span", "where": [...]}` judges each span that meets its conditions, built in Python with `Target.spans(kind=, name=, where=, within=, read=)`. A `Condition(field, op, value)` reads `kind`, `name`, `span_name`, `duration_ms`, `status` or any span attribute, with the rule operators plus `not_exists`. A span without the field passes only `!=`, `not_in` and `not_exists`.
+- `read` on a per-unit target says what the metric gets as input and output: an attribute key, `input`, `output`, `conversation.input`, `conversation.output` or `event:<name>`.
+- `Target.expand()` writes a preset as the span target it stands for, and matching uses that form. `Target.describe()` and `describe(short=True)` give the target in words, and `Target.select(trace)` returns the units it picks, as the platform matches them.
+- The Architect's `MetricSpec.target` holds a full `Target`, and a plan with a bare kind string still loads. `plan_check` compares expanded targets, so a preset and its span form are equal. Before planning a span target, the Architect reads the project's attribute keys and previews the target.
 
 ### Changed
 - **BREAKING:** `MetricScope` and `MetricConfig.metric_scope` are removed. A metric's
@@ -34,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metrics judging the conversation, and a `create_metric` call whose target differs from the
   planned one.
 - `MetricSynthesizer` proposes a `target` (`"turn"` or `"conversation"`) instead of a scope.
+- **BREAKING:** `matches`, in `FieldRule` and in target conditions, accepts only regular expressions that mean the same in Python and Postgres. A pattern with `\b`, `\B`, `\A`, `\Z`, `\z`, `\G`, a named group or backreference, a lookbehind, an atomic group, a comment, inline flags such as `(?i)` or a possessive quantifier is refused, with the portable form where there is one (`(^|\W)` for `\b`, `^` and `$`, `[Rr]efund` for `(?i)refund`). A stored rule with such a pattern is refused on its next update and can't be built in the SDK until the pattern is rewritten. `in` and `not_in` need at least one value.
+- A target's `where` is stored as a list of conditions. The older form, attribute values by key, is still accepted and read as `==` (or `in` for a list).
 - Each unit a target picks is judged as its own trace: the span and everything under it. Targets take `where`, attributes a unit's root span must have (a list means any of its values). A metric reading `trace` can take every target.
 - `Span.duration_ms` is `None` when timing is unknown, for reported spans and for traces built with `Trace.from_response` or `Trace.from_conversation`, instead of 0.
 - Built and reported invocation spans have the kind `endpoint.invoke`, and each `metadata` key is its own attribute (`rhesis.reported.metadata.<key>`). A reported `usage` becomes an `llm.invoke` span with the token counts.

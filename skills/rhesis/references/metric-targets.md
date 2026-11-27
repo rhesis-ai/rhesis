@@ -23,7 +23,7 @@ See [Glossary](https://docs.rhesis.ai/glossary.md) (`glossary/metric-target.md`)
 
 The per-span targets (`tool_call`, `retrieval`, `model_call`, `agent`, `guardrail`) also take `name` (only spans with that tool, agent or model name), `within` (only spans inside that agent), and `aggregate`: `"all"` (default, every span passes), `"any"`, or `"share"` with `min_share` (0 to 1).
 
-The per-span targets and `turn` also take `where`: attributes the span must have, such as `{"rhesis.reported.metadata.channel": "email"}`. A list of values means any of them. Use it to judge only a slice, for example only email conversations.
+The per-span targets and `turn` also take `where`: conditions the span must meet. The short form maps attribute keys to values, such as `{"rhesis.reported.metadata.channel": "email"}`, and a list of values means any of them. It is stored as a list of conditions (see [Span targets](#span-targets)). Use it to judge only a slice, for example only email conversations.
 
 Each thing a target picks is judged as its own trace: the span and everything under it. A code metric that reads `trace` can take every target, and on `agent` it sees only that agent's calls.
 
@@ -61,6 +61,58 @@ The requirement is about one step inside the agent, not the reply:
 - **Sub-agent output** ("the research agent cites its sources"): `{"on": "agent", "name": "researcher"}`.
 
 A per-span target only matches what the endpoint reports. SDK endpoints report every span they trace. REST and WebSocket endpoints report tool calls and retrievals only when their response mapping maps `tool_calls` or `context`, or when the service sends its own traces. When nothing matches, the metric is reported as not applicable for that test. A metric with `ground_truth_required` can't take a per-span target.
+
+---
+
+## Span targets
+
+`{"on": "span", "where": [...]}` judges each span that meets all of its conditions. Each condition is `{"field", "op", "value"}`.
+
+- `field` is `kind` (`tool.invoke`, `retrieval`, `llm.invoke`, `agent.invoke`, `guardrail`, `endpoint.invoke`), `name` (tool, agent or model name, else the span name), `span_name`, `duration_ms`, `status` (`ok` or `error`), or any span attribute key. Write `attributes.status` for an attribute named like a special field.
+- `op` is `==`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not_in`, `contains`, `matches`, `exists` or `not_exists`. `in` and `not_in` take a list; `exists` and `not_exists` take no value. There is no "or" across conditions; use `in`.
+- A span without the field passes only `!=`, `not_in` and `not_exists`. So "`app.customer_tier` is not `gold`" keeps spans with no tier.
+- `matches` accepts only patterns that mean the same in Python and Postgres. `\b`, `\A`, `\Z`, named groups, lookbehind, inline flags such as `(?i)` and possessive quantifiers are refused, and the refusal names the portable form, such as `(^|\W)` for `\b` or `[Rr]efund` for `(?i)refund`.
+- Conditions read the span's own attributes, not its parent's or the turn's.
+
+`within`, `read`, `aggregate` and `min_share` work as on the presets. A span target needs at least one condition (use `run` for the whole trace) and takes no `name`; write a `name` condition instead.
+
+### When a preset is enough
+
+Each per-span preset is a short form of a span target: `{"on": "tool_call", "name": "issue_refund", "within": "billing_agent"}` matches exactly what `{"on": "span", "where": [kind == tool.invoke, name == issue_refund], "within": "billing_agent"}` does. Use the preset when the spans are told apart by their kind, their name and the agent they run in. A preset also takes `where`, so a tool call with one extra attribute condition is still a preset. Write `"span"` only when the spans cross kinds, or no kind fits, or the condition is on timing or status.
+
+### Workflow
+
+1. **`list_trace_attributes`** for the project (and the `kind`, if you know it). Take keys and values from it; never guess a key. Skip keys marked `unique`, such as ids.
+2. **Draft** the target from those keys.
+3. **`preview_target`** with the draft. Tell the user how many of the traces it matched, how many units the metric would run on, and what one or two samples look like. If it matches nothing, or far more than expected, fix the key, value or operator and preview again. If it still finds nothing, say what the endpoint must report for it to match (for example "`tool.invoke` spans must carry `ai.tool.name`") before saving it.
+4. **`create_metric`** (or `update_metric`) with the same target in `config.target`.
+5. **Read `warnings`** in the response. A warning names a `where` key no recent span carries and the nearest key that one does. The metric is saved anyway. Report it, and fix the key with `update_metric` if the suggestion is what was meant.
+
+The response's `target_summary` is the target in words. Read it back to the user to confirm it says what they asked for. `list_spans` with `target` lists exactly the spans a target picks.
+
+### What the metric reads
+
+`read` sets what each unit hands the metric as `input` and `output`, when the kind's own (a tool call's arguments and result, a retrieval's query and documents) aren't what the criteria judge. Each side is an attribute key, `input`, `output`, `conversation.input`, `conversation.output` (the span's own `rhesis.conversation.*` attribute, which a turn's root span carries), or `event:<name>`, such as `event:ai.retrieval.query`. Leave a side out to keep the kind's own. `read` is refused on `conversation` and `run`.
+
+### Example: refund policy
+
+The requirement says that the billing agent refunds or cancels only within policy, in at least 90% of cases. Only calls that went through are judged; a failed call changed nothing.
+
+```json
+{"config": {"target": {
+  "on": "span",
+  "where": [
+    {"field": "kind", "op": "==", "value": "tool.invoke"},
+    {"field": "name", "op": "in", "value": ["issue_refund", "cancel_order"]},
+    {"field": "status", "op": "==", "value": "ok"}
+  ],
+  "within": "billing_agent",
+  "aggregate": "share",
+  "min_share": 0.9
+}}}
+```
+
+Its summary reads "each tool call named `issue_refund` or `cancel_order` inside `billing_agent`, where `status` is `ok`". A reported tool call has no status, so it is left out. Check with `list_trace_attributes` (`kind: "tool.invoke"`) and `preview_target` before saving.
 
 ---
 

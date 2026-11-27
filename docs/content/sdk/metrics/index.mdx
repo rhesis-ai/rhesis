@@ -60,6 +60,60 @@ metric = NumericJudge(
 
 `push()` and `pull()` carry the target in the metric's `config`. A per-span target is a dict with `on` and, when needed, `name`. See [Metric Targets](/docs/metrics/targets) for every choice, which tests each one runs on, and how to try a target locally with `evaluate(trace=..., target=...)`.
 
+### Span targets
+
+`Target.spans(...)` builds a target that judges each span meeting its conditions. `kind` takes a span kind (`tool.invoke`) or a preset's name (`tool_call`), and `name` the tool, agent or model name; a list of either means any of them. `where` takes more conditions, as `Condition` objects or `(field, op, value)` tuples. `within`, `read`, `aggregate` and `min_share` work as on any per-span target. The fields, operators and the rule for missing attributes are on [Span targets](/docs/metrics/targets#span-targets).
+
+<CodeBlock filename="span_target.py" language="python">
+{`from rhesis.sdk.metrics import Target
+from rhesis.sdk.metrics.conditions import Condition
+
+refunds = Target.spans(
+    kind="tool_call",
+    name=["issue_refund", "cancel_order"],
+    within="billing_agent",
+    where=[Condition(field="status", op="==", value="ok")],
+)
+gold = Target.spans(where=[("app.customer_tier", "==", "gold")])
+
+refunds.describe()
+# "each tool call named \`issue_refund\` or \`cancel_order\` inside \`billing_agent\`,
+#  where \`status\` is \`ok\`"
+gold.describe(short=True)  # the short form counts conditions past the first`}
+</CodeBlock>
+
+`target.expand()` returns a preset written as the span target it stands for, which is how the platform matches it. `Target.coerce({"on": "tool_call", "name": "issue_refund"}).expand()` has a `kind` and a `name` condition. `target.describe()` returns the summary text the app shows, and `describe(short=True)` the card's short form.
+
+`target.select(trace)` returns the units the target picks from a trace, with the same matching the platform uses. Each unit has the `span`, its `name`, the `input` and `output` the metric would read, and its own `trace`. Use it to check a target before you push the metric:
+
+<CodeBlock filename="select.py" language="python">
+{`from rhesis.sdk.entities import Trace
+from rhesis.sdk.metrics import NumericJudge, Target
+
+trace = Trace.from_response(
+    "Refund order 42 and cancel order 43",
+    "Done.",
+    tool_calls=[
+        {"name": "issue_refund", "arguments": {"order": 42}, "output": "ok"},
+        {"name": "cancel_order", "arguments": {"order": 43}, "output": "ok"},
+    ],
+)
+target = Target.spans(kind="tool_call", name="issue_refund")
+for unit in target.select(trace):
+    print(unit.name, unit.input, unit.output)  # issue_refund {"order": 42} ok
+
+judge = NumericJudge(
+    name="refund_policy",
+    evaluation_prompt="The refund matches the policy: at most one refund per order.",
+    min_score=0,
+    max_score=1,
+    threshold=1,
+)
+result = judge.evaluate(trace=trace, target=target)`}
+</CodeBlock>
+
+A pulled metric whose target this SDK can't read, such as one a newer Rhesis version saved, raises `UnsupportedTarget` (from `rhesis.sdk.metrics`) instead of a validation error. Its message names the valid targets and says to upgrade `rhesis-sdk`.
+
 ### Trace Evaluation
 
 Any metric can also evaluate live production traces. Add it to a project's **Trace Metrics** in the project settings, and that project's traces are evaluated with it. A metric whose target is `conversation` or `run` judges the whole conversation once it goes quiet; a metric that targets a turn or a span kind runs after each turn.

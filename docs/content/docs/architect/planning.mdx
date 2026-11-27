@@ -68,7 +68,9 @@ Each metric in the plan has a target: what it judges. The default is `turn`, whi
 | `conversation` | Only the whole conversation shows it (context retention, goal reached) | Multi-Turn tests only |
 | A per-span target, such as `tool_call` | One step of an agent must hold up (tool-call policy, retrieval quality) | Single-Turn and Multi-Turn tests |
 
-The plan shows what each metric judges. Before saving, Architect checks that every requirement of a Single-Turn test set has at least one linked metric whose target isn't `conversation`. When it creates a metric, the target sent must match the one in the plan.
+A plan can carry a full target, with `name`, `within`, `where`, `read` and the pass rule, or a span target with its own conditions. Before it plans a span target or a `where` condition, Architect reads the project's attribute keys and previews the target on recent traces. When the preview finds nothing, it says what the endpoint must report instead of saving the target.
+
+The plan shows what each metric judges. Before saving, Architect checks that every requirement of a Single-Turn test set has at least one linked metric whose target isn't `conversation`. When it creates a metric, the target sent must match the one in the plan. Targets are compared by the spans they pick, what they read and their pass rule, so a preset and the same target written as a span target match.
 
 → Every choice and how runs combine verdicts: [Metric Targets](/docs/metrics/targets)
 
