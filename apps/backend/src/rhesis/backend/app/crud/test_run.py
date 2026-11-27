@@ -21,6 +21,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from sqlalchemy import Integer, cast, func, or_
+from sqlalchemy import String, column
+from sqlalchemy import true as sa_true
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, joinedload
 
@@ -650,6 +653,7 @@ def get_metric_verdicts_for_run(
     values that are read once and encoded into a string.
     """
     query = db.query(
+        models.MetricStatsView.test_result_id,
         models.MetricStatsView.test_id,
         models.MetricStatsView.requirement_id,
         models.MetricStatsView.metric_name,
@@ -662,6 +666,30 @@ def get_metric_verdicts_for_run(
             models.MetricStatsView.organization_id == uuid.UUID(str(organization_id))
         )
     return query.all()
+
+
+def get_not_applicable_metrics_for_run(
+    db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
+) -> set[Tuple[str, str]]:
+    """``(test_result_id, metric name)`` of each metric result in the run that was not
+    applicable: it has no verdict, and isn't a score without a threshold either."""
+    metric = (
+        func.jsonb_each(models.TestResult.test_metrics["metrics"])
+        .table_valued(column("key", String), column("value", JSONB))
+        .lateral("m")
+    )
+    query = (
+        db.query(models.TestResult.id, metric.c.key)
+        .join(metric, sa_true())
+        .filter(
+            models.TestResult.test_run_id == test_run_id,
+            models.TestResult.deleted_at.is_(None),
+            metric.c.value["not_applicable"].astext == "true",
+        )
+    )
+    if organization_id:
+        query = query.filter(models.TestResult.organization_id == uuid.UUID(str(organization_id)))
+    return {(str(result_id), key) for result_id, key in query.all()}
 
 
 def test_has_planned_metrics(

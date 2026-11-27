@@ -539,14 +539,18 @@ def get_verdict_matrix(
     # get_test_outcomes_for_run already resolves to the latest -- letting an
     # arbitrary row win here would show a stale verdict beside a current
     # status for the same test.
-    verdict_index: Dict[Tuple[str, str], Tuple[Optional[bool], bool]] = {}
+    not_applicable = test_run_crud.get_not_applicable_metrics_for_run(
+        db, test_run.id, organization_id=org_id
+    )
+    verdict_index: Dict[Tuple[str, str], Tuple[Optional[bool], bool, bool]] = {}
     verdict_seen_at: Dict[Tuple[str, str], Any] = {}
     for row in verdict_rows:
         cell = (str(row.test_id), row.metric_name)
         if cell in verdict_seen_at and not _is_newer(row.created_at, verdict_seen_at[cell]):
             continue
         verdict_seen_at[cell] = row.created_at
-        verdict_index[cell] = (row.effective_success, bool(row.has_override))
+        skipped = (str(row.test_result_id), row.metric_name) in not_applicable
+        verdict_index[cell] = (row.effective_success, bool(row.has_override), skipped)
 
     outcomes = test_run_crud.get_test_outcomes_for_run(db, test_run.id, organization_id=org_id)
     annotations_count = test_run_crud.get_annotation_count_for_run(
@@ -604,10 +608,13 @@ def get_verdict_matrix(
                 verdicts_planned += 1
                 entry = verdict_index.get((test_id, actual_key))
                 if entry is not None:
-                    effective_success, has_override = entry
+                    effective_success, has_override, skipped = entry
                     verdicts_resolved += 1
                     override_chars.append("1" if has_override else "0")
-                    if effective_success is True:
+                    # A reviewer's verdict wins over "not applicable".
+                    if skipped and effective_success is None:
+                        chars.append(NOT_APPLICABLE_CHAR)
+                    elif effective_success is True:
                         chars.append(VERDICT_CHAR[Outcome.PASS])
                         passed += 1
                     elif effective_success is False:
