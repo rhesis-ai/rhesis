@@ -330,17 +330,34 @@ def first_root_start_time(db: Session, trace_id: str) -> Optional[datetime]:
     )
 
 
-def load_trace_spans(db: Session, trace_ids: Iterable[str]) -> List[models.Trace]:
-    """Every stored span of *trace_ids* in the bound project, oldest first."""
+def load_trace_spans(
+    db: Session, trace_ids: Iterable[str], project_id: Optional[str] = None
+) -> List[models.Trace]:
+    """Every stored span of *trace_ids* in the bound project (or *project_id*), oldest first."""
     trace_ids = list(set(trace_ids))
     if not trace_ids:
         return []
-    return (
-        db.query(models.Trace)
-        .filter(models.Trace.trace_id.in_(trace_ids))
-        .order_by(models.Trace.start_time.asc())
+    query = db.query(models.Trace).filter(models.Trace.trace_id.in_(trace_ids))
+    if project_id is not None:
+        query = query.filter(models.Trace.project_id == project_id)
+    return query.order_by(models.Trace.start_time.asc()).all()
+
+
+def recent_trace_ids(db: Session, project_id: str, limit: int) -> List[str]:
+    """The ids of the project's ``limit`` latest traces, newest first, by their latest root span.
+
+    Roots only: a trace without a stored root yet is left out, as the traces list leaves it.
+    """
+    latest = func.max(models.Trace.start_time)
+    rows = (
+        db.query(models.Trace.trace_id)
+        .filter(models.Trace.project_id == project_id, models.Trace.parent_span_id.is_(None))
+        .group_by(models.Trace.trace_id)
+        .order_by(latest.desc(), models.Trace.trace_id)
+        .limit(limit)
         .all()
     )
+    return [row.trace_id for row in rows]
 
 
 def existing_span_keys(db: Session, keys: List[Tuple[str, str]]) -> set[Tuple[str, str]]:

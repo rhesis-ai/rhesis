@@ -56,6 +56,9 @@ from .metric import (
     SpecialFieldChoice,
     TargetChoice,
     TargetChoices,
+    TargetPreview,
+    TargetPreviewRequest,
+    TargetPreviewSample,
 )
 from .model import Model, ModelBase, ModelCreate, ModelDetail, ModelRead, ModelUpdate
 from .notification import (
@@ -500,6 +503,9 @@ __all__ = [
     "ScoreType",
     "TargetChoice",
     "TargetChoices",
+    "TargetPreview",
+    "TargetPreviewRequest",
+    "TargetPreviewSample",
     "ConditionOperatorChoice",
     "SpecialFieldChoice",
 ]

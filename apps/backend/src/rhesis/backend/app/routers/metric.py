@@ -2,17 +2,20 @@ import logging
 from typing import List
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Query, Response
+from fastapi import Depends, HTTPException, Query, Request, Response
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import MetricBackendType
 from rhesis.backend.app.crud import metric as metric_crud
+from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.dependencies import (
+    assert_project_access,
     get_tenant_context,
     get_tenant_db_session,
     per_user_rate_limit,
@@ -20,7 +23,7 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.schemas.metric import check_updated_config
+from rhesis.backend.app.schemas.metric import check_updated_config, read_target
 from rhesis.backend.app.services.metric_tuning import attach_tuning_case_counts
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -355,6 +358,36 @@ def read_metric_targets(current_user: User = Depends(require_current_user_or_tok
             for field, label in SPECIAL_FIELDS.items()
         ],
     )
+
+
+@router.post(
+    "/targets/preview",
+    response_model=schemas.TargetPreview,
+    **capability(Permission.Telemetry.READ),
+)
+def preview_metric_target(
+    body: schemas.TargetPreviewRequest,
+    request: Request,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """What a target picks in the project's latest traces, matched as evaluation matches it:
+    how many traces it applies to, how many units a metric would run on, and a few of them.
+    It reads traces and changes nothing, so it needs only read access to them."""
+    try:
+        from rhesis.backend.app.services.telemetry.target_preview import preview_target
+
+        target = read_target(body.target)
+    except ImportError as e:  # a core install, which runs no metric
+        raise HTTPException(status_code=501, detail="Targets need the metrics SDK") from e
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    organization_id, user_id = tenant_context
+    project_id = assert_project_access(request, current_user, str(body.project_id), db=db)
+    with temporary_project_scope(db, organization_id, user_id, project_id):
+        return preview_target(db, project_id, target, body.traces)
 
 
 @router.get("/", response_model=list[schemas.MetricDetail])

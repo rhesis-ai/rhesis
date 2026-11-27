@@ -1,7 +1,15 @@
 import json
-from typing import Any, ClassVar, Dict, List, Optional, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, ValidationError, model_validator
+from pydantic import (
+    UUID4,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
@@ -145,7 +153,7 @@ def check_metric_config(
     if config is None and not default_target:
         return config
     try:
-        from rhesis.sdk.metrics.targets import Target, UnsupportedTarget, check_target
+        from rhesis.sdk.metrics.targets import check_target
     except ImportError:  # a core install, which runs no native metric
         return config
 
@@ -160,8 +168,17 @@ def check_metric_config(
         if default_target and default is not None:
             return {**settings, "target": {"on": default.value}}
         return settings if config is not None else None
+    target = check_target(cls, read_target(config["target"]), supported)
+    return {**settings, "target": target.to_config()}
+
+
+def read_target(value: Any) -> Any:
+    """``value`` as the SDK's ``Target``, or a ValueError ("Invalid target: …") naming each
+    problem. Raises ImportError on a core install."""
+    from rhesis.sdk.metrics.targets import Target, UnsupportedTarget
+
     try:
-        target = check_target(cls, Target.coerce(config["target"]), supported)
+        return Target.coerce(value)
     except ValidationError as e:
         problems = "; ".join(
             f"{' -> '.join(str(loc) for loc in err['loc']) or 'target'}: {err['msg']}"
@@ -170,7 +187,6 @@ def check_metric_config(
         raise ValueError(f"Invalid target: {problems}") from None
     except UnsupportedTarget as e:
         raise ValueError(f"Invalid target: {e.reason}") from None
-    return {**settings, "target": target.to_config()}
 
 
 def check_updated_config(update: "MetricUpdate", stored: Any) -> Optional[Dict[str, Any]]:
@@ -316,6 +332,52 @@ class TargetChoices(BaseModel):
     targets: List[TargetChoice] = []
     operators: List[ConditionOperatorChoice] = []
     special_fields: List[SpecialFieldChoice] = []
+
+
+#: The traces a target preview reads when none is asked for, and at most.
+PREVIEW_TRACES_DEFAULT = 50
+PREVIEW_TRACES_LIMIT = 200
+
+
+class TargetPreviewRequest(BaseModel):
+    """Body of POST /metrics/targets/preview: a target, tried on a project's latest traces."""
+
+    project_id: UUID4
+    target: Union[Dict[str, Any], str]
+    """A target as a metric's ``config.target`` holds it, or a preset's name."""
+    traces: int = Field(default=PREVIEW_TRACES_DEFAULT, ge=1)
+    """How many of the latest traces to read; more than ``PREVIEW_TRACES_LIMIT`` reads that many."""
+
+    @field_validator("traces")
+    @classmethod
+    def _capped(cls, traces: int) -> int:
+        return min(traces, PREVIEW_TRACES_LIMIT)
+
+
+class TargetPreviewSample(BaseModel):
+    """One unit the target picked, with its input and output cut short."""
+
+    trace_id: str
+    span_id: Optional[str] = None
+    name: Optional[str] = None
+    input: Optional[str] = None
+    output: Optional[str] = None
+    duration_ms: Optional[float] = None
+    status: Optional[str] = None
+    """The SDK's ``SpanStatus``: ok or error."""
+
+
+class TargetPreview(BaseModel):
+    """What a target picks in a project's latest traces, matched as evaluation matches it."""
+
+    traces: int
+    """The traces read, at most the number asked for."""
+    matching_traces: int
+    units: int
+    """The units picked in all of them: what the metric would run on."""
+    not_applicable_traces: int
+    """Traces where the target picks nothing, which a metric scores as not applicable."""
+    samples: List[TargetPreviewSample] = []
 
 
 class ModelReference(Base, ServerIdentity):
