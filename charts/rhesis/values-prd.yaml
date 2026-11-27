@@ -202,12 +202,14 @@ workers:
           trace-ingest: 200
           trace-eval: 200
           quick-tasks: 100
+          cpu-bound: 2  # one prefork child per pod: file text extraction, graphs, Garak imports
     env:
       # One Celery process per kind of job (apps/worker/start.sh): test runs and long jobs,
       # trace ingest, trace evaluation and short jobs, Architect, CPU-bound. Uses about
       # 2.1 GiB per pod under load; "combined" goes back to one main process.
       - name: WORKER_LAYOUT
         value: "split"
+      # Read only by WORKER_LAYOUT=combined; kept for a quick switch back.
       - name: CELERY_WORKER_CONCURRENCY
         value: "16"
       - name: CELERY_ARCHITECT_CONCURRENCY

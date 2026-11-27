@@ -170,6 +170,7 @@ workers:
           trace-ingest: 200
           trace-eval: 200
           quick-tasks: 100
+          cpu-bound: 2  # one prefork child per pod: file text extraction, graphs, Garak imports
     # Autoscaler scale-down never drains this pod's node, so a post-deploy
     # scale-down cannot kill an in-flight test run. A GKE node upgrade still
     # can; at this usage that is a rare, accepted interruption.
@@ -181,6 +182,7 @@ workers:
       # 2.1 GiB per pod under load; "combined" goes back to one main process.
       - name: WORKER_LAYOUT
         value: "split"
+      # Read only by WORKER_LAYOUT=combined; kept for a quick switch back.
       - name: CELERY_WORKER_CONCURRENCY
         value: "16"
       - name: CELERY_ARCHITECT_CONCURRENCY
