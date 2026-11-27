@@ -206,7 +206,7 @@ before starting the test run.
 
 | Check | When it runs | What it validates |
 | --- | --- | --- |
-| Endpoint Connectivity | Fresh-output runs | The selected endpoint can be reached before live execution |
+| Endpoint Connectivity | Fresh-output runs | The selected endpoint can be reached before live execution. For an SDK endpoint it confirms the connector is connected and the function is still registered, without calling it, so no trace is added |
 | Evaluation Model | All runs | An evaluation model is configured and usable |
 | Execution Model | Multi-turn runs | A Penelope execution model is configured and usable |
 | Test Set Has Tests | All runs | Each selected test set contains tests |
