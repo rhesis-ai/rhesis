@@ -18,12 +18,17 @@ deleted.
   `terraform_remote_state`:
   - `terraform-dev` writes `dev`, reads `wireguard`
   - `terraform-stg` writes `stg`, reads `wireguard` and `prd`
-  - `terraform-prd` writes `prd`
+  - `terraform-prd` writes `prd`, reads `wireguard`
   - `terraform-wireguard` (the admin SA) holds `storage.admin` on the bucket: it manages
     the bucket and runs the `wireguard`, `billing` and `admin-state` roots, and reads
     `dev`/`stg`/`prd` remote state.
   This replaces the earlier bucket-wide `objectAdmin` each SA carried with access scoped to
   the prefixes each root actually uses.
+- **Bucket-wide listing.** The GCS backend lists the whole bucket at `terraform init`, and
+  a per-prefix condition can't allow that. So the `dev`, `stg` and `prd` SAs also hold
+  `roles/storage.legacyBucketReader` on the bucket. It lets them list every env's state
+  objects but not read them; reading stays limited to the prefixes above.
+
 ## Data-access audit logging (out of band, once)
 
 `DATA_READ`/`DATA_WRITE` audit logging for `storage.googleapis.com` is enabled on the admin
