@@ -55,6 +55,20 @@ Jobs only in the `rhesis-enterprise` namespace. That namespace holds nothing but
 the registry's credentials, so a Job there can't mount app secrets. No Secret
 Manager access.
 
+`terraform/infrastructure/modules/deploy-ci/gcp` creates `deploy-ci-<env>`,
+the identity `.github/workflows/k8s-deploy.yml` uses to write image tags.
+It is keyless. GitHub Actions exchanges its OIDC token for it through
+workload identity federation, so no key exists. It holds
+`roles/gkehub.gatewayEditor`, because writes through Connect Gateway need more
+than `gatewayReader`. On prd it can also push to the `rhesis` Artifact Registry
+repository, so a release copies the images stg tested instead of rebuilding
+them. Inside the cluster,
+`kubernetes/clusters/<env>/argocd/rhesis-deployer-rbac.yaml` lets it get and
+patch the `rhesis` Application and nothing else.
+`.github/scripts/argocd-set-image-tags.sh` sends that patch. The workflow
+reads `WIF_PROVIDER`, `DEPLOY_CI_SA_<ENV>` and `DEPLOY_CI_GATEWAY_<ENV>` for
+this step.
+
 ```bash
 gcloud container fleet memberships get-credentials <dev|stg|prd> --project=PROJECT_ID
 kubectl get pods -n rhesis   # ordinary kubectl from here on
@@ -107,34 +121,60 @@ Open http://localhost:8080 — login with user `admin` and the password above.
 
 ```
 kubernetes/
-├── base/
-│   ├── cnpg-system/               # CNPG namespace, AppProject, nested Argo CD Application
-│   └── external-secrets/          # Kustomize base (shared templates with placeholders)
+├── base/                              # Shared Kustomize bases, one folder per component
+│   ├── alloy/                         # Grafana Alloy (logs to Loki)
+│   ├── arc/                           # Actions Runner Controller (self-hosted CI runners)
+│   ├── cert-manager/                  # TLS certificates
+│   ├── cnpg-cluster/                  # CNPG Postgres cluster
+│   ├── cnpg-system/                   # CNPG namespace, AppProject, nested Argo CD Application
+│   ├── external-dns/                  # Public DNS records for `external` ingresses
+│   ├── external-secrets/              # ESO templates with placeholders
+│   ├── grafana-operator/              # Grafana Operator
+│   ├── grafana-resources/             # Grafana CR, ingress, datasources, dashboards, alerts
+│   ├── ingress-nginx-external/        # Public ingress controller
+│   ├── ingress-nginx-internal/        # Private ingress controller
+│   ├── internal-dns/                  # Private DNS records for `internal` ingresses
+│   ├── keda/                          # KEDA (queue-based worker autoscaling)
+│   ├── kube-prometheus-stack/         # Prometheus Operator stack (Grafana disabled)
+│   └── loki/                          # Loki singleBinary
 ├── bootstrap/
-│   ├── argocd/                    # ArgoCD installation (Kustomize)
-│   └── prd-base.yaml              # prd's root Application (entry point) — see below for why
+│   ├── argocd/                        # ArgoCD installation (Kustomize)
+│   └── prd-base.yaml                  # prd's root Application (entry point), see below for why
+├── monitoring/                        # Monitoring prerequisites
 └── clusters/
-    ├── dev/                       # Dev environment
-    ├── stg/                       # Staging environment
-    └── prd/                       # Production environment
-        ├── external-secrets.yaml  # ArgoCD Application for ESO (Kustomize overlay)
-        ├── argocd/                # ArgoCD self-management + ingress
-        ├── cert-manager/          # TLS certificates
-        ├── external-dns/          # DNS automation
-        ├── external-secrets/      # Kustomize overlay (env-specific values)
-        ├── grafana-resources/     # Grafana CR, ingress, Prometheus/Loki datasources (after CRDs)
-        ├── kube-prometheus-stack/ # Prometheus Operator stack (Grafana disabled)
-        ├── loki/                  # Loki singleBinary
-        ├── alloy/                 # Grafana Alloy (logs to Loki)
-        ├── cnpg-operator.yaml     # (stg/prd) Argo CD Application for CNPG stack — omitted in dev
-        └── rhesis/                # Application manifests
+    ├── dev/                           # Dev environment (no cnpg-*, uses the Bitnami subchart)
+    ├── stg/                           # Staging environment
+    └── prd/                           # Production environment
+        ├── <component>.yaml           # ArgoCD Application per component, sourcing <component>/
+        ├── kustomization.yaml         # What prd-base deploys
+        ├── volumesnapshotclass.yaml   # pd-retain snapshot class
+        ├── alloy/
+        ├── arc/                       # Runner set + its credentials
+        ├── argocd/                    # ArgoCD self-management, ingress, deploy-ci RBAC
+        ├── cert-manager/
+        ├── cluster-dns/               # kube-dns forwarding to BIND9
+        ├── cnpg-cluster/              # Postgres cluster, pooler, backups, PodMonitor
+        ├── cnpg-operator.yaml         # (stg/prd) Argo CD Application for CNPG stack, omitted in dev
+        ├── cnpg-system/               # CNPG operator Helm chart version
+        ├── external-dns/
+        ├── external-secrets/          # ExternalSecrets (env-specific values)
+        ├── grafana-operator/
+        ├── grafana-resources/         # prd-only datasources and Grafana credentials (after CRDs)
+        ├── ingress-nginx-external/    # Includes the Cloudflare origin lock
+        ├── ingress-nginx-internal/
+        ├── internal-dns/
+        ├── keda/
+        ├── kube-prometheus-stack/
+        ├── loki/
+        ├── rhesis/                    # Rhesis Application, namespace, license-issuer RBAC
+        └── rhesis-enterprise/         # Enterprise registry namespace and runner RBAC
 ```
 
 Any YAML added under `clusters/<env>/` and pushed to `main` is automatically deployed by the root `*-base` Application (unless you change that Application’s sync policy).
 
 ### Production promotion gate
 
-Dev and stg's root Applications track `targetRevision: main` directly, so config changes roll out as soon as they merge. Prod is different: **every Application manifest that sources from this repo and feeds prd** — the root `prd-base` (`kubernetes/bootstrap/prd-base.yaml`) and every nested Application it deploys (`cert-manager.yaml`, `cluster-dns-application.yaml`, `rhesis/rhesis-application.yaml`, etc.) — pins `targetRevision` to a **commit SHA**, not `main` and not a release branch name. There are two exceptions. `cnpg-operator.yaml` (see below) has automated sync disabled and is promoted manually on purpose. The `rhesis` chart's revision is set by the deploy, together with its image tags (see "Chart revision follows the deploy" below).
+Dev and stg's root Applications track `targetRevision: main` directly, so config changes roll out as soon as they merge. Prod is different: **every Application manifest that sources from this repo and feeds prd** — the root `prd-base` (`kubernetes/bootstrap/prd-base.yaml`) and every nested Application it deploys (`cert-manager.yaml`, `cluster-dns-application.yaml`, `rhesis/rhesis-application.yaml`, etc.) — pins `targetRevision` to a **commit SHA**, not `main` and not a release branch name. There are three exceptions. `cnpg-operator.yaml` (see below) has automated sync disabled and is promoted manually on purpose. The `rhesis` chart's revision is set by the deploy, together with its image tags (see "Chart revision follows the deploy" below). `grafana-resources.yaml` tracks `main` and is left out of the `FILES` array on purpose, so dashboard and alert changes reach prd as soon as they merge.
 
 Each of these is its own independent ArgoCD Application with its own `syncPolicy.automated` (prune + selfHeal): the root only controls what these child Application *manifests* say, not how the children themselves reconcile. Pinning only the root and leaving children on `release/vX.Y.Z` would leave every child with the exact same dangling-ref risk described below — just one layer deeper.
 
@@ -143,6 +183,8 @@ Each of these is its own independent ArgoCD Application with its own `syncPolicy
 - **Why a commit SHA works:** it's immutable and stays reachable (and therefore never garbage-collected) once merged into `main`, even after the branch that carried it is deleted. Promotion becomes "point at a specific commit," decoupled entirely from branch lifecycle.
 
 The SHA is bumped automatically, not by hand: the `promote-prd-config` job in `.github/workflows/publish-release.yml` first commits `targetRevision: $GITHUB_SHA` (the tip of the release branch — the exact commit already validated on stg) into `kubernetes/bootstrap/prd-base.yaml` **and every other prd Application manifest listed in its `FILES` array** on `main`, then runs `argocd app set prd-base --revision <that write-back commit>` and syncs, as part of the same manual, deliberate "publish this release to prd" action. No separate manual manifest edit is needed, and prd only ever advances when that workflow runs. If `prd-base` doesn't exist on the cluster yet, the same job creates it from the checked-in manifest before pinning it — see "Why prd's root Application lives in `bootstrap/`" below.
+
+Before that write-back, `promote-prd-config` fails if `main` has changed anything under `kubernetes/clusters/prd` or in `kubernetes/bootstrap/prd-base.yaml`, other than `targetRevision:` lines, since the release branch was cut. Those changes were never validated on stg. So a prd config PR merged during a release window blocks the release.
 
 The git write-back has to happen *before* `prd-base` is synced, and `prd-base` is pinned to the **resulting write-back commit**, not to `$GITHUB_SHA` directly. If `prd-base` were pinned straight to `$GITHUB_SHA`, its tree would still show whatever `targetRevision` was last committed for each child — the previous release's, since `$GITHUB_SHA` predates this run's write-back — and because `prd-base`'s own `selfHeal` continuously reconciles against that fixed, immutable commit, it would keep reverting the children to the stale value indefinitely, not just in a brief window. Committing first and pinning `prd-base` to that commit keeps its own source of truth self-consistent from the moment it's synced, so the normal cascade below is actually correct.
 

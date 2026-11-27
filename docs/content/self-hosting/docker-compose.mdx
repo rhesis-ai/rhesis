@@ -76,11 +76,12 @@ Four secrets are required and have no safe default; the stack refuses to start i
 
 Browsers only talk to `FRONTEND_URL`: the frontend passes sign-in and API calls on to the backend under `/api/backend`. Set `FRONTEND_URL` to the address your users open; an `https://` value turns on secure (HTTPS-only) cookies. API and SDK clients keep calling the backend directly, at the address your reverse proxy gives it. `FRONTEND_PORT` and `BACKEND_PORT` are the host ports Docker publishes and are independent of these URLs — behind a reverse proxy the published port and the public URL usually differ.
 
-The browser's WebSocket is the one connection the frontend can't pass on. Without a reverse proxy, the stack points it at `ws://localhost:<BACKEND_PORT>/ws`, which works when users open the app on the machine that runs it; if they open it from other machines, set `WS_URL=ws://<server>:<BACKEND_PORT>/ws`. Behind a reverse proxy, route `/ws` on the frontend host to the backend and set `WS_URL=/ws`:
+The browser's WebSocket is the one connection the frontend can't pass on. Without a reverse proxy, the stack points it at `ws://localhost:<BACKEND_PORT>/ws`, which works when users open the app on the machine that runs it; if they open it from other machines, set `WS_URL=ws://<server>:<BACKEND_PORT>/ws`. Behind a reverse proxy, route `/ws` on the frontend host to the backend and set `WS_URL=/ws`. Set [`TRUSTED_PROXY_COUNT`](/self-hosting/environment-variables#rate-limiting) to `1` as well, so rate limits count each client separately:
 
 <CodeBlock filename=".env.docker" language="bash">
 {`FRONTEND_URL=https://app.example.com
-WS_URL=/ws`}
+WS_URL=/ws
+TRUSTED_PROXY_COUNT=1`}
 </CodeBlock>
 
 <CodeBlock filename="Caddyfile" language="text">
@@ -305,6 +306,7 @@ docker compose down
 # Backup volumes
 docker run --rm -v rhesis_postgres_data:/data -v $(pwd):/backup alpine tar czf /backup/postgres_backup.tar.gz -C /data .
 docker run --rm -v rhesis_redis_data:/data -v $(pwd):/backup alpine tar czf /backup/redis_backup.tar.gz -C /data .
+docker run --rm -v rhesis_rhesis-storage:/data -v $(pwd):/backup alpine tar czf /backup/storage_backup.tar.gz -C /data .
 
 # Restart services
 docker compose --env-file .env.docker up -d`}

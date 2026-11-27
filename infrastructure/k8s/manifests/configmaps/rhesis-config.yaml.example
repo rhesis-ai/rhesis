@@ -101,9 +101,9 @@ data:
   FRONTEND_URL: "http://localhost:3000"
   BACKEND_URL: "http://backend:8080"
 
-  # Empty: the browser opens /ws on the frontend host; route it to the backend
-  # in your ingress. Set a ws(s) URL only when nothing routes /ws there.
-  WS_URL: ""
+  # This chart has no ingress, so the browser reaches the backend through the
+  # `kubectl port-forward svc/backend 8080:8080` from the docs.
+  WS_URL: "ws://localhost:8080/ws"
 
 
   # =============================================================================

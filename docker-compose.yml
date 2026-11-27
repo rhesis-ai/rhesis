@@ -43,6 +43,8 @@ x-common-smtp: &common-smtp
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASSWORD: ${SMTP_PASSWORD:-}
   FROM_EMAIL: ${FROM_EMAIL:-noreply@example.com}
+  # Where emails load their logo and fonts; unset uses https://rhesis.ai.
+  EMAIL_ASSET_BASE_URL: ${EMAIL_ASSET_BASE_URL:-}
 
 x-common-jwt: &common-jwt
   JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required, no safe default}
@@ -71,6 +73,11 @@ x-rhesis-config: &rhesis-config
 x-moderation-config: &moderation-config
   GOOGLE_MODERATION_API_KEY: ${GOOGLE_MODERATION_API_KEY:-}
   GOOGLE_MODERATION_ENDPOINT: ${GOOGLE_MODERATION_ENDPOINT:-}
+
+# Tuning shared by the backend and the worker; defaults match the code.
+x-tuning-config: &tuning-config
+  TRACE_EVAL_CONTEXT_TTL_SECONDS: ${TRACE_EVAL_CONTEXT_TTL_SECONDS:-60}
+  USAGE_ACCRUAL_FLUSH_SECONDS: ${USAGE_ACCRUAL_FLUSH_SECONDS:-2}
 
 x-telemetry-config: &telemetry-config
   OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-true}  # Self-hosted: opt-out via env var
@@ -132,7 +139,7 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: backend
     environment:
-      <<: [*common-auth, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *moderation-config, *telemetry-config, *common-storage]
+      <<: [*common-auth, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *moderation-config, *telemetry-config, *common-storage, *tuning-config]
       # DB/Redis default to the built-in postgres/redis services above; set
       # these in your .env file to point at an external database or Redis.
       # DB_NAME keeps a literal default because migrate.sh reads $DB_NAME directly.
@@ -157,6 +164,9 @@ services:
       # here, so 0 keeps the socket peer and ignores a client-supplied
       # X-Forwarded-For. Behind a reverse proxy, set this to the number of proxies.
       TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-0}
+      # Connections per API process. Worker processes size their own in apps/worker/start.sh.
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-20}
     volumes:
       - rhesis-storage:/app/storage
     ports:
@@ -188,7 +198,7 @@ services:
     # Time for running test runs to finish on stop or upgrade. An idle worker still stops at once.
     stop_grace_period: ${WORKER_STOP_GRACE_PERIOD:-9000s}
     environment: &worker-environment
-      <<: [*common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *moderation-config, *common-storage]
+      <<: [*common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *moderation-config, *common-storage, *tuning-config]
       # DB/Redis default to the built-in postgres/redis services above; set
       # these in your .env file to point at an external database or Redis.
       # DB_NAME keeps a literal default because migrate.sh reads $DB_NAME directly.
@@ -208,6 +218,7 @@ services:
       CELERY_INGEST_CONCURRENCY: ${CELERY_INGEST_CONCURRENCY:-}
       CELERY_FAST_CONCURRENCY: ${CELERY_FAST_CONCURRENCY:-}
       CELERY_FAST_PREFETCH_MULTIPLIER: ${CELERY_FAST_PREFETCH_MULTIPLIER:-}
+      CELERY_ARCHITECT_CONCURRENCY: ${CELERY_ARCHITECT_CONCURRENCY:-}
       # Unset falls back to LOG_LEVEL in apps/worker/start.sh.
       CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-}
       ENABLE_FLOWER: no

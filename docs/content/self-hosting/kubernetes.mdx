@@ -48,6 +48,10 @@ kubectl port-forward -n rhesis svc/backend 8080:8080 &`}
   align={['left', 'left']}
 />
 
+Keep both port-forwards running, because the browser's WebSocket connects straight to the backend
+port (`WS_URL: "ws://localhost:8080/ws"` in `rhesis-config.yaml`). A `rhesis-config.yaml` copied
+from an older example needs that line, then `./k8s-deploy.sh apply`.
+
 ## Configuring secrets
 
 A Kubernetes Secret's `data:` map must be valid base64 for every key it lists — there's no
