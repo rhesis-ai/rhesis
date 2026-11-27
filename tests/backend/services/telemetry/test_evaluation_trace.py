@@ -73,6 +73,45 @@ def test_stored_spans_become_the_tree_the_api_returns():
     assert trace.spans()[0].id == "row-" + "r" * 16
 
 
+def test_each_span_carries_its_cost_from_the_trace_enrichment():
+    rows = [
+        _row("r" * 16, None, "function.endpoint_sdk_invoke", 0),
+        _row("l" * 16, "r" * 16, "ai.llm.invoke", 1, "llm.invoke"),
+    ]
+    enriched = {
+        "costs": {"breakdown": [{"span_id": "l" * 16, "total_cost_usd": 0.012}]},
+    }
+    for row in rows:
+        row.enriched_data = enriched
+    db_patch, crud_patch = _stored(rows)
+    with db_patch, crud_patch:
+        trace = load_evaluation_trace(TRACE_ID, ORG, PROJECT)
+
+    costs = {s.span_name: s.cost_usd for s in trace.spans()}
+    assert costs == {"function.endpoint_sdk_invoke": None, "ai.llm.invoke": 0.012}
+
+
+def test_a_model_call_not_yet_priced_is_priced_when_read():
+    call = {
+        "ai.operation.type": "llm.invoke",
+        "ai.model.name": "gpt-4o",
+        "ai.llm.tokens.input": 1000,
+        "ai.llm.tokens.output": 500,
+    }
+    rows = [
+        _row("r" * 16, None, "function.endpoint_sdk_invoke", 0),
+        _row("l" * 16, "r" * 16, "ai.llm.invoke", 1, "llm.invoke", call),
+        _row("u" * 16, "r" * 16, "ai.llm.invoke", 2, "llm.invoke", {"ai.llm.tokens.input": 9}),
+    ]
+    db_patch, crud_patch = _stored(rows)
+    with db_patch, crud_patch:
+        trace = load_evaluation_trace(TRACE_ID, ORG, PROJECT)
+
+    priced, unnamed = trace.spans(kind="llm.invoke")
+    assert priced.cost_usd and priced.cost_usd > 0
+    assert unnamed.cost_usd is None
+
+
 def test_before_a_batch_run_writes_its_spans_the_unsaved_ones_stand_in():
     invocation = OTELSpan(
         trace_id=TRACE_ID,

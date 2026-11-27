@@ -170,6 +170,25 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     )
 
 
+def span_cost_usd(span_id: str, attributes: Dict[str, object]) -> Optional[float]:
+    """A model call's cost in USD, priced the way enrichment prices it, or None when it can't
+    be: no model name or no tokens. For spans read before enrichment has run."""
+    if not attributes.get(AIAttributes.MODEL_NAME):
+        return None
+    span = _AttributeSpan(span_id, attributes)
+    if not any((*_span_token_counts(span), *_span_cache_token_counts(span))):
+        return None
+    return _price_span(span, usd_to_eur=1.0).total_cost_usd
+
+
+class _AttributeSpan:
+    """The two fields ``_price_span`` reads, without a stored row."""
+
+    def __init__(self, span_id: str, attributes: Dict[str, object]):
+        self.span_id = span_id
+        self.attributes = attributes
+
+
 def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
     """
     Calculate token counts and costs for LLM spans using LiteLLM's pricing database.

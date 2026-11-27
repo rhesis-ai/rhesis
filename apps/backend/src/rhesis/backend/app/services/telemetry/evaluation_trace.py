@@ -1,8 +1,9 @@
 """The trace a metric reads when it declares ``trace``.
 
 Built as the SDK's ``Trace`` with its span tree loaded, the same shape the trace detail route
-returns, so a metric sees what a user sees through the API. Annotations, costs and tags are
-left out: no metric reads them, and loading them costs a query per span.
+returns, so a metric sees what a user sees through the API. Annotations and tags are left
+out: no metric reads them, and loading them costs a query per span. Each span's cost comes
+from the trace's enrichment, which every row carries, so it costs nothing to read.
 """
 
 import json
@@ -11,12 +12,15 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext
 from rhesis.telemetry.schemas import OTELSpan, StatusCode
 
+from rhesis.backend.app.constants import EnrichedDataKeys
 from rhesis.backend.app.crud.telemetry import get_trace_by_id
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.services.invokers.tracing import EndpointAttributes
+from rhesis.backend.app.services.telemetry.enrichment.core import span_cost_usd
 from rhesis.backend.app.services.telemetry.ingest_pending import wait_until_stored
 from rhesis.backend.app.services.telemetry.span_types import classify_span_type
 from rhesis.sdk.entities.trace import FROM_CONVERSATION, TRACE_SOURCE_ATTRIBUTE, Span, Trace
@@ -41,14 +45,20 @@ def _node(
     status_message: Optional[str],
     attributes: Dict[str, Any],
     events: List[Dict[str, Any]],
+    cost_usd: Optional[float] = None,
 ) -> Dict[str, Any]:
+    span_type = span_type or classify_span_type(attributes)
+    if cost_usd is None and span_type == AIAttributes.OPERATION_LLM_INVOKE:
+        # A test run scores before its trace is priced, so price the call here.
+        cost_usd = span_cost_usd(span_id, attributes or {})
     return {
+        "cost_usd": cost_usd,
         "id": row_id,
         "span_id": span_id,
         "parent_span_id": parent_span_id,
         "span_name": span_name,
         "span_kind": span_kind,
-        "span_type": span_type or classify_span_type(attributes),
+        "span_type": span_type,
         "start_time": start_time,
         "end_time": end_time,
         "duration_ms": (end_time - start_time).total_seconds() * 1000,
@@ -60,9 +70,21 @@ def _node(
     }
 
 
+def _span_costs(rows: Sequence[Any]) -> Dict[str, Optional[float]]:
+    # Enrichment is trace-level and written onto every span; until it has run, costs are unknown.
+    costs = (getattr(rows[0], "enriched_data", None) or {}).get(EnrichedDataKeys.COSTS) or {}
+    return {
+        entry[EnrichedDataKeys.SPAN_ID]: entry.get(EnrichedDataKeys.TOTAL_COST_USD)
+        for entry in costs.get(EnrichedDataKeys.BREAKDOWN) or []
+        if entry.get(EnrichedDataKeys.SPAN_ID)
+    }
+
+
 def _from_rows(rows: Sequence[Any]) -> List[Dict[str, Any]]:
+    costs = _span_costs(rows) if rows else {}
     return [
         _node(
+            cost_usd=costs.get(row.span_id),
             row_id=str(row.id),
             span_id=row.span_id,
             parent_span_id=row.parent_span_id,
