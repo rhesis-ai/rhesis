@@ -1,25 +1,15 @@
 import type { MetricTarget } from '@/utils/api-client/interfaces/metric';
 import {
   FROM_METRIC_PARAM,
-  targetTraceFilters,
   tracesHrefForTarget,
-  unappliedRefinements,
-  withoutTargetFilters,
+  withoutTargetFilter,
 } from '../target-filters';
+import { buildSpanQueryParams } from '../trace-filter-params';
 import {
   filtersFromSearchParams,
   viewFromSearchParams,
+  withTraceUrlState,
 } from '../trace-url-state';
-
-const CHOICES = [
-  { on: 'turn' },
-  { on: 'conversation' },
-  { on: 'run' },
-  { on: 'tool_call', span_kind: 'tool.invoke' },
-  { on: 'retrieval', span_kind: 'retrieval' },
-  { on: 'model_call', span_kind: 'llm.invoke' },
-  { on: 'agent', span_kind: 'agent.invoke' },
-];
 
 function opened(href: string) {
   const params = new URLSearchParams(href.split('?')[1] ?? '');
@@ -30,147 +20,97 @@ function opened(href: string) {
   };
 }
 
-describe('targetTraceFilters', () => {
-  it.each([
-    [
-      { on: 'tool_call', name: 'issue_refund' },
-      { spanTypes: ['tool.invoke'], tools: ['issue_refund'] },
-    ],
-    [
-      { on: 'model_call', name: 'gpt-4.1' },
-      { spanTypes: ['llm.invoke'], models: ['gpt-4.1'] },
-    ],
-    [
-      { on: 'agent', name: 'billing_agent' },
-      { spanTypes: ['agent.invoke'], agents: ['billing_agent'] },
-    ],
-    [
-      { on: 'retrieval', name: 'kb_search' },
-      { spanTypes: ['retrieval'], spanNames: ['kb_search'] },
-    ],
-    [{ on: 'tool_call' }, { spanTypes: ['tool.invoke'] }],
-  ])('opens the spans of a per-span target %o', (target, filters) => {
-    expect(targetTraceFilters(target, CHOICES)).toEqual({
-      view: 'spans',
-      filters,
-    });
-  });
-
-  it('opens the root spans for each turn', () => {
-    expect(targetTraceFilters({ on: 'turn' }, CHOICES)).toEqual({
-      view: 'spans',
-      filters: { isRoot: true },
-    });
-  });
-
-  it('opens multi-turn traces for the conversation and every trace for the run', () => {
-    expect(targetTraceFilters({ on: 'conversation' }, CHOICES)).toEqual({
-      view: 'traces',
-      filters: { traceType: 'Multi-Turn' },
-    });
-    expect(targetTraceFilters({ on: 'run' }, CHOICES)).toEqual({
-      view: 'traces',
-      filters: {},
-    });
-  });
-});
+const REFUNDS: MetricTarget = {
+  on: 'span',
+  where: [
+    { field: 'kind', op: '==', value: 'tool.invoke' },
+    {
+      field: 'ai.tool.name',
+      op: 'in',
+      value: ['issue_refund', 'cancel_order'],
+    },
+    { field: 'app.channel', op: '!=', value: 'internal' },
+  ],
+  within: 'billing_agent',
+};
 
 describe('tracesHrefForTarget', () => {
-  it('writes the filters the Traces page reads back', () => {
-    const href = tracesHrefForTarget(
-      { on: 'tool_call', name: 'issue_refund' },
-      CHOICES,
-      'metric-1'
-    );
+  it('opens the spans view with the target itself as the filter', () => {
+    const href = tracesHrefForTarget(REFUNDS, 'metric-1');
 
     expect(href.startsWith('/traces?')).toBe(true);
-    expect(opened(href)).toEqual({
-      view: 'spans',
-      filters: {
-        timeRange: 'all',
-        spanTypes: ['tool.invoke'],
-        tools: ['issue_refund'],
-      },
-      fromMetric: 'metric-1',
-    });
+    const { view, filters, fromMetric } = opened(href);
+    expect(view).toBe('spans');
+    expect(fromMetric).toBe('metric-1');
+    expect(JSON.parse(filters.target ?? '')).toEqual(REFUNDS);
   });
 
-  it('round-trips a turn and the conversation', () => {
-    expect(
-      opened(tracesHrefForTarget({ on: 'turn' }, CHOICES)).filters
-    ).toEqual({
+  it.each([{ on: 'turn' }, { on: 'conversation' }, { on: 'run' }])(
+    'passes %o as a target too, since the API matches every kind exactly',
+    target => {
+      const { view, filters } = opened(tracesHrefForTarget(target));
+      expect(view).toBe('spans');
+      expect(JSON.parse(filters.target ?? '')).toEqual(target);
+    }
+  );
+
+  it('no longer writes the old tool and span type filters', () => {
+    const { filters } = opened(
+      tracesHrefForTarget({ on: 'tool_call', name: 'issue_refund' })
+    );
+    expect(filters.tools).toBeUndefined();
+    expect(filters.spanTypes).toBeUndefined();
+  });
+
+  it('sends the target on to the spans endpoint, URL-encoded', () => {
+    const { filters } = opened(tracesHrefForTarget(REFUNDS));
+    const params = buildSpanQueryParams(filters, '');
+    expect(params.target).toBe(JSON.stringify(REFUNDS));
+  });
+});
+
+describe('old links', () => {
+  it('still read the TBE 4 tool and span type filters', () => {
+    const { view, filters, fromMetric } = opened(
+      '/traces?view=spans&span_type=tool.invoke&tool=issue_refund&from_metric=metric-1'
+    );
+    expect(view).toBe('spans');
+    expect(filters).toEqual({
       timeRange: 'all',
-      isRoot: true,
-    });
-    expect(
-      opened(tracesHrefForTarget({ on: 'conversation' }, CHOICES)).filters
-    ).toEqual({ timeRange: 'all', traceType: 'Multi-Turn' });
-  });
-
-  it('links to every trace for the run', () => {
-    expect(tracesHrefForTarget({ on: 'run' }, CHOICES)).toBe('/traces');
-  });
-});
-
-describe('withoutTargetFilters', () => {
-  it('removes only what the target set', () => {
-    const current = {
-      timeRange: '7d' as const,
-      spanTypes: ['tool.invoke', 'retrieval'],
-      tools: ['issue_refund'],
-      environment: 'production',
-    };
-
-    expect(
-      withoutTargetFilters(current, {
-        spanTypes: ['tool.invoke'],
-        tools: ['issue_refund'],
-      })
-    ).toEqual({
-      timeRange: '7d',
-      spanTypes: ['retrieval'],
-      environment: 'production',
-    });
-  });
-
-  it('clears a single value the target set', () => {
-    expect(
-      withoutTargetFilters({ timeRange: 'all', isRoot: true }, { isRoot: true })
-    ).toEqual({ timeRange: 'all' });
-  });
-});
-
-describe('unappliedRefinements', () => {
-  it('names the agent and attributes the Traces filters leave out', () => {
-    expect(
-      unappliedRefinements({
-        within: 'billing_agent',
-        where: {
-          'rhesis.reported.metadata.channel': 'web',
-          'app.customer_tier': ['gold', 'silver'],
-        },
-      })
-    ).toEqual([
-      'inside billing_agent',
-      'rhesis.reported.metadata.channel is web',
-      'app.customer_tier is one of gold, silver',
-    ]);
-  });
-
-  it('is empty when every part of the target applies', () => {
-    expect(unappliedRefinements({})).toEqual([]);
-  });
-
-  it('still opens the spans of the target kind and name', () => {
-    const target: MetricTarget = {
-      on: 'tool_call',
-      name: 'issue_refund',
-      within: 'billing_agent',
-    };
-
-    expect(targetTraceFilters(target, CHOICES).filters).toEqual({
       spanTypes: ['tool.invoke'],
       tools: ['issue_refund'],
     });
+    expect(fromMetric).toBe('metric-1');
+  });
+
+  it.each(['not json', '[1,2]', '{"name":"x"}', '%7B'])(
+    'drop a target that is not a JSON target (%s) instead of sending it',
+    raw => {
+      const params = new URLSearchParams();
+      params.set('view', 'spans');
+      params.set('target', raw);
+      expect(filtersFromSearchParams(params).target).toBeUndefined();
+    }
+  );
+});
+
+describe('withoutTargetFilter', () => {
+  it('removes the target and keeps what the user added', () => {
+    expect(
+      withoutTargetFilter({
+        timeRange: '7d',
+        environment: 'production',
+        target: JSON.stringify(REFUNDS),
+      })
+    ).toEqual({ timeRange: '7d', environment: 'production' });
+  });
+
+  it('writes no target back to the URL once removed', () => {
+    const params = withTraceUrlState(
+      new URLSearchParams('target=x&view=spans'),
+      'spans',
+      withoutTargetFilter({ timeRange: 'all', target: '{"on":"turn"}' })
+    );
+    expect(params.has('target')).toBe(false);
   });
 });

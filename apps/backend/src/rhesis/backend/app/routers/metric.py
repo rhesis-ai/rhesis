@@ -330,9 +330,9 @@ def improve_metric(
 
 @router.get("/targets", response_model=schemas.TargetChoices)
 def read_metric_targets(current_user: User = Depends(require_current_user_or_token)):
-    """Every target a metric can have, in the order an editor offers them, and the operators
-    and special fields a condition takes. Which targets a given metric can take is its
-    ``supported_targets``."""
+    """Every target a metric can have, in the order an editor offers them, the operators and
+    special fields a condition takes, and what ``read`` may name. Which targets a given metric
+    can take is its ``supported_targets``."""
     try:
         from rhesis.sdk.metrics.conditions import (
             CONDITION_OPS,
@@ -340,7 +340,7 @@ def read_metric_targets(current_user: User = Depends(require_current_user_or_tok
             ValueType,
             value_type,
         )
-        from rhesis.sdk.metrics.targets import TARGETS
+        from rhesis.sdk.metrics.targets import EVENT_READER, READER_LABELS, READERS, TARGETS
     except ImportError:  # a core install, which runs no metric
         return schemas.TargetChoices()
 
@@ -367,6 +367,11 @@ def read_metric_targets(current_user: User = Depends(require_current_user_or_tok
             schemas.SpecialFieldChoice(field=field.value, label=label)
             for field, label in SPECIAL_FIELDS.items()
         ],
+        readers=[
+            schemas.ReaderChoice(reader=reader.value, label=READER_LABELS.get(reader, reader.value))
+            for reader in READERS
+        ],
+        event_prefix=EVENT_READER,
     )
 
 

@@ -38,6 +38,11 @@ export interface TraceDrawerFilters {
   tools?: string[];
   /** true: root spans only; false: child spans only; unset: both. */
   isRoot?: boolean;
+  /**
+   * Spans view: a metric target as JSON, keeping exactly the spans it picks.
+   * Set by a metric's target link and shown as a chip, not in the drawer.
+   */
+  target?: string;
 }
 
 export const EMPTY_TRACE_DRAWER_FILTERS: TraceDrawerFilters = {
@@ -66,6 +71,7 @@ function activeFilterFlags(
         !!f.models?.length,
         !!f.tools?.length,
         f.isRoot !== undefined,
+        !!f.target,
       ]
     : [!!f.traceMetricsStatus];
 
@@ -241,6 +247,7 @@ export function buildSpanQueryParams(
   if (drawer.models?.length) params.model = drawer.models;
   if (drawer.tools?.length) params.tool = drawer.tools;
   if (drawer.isRoot !== undefined) params.is_root = drawer.isRoot;
+  if (drawer.target) params.target = drawer.target;
 
   if (searchQuery.trim()) params.search = searchQuery.trim();
 

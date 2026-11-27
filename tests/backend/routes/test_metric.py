@@ -593,6 +593,17 @@ class TestMetricPerformance(MetricTestMixin, BaseEntityTests):
         ]
         assert body["special_fields"][3] == {"field": "duration_ms", "label": "Duration (ms)"}
 
+    def test_metric_targets_lists_what_read_may_name(self, metric_factory):
+        from rhesis.sdk.metrics.targets import EVENT_READER, READERS
+
+        response = metric_factory.client.get(f"{self.endpoints.list}targets")
+
+        body = response.json()
+        assert [r["reader"] for r in body["readers"]] == [reader.value for reader in READERS]
+        assert all(r["label"] for r in body["readers"])
+        assert body["readers"][0] == {"reader": "input", "label": "Its own input"}
+        assert body["event_prefix"] == EVENT_READER == "event:"
+
     def test_a_metric_says_what_it_judges_in_words(self, metric_factory):
         data = self.get_sample_data()
         data["config"] = {
@@ -1014,6 +1025,26 @@ class TestRuleMetrics(MetricTestMixin):
         response = self._create(metric_factory, self._rule("FieldRule", config))
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_a_pattern_that_differs_in_postgres_is_refused_on_create(self, metric_factory):
+        config = {"field": "output", "op": "matches", "value": r"\brefund\b"}
+
+        response = self._create(metric_factory, self._rule("FieldRule", config))
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "word boundary" in response.text
+
+    def test_a_pattern_that_differs_in_postgres_is_refused_on_update(self, metric_factory):
+        config = {"field": "output", "op": "matches", "value": "refund"}
+        created = self._create(metric_factory, self._rule("FieldRule", config)).json()
+
+        response = metric_factory.client.put(
+            self.endpoints.put(created["id"]),
+            json={"config": {**config, "value": r"\brefund\b"}},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "word boundary" in response.text
 
     def test_a_response_rule_judges_turns_but_not_spans_or_the_conversation(self, metric_factory):
         response = self._create(

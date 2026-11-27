@@ -184,4 +184,13 @@ export const toolProviderKeys = {
 // same for every user, and it only changes on release.
 export const metricTargetKeys = {
   all: () => ['metric-targets'] as const,
+  /** A draft target tried on a project's latest traces. */
+  preview: (projectId: string, target: string) =>
+    ['metric-targets', 'preview', projectId, target] as const,
+};
+
+// Per project: the attribute keys recent spans carry, for target conditions.
+export const spanAttributeKeys = {
+  catalogue: (projectId: string) =>
+    ['span-attributes', 'catalogue', projectId] as const,
 };

@@ -16,7 +16,6 @@ import {
   IconButton,
   Chip,
   Alert,
-  Skeleton,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
@@ -57,16 +56,7 @@ import {
   parseEvaluationSteps,
 } from '@/utils/evaluation-steps';
 import { useMetricTargets } from '@/hooks/useLookups';
-import {
-  editedTarget,
-  formatMetricTarget,
-  getMetricTarget,
-  getMetricTargetIcon,
-  offeredTargets,
-} from '@/utils/metric-targets';
-import MetricTargetPicker, {
-  type MetricTargetValue,
-} from '../components/MetricTargetPicker';
+import MetricTargetSection from '../components/MetricTargetSection';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -235,18 +225,11 @@ export function MetricDetailView({
     !!judgeModel &&
     isDecisionModel(judgeModel) &&
     (editData.score_type || metric?.score_type) !== SCORE_TYPES.CATEGORICAL;
-  const { data: allTargets = NO_TARGETS, isPending: targetsPending } =
-    useMetricTargets();
-  const supportedTargets = metric?.supported_targets;
-  const targetChoices = React.useMemo(
-    () => offeredTargets(allTargets, { supported: supportedTargets }),
-    [allTargets, supportedTargets]
-  );
+  const { data: allTargets = NO_TARGETS } = useMetricTargets();
   const spanKinds = React.useMemo(
     () => allTargets.filter(choice => choice.per_span),
     [allTargets]
   );
-  const storedTarget = metric ? getMetricTarget(metric) : null;
   const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(initialMetric !== undefined);
   // The reset effects below must not fire for the values we mounted with, or
@@ -572,42 +555,12 @@ export function MetricDetailView({
     [metric, session, tagNames, notifications, status]
   );
 
-  const storedTargetValue = React.useMemo<MetricTargetValue>(
-    () => ({ on: storedTarget?.on ?? '', name: storedTarget?.name ?? '' }),
-    [storedTarget?.on, storedTarget?.name]
-  );
-
-  // The target says where a metric is applied, not what it is, so it stays
-  // editable on framework metrics. The update carries nothing else.
-  const handleTargetSave = React.useCallback(
-    async (draft: MetricTargetValue) => {
-      if (!metric || !isAuthenticated(status)) return false;
-      const metricsClient = new ApiClientFactory().getMetricsClient();
-      try {
-        // A PUT replaces the whole config, so the class settings go back too.
-        await metricsClient.updateMetric(metric.id, {
-          config: {
-            ...(metric.config ?? {}),
-            target: editedTarget(getMetricTarget(metric), draft, allTargets),
-          },
-        });
-        const updatedMetric = await metricsClient.getMetric(metric.id);
-        setMetric(updatedMetric as MetricDetail);
-        notifications.show('Target updated', {
-          severity: 'success',
-          autoHideDuration: 4000,
-        });
-        onSaved?.();
-        return true;
-      } catch (error) {
-        notifications.show(
-          error instanceof Error ? error.message : 'Failed to update target',
-          { severity: 'error' }
-        );
-        return false;
-      }
+  const handleTargetSaved = React.useCallback(
+    (updated: MetricDetail) => {
+      setMetric(updated);
+      onSaved?.();
     },
-    [metric, status, allTargets, notifications, onSaved]
+    [onSaved]
   );
 
   const handleEdit = React.useCallback(
@@ -1619,45 +1572,11 @@ export function MetricDetailView({
             </EditableSection>
           )}
 
-          <EditableSectionCard
-            editable={canEditMetric && targetChoices.length > 0}
-            title="Target"
-            subtitle="The part of the trace this metric looks at"
-            initialValue={storedTargetValue}
-            onSave={handleTargetSave}
-            isDirty={(draft, initial) =>
-              draft.on !== initial.on ||
-              draft.name.trim() !== initial.name.trim()
-            }
-          >
-            {({ draft, setDraft, isEditing: isTargetEditing }) =>
-              isTargetEditing ? (
-                <MetricTargetPicker
-                  choices={targetChoices}
-                  value={draft}
-                  onChange={setDraft}
-                />
-              ) : storedTarget && targetsPending ? (
-                // The label comes with the targets; the raw value would flash first.
-                <Skeleton
-                  variant="rounded"
-                  sx={{ width: theme => theme.spacing(15) }}
-                  aria-label="Loading target"
-                />
-              ) : storedTarget ? (
-                <Chip
-                  icon={getMetricTargetIcon(storedTarget.on, allTargets)}
-                  label={formatMetricTarget(storedTarget, allTargets)}
-                  color="primary"
-                  size="small"
-                />
-              ) : (
-                <Typography variant="body1" color="text.secondary">
-                  No target set
-                </Typography>
-              )
-            }
-          </EditableSectionCard>
+          <MetricTargetSection
+            metric={metric}
+            editable={canEditMetric}
+            onSaved={handleTargetSaved}
+          />
 
           {/* Tags Section */}
           <EditableSectionCard

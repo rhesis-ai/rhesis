@@ -29,7 +29,7 @@ import {
   type TraceView,
 } from './trace-filter-params';
 import { withTraceUrlState } from './trace-url-state';
-import { FROM_METRIC_PARAM, withoutTargetFilters } from './target-filters';
+import { FROM_METRIC_PARAM, withoutTargetFilter } from './target-filters';
 import TargetFilterChip from './TargetFilterChip';
 import type { CostScope } from '@/utils/trace-utils';
 import {
@@ -150,13 +150,14 @@ export default function TracesClient({
     router,
   ]);
 
-  const removeTargetFilter = useCallback(
-    (applied: Partial<TraceDrawerFilters>) => {
-      setDrawerFilters(prev => withoutTargetFilters(prev, applied));
-      setFromMetricId(null);
-    },
-    []
-  );
+  const removeTargetFilter = useCallback(() => {
+    setDrawerFilters(prev => withoutTargetFilter(prev));
+    setFromMetricId(null);
+  }, []);
+  // An old link (tool and span type filters, no target) gets the metric's target.
+  const applyLoadedTarget = useCallback((target: string) => {
+    setDrawerFilters(prev => (prev.target ? prev : { ...prev, target }));
+  }, []);
 
   const tracesDescriptor = useMemo(
     () => tracesList(scopedProjectId),
@@ -308,6 +309,8 @@ export default function TracesClient({
         );
         return;
       }
+      // Resetting the drawer drops the target, and with it the metric it came from.
+      if (!filters.target) setFromMetricId(null);
       setDrawerFilters(filters);
     },
     [fixedTestRunId]
@@ -354,7 +357,8 @@ export default function TracesClient({
         drawerFilters.spanNames?.length ||
         drawerFilters.models?.length ||
         drawerFilters.tools?.length ||
-        drawerFilters.isRoot !== undefined
+        drawerFilters.isRoot !== undefined ||
+        drawerFilters.target
       : drawerFilters.endpointId || drawerFilters.traceMetricsStatus;
   const hasUnsupportedRollupFilters = Boolean(
     searchQuery.trim() ||
@@ -388,12 +392,15 @@ export default function TracesClient({
         costScope={costScope}
       />
 
-      {fromMetricId && !skeleton && (
-        <TargetFilterChip
-          metricId={fromMetricId}
-          onRemove={removeTargetFilter}
-        />
-      )}
+      {(fromMetricId || (view === 'spans' && drawerFilters.target)) &&
+        !skeleton && (
+          <TargetFilterChip
+            metricId={fromMetricId}
+            target={drawerFilters.target}
+            onRemove={removeTargetFilter}
+            onTargetLoaded={view === 'spans' ? applyLoadedTarget : undefined}
+          />
+        )}
 
       <CachedContent active={cachedView}>
         <Paper sx={GRID_PAPER_SX}>

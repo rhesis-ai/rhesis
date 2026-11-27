@@ -40,6 +40,8 @@ const LIST_KEYS = {
 
 const TIME_RANGE_PARAM = 'time';
 const ROOT_PARAM = 'root';
+/** A metric target as JSON, as the spans endpoint takes it. */
+export const TARGET_PARAM = 'target';
 
 const TIME_RANGES: TraceTimeRange[] = ['all', '24h', '7d', '30d', 'custom'];
 const TRACE_SOURCES = ['test', 'operation'];
@@ -52,6 +54,7 @@ const FILTER_PARAMS = [
   ...Object.values(LIST_KEYS),
   TIME_RANGE_PARAM,
   ROOT_PARAM,
+  TARGET_PARAM,
 ];
 
 export function viewFromSearchParams(params: URLSearchParams): TraceView {
@@ -101,6 +104,8 @@ export function filtersFromSearchParams(
   const root = params.get(ROOT_PARAM);
   if (root === 'true' || root === 'false') filters.isRoot = root === 'true';
 
+  filters.target = validTargetJson(get(TARGET_PARAM));
+
   // Leave unset fields out, so the object compares equal to one built in the drawer.
   return Object.fromEntries(
     Object.entries(filters).filter(([, value]) => value !== undefined)
@@ -143,8 +148,28 @@ export function withTraceUrlState(
     next.set(TIME_RANGE_PARAM, filters.timeRange);
   if (filters.isRoot !== undefined)
     next.set(ROOT_PARAM, String(filters.isRoot));
+  if (filters.target) next.set(TARGET_PARAM, filters.target);
 
   return next;
+}
+
+/**
+ * A target from the URL, kept only when it is a JSON object with an `on`; the
+ * API checks the rest and names any problem. Junk is dropped, not sent.
+ */
+function validTargetJson(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed) &&
+      typeof (parsed as { on?: unknown }).on === 'string'
+      ? value
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** True when the URL narrows the list, so a prefetched unfiltered page won't match. */

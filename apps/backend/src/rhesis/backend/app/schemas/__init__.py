@@ -53,6 +53,7 @@ from .metric import (
     MetricDetail,
     MetricSaved,
     MetricUpdate,
+    ReaderChoice,
     ScoreType,
     SpecialFieldChoice,
     TargetChoice,
@@ -510,4 +511,5 @@ __all__ = [
     "TargetPreviewSample",
     "ConditionOperatorChoice",
     "SpecialFieldChoice",
+    "ReaderChoice",
 ]

@@ -23,7 +23,7 @@ from rhesis.backend.app.schemas.metric import (
 )
 from rhesis.backend.app.services.telemetry import target_preview
 from rhesis.sdk.metrics.conditions import ConditionOp, SpanStatus, SpecialField
-from rhesis.sdk.metrics.targets import TargetKind
+from rhesis.sdk.metrics.targets import Target, TargetKind
 
 PREVIEW = "/metrics/targets/preview"
 TRACES = "/telemetry/traces"
@@ -200,7 +200,30 @@ class TestTargetPreview:
             "units": 0,
             "not_applicable_traces": 3,
             "samples": [],
+            "target_summary": "each retrieval",
+            "target_summary_short": "each retrieval",
         }
+
+    def test_the_draft_target_is_described_as_a_saved_metric_would_be(
+        self, authenticated_client, traces
+    ):
+        project_id, _ = traces
+        target = {
+            "on": TargetKind.TOOL_CALL,
+            "name": "issue_refund",
+            "where": [
+                {"field": CHANNEL, "op": ConditionOp.NE, "value": "internal"},
+                {"field": SpecialField.STATUS, "op": ConditionOp.EQ, "value": SpanStatus.OK},
+            ],
+        }
+
+        body = _preview(authenticated_client, project_id, target).json()
+
+        described = Target.coerce(target)
+        assert body["target_summary"] == described.describe()
+        assert body["target_summary_short"] == described.describe(short=True)
+        assert body["target_summary"].startswith("each tool call named `issue_refund`")
+        assert body["target_summary_short"] != body["target_summary"]
 
     def test_samples_show_each_unit_with_its_input_and_output_cut_short(
         self, authenticated_client, traces

@@ -18,7 +18,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { useMetricTargets } from '@/hooks/useLookups';
-import { formatMetricTarget, getMetricTarget } from '@/utils/metric-targets';
+import { getMetricTarget } from '@/utils/metric-targets';
 
 interface RequirementMetricsViewerProps {
   open: boolean;
@@ -246,15 +246,9 @@ export default function RequirementMetricsViewer({
                       backend={metric.backend_type?.type_value}
                       metricType={metric.metric_type?.type_value}
                       scoreType={metric.score_type ?? undefined}
-                      target={(() => {
-                        const target = getMetricTarget(metric);
-                        return target
-                          ? {
-                              on: target.on,
-                              label: formatMetricTarget(target, targetChoices),
-                            }
-                          : undefined;
-                      })()}
+                      target={getMetricTarget(metric) ?? undefined}
+                      targetChoices={targetChoices}
+                      metricId={metric.id}
                       usedIn={[requirement.name]}
                       showUsage={false}
                     />

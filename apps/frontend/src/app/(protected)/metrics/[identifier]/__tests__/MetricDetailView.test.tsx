@@ -55,39 +55,69 @@ jest.mock('@/components/common/Can', () => ({
 
 let mockTargetsPending = false;
 
+const mockTargetChoices = [
+  {
+    on: 'turn',
+    label: 'Each turn',
+    description: 'Each exchange.',
+    per_span: false,
+  },
+  {
+    on: 'conversation',
+    label: 'The conversation',
+    description: 'The whole conversation.',
+    per_span: false,
+  },
+  {
+    on: 'tool_call',
+    label: 'Each tool call',
+    description: 'Each tool call.',
+    per_span: true,
+  },
+  {
+    on: 'retrieval',
+    label: 'Each retrieval',
+    description: 'Each retrieval.',
+    per_span: true,
+  },
+];
+const mockOperators = [
+  { op: '==', takes_value: true, value_type: 'text' },
+  { op: '!=', takes_value: true, value_type: 'text' },
+  { op: 'exists', takes_value: false, value_type: 'none' },
+];
+
 jest.mock('@/hooks/useLookups', () => ({
   useMetricTargets: () => ({
     isPending: mockTargetsPending,
+    data: mockTargetsPending ? undefined : mockTargetChoices,
+  }),
+  useMetricTargetOptions: () => ({
+    isPending: mockTargetsPending,
     data: mockTargetsPending
       ? undefined
-      : [
-          {
-            on: 'turn',
-            label: 'Each turn',
-            description: 'Each exchange.',
-            per_span: false,
-          },
-          {
-            on: 'conversation',
-            label: 'The conversation',
-            description: 'The whole conversation.',
-            per_span: false,
-          },
-          {
-            on: 'tool_call',
-            label: 'Each tool call',
-            description: 'Each tool call.',
-            per_span: true,
-          },
-          {
-            on: 'retrieval',
-            label: 'Each retrieval',
-            description: 'Each retrieval.',
-            per_span: true,
-          },
-        ],
+      : {
+          targets: mockTargetChoices,
+          operators: mockOperators,
+          special_fields: [{ field: 'kind', label: 'Kind' }],
+        },
   }),
 }));
+
+const mockPreview = jest.fn();
+jest.mock('@/hooks/useMetricTargetBuilder', () => ({
+  TARGET_PREVIEW_TRACES: 50,
+  useSpanAttributeCatalogue: () => ({ data: undefined }),
+  useMetricTargetPreview: (...args: unknown[]) => mockPreview(...args),
+}));
+mockPreview.mockReturnValue({
+  data: undefined,
+  pending: false,
+  isFetching: false,
+  isLoading: false,
+  isPlaceholderData: false,
+  error: null,
+});
 
 jest.mock('@/hooks/useDocumentTitle', () => ({
   useDocumentTitle: jest.fn(),
@@ -458,14 +488,107 @@ describe('MetricDetailView — target', () => {
     mockUpdateMetric.mockResolvedValue({});
   });
 
-  it('shows the target label and name', async () => {
+  it("shows the target label and the API's summary, linked to its spans", async () => {
+    const target = { on: 'tool_call', name: 'search' };
     mockGetMetric.mockResolvedValue({
       ...mockMetric,
-      config: { target: { on: 'tool_call', name: 'search' } },
+      config: { target },
+      target_summary: 'each tool call named `search`',
     });
     await renderAndViewMetric();
 
     expect(screen.getByText('Each tool call (search)')).toBeInTheDocument();
+    expect(screen.getByTestId('metric-target-summary')).toHaveTextContent(
+      'Judges each tool call named search.'
+    );
+    const link = screen.getByRole('link', { name: 'Show the spans it judges' });
+    const params = new URLSearchParams(
+      (link.getAttribute('href') ?? '').split('?')[1]
+    );
+    expect(JSON.parse(params.get('target') ?? '')).toEqual(target);
+  });
+
+  it('shows what the save noticed', async () => {
+    mockUpdateMetric.mockResolvedValue({
+      warnings: ['No recent span carries app.tier.'],
+    });
+    await renderAndViewMetric();
+
+    const card = targetCard();
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /^edit$/i }));
+    });
+    await act(async () => {
+      fireEvent.click(
+        within(card).getByRole('radio', { name: 'The conversation' })
+      );
+    });
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /save/i }));
+    });
+
+    expect(
+      await within(targetCard()).findByText('No recent span carries app.tier.')
+    ).toBeInTheDocument();
+  });
+
+  it('offers no custom spans when the metric does not take span', async () => {
+    await renderAndViewMetric();
+
+    const card = targetCard();
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /^edit$/i }));
+    });
+    expect(
+      within(card).queryByRole('radio', { name: 'Custom spans' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers custom spans and sends their conditions', async () => {
+    mockGetMetric.mockResolvedValue({
+      ...mockMetric,
+      supported_targets: ['turn', 'tool_call', 'span'],
+    });
+    await renderAndViewMetric();
+
+    const card = targetCard();
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /^edit$/i }));
+    });
+    await act(async () => {
+      fireEvent.click(
+        within(card).getByRole('radio', { name: 'Custom spans' })
+      );
+    });
+    // Saving with the empty row names what is missing instead of sending it.
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /save/i }));
+    });
+    expect(mockUpdateMetric).not.toHaveBeenCalled();
+    expect(within(card).getByRole('alert')).toHaveTextContent(
+      'Finish or remove the incomplete conditions.'
+    );
+
+    const row = within(card).getByRole('group', { name: 'Condition 1' });
+    fireEvent.change(within(row).getByLabelText('Field'), {
+      target: { value: 'app.tier' },
+    });
+    fireEvent.change(within(row).getByLabelText('Value'), {
+      target: { value: 'gold' },
+    });
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /save/i }));
+    });
+
+    await waitFor(() => expect(mockUpdateMetric).toHaveBeenCalled());
+    expect(mockUpdateMetric.mock.calls[0][1]).toEqual({
+      config: {
+        target: {
+          on: 'span',
+          where: [{ field: 'app.tier', op: '==', value: 'gold' }],
+        },
+      },
+    });
   });
 
   it('never shows the raw target value while the labels load', async () => {

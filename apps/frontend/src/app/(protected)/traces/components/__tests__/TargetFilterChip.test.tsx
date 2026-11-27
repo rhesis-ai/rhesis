@@ -32,66 +32,144 @@ jest.mock('@/utils/api-client/client-factory', () => ({
 
 beforeEach(() => mockGetMetric.mockReset());
 
+const REFUND_TARGET = {
+  on: 'tool_call',
+  name: 'issue_refund',
+  within: 'billing_agent',
+  where: [{ field: 'app.channel', op: '!=', value: 'internal' }],
+};
+const REFUND_METRIC = {
+  id: 'metric-1',
+  name: 'Correct refund arguments',
+  config: { target: REFUND_TARGET },
+  target_summary_short:
+    'each tool call named `issue_refund` inside `billing_agent`, where `app.channel` is not `internal`',
+};
+
 describe('TargetFilterChip', () => {
-  it('names the target and the metric it came from', async () => {
-    mockGetMetric.mockResolvedValue({
-      id: 'metric-1',
-      name: 'Correct refund arguments',
-      config: { target: { on: 'tool_call', name: 'issue_refund' } },
-    });
+  it("names the target in the API's words and the metric it came from", async () => {
+    mockGetMetric.mockResolvedValue(REFUND_METRIC);
 
-    render(<TargetFilterChip metricId="metric-1" onRemove={jest.fn()} />);
+    render(
+      <TargetFilterChip
+        metricId="metric-1"
+        target={JSON.stringify(REFUND_TARGET)}
+        onRemove={jest.fn()}
+      />
+    );
 
-    expect(
-      await screen.findByText(
-        'Target: each tool call named issue_refund · from Correct refund arguments'
-      )
-    ).toBeInTheDocument();
+    const chip = await screen.findByText(/· from Correct refund arguments/);
+    expect(chip).toHaveTextContent(
+      'Target: each tool call named issue_refund inside billing_agent, where app.channel is not internal · from Correct refund arguments'
+    );
     expect(screen.getByTestId('BuildIcon')).toBeInTheDocument();
   });
 
-  it('hands back the filters the target set when removed', async () => {
-    mockGetMetric.mockResolvedValue({
-      id: 'metric-1',
-      name: 'Correct refund arguments',
-      config: { target: { on: 'tool_call', name: 'issue_refund' } },
-    });
-    const onRemove = jest.fn();
+  it('notes nothing as unapplied: every target filters exactly', async () => {
+    mockGetMetric.mockResolvedValue(REFUND_METRIC);
 
-    render(<TargetFilterChip metricId="metric-1" onRemove={onRemove} />);
-    await screen.findByTestId('target-filter-chip');
-    fireEvent.click(screen.getByTestId('CancelIcon'));
+    render(
+      <TargetFilterChip
+        metricId="metric-1"
+        target={JSON.stringify(REFUND_TARGET)}
+        onRemove={jest.fn()}
+      />
+    );
 
-    expect(onRemove).toHaveBeenCalledWith({
-      spanTypes: ['tool.invoke'],
-      tools: ['issue_refund'],
-    });
+    await screen.findByText(/· from Correct refund arguments/);
+    expect(screen.queryByText(/Not applied here/)).not.toBeInTheDocument();
   });
 
-  it('says which parts of the target the list does not apply', async () => {
-    mockGetMetric.mockResolvedValue({
-      id: 'metric-1',
-      name: 'Refund matches the order',
-      config: {
-        target: {
-          on: 'tool_call',
-          name: 'issue_refund',
-          within: 'billing_agent',
-          where: { 'rhesis.reported.metadata.channel': 'web' },
-        },
-      },
-    });
+  it('calls onRemove when removed', async () => {
+    mockGetMetric.mockResolvedValue(REFUND_METRIC);
+    const onRemove = jest.fn();
+
+    render(
+      <TargetFilterChip
+        metricId="metric-1"
+        target={JSON.stringify(REFUND_TARGET)}
+        onRemove={onRemove}
+      />
+    );
+    await screen.findByText(/· from Correct refund arguments/);
+    fireEvent.click(screen.getByTestId('CancelIcon'));
+
+    expect(onRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it("doesn't borrow the metric's words for a different target", async () => {
+    mockGetMetric.mockResolvedValue(REFUND_METRIC);
+
+    render(
+      <TargetFilterChip
+        metricId="metric-1"
+        target={JSON.stringify({ on: 'turn' })}
+        onRemove={jest.fn()}
+      />
+    );
+
+    expect(await screen.findByTestId('target-filter-chip')).toHaveTextContent(
+      /^Target: Each turn$/
+    );
+  });
+
+  it('shows a target with no metric behind it by its preset', () => {
+    render(
+      <TargetFilterChip
+        target={JSON.stringify({ on: 'tool_call', name: 'issue_refund' })}
+        onRemove={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('target-filter-chip')).toHaveTextContent(
+      'Target: Each tool call (issue_refund)'
+    );
+  });
+
+  it('still names an old link’s metric, which carries no target', async () => {
+    mockGetMetric.mockResolvedValue(REFUND_METRIC);
 
     render(<TargetFilterChip metricId="metric-1" onRemove={jest.fn()} />);
 
     expect(
-      await screen.findByTestId('target-filter-unapplied')
-    ).toHaveTextContent(
-      'Not applied here: inside billing_agent, rhesis.reported.metadata.channel is web'
-    );
+      await screen.findByText(/· from Correct refund arguments/)
+    ).toBeInTheDocument();
   });
 
-  it('shows nothing when the metric cannot be read', async () => {
+  it("hands an old link the metric's target, so the list filters what the chip names", async () => {
+    mockGetMetric.mockResolvedValue(REFUND_METRIC);
+    const onTargetLoaded = jest.fn();
+
+    render(
+      <TargetFilterChip
+        metricId="metric-1"
+        onRemove={jest.fn()}
+        onTargetLoaded={onTargetLoaded}
+      />
+    );
+
+    await screen.findByText(/· from Correct refund arguments/);
+    expect(onTargetLoaded).toHaveBeenCalledWith(JSON.stringify(REFUND_TARGET));
+  });
+
+  it('leaves a link that carries its target alone', async () => {
+    mockGetMetric.mockResolvedValue(REFUND_METRIC);
+    const onTargetLoaded = jest.fn();
+
+    render(
+      <TargetFilterChip
+        metricId="metric-1"
+        target={JSON.stringify(REFUND_TARGET)}
+        onRemove={jest.fn()}
+        onTargetLoaded={onTargetLoaded}
+      />
+    );
+
+    await screen.findByText(/· from Correct refund arguments/);
+    expect(onTargetLoaded).not.toHaveBeenCalled();
+  });
+
+  it('shows nothing when the metric cannot be read and no target is set', async () => {
     mockGetMetric.mockRejectedValue(new Error('not found'));
 
     render(<TargetFilterChip metricId="gone" onRemove={jest.fn()} />);

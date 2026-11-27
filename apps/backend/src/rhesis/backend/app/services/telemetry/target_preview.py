@@ -91,4 +91,6 @@ def preview_target(db: Session, project_id: str, target: Target, traces: int) ->
         units=units,
         not_applicable_traces=len(trace_ids) - matching_traces,
         samples=samples,
+        target_summary=target.describe(),
+        target_summary_short=target.describe(short=True),
     )

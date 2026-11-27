@@ -278,6 +278,50 @@ export interface SpanFilterParams {
   agent?: string[];
   /** Matches spans whose own `ai.tool.name` is one of these. */
   tool?: string[];
+  /**
+   * A metric target as JSON (`config.target`): only the spans it picks,
+   * matched as the metric's evaluation matches them.
+   */
+  target?: string;
+}
+
+/** One value of an attribute, with how many sampled spans carry it. */
+export interface AttributeValueCount {
+  value: string;
+  count: number;
+  /** The value was cut to fit: never offer it for an exact match. */
+  truncated: boolean;
+}
+
+/** One attribute key of one span kind, over that kind's sampled spans. */
+export interface SpanAttributeSummary {
+  key: string;
+  /** Share of the kind's sampled spans that carry the key, 0 to 1. */
+  coverage: number;
+  type: string;
+  top_values: AttributeValueCount[];
+  distinct: number;
+  /** Nearly every span has its own value (ids): a poor suggestion. */
+  unique: boolean;
+}
+
+export interface SpanKindAttributes {
+  spans: number;
+  attributes: SpanAttributeSummary[];
+}
+
+/** `GET /telemetry/attributes`: attribute keys per span kind, from recent spans. */
+export interface SpanAttributeCatalogue {
+  kinds: Record<string, SpanKindAttributes>;
+  sampled_spans: number;
+  since: string;
+}
+
+export interface SpanAttributeCatalogueParams {
+  project_id: string;
+  kind?: string;
+  days?: number;
+  limit?: number;
 }
 
 export interface SpanQueryParams extends SpanFilterParams {

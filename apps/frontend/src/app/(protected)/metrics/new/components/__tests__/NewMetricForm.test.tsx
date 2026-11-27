@@ -46,27 +46,51 @@ jest.mock('@/hooks/useLookups', () => ({
       { id: 'bt-rhesis', type_name: 'BackendType', type_value: 'rhesis' },
     ],
   }),
-  useMetricTargets: () => ({
-    data: [
-      {
-        on: 'turn',
-        label: 'Each turn',
-        description: 'Each exchange.',
-        per_span: false,
-      },
-      {
-        on: 'conversation',
-        label: 'The conversation',
-        description: 'The whole conversation.',
-        per_span: false,
-      },
-      {
-        on: 'tool_call',
-        label: 'Each tool call',
-        description: 'Each tool call.',
-        per_span: true,
-      },
-    ],
+  useMetricTargets: () => ({ data: mockTargetChoices }),
+  useMetricTargetOptions: () => ({
+    data: {
+      targets: mockTargetChoices,
+      operators: [
+        { op: '==', takes_value: true, value_type: 'text' },
+        { op: 'exists', takes_value: false, value_type: 'none' },
+      ],
+      special_fields: [{ field: 'kind', label: 'Kind' }],
+    },
+  }),
+}));
+
+const mockTargetChoices = [
+  {
+    on: 'turn',
+    label: 'Each turn',
+    description: 'Each exchange.',
+    per_span: false,
+  },
+  {
+    on: 'conversation',
+    label: 'The conversation',
+    description: 'The whole conversation.',
+    per_span: false,
+  },
+  {
+    on: 'tool_call',
+    label: 'Each tool call',
+    description: 'Each tool call.',
+    per_span: true,
+    span_kind: 'tool.invoke',
+  },
+];
+
+jest.mock('@/hooks/useMetricTargetBuilder', () => ({
+  TARGET_PREVIEW_TRACES: 50,
+  useSpanAttributeCatalogue: () => ({ data: undefined }),
+  useMetricTargetPreview: () => ({
+    data: undefined,
+    pending: false,
+    isFetching: false,
+    isLoading: false,
+    isPlaceholderData: false,
+    error: null,
   }),
 }));
 
@@ -121,8 +145,7 @@ describe('NewMetricForm target', () => {
 
   it('asks for a name only for per-span targets and sends it', async () => {
     render(<NewMetricForm type="custom-prompt" initialModels={[]} />);
-    const group = screen.getByRole('radiogroup');
-    const picker = group.parentElement as HTMLElement;
+    const picker = screen.getByTestId('metric-target-builder');
 
     expect(within(picker).queryByLabelText('Name')).not.toBeInTheDocument();
 
@@ -140,7 +163,7 @@ describe('NewMetricForm target', () => {
 
   it('drops the name when switching back to a whole-test target', async () => {
     render(<NewMetricForm type="custom-prompt" initialModels={[]} />);
-    const picker = screen.getByRole('radiogroup').parentElement as HTMLElement;
+    const picker = screen.getByTestId('metric-target-builder');
 
     fireEvent.click(screen.getByRole('radio', { name: 'Each tool call' }));
     fireEvent.change(within(picker).getByLabelText('Name'), {
@@ -151,6 +174,52 @@ describe('NewMetricForm target', () => {
     const payload = await submit();
 
     expect(payload.config).toEqual({ target: { on: 'conversation' } });
+  });
+
+  it('offers custom spans, starting from the preset kind it came from', async () => {
+    render(<NewMetricForm type="custom-prompt" initialModels={[]} />);
+    const builder = screen.getByTestId('metric-target-builder');
+
+    fillRequiredFields();
+    fireEvent.click(
+      within(builder).getByRole('radio', { name: 'Each tool call' })
+    );
+    fireEvent.click(
+      within(builder).getByRole('radio', { name: 'Custom spans' })
+    );
+    const payload = await submit();
+
+    expect(payload.config).toEqual({
+      target: {
+        on: 'span',
+        where: [{ field: 'kind', op: '==', value: 'tool.invoke' }],
+      },
+    });
+  });
+
+  it('shows the create warnings', async () => {
+    const show = jest.fn();
+    jest
+      .spyOn(
+        jest.requireMock('@/components/common/NotificationContext'),
+        'useNotifications'
+      )
+      .mockReturnValue({ show });
+    mockCreateMetric.mockResolvedValue({
+      id: 'metric-1',
+      warnings: ['No recent span carries app.tier.'],
+    });
+    render(<NewMetricForm type="custom-prompt" initialModels={[]} />);
+
+    fillRequiredFields();
+    await submit();
+
+    await waitFor(() =>
+      expect(show).toHaveBeenCalledWith(
+        'Metric created. No recent span carries app.tier.',
+        { severity: 'warning' }
+      )
+    );
   });
 });
 
@@ -223,7 +292,7 @@ describe('NewMetricForm rule', () => {
 
   it('limits a response rule to targets with an expected response', async () => {
     render(<NewMetricForm type="rule" initialModels={[]} />);
-    const targets = screen.getByRole('radiogroup', { name: 'Target' });
+    const targets = screen.getByRole('radiogroup', { name: 'Start from' });
     fireEvent.click(
       within(targets).getByRole('radio', { name: 'Each tool call' })
     );

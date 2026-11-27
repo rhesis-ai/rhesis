@@ -1,5 +1,7 @@
 import { BaseApiClient } from './base-client';
 import {
+  SpanAttributeCatalogue,
+  SpanAttributeCatalogueParams,
   SpanFacetsResponse,
   SpanFilterParams,
   SpanListResponse,
@@ -54,6 +56,19 @@ export class TelemetryClient extends BaseApiClient {
     return this.fetch<SpanListResponse>(withQuery('/telemetry/spans', params), {
       cache: 'no-store',
     });
+  }
+
+  /**
+   * The attribute keys each span kind carries in a project's recent spans, with
+   * coverage and top values: what a target condition can read.
+   */
+  async getAttributeCatalogue(
+    params: SpanAttributeCatalogueParams
+  ): Promise<SpanAttributeCatalogue> {
+    return this.fetch<SpanAttributeCatalogue>(
+      withQuery('/telemetry/attributes', params),
+      { cache: 'no-store' }
+    );
   }
 
   /**

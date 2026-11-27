@@ -333,12 +333,23 @@ class SpecialFieldChoice(BaseModel):
     label: str
 
 
+class ReaderChoice(BaseModel):
+    """What ``read`` may name besides an attribute key or an event: the SDK's ``Reader``."""
+
+    reader: str
+    label: str
+
+
 class TargetChoices(BaseModel):
-    """What an editor offers for a target: the targets, and the parts of a condition."""
+    """What an editor offers for a target: the targets, the parts of a condition, and what
+    ``read`` may name."""
 
     targets: List[TargetChoice] = []
     operators: List[ConditionOperatorChoice] = []
     special_fields: List[SpecialFieldChoice] = []
+    readers: List[ReaderChoice] = []
+    event_prefix: Optional[str] = None
+    """``read`` names an event's value with this prefix: ``event:ai.retrieval.query``."""
 
 
 #: The traces a target preview reads when none is asked for, and at most.
@@ -385,6 +396,9 @@ class TargetPreview(BaseModel):
     not_applicable_traces: int
     """Traces where the target picks nothing, which a metric scores as not applicable."""
     samples: List[TargetPreviewSample] = []
+    target_summary: Optional[str] = None
+    """The previewed target in words, as a saved metric's ``target_summary`` reads."""
+    target_summary_short: Optional[str] = None
 
 
 class ModelReference(Base, ServerIdentity):
