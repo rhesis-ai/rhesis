@@ -53,6 +53,7 @@ import { METRIC_TYPES } from '@/constants/metric-types';
 import {
   describeRule,
   initialRuleDraft,
+  RULE_CLASSES,
   ruleConfig,
   ruleDraftError,
   ruleTargetChoices,
@@ -361,6 +362,9 @@ export default function NewMetricForm({
             threshold_operator: '>=',
             explanation: '',
             class_name: formData.rule.ruleClass,
+            // Lets the metric pickers leave a response rule off multi-turn sets.
+            ground_truth_required:
+              formData.rule.ruleClass === RULE_CLASSES.RESPONSE,
             metric_type_id: typeLookups[0].id as UUID,
             backend_type_id: backendTypes[0].id as UUID,
             owner_id: session?.user?.id as UUID,

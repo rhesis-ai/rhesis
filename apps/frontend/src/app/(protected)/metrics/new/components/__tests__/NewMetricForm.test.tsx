@@ -188,6 +188,7 @@ describe('NewMetricForm rule', () => {
     expect(payload).toMatchObject({
       name: 'Response time',
       class_name: 'FieldRule',
+      ground_truth_required: false,
       metric_type_id: 'mt-rule',
       backend_type_id: 'bt-rhesis',
       score_type: 'numeric',
@@ -243,6 +244,7 @@ describe('NewMetricForm rule', () => {
     const payload = await submit();
     expect(payload).toMatchObject({
       class_name: 'ResponseRule',
+      ground_truth_required: true,
       config: { match: 'exact', target: { on: 'turn' } },
     });
   });

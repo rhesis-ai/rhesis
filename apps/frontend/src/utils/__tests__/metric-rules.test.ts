@@ -54,6 +54,52 @@ describe('ruleConfig', () => {
     });
   });
 
+  it('stores a number-looking attribute value as a number for comparisons', () => {
+    expect(
+      ruleConfig(
+        draft({
+          field: 'attributes',
+          attributeKey: 'tier',
+          op: '>=',
+          value: '2',
+        })
+      ).value
+    ).toBe(2);
+    expect(
+      ruleConfig(
+        draft({
+          field: 'attributes',
+          attributeKey: 'tier',
+          op: 'in',
+          value: '1, 2',
+        })
+      ).value
+    ).toEqual([1, 2]);
+  });
+
+  it('keeps a value as text for contains and matches', () => {
+    expect(
+      ruleConfig(
+        draft({
+          field: 'attributes',
+          attributeKey: 'version',
+          op: 'contains',
+          value: '2.0',
+        })
+      ).value
+    ).toBe('2.0');
+    expect(
+      ruleConfig(
+        draft({
+          field: 'attributes',
+          attributeKey: 'order',
+          op: 'matches',
+          value: '123',
+        })
+      ).value
+    ).toBe('123');
+  });
+
   it('leaves the value out where the operator takes none, and keeps negate', () => {
     expect(
       ruleConfig(draft({ field: 'output', op: 'is_json', negate: true }))

@@ -829,6 +829,8 @@ export function MetricDetailView({
         threshold_operator: metric.threshold_operator,
         explanation: metric.explanation || '',
         ground_truth_required: metric.ground_truth_required,
+        // Without it the copy is built as a judge, whatever the original was.
+        class_name: metric.class_name ?? undefined,
         config: metric.config,
         metric_type_id: metric.metric_type?.id as UUID,
         backend_type_id: metric.backend_type?.id as UUID,

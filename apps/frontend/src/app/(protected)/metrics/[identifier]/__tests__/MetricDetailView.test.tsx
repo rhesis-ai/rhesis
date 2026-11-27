@@ -13,6 +13,7 @@ import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 
 const mockGetMetric = jest.fn();
 const mockUpdateMetric = jest.fn();
+const mockCreateMetric = jest.fn();
 const mockGetModels = jest.fn();
 
 jest.mock('next-auth/react', () => ({
@@ -27,6 +28,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
     getMetricsClient: () => ({
       getMetric: mockGetMetric,
       updateMetric: mockUpdateMetric,
+      createMetric: mockCreateMetric,
     }),
     getModelsClient: () => ({
       getModels: mockGetModels,
@@ -571,6 +573,29 @@ describe('MetricDetailView — rule', () => {
         field: 'duration_ms',
         op: '<=',
         value: 3000,
+        target: { on: 'tool_call', name: 'search' },
+      },
+    });
+  });
+
+  it('duplicates a rule as the same rule class with its settings', async () => {
+    mockCreateMetric.mockResolvedValue({ id: 'metric-2' });
+    await renderAndViewMetric();
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /duplicate metric/i })
+      );
+    });
+
+    await waitFor(() => expect(mockCreateMetric).toHaveBeenCalled());
+    expect(mockCreateMetric.mock.calls[0][0]).toMatchObject({
+      class_name: 'FieldRule',
+      metric_type_id: 'mt-rule',
+      config: {
+        field: 'duration_ms',
+        op: '<=',
+        value: 5000,
         target: { on: 'tool_call', name: 'search' },
       },
     });

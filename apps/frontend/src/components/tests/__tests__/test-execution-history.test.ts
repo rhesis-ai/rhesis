@@ -52,6 +52,31 @@ describe('mapTestResultToHistoryRow', () => {
     expect(row.testRunName).toBe('spinning-caracal');
   });
 
+  it('leaves not applicable metrics out of the counts', () => {
+    const result = {
+      id: 'a1111111-1111-4111-8111-111111111111',
+      test_run_id: 'b1111111-1111-4111-8111-111111111111',
+      created_at: '2026-07-01T10:00:00Z',
+      verdict: 'pass',
+      test_metrics: {
+        metrics: {
+          a: { is_successful: true },
+          b: {
+            is_successful: null,
+            not_applicable: true,
+            reason: 'No response',
+          },
+        },
+        execution_time: 1,
+      },
+    } as unknown as TestResultDetail;
+
+    const row = mapTestResultToHistoryRow(result, new Map());
+
+    expect(row.passedMetrics).toBe(1);
+    expect(row.totalMetrics).toBe(1);
+  });
+
   it('prefers expanded test_run name over lookup map', () => {
     const result = {
       id: 'a1111111-1111-4111-8111-111111111111',

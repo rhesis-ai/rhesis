@@ -210,10 +210,17 @@ function parseScalar(text: string, numeric: boolean): string | number {
     : trimmed;
 }
 
+// Text and a pattern stay text: "2.0" as a number would match "v2.1", and a number is no regex.
+const TEXT_OPERATORS: ReadonlySet<string> = new Set([
+  RULE_OPERATORS.CONTAINS,
+  RULE_OPERATORS.MATCHES,
+]);
+
 function parsedValue(draft: RuleDraft): unknown {
   // An attribute holds whatever the endpoint sent, so a number-looking value is a number.
   const numeric =
-    fieldKind(draft.field) === 'number' || draft.field === ATTRIBUTE_FIELD;
+    !TEXT_OPERATORS.has(draft.op) &&
+    (fieldKind(draft.field) === 'number' || draft.field === ATTRIBUTE_FIELD);
   if (operatorTakesList(draft.op)) {
     return draft.value
       .split(',')
