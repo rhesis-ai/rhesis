@@ -11,6 +11,7 @@ import {
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import { TEST_TYPE_FILTER_OPTIONS } from '@/constants/test-types';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
+import { EntityType } from '@/types/entity-type';
 import { useStatuses, useUsers, useTags } from '@/hooks/useLookups';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
 import {
@@ -84,7 +85,10 @@ export default function TestSetFilterDrawer({
     open
   );
   const { data: rawUsers, isLoading: loadingUsers } = useUsers(open);
-  const { data: rawTags, isLoading: loadingTags } = useTags(open);
+  const { data: rawTags, isLoading: loadingTags } = useTags(
+    open,
+    EntityType.TEST_SET
+  );
   const loadingOptions = loadingStatuses || loadingUsers || loadingTags;
 
   const statusOptions = React.useMemo(
@@ -129,11 +133,9 @@ export default function TestSetFilterDrawer({
       <Autocomplete
         freeSolo
         options={options}
-        value={draft[field] || null}
+        // Bind only the text: binding `value` too stops MUI filtering as you type.
+        inputValue={draft[field]}
         loading={loadingOptions}
-        onChange={(_, value) =>
-          setDraft(prev => ({ ...prev, [field]: value || '' }))
-        }
         onInputChange={(_, value) =>
           setDraft(prev => ({ ...prev, [field]: value }))
         }

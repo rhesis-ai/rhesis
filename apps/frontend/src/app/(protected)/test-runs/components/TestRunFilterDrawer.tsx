@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { EntityType } from '@/types/entity-type';
 import {
   SCHEDULE_TRIGGER,
   type ScheduleTrigger,
@@ -118,7 +119,10 @@ export default function TestRunFilterDrawer({
   const { data: rawEndpoints, isLoading: loadingEndpoints } =
     useEndpoints(open);
   const { data: rawUsers, isLoading: loadingUsers } = useUsers(open);
-  const { data: rawTags, isLoading: loadingTags } = useTags(open);
+  const { data: rawTags, isLoading: loadingTags } = useTags(
+    open,
+    EntityType.TEST_RUN
+  );
   const loadingOptions =
     loadingTestSets || loadingEndpoints || loadingUsers || loadingTags;
 
@@ -164,11 +168,9 @@ export default function TestRunFilterDrawer({
       <Autocomplete
         freeSolo
         options={options}
-        value={draft[field] || null}
+        // Bind only the text: binding `value` too stops MUI filtering as you type.
+        inputValue={draft[field]}
         loading={loadingOptions}
-        onChange={(_, value) =>
-          setDraft(prev => ({ ...prev, [field]: value || '' }))
-        }
         onInputChange={(_, value) =>
           setDraft(prev => ({ ...prev, [field]: value }))
         }
