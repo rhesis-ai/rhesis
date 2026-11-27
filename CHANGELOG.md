@@ -15,7 +15,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ### Upgrading a self-hosted deployment
 
-1. If you upgrade from a release before 0.23.0, run 0.23.0 until its worker has emptied the `trace-eval` queue. The jobs that finished traces queued by older releases are removed in this release.
+1. If you upgrade from a release before 0.23.0, run 0.23.0 until its worker has emptied the old `telemetry` queue. The jobs that finished traces queued by older releases are removed in this release.
 
 ### Changed
 
