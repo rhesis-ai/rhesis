@@ -298,6 +298,50 @@ class SpanFacetsResponse(BaseModel):
     agents: List[SpanFacetValue] = Field(default_factory=list)
 
 
+class AttributeValueType(str, Enum):
+    """An attribute's JSON type, as ``jsonb_typeof`` names it; ``mixed`` when spans differ."""
+
+    STRING = "string"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+    ARRAY = "array"
+    OBJECT = "object"
+    NULL = "null"
+    MIXED = "mixed"
+
+
+class AttributeValueCount(BaseModel):
+    value: str = Field(..., description="The value as text; cut when long")
+    count: int
+    truncated: bool = Field(default=False, description="The value was cut to fit")
+
+
+class SpanAttributeSummary(BaseModel):
+    """One attribute key of one span kind, over the sampled spans of that kind."""
+
+    key: str
+    coverage: float = Field(..., description="Share of the kind's sampled spans with this key")
+    type: AttributeValueType
+    top_values: List[AttributeValueCount]
+    distinct: int = Field(..., description="Distinct values among the sampled spans")
+    unique: bool = Field(
+        ..., description="Nearly every span has its own value (ids); not useful as a suggestion"
+    )
+
+
+class SpanKindAttributes(BaseModel):
+    spans: int = Field(..., description="Sampled spans of this kind")
+    attributes: List[SpanAttributeSummary]
+
+
+class SpanAttributeCatalogue(BaseModel):
+    """Attribute keys per span kind, read from a sample of the most recent spans."""
+
+    kinds: Dict[str, SpanKindAttributes]
+    sampled_spans: int
+    since: datetime
+
+
 class SpanNode(BaseModel):
     """Span node in trace tree."""
 

@@ -13,8 +13,26 @@ from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
 from uuid import UUID
 
-from sqlalchemy import String, and_, asc, cast, desc, false, func, insert, or_, select
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import (
+    String,
+    Text,
+    and_,
+    asc,
+    case,
+    cast,
+    column,
+    desc,
+    distinct,
+    false,
+    func,
+    insert,
+    literal,
+    literal_column,
+    or_,
+    select,
+    true,
+)
+from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 from sqlalchemy.orm import Session, make_transient_to_detached
 
 from rhesis.backend.app import models
@@ -1341,6 +1359,176 @@ def span_facets(
         models=counts(span_model_expr(span_breakdown_entry()), SKIP_MODEL),
         agents=counts(span_agent_expr(), SKIP_AGENT),
     )
+
+
+class AttributeSample(NamedTuple):
+    """Which spans the attribute catalogue reads, and how much of each key it returns."""
+
+    since: datetime
+    kind: Optional[str]
+    sample_size: int
+    attribute_limit: int
+    value_limit: int
+    value_length: int
+
+
+def _window_kinds(clauses: list):
+    """The span kinds in the window, as a loose index scan over (project, span_type, start_time).
+
+    Span kinds are open-ended (any ``ai.operation.type``), so they are read, not listed.
+    A plain DISTINCT reads every span in the window; this jumps from one kind to the
+    next, one index probe each.
+    """
+    trace = models.Trace
+    first = select(trace.span_type.label("kind")).where(*clauses).order_by(trace.span_type)
+    kinds = first.limit(1).cte("window_kinds", recursive=True)
+    following = (
+        select(trace.span_type)
+        .where(*clauses, trace.span_type > kinds.c.kind)
+        .order_by(trace.span_type)
+        .limit(1)
+        .scalar_subquery()
+    )
+    return kinds.union_all(select(following).where(kinds.c.kind.isnot(None)))
+
+
+def _attribute_sample(org_uuid, project_id: Optional[str], sample: AttributeSample):
+    """The most recent spans of each kind, with one (kind, key, text value) row per attribute.
+
+    Sampled per kind, so a rare kind isn't crowded out by the busy ones.
+    """
+    trace = models.Trace
+    clauses = span_scope(trace, org_uuid, project_id) + [trace.start_time >= sample.since]
+    if sample.kind:
+        clauses.append(trace.span_type == sample.kind)
+    kinds = _window_kinds(clauses)
+    recent = (
+        select(trace.attributes)
+        .where(*clauses, trace.span_type == kinds.c.kind)
+        .order_by(trace.start_time.desc())
+        .limit(sample.sample_size)
+        .lateral("recent")
+    )
+    spans = (
+        select(kinds.c.kind, recent.c.attributes)
+        .select_from(kinds.join(recent, true()))
+        .where(kinds.c.kind.isnot(None))
+        .cte("sample")
+    )
+    # jsonb_each raises on anything but an object, so a malformed row reads as empty.
+    attributes = case(
+        (func.jsonb_typeof(spans.c.attributes) == "object", spans.c.attributes),
+        else_=cast(literal("{}"), JSONB),
+    )
+    entry = (
+        func.jsonb_each(attributes)
+        .table_valued(column("key", Text), column("value", JSONB))
+        .lateral("entry")
+    )
+    # The value as text, so "5" and 5 count as one value, as conditions compare them.
+    value = entry.c.value.op("#>>")(literal_column("'{}'"))
+    pairs = (
+        select(
+            spans.c.kind,
+            entry.c.key,
+            func.jsonb_typeof(entry.c.value).label("type"),
+            # Values are counted by hash and carried only as long as shown (plus one
+            # character to tell a cut value apart), so the sorts stay small.
+            func.md5(value).label("value_hash"),
+            func.left(value, sample.value_length + 1).label("value"),
+        )
+        .select_from(spans.join(entry, true()))
+        .cte("pairs")
+    )
+    return spans, pairs
+
+
+def span_attribute_stats(
+    db: Session, organization_id: str, project_id: Optional[str], sample: AttributeSample
+) -> list:
+    """Attribute keys per span kind over a sample of recent spans, counted in SQL.
+
+    One row per (kind, key), keys ordered by how many spans carry them and capped at
+    ``attribute_limit`` per kind. A kind whose spans carry no attributes gets one row
+    with ``key`` NULL. ``top_values`` is a JSON list of ``{value, count, truncated}``.
+    """
+    spans, pairs = _attribute_sample(UUID(organization_id), project_id, sample)
+    kinds = select(spans.c.kind, func.count().label("spans")).group_by(spans.c.kind).cte("kinds")
+    carried = func.count()
+    keys = (
+        select(
+            pairs.c.kind,
+            pairs.c.key,
+            carried.label("count"),
+            func.count(distinct(pairs.c.value_hash)).label("distinct_values"),
+            func.array_agg(distinct(pairs.c.type)).label("types"),
+            func.row_number()
+            .over(partition_by=pairs.c.kind, order_by=(carried.desc(), pairs.c.key))
+            .label("rank"),
+        )
+        .group_by(pairs.c.kind, pairs.c.key)
+        .cte("keys")
+    )
+    seen = func.count()
+    shown = func.min(pairs.c.value)
+    value_counts = (
+        select(
+            pairs.c.kind,
+            pairs.c.key,
+            shown.label("value"),
+            seen.label("count"),
+            func.row_number()
+            .over(partition_by=(pairs.c.kind, pairs.c.key), order_by=(seen.desc(), shown))
+            .label("rank"),
+        )
+        .where(pairs.c.value_hash.isnot(None))
+        .group_by(pairs.c.kind, pairs.c.key, pairs.c.value_hash)
+        .cte("value_counts")
+    )
+    top = (
+        select(
+            value_counts.c.kind,
+            value_counts.c.key,
+            func.jsonb_agg(
+                aggregate_order_by(
+                    func.jsonb_build_object(
+                        "value",
+                        func.left(value_counts.c.value, sample.value_length),
+                        "count",
+                        value_counts.c.count,
+                        "truncated",
+                        func.length(value_counts.c.value) > sample.value_length,
+                    ),
+                    value_counts.c.rank,
+                )
+            ).label("top_values"),
+        )
+        .where(value_counts.c.rank <= sample.value_limit)
+        .group_by(value_counts.c.kind, value_counts.c.key)
+        .cte("top")
+    )
+    statement = (
+        select(
+            kinds.c.kind,
+            kinds.c.spans,
+            keys.c.key,
+            keys.c.count,
+            keys.c.distinct_values,
+            keys.c.types,
+            top.c.top_values,
+        )
+        .select_from(
+            kinds.outerjoin(
+                keys, and_(keys.c.kind == kinds.c.kind, keys.c.rank <= sample.attribute_limit)
+            ).outerjoin(top, and_(top.c.kind == keys.c.kind, top.c.key == keys.c.key))
+        )
+        .order_by(kinds.c.spans.desc(), kinds.c.kind, keys.c.rank)
+    )
+    # The planner guesses 100 rows per jsonb_each and per kind, so the cost looks huge
+    # and JIT kicks in: ~1.5 s instead of ~0.5 s on 15k sampled spans. Off for this
+    # transaction only.
+    db.execute(select(func.set_config("jit", "off", True)))
+    return db.execute(statement).all()
 
 
 def get_unprocessed_traces(

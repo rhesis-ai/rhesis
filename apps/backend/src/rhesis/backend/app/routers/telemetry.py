@@ -18,6 +18,7 @@ from rhesis.backend.app.constants import (
     AISpanAttributes,
     EnrichedDataKeys,
     EntityType,
+    SpanType,
     TestResultStatus,
 )
 from rhesis.backend.app.crud import file as file_crud
@@ -43,6 +44,7 @@ from rhesis.backend.app.routers import telemetry_intake as intake
 from rhesis.backend.app.routers.base import RhesisRouter, run_first
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
+    SpanAttributeCatalogue,
     SpanFacetsResponse,
     SpanFilters,
     SpanListResponse,
@@ -61,6 +63,7 @@ from rhesis.backend.app.services.telemetry.ingest import (
     TooManySpans,
     apply_span_limits,
 )
+from rhesis.backend.app.services.telemetry.span_attributes import get_attribute_catalogue
 from rhesis.backend.app.services.telemetry.span_list import get_span_facets, list_spans
 from rhesis.backend.app.services.telemetry.token_totals import (
     trace_cost_usd,
@@ -653,6 +656,43 @@ def get_span_facets_endpoint(
         scope_project_id,
         lambda organization_id, effective_project_id: get_span_facets(
             db, organization_id, effective_project_id, filters, name_limit=name_limit
+        ),
+    )
+
+
+@router.get("/attributes", response_model=SpanAttributeCatalogue)
+def get_attribute_catalogue_endpoint(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
+    project_id: Optional[str] = Query(
+        None, description="Project ID. Defaults to the session project from X-Project-Id."
+    ),
+    kind: Optional[str] = Query(
+        None,
+        max_length=SpanType.MAX_LENGTH,
+        description="Span kind (span_type: llm.invoke, tool.invoke, span, ...); all kinds if unset",
+    ),
+    days: int = Query(7, ge=1, le=90, description="Read spans started in the last N days"),
+    limit: int = Query(100, ge=1, le=500, description="Most attribute keys per kind"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    scope_project_id: Optional[str] = Depends(get_project_context),
+) -> SpanAttributeCatalogue:
+    """Attribute keys each span kind carries, with coverage, type and top values.
+
+    Reads the most recent spans of each kind only (at most 2000 per kind), so it stays
+    cheap on large projects. Keys where nearly every span has its own value (ids) are marked
+    ``unique``; they make poor suggestions.
+    """
+    return _in_requested_project(
+        request,
+        current_user,
+        db,
+        tenant_context,
+        project_id,
+        scope_project_id,
+        lambda organization_id, effective_project_id: get_attribute_catalogue(
+            db, organization_id, effective_project_id, kind=kind, days=days, limit=limit
         ),
     )
 
