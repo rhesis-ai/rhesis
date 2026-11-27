@@ -1465,7 +1465,17 @@ tools:
           "within" (only spans inside that agent). The per-span targets and
           "turn" take "where", attributes the unit's root span must have,
           such as {"rhesis.reported.metadata.channel": "email"}; a list of
-          values means any of them. They also take "aggregate": "all" (every
+          values means any of them. "where" also takes a list of conditions,
+          [{"field": ..., "op": ..., "value": ...}]: field is "kind", "name",
+          "span_name", "duration_ms", "status" or any attribute key; op is one
+          of "==", "!=", "<", "<=", ">", ">=", "in", "not_in", "contains",
+          "matches", "exists" or "not_exists". A span without the field
+          meets only "!=", "not_in" and "not_exists". "span" picks every span
+          its "where" conditions pick, of any kind, and needs at least one;
+          the per-span targets are short forms of it. Per-unit targets also
+          take "read": {"input": ..., "output": ...}, an attribute key,
+          "input", "output" or "event:<name>", to change what a unit hands the
+          metric. They also take "aggregate": "all" (every
           span passes; the default), "any", or "share" with "min_share" (0
           to 1). For example {"target": {"on": "tool_call", "name":
           "issue_refund"}}. A span is held to the test's goal and
