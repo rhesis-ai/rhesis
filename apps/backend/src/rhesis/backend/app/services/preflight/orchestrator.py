@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import List, Optional
+from typing import Awaitable, List, Optional
 from uuid import UUID
 
 import anyio
@@ -15,10 +15,8 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
 from rhesis.backend.app.schemas.websocket import ChannelTarget, EventType, WebSocketMessage
 from rhesis.backend.app.services.invokers.auth import AuthenticationManager
-from rhesis.backend.app.utils.crud_utils import get_item_detail
-from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-
-from .checks import (
+from rhesis.backend.app.services.preflight.checks import (
+    _resolve_check_metrics,
     check_endpoint_connectivity,
     check_evaluation_model,
     check_execution_model,
@@ -27,7 +25,7 @@ from .checks import (
     check_requirement_metric_coverage,
     check_test_set_not_empty,
 )
-from .constants import (
+from rhesis.backend.app.services.preflight.constants import (
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
@@ -37,13 +35,16 @@ from .constants import (
     CHECK_TEST_SET_NOT_EMPTY,
     LABELS,
 )
-from .utils import (
+from rhesis.backend.app.services.preflight.utils import (
     PreflightDbGate,
     _apply_test_set_fields,
     _make_composite_key,
     _make_result,
     _publish_result,
 )
+from rhesis.backend.app.services.run_models import RunModelNeeds, metric_backends, model_needs
+from rhesis.backend.app.utils.crud_utils import get_item_detail
+from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +158,113 @@ async def _connectivity_branch(
     return result
 
 
+def _resolve_run_metrics(
+    db: Session,
+    test_set_ids: list[UUID],
+    metric_mode: str,
+    selected_metrics: Optional[list],
+    organization_id: str,
+):
+    """Each test set's metrics, and the backends among them that judge with a model."""
+    by_test_set = {
+        ts_id: _resolve_check_metrics(db, ts_id, metric_mode, selected_metrics, organization_id)
+        for ts_id in test_set_ids
+    }
+    all_metrics = [m for metrics in by_test_set.values() for m in metrics]
+    return by_test_set, metric_backends(db, all_metrics)
+
+
+async def _run_model_needs(
+    db: PreflightDbGate,
+    test_sets: list[tuple[UUID, str, bool]],
+    metric_mode: str,
+    selected_metrics: Optional[list],
+    organization_id: str,
+    replay: bool,
+):
+    """The models this run needs, by the rule the execute route uses.
+
+    Returns ``(needs, metrics_by_test_set)``. If the metrics can't be resolved, both
+    model checks run as before, so preflight never checks less than it used to.
+    """
+    any_multi_turn = any(mt for _, _, mt in test_sets)
+    try:
+        by_test_set, backends = await db.run(
+            _resolve_run_metrics,
+            [ts_id for ts_id, _, _ in test_sets],
+            metric_mode,
+            selected_metrics,
+            organization_id,
+        )
+    except Exception as e:
+        logger.warning(f"Could not resolve preflight metrics, checking both models: {e}")
+        return RunModelNeeds(evaluation=True, execution=any_multi_turn), {}
+    return model_needs(backends, any_multi_turn, replay), by_test_set
+
+
+async def _skipped_model_check(
+    check_id: str, message: str, correlation_id: Optional[str], publish: bool
+) -> PreflightCheckResult:
+    result = _make_result(check_id, PreflightCheckStatus.SKIPPED, message)
+    _apply_test_set_fields(result)
+    await _publish_result(result, correlation_id, publish)
+    return result
+
+
+async def _model_checks(
+    db: PreflightDbGate,
+    user: User,
+    needs: RunModelNeeds,
+    any_multi_turn: bool,
+    scoring_target: str,
+    execution_model_id: Optional[str],
+    evaluation_model_id: Optional[str],
+    correlation_id: Optional[str],
+    publish: bool,
+):
+    """The evaluation and execution model checks: ``(tasks, skipped_results)``."""
+    tasks: list[tuple[str, Awaitable[PreflightCheckResult]]] = []
+    skipped: List[PreflightCheckResult] = []
+
+    if needs.evaluation:
+        evaluation_check = check_evaluation_model(
+            db,
+            user,
+            evaluation_model_id,
+            correlation_id,
+            publish,
+            # Only a fresh run interprets; a re-score reads the stored contract.
+            probe_interpretation=any_multi_turn and scoring_target == "fresh",
+        )
+        tasks.append((CHECK_EVALUATION_MODEL, evaluation_check))
+    else:
+        skipped.append(
+            await _skipped_model_check(
+                CHECK_EVALUATION_MODEL,
+                "Not needed: no metric in this run is judged by the evaluation model",
+                correlation_id,
+                publish,
+            )
+        )
+
+    # Shown only for multi-turn runs, as before.
+    if needs.execution:
+        execution_check = check_execution_model(
+            db, user, execution_model_id, correlation_id, publish
+        )
+        tasks.append((CHECK_EXECUTION_MODEL, execution_check))
+    elif any_multi_turn:
+        skipped.append(
+            await _skipped_model_check(
+                CHECK_EXECUTION_MODEL,
+                "Not needed: a re-score reuses the stored conversations",
+                correlation_id,
+                publish,
+            )
+        )
+    return tasks, skipped
+
+
 async def run_preflight_checks_multi(
     db: Session,
     user: User,
@@ -238,30 +346,28 @@ async def run_preflight_checks_multi(
         results.append(r)
         await _publish_result(r, correlation_id, publish)
 
-    # Evaluation model (always)
-    tasks.append(
-        (
-            CHECK_EVALUATION_MODEL,
-            check_evaluation_model(
-                off_loop,
-                user,
-                evaluation_model_id,
-                correlation_id,
-                publish,
-                # Only a fresh run interprets; a re-score reads the stored contract.
-                probe_interpretation=any_multi_turn and scoring_target == "fresh",
-            ),
-        )
+    # Evaluation and execution models, only the ones the run will build
+    needs, metrics_by_test_set = await _run_model_needs(
+        off_loop,
+        test_sets,
+        metric_mode,
+        selected_metrics,
+        organization_id,
+        replay=scoring_target != "fresh",
     )
-
-    # Execution model (if any test set is multi-turn)
-    if any_multi_turn:
-        tasks.append(
-            (
-                CHECK_EXECUTION_MODEL,
-                check_execution_model(off_loop, user, execution_model_id, correlation_id, publish),
-            )
-        )
+    model_tasks, skipped_models = await _model_checks(
+        off_loop,
+        user,
+        needs,
+        any_multi_turn,
+        scoring_target,
+        execution_model_id,
+        evaluation_model_id,
+        correlation_id,
+        publish,
+    )
+    tasks.extend(model_tasks)
+    results.extend(skipped_models)
 
     # --- Per-test-set checks ---
     for ts_id, ts_name, is_mt in test_sets:
@@ -338,6 +444,8 @@ async def run_preflight_checks_multi(
                     correlation_id,
                     publish,
                     test_set_name=ts_label,
+                    endpoint=endpoint,
+                    resolved_metrics=metrics_by_test_set.get(ts_id),
                 ),
             )
         )

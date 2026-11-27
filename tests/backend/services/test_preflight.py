@@ -1033,6 +1033,8 @@ class TestRunPreflightChecksMulti:
 
         with ExitStack() as stack:
             stack.enter_context(patch(f"{orchestrator}.get_item_detail", return_value=MagicMock()))
+            # A model-judged metric, so the evaluation check runs for single-turn too.
+            stack.enter_context(patch(f"{orchestrator}.metric_backends", return_value=["rhesis"]))
             check_evaluation_model = stack.enter_context(
                 patch(
                     f"{orchestrator}.check_evaluation_model",
