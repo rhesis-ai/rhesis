@@ -6,7 +6,7 @@
 {{- /* KEDA runs in its own namespace, so the in-cluster broker needs its full name. */}}
 {{- $broker := include "rhesis.valkey.host" $ }}
 {{- if $.Values.valkey.enabled }}
-{{- $broker = printf "%s.%s.svc.cluster.local" $broker $.Release.Namespace }}
+{{- $broker = printf "%s.%s.svc" $broker $.Release.Namespace }}
 {{- end }}
 ---
 # Scales on CPU like the plain HPA, and also on the jobs waiting in each queue. KEDA
