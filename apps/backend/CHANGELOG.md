@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Branded email**: email to an organization's members follows its branding. The product name is the sender name and replaces "Rhesis AI" in the subject and text, its favicon is attached and shown beside the name in place of the Rhesis logo, and its primary and secondary colours style links and buttons. The imprint stays. The onboarding emails take only the sender name. Without a product name, `FROM_EMAIL` and `WELCOME_FROM_EMAIL` are used as written: a bare address no longer gets the name "Harry from Rhesis AI" added.
+
 ### Fixed
 
 - **Preflight no longer calls SDK endpoints**: the connectivity check used to call the function with `[place your input here]`, which added a trace to the project and ran the agent's LLM calls. It now checks that the connector is connected and the function is still registered.

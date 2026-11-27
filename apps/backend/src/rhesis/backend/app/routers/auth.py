@@ -111,6 +111,8 @@ from rhesis.backend.app.utils.rate_limit import (
     limiter,
 )
 from rhesis.backend.app.utils.redact import redact_email
+from rhesis.backend.notifications.email.brand import OrganizationBrand
+from rhesis.backend.notifications.email.organization_brand import load_organization_brand
 from rhesis.backend.telemetry import (
     set_telemetry_enabled,
     track_user_activity,
@@ -345,7 +347,12 @@ def _send_registration_emails(user_id: str, email: str, name: str | None) -> Non
     _send_verification_email_bg(user_id, email, name)
 
 
-def _send_verification_email_bg(user_id: str, email: str, name: str | None) -> None:
+def _send_verification_email_bg(
+    user_id: str,
+    email: str,
+    name: str | None,
+    organization: OrganizationBrand | None = None,
+) -> None:
     """Best-effort verification email, safe for BackgroundTasks."""
     try:
         token = create_email_verification_token(user_id, email)
@@ -355,12 +362,18 @@ def _send_verification_email_bg(user_id: str, email: str, name: str | None) -> N
             recipient_email=email,
             recipient_name=name,
             verification_url=verification_url,
+            organization=organization,
         )
     except Exception as e:
         logger.warning("Failed to send verification email: %s", e)
 
 
-def _send_password_reset_email_bg(user_id: str, email: str, name: str | None) -> None:
+def _send_password_reset_email_bg(
+    user_id: str,
+    email: str,
+    name: str | None,
+    organization: OrganizationBrand | None = None,
+) -> None:
     """Best-effort password reset email, safe for BackgroundTasks."""
     try:
         token = create_password_reset_token(user_id, email)
@@ -370,6 +383,7 @@ def _send_password_reset_email_bg(user_id: str, email: str, name: str | None) ->
             recipient_email=email,
             recipient_name=name,
             reset_url=reset_url,
+            organization=organization,
         )
         logger.info("Password reset email sent to: %s", redact_email(email))
     except Exception as e:
@@ -377,7 +391,11 @@ def _send_password_reset_email_bg(user_id: str, email: str, name: str | None) ->
 
 
 def _send_magic_link_email_bg(
-    user_id: str, email: str, name: str | None, is_new_user: bool
+    user_id: str,
+    email: str,
+    name: str | None,
+    is_new_user: bool,
+    organization: OrganizationBrand | None = None,
 ) -> None:
     """Best-effort magic-link email, safe for BackgroundTasks."""
     try:
@@ -389,6 +407,7 @@ def _send_magic_link_email_bg(
             recipient_name=name,
             magic_link_url=magic_link_url,
             is_new_user=is_new_user,
+            organization=organization,
         )
         logger.info("Magic link email sent to: %s", redact_email(email))
     except Exception as e:
@@ -1085,7 +1104,13 @@ def resend_verification(
     user = user_crud.get_user_by_email(db, body.email)
 
     if user and not user.is_email_verified:
-        background_tasks.add_task(_send_verification_email_bg, str(user.id), user.email, user.name)
+        background_tasks.add_task(
+            _send_verification_email_bg,
+            str(user.id),
+            user.email,
+            user.name,
+            organization=load_organization_brand(db, user.organization_id),
+        )
 
     # Always return success to prevent email enumeration
     return {
@@ -1117,7 +1142,11 @@ def forgot_password(
 
     if user:
         background_tasks.add_task(
-            _send_password_reset_email_bg, str(user.id), user.email, user.name
+            _send_password_reset_email_bg,
+            str(user.id),
+            user.email,
+            user.name,
+            organization=load_organization_brand(db, user.organization_id),
         )
 
     # Always return success to prevent email enumeration
@@ -1271,7 +1300,12 @@ def request_magic_link(
         return _MAGIC_LINK_SUCCESS_RESPONSE
 
     background_tasks.add_task(
-        _send_magic_link_email_bg, str(user.id), user.email, user.name, is_new_user
+        _send_magic_link_email_bg,
+        str(user.id),
+        user.email,
+        user.name,
+        is_new_user,
+        organization=load_organization_brand(db, user.organization_id),
     )
 
     return _MAGIC_LINK_SUCCESS_RESPONSE

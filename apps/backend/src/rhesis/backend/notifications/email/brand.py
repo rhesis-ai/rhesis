@@ -23,7 +23,8 @@ Email constrains what can be expressed:
   and button shadows are omitted rather than approximated.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import Optional
 
 from markupsafe import Markup
 
@@ -133,6 +134,8 @@ class Layout:
     # keep them in step with that script's output.
     logo_width: int = 232
     logo_height: int = 60
+    # An organization's favicon, shown beside its product name in place of the lockup.
+    org_logo_size: int = 40
     wash_height: int = 297
     # How far down the content table the wash starts, so its centre (half of
     # wash_height) lands on the CTA. Measured button centres in the auth emails:
@@ -145,6 +148,23 @@ class Layout:
     wash_offset_mobile: int = 240
 
 
+DEFAULT_PRODUCT_NAME = "Rhesis AI"
+# Content-ID of the organization's favicon, attached to the message itself because
+# the uploaded file is only served to signed-in users.
+LOGO_CONTENT_ID = "organization-logo"
+
+
+@dataclass(frozen=True)
+class OrganizationBrand:
+    """The branding an organization set, as email uses it. Every field is optional."""
+
+    product_name: Optional[str] = None
+    primary_color: Optional[str] = None
+    secondary_color: Optional[str] = None
+    # PNG bytes of a raster favicon; an SVG one is left out, as on report PDFs.
+    logo_png: Optional[bytes] = None
+
+
 @dataclass(frozen=True)
 class Brand:
     """Everything a template needs, exposed to Jinja as `brand`."""
@@ -154,6 +174,17 @@ class Brand:
     type: Type
     layout: Layout
     asset_base_url: str
+    product_name: str = DEFAULT_PRODUCT_NAME
+    # Set when the organization has its own product name. The header shows that name
+    # (and its favicon) instead of the Rhesis lockup and wash, and Rhesis-only copy
+    # such as the invitation's "About" block is left out. The imprint stays: Rhesis
+    # still sends the mail.
+    white_label: bool = False
+    has_logo: bool = False
+
+    @property
+    def logo_cid(self) -> str:
+        return LOGO_CONTENT_ID
 
     @property
     def logo_url(self) -> str:
@@ -172,12 +203,58 @@ class Brand:
         return f"{self.asset_base_url}/fonts/GeistMono-VariableFont_wght.woff2"
 
 
-def get_brand() -> Brand:
-    """Build the brand tokens, resolving the asset host from settings."""
+def _relative_luminance(hex_color: str) -> float:
+    channels = [int(hex_color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _text_on(fill: str, light: str, dark: str) -> str:
+    """Whichever of ``light`` and ``dark`` contrasts more with ``fill`` (WCAG ratio)."""
+    fill_l = _relative_luminance(fill)
+
+    def ratio(text: str) -> float:
+        lighter, darker = sorted((fill_l, _relative_luminance(text)), reverse=True)
+        return (lighter + 0.05) / (darker + 0.05)
+
+    return light if ratio(light) >= ratio(dark) else dark
+
+
+def _colors(organization: OrganizationBrand) -> Colors:
+    colors = Colors()
+    if organization.primary_color:
+        accent = organization.primary_color.lower()
+        colors = replace(colors, blue=accent, blue_dark=accent, blue_light=accent)
+    if organization.secondary_color:
+        button = organization.secondary_color.lower()
+        colors = replace(
+            colors, button=button, inverse=_text_on(button, colors.inverse, colors.heading)
+        )
+    return colors
+
+
+def get_brand(organization: Optional[OrganizationBrand] = None) -> Brand:
+    """Build the brand tokens, resolving the asset host from settings.
+
+    With an organization's branding, its colours replace the accent and button
+    colours and its product name replaces "Rhesis AI".
+    """
+    asset_base_url = get_smtp_settings().asset_base_url.rstrip("/")
+    if organization is None:
+        return Brand(
+            color=Colors(),
+            font=Fonts(),
+            type=Type(),
+            layout=Layout(),
+            asset_base_url=asset_base_url,
+        )
     return Brand(
-        color=Colors(),
+        color=_colors(organization),
         font=Fonts(),
         type=Type(),
         layout=Layout(),
-        asset_base_url=get_smtp_settings().asset_base_url.rstrip("/"),
+        asset_base_url=asset_base_url,
+        product_name=organization.product_name or DEFAULT_PRODUCT_NAME,
+        white_label=bool(organization.product_name),
+        has_logo=bool(organization.product_name and organization.logo_png),
     )

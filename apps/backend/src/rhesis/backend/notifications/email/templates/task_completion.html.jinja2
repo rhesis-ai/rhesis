@@ -1,7 +1,7 @@
 {% extends '_base.html.jinja2' %}
-{% import '_components.html.jinja2' as c %}
+{% import '_components.html.jinja2' as c with context %}
 
-{% block title %}Task Completion Notification - Rhesis AI{% endblock %}
+{% block title %}Task Completion Notification - {{ brand.product_name }}{% endblock %}
 {% block preheader %}{{ task_name }} finished with status {{ status | upper }}.{% endblock %}
 
 {% block content %}

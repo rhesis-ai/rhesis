@@ -950,7 +950,10 @@ class TestPdfBranding:
                 "favicon": {"path": "x/favicon.png", "content_type": "image/png"},
             },
         }
-        monkeypatch.setattr(branding, "read_favicon", lambda _f: (self._png(), "image/png", ""))
+        monkeypatch.setattr(
+            "rhesis.backend.app.services.organization_branding.read_favicon",
+            lambda _f: (self._png(), "image/png", ""),
+        )
 
         brand = branding.pdf_brand(org)
 
@@ -976,8 +979,6 @@ class TestPdfBranding:
     def test_branded_pdf_downloads(
         self, authenticated_client, build, db_endpoint, test_db, test_org_id, monkeypatch
     ):
-        from rhesis.backend.app.services.report import branding
-
         self._org(test_db, test_org_id).organization_settings = {
             "version": 1,
             "branding": {
@@ -985,7 +986,10 @@ class TestPdfBranding:
                 "favicon": {"path": "x/favicon.png", "content_type": "image/png"},
             },
         }
-        monkeypatch.setattr(branding, "read_favicon", lambda _f: (self._png(), "image/png", ""))
+        monkeypatch.setattr(
+            "rhesis.backend.app.services.organization_branding.read_favicon",
+            lambda _f: (self._png(), "image/png", ""),
+        )
         run = build.run()
         build.result(run, build.test())
         build.commit()

@@ -19,6 +19,7 @@ from rhesis.backend.app.services.notification import (
     notify,
 )
 from rhesis.backend.notifications import EmailTemplate, email_service
+from rhesis.backend.notifications.email.organization_brand import load_organization_brand
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,7 @@ def send_task_assignment_notification(
             subject=f"New Task Assignment: {task.title}",
             template_variables=template_variables,
             task_id=str(task.id),
+            organization=load_organization_brand(db, task.organization_id),
         )
 
         if success:

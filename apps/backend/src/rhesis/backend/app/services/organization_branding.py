@@ -430,6 +430,36 @@ async def delete_font(
             logger.warning(f"Could not delete branding font {path}: {e}")
 
 
+# Raster favicon types Pillow can turn into a PNG; an SVG favicon is left out.
+_RASTER_FAVICON_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+}
+
+
+def favicon_png(favicon: Optional[dict]) -> Optional[bytes]:
+    """The stored favicon as PNG bytes, for report PDFs and email headers.
+
+    ``None`` for no favicon, an SVG one, or one that can't be read.
+    """
+    if not favicon or favicon.get("content_type") not in _RASTER_FAVICON_TYPES:
+        return None
+    try:
+        from PIL import Image
+
+        content, _, _ = read_favicon(favicon)
+        with Image.open(io.BytesIO(content)) as image:
+            out = io.BytesIO()
+            image.convert("RGBA").save(out, format="PNG")
+            return out.getvalue()
+    except Exception:
+        logger.warning("organization favicon could not be converted to PNG", exc_info=True)
+        return None
+
+
 def read_favicon(favicon: Optional[dict]) -> tuple:
     """Return ``(bytes, content_type, sha256)`` for the stored favicon."""
     if not favicon or not favicon.get("path"):

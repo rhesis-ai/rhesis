@@ -94,8 +94,8 @@ Email service requires these environment variables:
 - `SMTP_PORT`: SMTP server port (465 for SSL, 587 for TLS)
 - `SMTP_USER`: SMTP username
 - `SMTP_PASSWORD`: SMTP password
-- `FROM_EMAIL`: Sender email address (defaults to `"Harry from Rhesis AI" <noreply@example.com>`)
-- `WELCOME_FROM_EMAIL`: Optional sender for the onboarding emails (e.g., `"Nicolai from Rhesis AI" <hello@rhesis.ai>`)
+- `FROM_EMAIL`: Sender address, optionally with a name (`"Name" <address>`). Defaults to `noreply@example.com`. Mail to an organization with a branded product name goes out under that name, and its templates render with the organization's brand (see `brand.py` and `organization_brand.py`)
+- `WELCOME_FROM_EMAIL`: Optional sender for the onboarding emails (e.g., `"Nicolai from Rhesis AI" <hello@rhesis.ai>`). A branded organization's product name replaces the name here too
 
 **Note**: When including a sender name with spaces, wrap it in quotes: `"Sender Name" <email@domain.com>`
 
@@ -108,6 +108,8 @@ notifications/email/
 ├── sendgrid_client.py      # SendGrid dynamic templates (onboarding emails)
 ├── template_service.py     # TemplateService - Jinja2 rendering
 ├── brand.py                # Brand tokens the templates render
+├── organization_brand.py   # An organization's branding, read for its members' email
+├── sender.py               # The From header: configured address, organization's name
 └── templates/
     ├── _base.html.jinja2, _components.html.jinja2, _imprint.html.jinja2
     └── <one .html.jinja2 per EmailTemplate>

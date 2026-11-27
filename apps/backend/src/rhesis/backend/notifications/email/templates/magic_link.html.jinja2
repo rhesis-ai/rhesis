@@ -1,7 +1,7 @@
 {% extends '_base.html.jinja2' %}
-{% import '_components.html.jinja2' as c %}
+{% import '_components.html.jinja2' as c with context %}
 
-{% block title %}{% if is_new_user %}Welcome to Rhesis AI{% else %}Sign in to Rhesis AI{% endif %}{% endblock %}
+{% block title %}{% if is_new_user %}Welcome to {{ brand.product_name }}{% else %}Sign in to {{ brand.product_name }}{% endif %}{% endblock %}
 {% block preheader %}
 {%- if is_new_user -%}
 Your account has been created. Your sign-in link expires in 15 minutes.
@@ -12,7 +12,7 @@ Your sign-in link — no password needed. Expires in 15 minutes.
 
 {% block content %}
 {% if is_new_user %}
-{{ c.row_header('Welcome to', accent='Rhesis AI', lede='Your account has been created. Use the link below to get started.') }}
+{{ c.row_header('Welcome to', accent=brand.product_name, lede='Your account has been created. Use the link below to get started.') }}
 {% else %}
 {{ c.row_header('Your', accent='sign-in link', lede='Click the link below to sign in — no password needed.') }}
 {% endif %}
@@ -20,17 +20,17 @@ Your sign-in link — no password needed. Expires in 15 minutes.
 {% call c.row_prose() %}
     {{ c.p("Hi" ~ (' ' ~ recipient_name if recipient_name else '') ~ ",") }}
     {% if is_new_user %}
-    {{ c.p("We've created your Rhesis AI account. Click the button below to sign in and complete your setup.") }}
+    {{ c.p("We've created your " ~ brand.product_name ~ " account. Click the button below to sign in and complete your setup.") }}
     {% else %}
-    {{ c.p('We received a request to sign you in to Rhesis AI. Use the button below to log in instantly.') }}
+    {{ c.p('We received a request to sign you in to ' ~ brand.product_name ~ '. Use the button below to log in instantly.') }}
     {% endif %}
     {{ c.p('This link will expire in 15 minutes.', size=brand.type.small, color=brand.color.muted, bottom=0) }}
 {% endcall %}
 
-{{ c.row_button(magic_link_url, 'Get started' if is_new_user else 'Sign in to Rhesis AI') }}
+{{ c.row_button(magic_link_url, 'Get started' if is_new_user else 'Sign in to ' ~ brand.product_name) }}
 {{ c.row_fallback_link(magic_link_url) }}
 {% if is_new_user %}
-{{ c.row_note("If you didn't sign up for Rhesis AI, you can safely ignore this email.") }}
+{{ c.row_note("If you didn't sign up for " ~ brand.product_name ~ ", you can safely ignore this email.") }}
 {% else %}
 {{ c.row_note("If you didn't request this link, you can safely ignore this email. No action will be taken on your account.") }}
 {% endif %}

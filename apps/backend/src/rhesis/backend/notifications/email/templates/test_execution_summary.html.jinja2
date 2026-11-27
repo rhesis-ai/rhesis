@@ -1,7 +1,7 @@
 {% extends '_base.html.jinja2' %}
-{% import '_components.html.jinja2' as c %}
+{% import '_components.html.jinja2' as c with context %}
 
-{% block title %}Test Execution Summary - Rhesis AI{% endblock %}
+{% block title %}Test Execution Summary - {{ brand.product_name }}{% endblock %}
 {% block preheader %}{{ tests_passed | default(0) }} of {{ total_tests | default(0) }} tests passed on {{ task_name }}.{% endblock %}
 
 {% block content %}

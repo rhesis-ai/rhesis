@@ -4,26 +4,14 @@ The brand line takes the org's product name (or its name) and primary colour, an
 favicon goes in the page corner. Without any branding the PDF says Rhesis.
 """
 
-import io
 import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from PIL import Image
-
 from rhesis.backend.app import models
-from rhesis.backend.app.services.organization_branding import read_favicon
+from rhesis.backend.app.services.organization_branding import favicon_png
 
 logger = logging.getLogger(__name__)
-
-# ReportLab draws rasters; an SVG favicon is left out.
-_RASTER_TYPES = {
-    "image/png",
-    "image/jpeg",
-    "image/webp",
-    "image/x-icon",
-    "image/vnd.microsoft.icon",
-}
 
 
 @dataclass(frozen=True)
@@ -48,22 +36,8 @@ def pdf_brand(organization: Optional[models.Organization]) -> PdfBrand:
         return PdfBrand(
             name=name or DEFAULT_PDF_BRAND.name,
             color=branding.primary_color or DEFAULT_PDF_BRAND.color,
-            logo=_logo_png(branding.favicon),
+            logo=favicon_png(branding.favicon),
         )
     except Exception:
         logger.exception("report PDF branding failed for organization %s", organization.id)
         return DEFAULT_PDF_BRAND
-
-
-def _logo_png(favicon: Optional[dict]) -> Optional[bytes]:
-    if not favicon or favicon.get("content_type") not in _RASTER_TYPES:
-        return None
-    try:
-        content, _, _ = read_favicon(favicon)
-        with Image.open(io.BytesIO(content)) as image:
-            out = io.BytesIO()
-            image.convert("RGBA").save(out, format="PNG")
-            return out.getvalue()
-    except Exception:
-        logger.warning("organization favicon could not be used on a report PDF", exc_info=True)
-        return None

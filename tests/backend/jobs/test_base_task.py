@@ -567,7 +567,7 @@ class TestCompletionEmailRespectsUserPreference:
         task = self._task()
 
         with (
-            patch.object(task, "_get_user_info", return_value=("a@b.com", "A", True)),
+            patch.object(task, "_get_user_info", return_value=("a@b.com", "A", True, None)),
             patch.object(task, "_get_execution_time", return_value="1s"),
             patch.object(task, "log_with_context"),
             patch("rhesis.backend.notifications.email_service") as mock_email,
@@ -581,7 +581,7 @@ class TestCompletionEmailRespectsUserPreference:
         task = self._task()
 
         with (
-            patch.object(task, "_get_user_info", return_value=("a@b.com", "A", False)),
+            patch.object(task, "_get_user_info", return_value=("a@b.com", "A", False, None)),
             patch.object(task, "_get_execution_time", return_value="1s"),
             patch.object(task, "log_with_context"),
             patch("rhesis.backend.notifications.email_service") as mock_email,

@@ -17,6 +17,7 @@ from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app import models
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.token_utils import (
     create_auth_code,
@@ -1742,6 +1743,20 @@ class TestRegistrationDisabled:
         sent_links.assert_called_once()
         user_id, sent_to, _name, is_new_user = sent_links.call_args.args
         assert (user_id, sent_to, is_new_user) == (invite.json()["id"], email, False)
+
+    def test_magic_link_goes_out_under_the_organization_product_name(
+        self, client: TestClient, test_db, test_org_id, sent_links
+    ):
+        email = _unique_email("branded")
+        org = test_db.get(models.Organization, test_org_id)
+        org.settings.update({"branding": {"product_name": "Acme Evals"}})
+        create_test_user(test_db, org.id, email, "Branded User")
+        test_db.commit()
+
+        response = client.post("/auth/magic-link", json={"email": email})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert sent_links.call_args.kwargs["organization"].product_name == "Acme Evals"
 
     def test_magic_link_unknown_email_signs_up_when_enabled(
         self, client: TestClient, test_db, registration, sent_links
