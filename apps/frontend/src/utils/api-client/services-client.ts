@@ -1,9 +1,5 @@
 import type { ExchangeRatesResponse } from './interfaces/services';
-import {
-  ApiErrorData,
-  BaseApiClient,
-  parseApiErrorResponse,
-} from './base-client';
+import { ApiErrorData, BaseApiClient, readApiErrorBody } from './base-client';
 import { API_ENDPOINTS } from './config';
 
 // Types for the new endpoints - matching backend schemas
@@ -239,14 +235,8 @@ export class ServicesClient extends BaseApiClient {
       // goes through fetch() directly rather than that shared path, so
       // without this a 402 (require_quota on the route this streams from)
       // showed the raw JSON body in a toast instead of the quota sentence.
-      const bodyText = await response.text();
-      let errorData: ApiErrorData = {};
-      try {
-        errorData = JSON.parse(bodyText) as ApiErrorData;
-      } catch {
-        // Not JSON; parseApiErrorResponse falls back to stringifying {}.
-      }
-      const message = parseApiErrorResponse(errorData) || bodyText;
+      const { message, data } = await readApiErrorBody(response);
+      const errorData: ApiErrorData = data ?? {};
       const error = new Error(
         `API error: ${response.status} - ${message}`
       ) as Error & {
