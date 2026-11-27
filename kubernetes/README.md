@@ -213,7 +213,8 @@ Because `prd-base` is bootstrap rather than GitOps-managed, nothing on the clust
 ### CloudNativePG operator (`cnpg-system`)
 
 - **Dev:** CNPG is **not** installed. Rhesis in dev uses the Bitnami PostgreSQL subchart (`charts/rhesis/values-dev.yaml`); the operator is unnecessary and was removed from the dev root kustomization to avoid a failing sync and extra operators on the cluster.
-- **Stg and prd** (`kubernetes/clusters/stg/cnpg-operator.yaml` and `kubernetes/clusters/prd/cnpg-operator.yaml`): `spec.source.targetRevision` points at a **release branch** (for example `release/v1.2.3`). Create that branch from the commit you intend to ship before syncing. **Automated sync is disabled** on the nested `cnpg-operator` Application: use **manual Sync** in Argo CD after the Git ref is updated. **Promotion:** validate on stg, then bump `targetRevision` on prd to the same ref and sync prd.
+- **Stg** (`kubernetes/clusters/stg/cnpg-operator.yaml`) tracks `main` with automated sync, so operator changes reach stg as soon as they merge.
+- **Prd** (`kubernetes/clusters/prd/cnpg-operator.yaml`) pins `targetRevision` to a **commit SHA** and has **automated sync disabled**. `promote-prd-config` leaves its pin out of the write-back on purpose. To promote, validate the change on stg, then merge a PR that sets prd's `targetRevision` to that commit. The new pin reaches the cluster with the next release, when `prd-base` syncs; the operator itself only changes once you **Sync** `prd-cnpg-operator` by hand in Argo CD.
 - **Chart version per environment:** edit `kubernetes/clusters/<env>/cnpg-system/cnpg-operator-helm-chart.yaml` (e.g. upgrade stg first, then prd).
 - **AppProject:** `cnpg-system` restricts sources and destinations for the CNPG Helm Application (`kubernetes/base/cnpg-system/argocd-project.yaml`).
 
