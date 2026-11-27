@@ -34,7 +34,7 @@ export default function MetricTargetPicker({
       <Box
         sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}
         role="radiogroup"
-        aria-label="Judges"
+        aria-label="Target"
       >
         {choices.map(choice => {
           const isSelected = choice.on === value.on;

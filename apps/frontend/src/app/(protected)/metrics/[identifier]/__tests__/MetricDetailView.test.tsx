@@ -142,6 +142,14 @@ function findEvaluationEditButton(): HTMLElement {
   return within(card as HTMLElement).getByRole('button', { name: /^edit$/i });
 }
 
+function targetCard(): HTMLElement {
+  const card = screen
+    .getByText('The part of the trace this metric looks at')
+    .closest('.MuiPaper-root');
+  if (!card) throw new Error('Target card not found');
+  return card as HTMLElement;
+}
+
 /**
  * Issue #1045: Evaluation step fields reset on adding new step.
  *
@@ -369,13 +377,40 @@ describe('MetricDetailView — framework metrics', () => {
     ).toHaveAttribute('href', 'https://docs.rhesis.ai/docs/metrics/deepeval');
   });
 
-  it('offers no way to edit or duplicate it', async () => {
+  it('offers no way to edit its definition or duplicate it', async () => {
     await renderAndViewMetric();
-    // Tags stay editable: they are how the organization files the metric.
-    expect(screen.getAllByRole('button', { name: /^edit$/i })).toHaveLength(1);
+    // Tags and the target stay editable: they say how the organization files
+    // and applies the metric, not what it is.
+    expect(screen.getAllByRole('button', { name: /^edit$/i })).toHaveLength(2);
+    expect(
+      within(targetCard()).getByRole('button', { name: /^edit$/i })
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /duplicate metric/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('sends only the new target when its target changes', async () => {
+    mockUpdateMetric.mockResolvedValue({});
+    await renderAndViewMetric();
+
+    const card = targetCard();
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /^edit$/i }));
+    });
+    await act(async () => {
+      fireEvent.click(
+        within(card).getByRole('radio', { name: 'The conversation' })
+      );
+    });
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /save/i }));
+    });
+
+    await waitFor(() => expect(mockUpdateMetric).toHaveBeenCalled());
+    expect(mockUpdateMetric.mock.calls[0][1]).toEqual({
+      config: { target: { on: 'conversation' } },
+    });
   });
 
   it('never shows the framework marker as content', async () => {
@@ -416,14 +451,6 @@ describe('MetricDetailView — target', () => {
     mockUpdateMetric.mockResolvedValue({});
   });
 
-  function configurationCard(): HTMLElement {
-    const card = screen
-      .getByText('Result Configuration')
-      .closest('.MuiPaper-root');
-    if (!card) throw new Error('Result Configuration card not found');
-    return card as HTMLElement;
-  }
-
   it('shows the target label and name', async () => {
     mockGetMetric.mockResolvedValue({
       ...mockMetric,
@@ -444,7 +471,7 @@ describe('MetricDetailView — target', () => {
     });
     await renderAndViewMetric();
 
-    const card = configurationCard();
+    const card = targetCard();
     await act(async () => {
       fireEvent.click(within(card).getByRole('button', { name: /^edit$/i }));
     });
@@ -469,9 +496,11 @@ describe('MetricDetailView — target', () => {
     });
 
     await waitFor(() => expect(mockUpdateMetric).toHaveBeenCalled());
-    expect(mockUpdateMetric.mock.calls[0][1].config).toEqual({
-      match: 'exact',
-      target: { on: 'tool_call', name: 'search' },
+    expect(mockUpdateMetric.mock.calls[0][1]).toEqual({
+      config: {
+        match: 'exact',
+        target: { on: 'tool_call', name: 'search' },
+      },
     });
   });
 });

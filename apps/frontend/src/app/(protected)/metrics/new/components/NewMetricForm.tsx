@@ -816,10 +816,10 @@ export default function NewMetricForm({
         {targetChoices.length > 0 && (
           <Box sx={{ mb: 3 }}>
             <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
-              Judges
+              Target
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Choose what this metric scores.
+              Choose the part of the trace this metric looks at.
             </Typography>
             <MetricTargetPicker
               choices={targetChoices}
@@ -1178,7 +1178,7 @@ export default function NewMetricForm({
             color="text.secondary"
             sx={{ fontWeight: 'medium', mb: 1 }}
           >
-            Judges
+            Target
           </Typography>
           <Chip
             label={formatMetricTarget(

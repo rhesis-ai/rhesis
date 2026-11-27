@@ -150,7 +150,6 @@ interface EditData {
   threshold?: number;
   threshold_operator?: ThresholdOperator;
   explanation?: string;
-  target?: MetricTargetValue;
 }
 
 const NO_TARGETS: MetricTargetChoice[] = [];
@@ -444,16 +443,6 @@ export function MetricDetailView({
       ) {
         return true;
       }
-
-      if (editData.target) {
-        const stored = getMetricTarget(metric);
-        if (
-          editData.target.on !== stored?.on ||
-          editData.target.name.trim() !== (stored?.name ?? '')
-        ) {
-          return true;
-        }
-      }
     }
 
     return false;
@@ -572,6 +561,44 @@ export function MetricDetailView({
       });
     },
     [metric, session, tagNames, notifications, status]
+  );
+
+  const storedTargetValue = React.useMemo<MetricTargetValue>(
+    () => ({ on: storedTarget?.on ?? '', name: storedTarget?.name ?? '' }),
+    [storedTarget?.on, storedTarget?.name]
+  );
+
+  // The target says where a metric is applied, not what it is, so it stays
+  // editable on framework metrics. The update carries nothing else.
+  const handleTargetSave = React.useCallback(
+    async (draft: MetricTargetValue) => {
+      if (!metric || !isAuthenticated(status)) return false;
+      const metricsClient = new ApiClientFactory().getMetricsClient();
+      try {
+        // A PUT replaces the whole config, so the class settings go back too.
+        await metricsClient.updateMetric(metric.id, {
+          config: {
+            ...(metric.config ?? {}),
+            target: editedTarget(getMetricTarget(metric), draft, allTargets),
+          },
+        });
+        const updatedMetric = await metricsClient.getMetric(metric.id);
+        setMetric(updatedMetric as MetricDetail);
+        notifications.show('Target updated', {
+          severity: 'success',
+          autoHideDuration: 4000,
+        });
+        onSaved?.();
+        return true;
+      } catch (error) {
+        notifications.show(
+          error instanceof Error ? error.message : 'Failed to update target',
+          { severity: 'error' }
+        );
+        return false;
+      }
+    },
+    [metric, status, allTargets, notifications, onSaved]
   );
 
   const handleEdit = React.useCallback(
@@ -699,17 +726,6 @@ export function MetricDetailView({
         ...(editData.threshold_operator && {
           threshold_operator: editData.threshold_operator,
         }),
-        // A PUT replaces the whole config, so the class settings go back too.
-        ...(editData.target && {
-          config: {
-            ...(metric.config ?? {}),
-            target: editedTarget(
-              getMetricTarget(metric),
-              editData.target,
-              allTargets
-            ),
-          },
-        }),
       };
 
       // Handle evaluation steps
@@ -760,7 +776,6 @@ export function MetricDetailView({
     status,
     judgeModelMismatch,
     judgeModel,
-    allTargets,
   ]);
 
   const addStep = React.useCallback(() => {
@@ -1537,34 +1552,6 @@ export function MetricDetailView({
               </>
             )}
 
-            <InfoRow label="Judges">
-              {isEditing === 'configuration' && targetChoices.length > 0 ? (
-                <MetricTargetPicker
-                  choices={targetChoices}
-                  value={
-                    editData.target ?? {
-                      on: storedTarget?.on ?? '',
-                      name: storedTarget?.name ?? '',
-                    }
-                  }
-                  onChange={target =>
-                    setEditData(prev => ({ ...prev, target }))
-                  }
-                />
-              ) : storedTarget ? (
-                <Chip
-                  icon={getMetricTargetIcon(storedTarget.on)}
-                  label={formatMetricTarget(storedTarget, allTargets)}
-                  color="primary"
-                  size="small"
-                />
-              ) : (
-                <Typography variant="body1" color="text.secondary">
-                  No target set
-                </Typography>
-              )}
-            </InfoRow>
-
             <InfoRow label="Result Explanation">
               {isEditing === 'configuration' ? (
                 <TextField
@@ -1600,6 +1587,39 @@ export function MetricDetailView({
               )}
             </InfoRow>
           </EditableSection>
+
+          <EditableSectionCard
+            editable={canEditMetric && targetChoices.length > 0}
+            title="Target"
+            subtitle="The part of the trace this metric looks at"
+            initialValue={storedTargetValue}
+            onSave={handleTargetSave}
+            isDirty={(draft, initial) =>
+              draft.on !== initial.on ||
+              draft.name.trim() !== initial.name.trim()
+            }
+          >
+            {({ draft, setDraft, isEditing: isTargetEditing }) =>
+              isTargetEditing ? (
+                <MetricTargetPicker
+                  choices={targetChoices}
+                  value={draft}
+                  onChange={setDraft}
+                />
+              ) : storedTarget ? (
+                <Chip
+                  icon={getMetricTargetIcon(storedTarget.on)}
+                  label={formatMetricTarget(storedTarget, allTargets)}
+                  color="primary"
+                  size="small"
+                />
+              ) : (
+                <Typography variant="body1" color="text.secondary">
+                  No target set
+                </Typography>
+              )
+            }
+          </EditableSectionCard>
 
           {/* Tags Section */}
           <EditableSectionCard

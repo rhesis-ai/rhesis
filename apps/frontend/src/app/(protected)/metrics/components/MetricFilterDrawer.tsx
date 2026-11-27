@@ -146,7 +146,7 @@ export default function MetricFilterDrawer({
       )}
 
       {filterOptions.target.length > 0 && (
-        <FilterSection title="Judges">
+        <FilterSection title="Target">
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {filterOptions.target.map(opt => (
               <Box
