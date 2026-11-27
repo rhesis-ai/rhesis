@@ -29,14 +29,17 @@ import {
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import {
+  MetricDetail,
+  type MetricTargetChoice,
+} from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { OWASP_METRIC_FILTER_VALUE, OWASP_METRIC_TAG_NAME } from './list';
 import { PAGE_HEADERS } from '@/constants/page-headers';
-import { formatMetricTarget, getMetricTarget } from '@/utils/metric-targets';
+import { getMetricTarget } from '@/utils/metric-targets';
 export interface FilterState {
   search: string;
   backend: string[];
@@ -66,6 +69,8 @@ interface MetricsDirectoryTabProps {
   onRefresh: () => void;
   filters: FilterState;
   filterOptions: FilterOptions;
+  /** `GET /metrics/targets`, for each card's target line. */
+  targetChoices?: MetricTargetChoice[];
   isLoading: boolean;
   error: string | null;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
@@ -107,6 +112,7 @@ export default function MetricsDirectoryTab({
   onRefresh,
   filters,
   filterOptions,
+  targetChoices,
   isLoading,
   error,
   setFilters,
@@ -151,16 +157,6 @@ export default function MetricsDirectoryTab({
       ...prev,
       [filterType]: value,
     }));
-  };
-
-  const targetChoices = React.useMemo(
-    () => filterOptions.target.map(o => ({ on: o.value, label: o.label })),
-    [filterOptions.target]
-  );
-  const cardTarget = (metric: MetricDetail) => {
-    const target = getMetricTarget(metric);
-    if (!target) return undefined;
-    return { on: target.on, label: formatMetricTarget(target, targetChoices) };
   };
 
   // Count active advanced filters
@@ -505,7 +501,9 @@ export default function MetricsDirectoryTab({
                       backend={metric.backend_type?.type_value}
                       metricType={metric.metric_type?.type_value}
                       scoreType={metric.score_type}
-                      target={cardTarget(metric)}
+                      target={getMetricTarget(metric) ?? undefined}
+                      targetChoices={targetChoices}
+                      metricId={metric.id}
                       usedIn={requirementNames}
                       tuningCases={
                         backendType === 'custom'

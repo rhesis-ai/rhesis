@@ -31,6 +31,7 @@ export const endpointKeys = {
   setupStatus: (userScope: string, projectId: string) =>
     ['endpoints', 'setup-status', userScope, projectId] as const,
 };
+export const metricKeys = createEntityKeys('metrics');
 export const sourceKeys = createEntityKeys('sources');
 export const taskKeys = createEntityKeys('tasks');
 export const jobKeys = {

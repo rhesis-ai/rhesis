@@ -40,6 +40,19 @@ jest.mock('../TraceFilterDrawer', () => ({
   default: () => null,
 }));
 
+jest.mock('../TargetFilterChip', () => ({
+  __esModule: true,
+  default: ({ onRemove }: any) => (
+    <button
+      onClick={() =>
+        onRemove({ spanTypes: ['tool.invoke'], tools: ['issue_refund'] })
+      }
+    >
+      remove target
+    </button>
+  ),
+}));
+
 // The real tables (and their toolbar) need a grid; these read the same toolbar
 // context and offer the switch and one clickable row.
 function MockSwitch() {
@@ -162,6 +175,35 @@ describe('TracesClient view switch', () => {
 
     expect(screen.getByText('span row')).toBeInTheDocument();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+});
+
+describe('TracesClient opened from a metric target', () => {
+  it('keeps the metric in the URL and clears what its target set on removal', () => {
+    render(
+      <TracesClient
+        initialView="spans"
+        initialFromMetric="metric-1"
+        initialFilters={{
+          timeRange: 'all',
+          spanTypes: ['tool.invoke'],
+          tools: ['issue_refund'],
+          environment: 'production',
+        }}
+      />
+    );
+
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      '/traces?view=spans&environment=production&span_type=tool.invoke&tool=issue_refund&from_metric=metric-1',
+      { scroll: false }
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'remove target' }));
+
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      '/traces?view=spans&environment=production',
+      { scroll: false }
+    );
   });
 });
 

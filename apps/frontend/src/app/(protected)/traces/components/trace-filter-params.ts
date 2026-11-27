@@ -32,6 +32,10 @@ export interface TraceDrawerFilters {
   // Spans view only. Kept while the traces view shows, so switching back restores them.
   spanTypes?: string[];
   spanNames?: string[];
+  /** Spans view: the model a span called (`ai.model.name`). */
+  models?: string[];
+  /** Spans view: the tool a span called (`ai.tool.name`). */
+  tools?: string[];
   /** true: root spans only; false: child spans only; unset: both. */
   isRoot?: boolean;
 }
@@ -56,7 +60,13 @@ function activeFilterFlags(
   // The spans endpoint has no endpoint or evaluation filter, and the traces one
   // has no span filters, so each view ignores the other's.
   const viewOnly = spans
-    ? [!!f.spanTypes?.length, !!f.spanNames?.length, f.isRoot !== undefined]
+    ? [
+        !!f.spanTypes?.length,
+        !!f.spanNames?.length,
+        !!f.models?.length,
+        !!f.tools?.length,
+        f.isRoot !== undefined,
+      ]
     : [!!f.traceMetricsStatus];
 
   if (options?.testRunScope) {
@@ -118,6 +128,8 @@ export function sanitizeTraceDrawerFiltersForTestRunScope(
     testId: filters.testId,
     spanTypes: filters.spanTypes,
     spanNames: filters.spanNames,
+    models: filters.models,
+    tools: filters.tools,
     isRoot: filters.isRoot,
   };
 }
@@ -226,6 +238,8 @@ export function buildSpanQueryParams(
   if (drawer.traceType) params.trace_type = drawer.traceType;
   if (drawer.spanTypes?.length) params.span_type = drawer.spanTypes;
   if (drawer.spanNames?.length) params.span_name = drawer.spanNames;
+  if (drawer.models?.length) params.model = drawer.models;
+  if (drawer.tools?.length) params.tool = drawer.tools;
   if (drawer.isRoot !== undefined) params.is_root = drawer.isRoot;
 
   if (searchQuery.trim()) params.search = searchQuery.trim();

@@ -160,6 +160,7 @@ export default function MetricsClientComponent({
         onRefresh={handleRefresh}
         filters={filters}
         filterOptions={filterOptions}
+        targetChoices={targets}
         isLoading={isLoading}
         error={error}
         setFilters={setFilters}

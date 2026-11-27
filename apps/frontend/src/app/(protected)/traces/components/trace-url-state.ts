@@ -34,6 +34,8 @@ const LIST_KEYS = {
   agents: 'agent',
   spanTypes: 'span_type',
   spanNames: 'span_name',
+  models: 'model',
+  tools: 'tool',
 } as const satisfies Partial<Record<keyof TraceDrawerFilters, string>>;
 
 const TIME_RANGE_PARAM = 'time';
