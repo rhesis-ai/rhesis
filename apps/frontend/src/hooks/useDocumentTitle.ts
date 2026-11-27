@@ -59,7 +59,8 @@ export function useDocumentTitle(title: string | null) {
     return () => {
       observer.disconnect();
       const wasTop = topTitle()?.token === entry.token;
-      titleStack.splice(titleStack.indexOf(entry), 1);
+      const index = titleStack.indexOf(entry);
+      if (index !== -1) titleStack.splice(index, 1);
       // Hand the tab back to the title underneath (e.g. a list page under a
       // drawer), but leave a title the next page has already set alone.
       if (wasTop && document.title === fullTitle) {

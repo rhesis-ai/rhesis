@@ -56,8 +56,9 @@ describe('useDocumentTitle', () => {
     });
 
     // Both observers see every title change; they must not keep overwriting
-    // each other (that loop froze the tab).
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // each other (that loop froze the tab). Observer callbacks are microtasks,
+    // so a timer only fires once they settle; with the loop it never fires.
+    await new Promise(resolve => setTimeout(resolve, 0));
     expect(document.title).toBe('Span A · Traces | Acme Testing');
 
     drawer.unmount();
