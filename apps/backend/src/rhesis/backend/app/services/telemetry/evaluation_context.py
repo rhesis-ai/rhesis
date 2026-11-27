@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import models
+from rhesis.backend.app.crud.metric import get_metrics_by_ids
 from rhesis.backend.app.crud.organization import get_organization
 from rhesis.backend.app.crud.project import find_project
 from rhesis.backend.app.quota import QuotaResource
@@ -36,20 +36,7 @@ def load_project_trace_metrics(
         phase: "conversation" loads the metrics that judge the conversation, "turn" the
             others (judged on every turn, conversation or not).
     """
-    metric_ids = config.get("metric_ids")
-    if not metric_ids:
-        return []
-
-    metrics = (
-        db.query(models.Metric)
-        .filter(
-            models.Metric.organization_id == organization_id,
-            models.Metric.deleted_at.is_(None),
-            models.Metric.id.in_(metric_ids),
-        )
-        .all()
-    )
-
+    metrics = get_metrics_by_ids(db, organization_id, config.get("metric_ids") or [])
     wanted = phase == "conversation"
     return [m for m in metrics if (metric_target(m) == "conversation") == wanted]
 

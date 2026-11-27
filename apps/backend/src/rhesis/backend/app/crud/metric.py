@@ -65,6 +65,23 @@ def get_metric(
     )
 
 
+def get_metrics_by_ids(
+    db: Session, organization_id: str, metric_ids: List[str]
+) -> List[models.Metric]:
+    """The organization's live metrics among *metric_ids*."""
+    if not metric_ids:
+        return []
+    return (
+        db.query(models.Metric)
+        .filter(
+            models.Metric.organization_id == organization_id,
+            models.Metric.deleted_at.is_(None),
+            models.Metric.id.in_(metric_ids),
+        )
+        .all()
+    )
+
+
 def metric_target_filter(target: str | None):
     """Build a query transform keeping metrics whose target is one of a comma-separated list
     of target kinds (``turn,conversation``).
