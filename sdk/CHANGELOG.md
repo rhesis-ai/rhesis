@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Expectations.tool_calls_per_turn` and `Test(expected_tool_calls_per_turn=...)`: a turn unit is held to its own expected tool calls, and metrics comparing tool calls can take `turn`.
 - The Architect plans a rule, not a judge, for a requirement that is a limit (`MetricSpec.rule`, `rule_settings`), and checks a planned rule is created with that class.
 - `metric.evaluate()` without `target=` uses the metric's own target, so a pulled metric judges a trace locally the way the platform does.
+- `UnsupportedTarget`: a target this SDK can't read, such as one a newer Rhesis version wrote, raises it with the valid targets and a note to upgrade `rhesis-sdk`, instead of a validation error.
 
 ### Changed
 - **BREAKING:** `MetricScope` and `MetricConfig.metric_scope` are removed. A metric's

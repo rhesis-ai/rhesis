@@ -115,3 +115,43 @@ class TestPushPull:
             metric = NumericJudge.pull(name="test_metric")
 
         assert metric.target == {"on": "conversation"}
+
+    @patch("rhesis.sdk.metrics.providers.native.serialization.APIClient")
+    def test_pull_of_a_newer_target_says_the_sdk_needs_upgrading(self, mock_client_class):
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.send_request.return_value = [
+            {
+                "name": "test_metric",
+                "evaluation_prompt": "Test prompt",
+                "config": {"target": {"on": "span", "where": [{"field": "kind", "op": "exists"}]}},
+                "score_type": "numeric",
+                "class_name": "NumericJudge",
+                "backend_type": "rhesis",
+            }
+        ]
+
+        with patch("rhesis.sdk.models.factory.get_model", return_value=Mock()):
+            with pytest.raises(metrics.UnsupportedTarget, match="needs a newer rhesis-sdk"):
+                NumericJudge.pull(name="test_metric")
+
+
+class TestTargetsThisSdkCantRead:
+    """A metric made with a newer Rhesis version can carry a target this SDK doesn't know."""
+
+    @pytest.mark.parametrize(
+        "target",
+        [
+            {"on": "span", "where": [{"field": "kind", "op": "==", "value": "tool.invoke"}]},
+            {"on": "tool_call", "read": {"input": "ai.tool.arguments"}},
+            {"on": "tool_call", "where": [{"field": "ai.tool.name", "op": "==", "value": "x"}]},
+            "span",
+        ],
+    )
+    def test_a_newer_target_says_the_sdk_needs_upgrading(self, target):
+        with pytest.raises(metrics.UnsupportedTarget, match="needs a newer rhesis-sdk"):
+            MetricConfig(name="m", target=target)
+
+    def test_an_unknown_target_still_lists_the_valid_ones(self):
+        with pytest.raises(metrics.UnsupportedTarget, match="valid targets: turn"):
+            MetricConfig(name="m", target="tool_calls")

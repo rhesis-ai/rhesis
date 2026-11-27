@@ -135,6 +135,32 @@ AttributeValue = Union[str, int, float, bool]
 REFINEMENTS = ("name", "within", "where")
 
 
+class UnsupportedTarget(ValueError):
+    """A target this SDK can't read: unknown, or written by a newer Rhesis version.
+    ``reason`` says what is wrong without the advice to upgrade."""
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(
+            f"{reason}. If the metric was made with a newer Rhesis version, this metric's "
+            "target needs a newer rhesis-sdk: upgrade it."
+        )
+
+
+def _check_supported(value: Dict[str, Any]) -> None:
+    """Refuse a target in a shape this SDK doesn't know, saying so instead of failing
+    validation: a metric made with a newer Rhesis version can carry one."""
+    kinds = [kind.value for kind in TargetKind]
+    on = value.get("on")
+    if on not in kinds:
+        raise UnsupportedTarget(f"'{on}' is not a target; valid targets: {', '.join(kinds)}")
+    unknown = sorted(set(value) - set(Target.model_fields))
+    if unknown:
+        raise UnsupportedTarget(f"A target has no {', '.join(unknown)}")
+    if isinstance(value.get("where"), list):
+        raise UnsupportedTarget("where takes attribute values, not a list of conditions")
+
+
 class Target(BaseModel):
     """What a metric judges. ``name`` and ``within`` narrow a per-span target, and ``where``
     any per-unit target."""
@@ -176,7 +202,10 @@ class Target(BaseModel):
         if isinstance(value, Target) or value is None:
             return value
         if isinstance(value, (str, TargetKind)):
+            _check_supported({"on": getattr(value, "value", value)})
             return cls(on=value)
+        if isinstance(value, dict):
+            _check_supported(value)
         return cls.model_validate(value)
 
     @property

@@ -50,7 +50,13 @@ if TYPE_CHECKING:
         TrajectoryMatch,
     )
     from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
-    from rhesis.sdk.metrics.targets import TARGETS, Aggregation, Target, TargetKind
+    from rhesis.sdk.metrics.targets import (
+        TARGETS,
+        Aggregation,
+        Target,
+        TargetKind,
+        UnsupportedTarget,
+    )
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     # Native — per-module import avoids loading all judges when only one is needed
@@ -92,6 +98,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "Target": ("rhesis.sdk.metrics.targets", "Target"),
     "TargetKind": ("rhesis.sdk.metrics.targets", "TargetKind"),
+    "UnsupportedTarget": ("rhesis.sdk.metrics.targets", "UnsupportedTarget"),
     "Aggregation": ("rhesis.sdk.metrics.targets", "Aggregation"),
     "TARGETS": ("rhesis.sdk.metrics.targets", "TARGETS"),
     "RhesisMetricFactory": (
@@ -158,6 +165,7 @@ __all__ = [
     "UnsupportedModelType",
     "Target",
     "TargetKind",
+    "UnsupportedTarget",
     "Aggregation",
     "TARGETS",
     "MetricConfigLoader",

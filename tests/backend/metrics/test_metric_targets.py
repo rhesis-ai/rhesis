@@ -139,8 +139,12 @@ class TestStoredTargets:
             check_metric_config(None, {"target": {"on": "run", "where": where}}, accepted=["trace"])
 
     def test_a_malformed_target_names_the_problem(self):
-        with pytest.raises(ValueError, match="Invalid target: on: Input should be"):
+        with pytest.raises(ValueError, match="Invalid target: 'spans' is not a target; valid"):
             check_metric_config(None, {"target": {"on": "spans"}})
+
+    def test_a_malformed_refinement_names_the_problem(self):
+        with pytest.raises(ValueError, match="Invalid target: name: String should have"):
+            check_metric_config(None, {"target": {"on": "tool_call", "name": ""}})
 
     def test_a_custom_metric_takes_a_per_span_target(self):
         metric = MetricCreate(

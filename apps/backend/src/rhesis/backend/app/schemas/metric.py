@@ -123,7 +123,7 @@ def check_metric_config(
     if config is None and not default_target:
         return config
     try:
-        from rhesis.sdk.metrics.targets import Target, check_target
+        from rhesis.sdk.metrics.targets import Target, UnsupportedTarget, check_target
     except ImportError:  # a core install, which runs no native metric
         return config
 
@@ -146,6 +146,8 @@ def check_metric_config(
             for err in e.errors()
         )
         raise ValueError(f"Invalid target: {problems}") from None
+    except UnsupportedTarget as e:
+        raise ValueError(f"Invalid target: {e.reason}") from None
     return {**settings, "target": target.to_config()}
 
 
