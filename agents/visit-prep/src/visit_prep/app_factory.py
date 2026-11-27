@@ -88,6 +88,7 @@ def create_app(tracing_cls: TracingFactory) -> FastAPI:
     tracing_configured = bool(os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"))
     if tracing_configured:
         client = RhesisClient.from_environment()
+        import visit_prep.metrics  # noqa: F401  (registers the code metrics on this client)
     else:
         logger.info(
             "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient. "
