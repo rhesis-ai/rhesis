@@ -294,7 +294,7 @@ Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
 | `SMTP_PORT` | SMTP server port | `587` |
 | `SMTP_USER` | SMTP username | *(unset)* |
 | `SMTP_PASSWORD` | SMTP password | *(unset)* |
-| `FROM_EMAIL` | Default From address | `noreply@example.com` |
+| `FROM_EMAIL` | From address, as `noreply@example.com` or `"Acme Evals" <noreply@example.com>`. Mail to an organization with a branded product name goes out under that name instead | `noreply@example.com` |
 | `EMAIL_ASSET_BASE_URL` | Where emails load their logo, header image and font from. Mail clients fetch these directly, so it must be publicly reachable. Helm: set it in `backend.env` and each `workers[].env` | `https://rhesis.ai` |
 
 ## Object storage
