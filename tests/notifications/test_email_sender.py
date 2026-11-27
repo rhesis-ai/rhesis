@@ -29,6 +29,10 @@ class TestSenderWithName:
         sender = sender_with_name('"Ops" <noreply@example.com>', "Acme Evals")
         assert parseaddr(sender) == ("Acme Evals", "noreply@example.com")
 
+    def test_a_value_without_an_address_is_left_as_written(self):
+        assert sender_with_name("", "Acme Evals") == ""
+        assert sender_with_name('"Ops" <>', "Acme Evals") == '"Ops" <>'
+
     def test_a_name_with_quotes_and_commas_stays_one_name(self):
         sender = sender_with_name("noreply@example.com", 'Acme "Labs", Inc.')
         assert parseaddr(sender) == ('Acme "Labs", Inc.', "noreply@example.com")

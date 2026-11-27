@@ -16,5 +16,8 @@ def sender_with_name(configured: str, display_name: Optional[str]) -> str:
     if not display_name:
         return configured
     _, address = parseaddr(configured)
+    if not address:
+        # A From header with an empty address would be worse than no name.
+        return configured
     # Quotes and escapes the name as needed, and encodes a non-ASCII one.
     return formataddr((display_name, address))
