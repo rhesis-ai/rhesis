@@ -57,9 +57,9 @@ jobs:
           echo "Resolved tag: $TAG"
 
   # Deploy-all service list — each service needs a build job below and a matching
-  # entry in deploy-all needs. When adding a service, also update the helm-set
-  # loop in k8s-deploy.yml (empty service case). chatbot is excluded (9GB image;
-  # deploy separately via chatbot-k8s.yml).
+  # entry in deploy-all needs. When adding a service, also update KEYS in
+  # .github/scripts/argocd-set-image-tags.sh (empty service case). chatbot is
+  # excluded (9GB image; deploy separately via chatbot-k8s.yml).
   backend-build:
     needs: gate
     permissions:
@@ -145,7 +145,8 @@ jobs:
     secrets: inherit
 
   # After all images are pushed, k8s-deploy.yml sets per-service image tags and
-  # syncs ArgoCD (see k8s-deploy.yml for why global.imageTag is not used).
+  # syncs ArgoCD (see .github/scripts/argocd-set-image-tags.sh for why
+  # global.imageTag is not used).
   deploy-all:
     needs:
       - gate

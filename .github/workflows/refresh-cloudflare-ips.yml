@@ -2,7 +2,9 @@ name: Refresh Cloudflare IPs
 
 # Cloudflare's edge ranges are committed under kubernetes/ in every
 # `# cloudflare-ips:begin` block (today the ingress-nginx-external real-IP trust
-# list), so open a PR whenever Cloudflare publishes a change.
+# list and prd's origin lock in
+# kubernetes/clusters/prd/ingress-nginx-external/origin-lock.yaml), so open a PR
+# whenever Cloudflare publishes a change.
 on:
   workflow_dispatch:
   schedule:
