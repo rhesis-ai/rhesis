@@ -8,7 +8,8 @@ from enum import Enum
 from functools import wraps
 from typing import Any
 
-from ._state import get_default_client, is_client_disabled
+from rhesis.sdk.decorators._state import get_default_client, is_client_disabled
+from rhesis.sdk.decorators.direct_call import recording_turn
 
 # Module-level logger
 logger = logging.getLogger(__name__)
@@ -415,7 +416,8 @@ def endpoint(
 
                     if not observe:
                         return await func(*args, **kwargs)
-                    return await trace_func(func_name, func, args, kwargs, span_name)
+                    traced = recording_turn(func, args, kwargs, request_mapping, response_mapping)
+                    return await trace_func(func_name, traced, args, kwargs, span_name)
                 finally:
                     cleanup_resources(cleanup_handlers)
 
@@ -436,7 +438,8 @@ def endpoint(
 
                 if not observe:
                     return func(*args, **kwargs)
-                return trace_func(func_name, func, args, kwargs, span_name)
+                traced = recording_turn(func, args, kwargs, request_mapping, response_mapping)
+                return trace_func(func_name, traced, args, kwargs, span_name)
             finally:
                 cleanup_resources(cleanup_handlers)
 

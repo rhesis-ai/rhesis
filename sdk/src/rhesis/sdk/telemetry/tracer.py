@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from opentelemetry import trace
 
-from rhesis.sdk.telemetry.retrieval import record_documents
+from rhesis.sdk.telemetry.retrieval import record_documents, record_query, retrieval_query
 from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext as ConvContextConstants
 from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
@@ -51,6 +51,20 @@ def pop_result_trace_id(result: Any) -> Optional[str]:
     result_id = id(result)
     with _result_trace_ids_lock:
         return _result_trace_ids.pop(result_id, None)
+
+
+def _via_connector() -> bool:
+    # Imported here: the decorators package imports this module.
+    from rhesis.sdk.decorators.direct_call import via_connector
+
+    return via_connector()
+
+
+def _end_direct_root() -> None:
+    """A direct call's root span is over: the next call starts a trace of its own. The
+    connector reads the root trace id after the call and clears it itself."""
+    if not _via_connector():
+        set_root_trace_id(None)
 
 
 def _get_sdk_version() -> str:
@@ -370,6 +384,11 @@ class Tracer:
                 == AIAttributes.OPERATION_TOOL_INVOKE
             ):
                 self._capture_tool_arguments(span, func, args, kwargs)
+            if func is not None and (
+                extra_attributes.get(AIAttributes.OPERATION_TYPE)
+                == AIAttributes.OPERATION_RETRIEVAL
+            ):
+                record_query(span, retrieval_query(func, args, kwargs))
 
         # Inject test context if present
         test_context = get_test_execution_context()
@@ -483,6 +502,7 @@ class Tracer:
                 span, function_name, args, kwargs, extra_attributes, func=func
             )
 
+            streaming = False
             try:
                 # Execute function
                 result = func(*args, **kwargs)
@@ -490,6 +510,7 @@ class Tracer:
                 # Handle generator functions
                 if inspect.isgenerator(result):
                     logger.debug(f"Function {function_name} returned generator")
+                    streaming = True
                     return self._wrap_generator(span, function_name, result)
 
                 # Handle regular functions
@@ -502,7 +523,8 @@ class Tracer:
 
                 # For sync functions running in thread pools, context variables
                 # don't propagate back. Store trace_id in thread-safe dict.
-                if is_root and result is not None and trace_id:
+                # Only the connector pops it; a direct call would leave it behind.
+                if is_root and result is not None and trace_id and _via_connector():
                     store_result_trace_id(result, trace_id)
 
                 return result
@@ -512,6 +534,10 @@ class Tracer:
                 span.set_status(trace.Status(trace.StatusCode.ERROR, description=str(e)))
                 span.record_exception(e)
                 raise
+            finally:
+                # A stream's spans are still being made while it is read.
+                if is_root and trace_id and not streaming:
+                    _end_direct_root()
 
     async def trace_execution_async(
         self,
@@ -611,7 +637,8 @@ class Tracer:
                 # here where we only have the raw function return value.
 
                 # Store trace_id for consistency with sync version
-                if is_root and result is not None and trace_id:
+                # Only the connector pops it; a direct call would leave it behind.
+                if is_root and result is not None and trace_id and _via_connector():
                     store_result_trace_id(result, trace_id)
 
                 return result
@@ -621,6 +648,9 @@ class Tracer:
                 span.set_status(trace.Status(trace.StatusCode.ERROR, description=str(e)))
                 span.record_exception(e)
                 raise
+            finally:
+                if is_root and trace_id:
+                    _end_direct_root()
 
     def _wrap_generator(
         self,
