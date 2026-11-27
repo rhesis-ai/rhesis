@@ -1,4 +1,4 @@
-import { BaseApiClient } from './base-client';
+import { BaseApiClient, readApiErrorBody } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { readActiveProjectId } from '../active-project';
 import {
@@ -11,36 +11,6 @@ import {
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { UUID } from 'crypto';
 import { joinUrl } from '../url';
-
-/** Validation error detail shape from API error responses */
-interface ValidationErrorDetail {
-  loc?: (string | number)[];
-  msg: string;
-  type?: string;
-}
-
-/** Extract human-readable message from API error response data */
-function getErrorMessageFromErrorData(errorData: unknown): string {
-  if (typeof errorData !== 'object' || errorData === null) {
-    return String(errorData);
-  }
-  const data = errorData as Record<string, unknown>;
-  if (data.detail !== undefined) {
-    if (Array.isArray(data.detail)) {
-      return data.detail
-        .map(
-          (err: unknown) =>
-            `${(err as ValidationErrorDetail).loc?.join('.') || 'field'}: ${(err as ValidationErrorDetail).msg}`
-        )
-        .join(', ');
-    }
-    return String(data.detail);
-  }
-  if (data.message !== undefined) {
-    return String(data.message);
-  }
-  return JSON.stringify(errorData, null, 2);
-}
 
 // Default pagination settings
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -161,19 +131,8 @@ export class SourcesClient extends BaseApiClient {
     });
 
     if (!response.ok) {
-      let errorMessage = '';
-      let errorData: unknown;
-      try {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          errorData = await response.json();
-          errorMessage = getErrorMessageFromErrorData(errorData);
-        } else {
-          errorMessage = await response.text();
-        }
-      } catch (_parseError) {
-        errorMessage = await response.text();
-      }
+      const { message: errorMessage, data: errorData } =
+        await readApiErrorBody(response);
 
       const error = new Error(
         `API error: ${response.status} - ${errorMessage}`
@@ -222,20 +181,8 @@ export class SourcesClient extends BaseApiClient {
     });
 
     if (!response.ok) {
-      let errorMessage = '';
-      let errorData: unknown;
-
-      try {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          errorData = await response.json();
-          errorMessage = getErrorMessageFromErrorData(errorData);
-        } else {
-          errorMessage = await response.text();
-        }
-      } catch (_parseError) {
-        errorMessage = await response.text();
-      }
+      const { message: errorMessage, data: errorData } =
+        await readApiErrorBody(response);
 
       const error = new Error(
         `API error: ${response.status} - ${errorMessage}`
@@ -270,20 +217,8 @@ export class SourcesClient extends BaseApiClient {
     });
 
     if (!response.ok) {
-      let errorMessage = '';
-      let errorData: unknown;
-
-      try {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          errorData = await response.json();
-          errorMessage = getErrorMessageFromErrorData(errorData);
-        } else {
-          errorMessage = await response.text();
-        }
-      } catch (_parseError) {
-        errorMessage = await response.text();
-      }
+      const { message: errorMessage, data: errorData } =
+        await readApiErrorBody(response);
 
       const error = new Error(
         `API error: ${response.status} - ${errorMessage}`

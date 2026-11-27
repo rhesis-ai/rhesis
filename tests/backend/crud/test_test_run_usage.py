@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.schemas import SpanKind, StatusCode
+from sqlalchemy.dialects import postgresql
 
 from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.crud.telemetry import create_trace_spans, mark_trace_processed
@@ -19,6 +20,7 @@ from rhesis.backend.app.crud.test_run import (
     get_test_runs,
     get_usage_statistics_for_runs,
 )
+from rhesis.backend.app.crud.usage_sql import per_trace_usage_subquery, run_spans_subquery
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 
@@ -599,3 +601,17 @@ class TestUnpricedRunsSortConsistently:
         ordered = self._ordered_ids(test_db, test_org_id, "total_cost_usd", "desc")
 
         assert ordered.index(unpriced) < ordered.index(untraced)
+
+
+def test_the_per_trace_rollup_scans_the_runs_spans_once(test_db, test_org_id):
+    """Raw sums and the enrichment blob come from one pass, not two scans joined.
+
+    Joined, a generic plan estimated one row per side and nested-looped them, re-running
+    the whole span scan once per trace: the test runs list took seconds to minutes.
+    """
+    base = run_spans_subquery(test_db, test_org_id, run_ids=[str(uuid.uuid4())])
+    per_trace = per_trace_usage_subquery(test_db, base, extra_group_by=(base.c.test_run_id,))
+    sql = str(test_db.query(per_trace).statement.compile(dialect=postgresql.dialect()))
+    # run_spans_subquery reads trace twice (roots, then their spans); a second scan
+    # of that scope would make it four.
+    assert sql.count("FROM trace") == 2

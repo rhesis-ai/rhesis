@@ -1,4 +1,4 @@
-import { BaseApiClient } from './base-client';
+import { BaseApiClient, readApiErrorBody } from './base-client';
 import { joinUrl } from '@/utils/url';
 import { API_ENDPOINTS } from './config';
 import type { PaginatedResponse } from './interfaces/pagination';
@@ -78,9 +78,8 @@ export class ReportsClient extends BaseApiClient {
     const url = joinUrl(this.baseUrl, `${API_ENDPOINTS.reports}/${id}/pdf`);
     const response = await fetch(url, { headers: this.getHeaders() });
     if (!response.ok) {
-      throw new Error(
-        `API error: ${response.status} - ${await response.text()}`
-      );
+      const { message } = await readApiErrorBody(response);
+      throw new Error(`API error: ${response.status} - ${message}`);
     }
     return {
       blob: await response.blob(),

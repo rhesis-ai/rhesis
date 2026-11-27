@@ -1,4 +1,4 @@
-import { BaseApiClient } from './base-client';
+import { BaseApiClient, readApiErrorBody } from './base-client';
 import { API_ENDPOINTS } from './config';
 import {
   TestRun,
@@ -223,8 +223,8 @@ export class TestRunsClient extends BaseApiClient {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API error: ${response.status} - ${errorText}`);
+      const { message } = await readApiErrorBody(response);
+      throw new Error(`API error: ${response.status} - ${message}`);
     }
 
     return response.blob();

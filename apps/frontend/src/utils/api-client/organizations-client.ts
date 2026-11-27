@@ -1,4 +1,4 @@
-import { BaseApiClient } from './base-client';
+import { BaseApiClient, readApiErrorBody } from './base-client';
 import { API_ENDPOINTS } from './config';
 import {
   Organization,
@@ -186,18 +186,6 @@ export class OrganizationsClient extends BaseApiClient {
 
 /** Pull a readable message out of a failed response, JSON `detail` or plain text. */
 async function extractErrorMessage(response: Response): Promise<string> {
-  try {
-    const contentType = response.headers.get('content-type') ?? '';
-    if (contentType.includes('application/json')) {
-      const data: unknown = await response.json();
-      if (data && typeof data === 'object' && 'detail' in data) {
-        const detail = (data as { detail: unknown }).detail;
-        if (typeof detail === 'string') return detail;
-      }
-      return JSON.stringify(data);
-    }
-    return (await response.text()) || `Request failed (${response.status})`;
-  } catch {
-    return `Request failed (${response.status})`;
-  }
+  const { message } = await readApiErrorBody(response);
+  return message || `Request failed (${response.status})`;
 }

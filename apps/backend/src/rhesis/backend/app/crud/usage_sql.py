@@ -13,8 +13,8 @@ itself.
 from typing import Any, Optional, Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, case, column, false, func, literal, or_, select, true
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import and_, case, column, false, func, literal, or_, select, true, type_coerce
+from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
@@ -310,10 +310,23 @@ def _one_blob_per_trace(base, *, extra_columns: Sequence = ()) -> Any:
     )
 
 
+def _newest_blob(base) -> Any:
+    """The trace's most recently enriched blob, picked inside an aggregate.
+
+    Same choice as ``_one_blob_per_trace``, for use in a GROUP BY over the trace.
+    """
+    return type_coerce(
+        func.array_agg(
+            aggregate_order_by(base.c.enriched_data, base.c.processed_at.desc().nullslast())
+        )[1],
+        JSONB,
+    )
+
+
 def per_trace_usage_subquery(db: Session, base, *, extra_group_by: Sequence = ()) -> Any:
     """Collapse a scanned set of span rows to one usage row per trace.
 
-    The enriched columns are read from one blob per trace (see ``_one_blob_per_trace``).
+    The enriched columns are read from one blob per trace (see ``_newest_blob``).
     The ``raw_*`` columns are the pre-enrichment fallback, summed over llm.invoke spans
     only, so a trace ingested seconds ago reports the token figure it will keep once
     enrichment lands. Cost has no such fallback: it cannot be derived from span attributes.
@@ -326,10 +339,14 @@ def per_trace_usage_subquery(db: Session, base, *, extra_group_by: Sequence = ()
             is, or the collapse would split one trace across several rows.
     """
     attributes = base.c.attributes
-    raw = (
+    # One pass: the raw sums and the newest blob come out of the same GROUP BY. A join
+    # of the two halves let a generic plan nested-loop them, re-scanning every span of
+    # the scope once per trace.
+    per_trace = (
         db.query(
             *(col.label(col.name) for col in extra_group_by),
             base.c.trace_id.label("trace_id"),
+            _newest_blob(base).label("enriched_data"),
             _llm_span_sum(attributes, span_total_tokens_expr(attributes)).label("raw_tokens"),
             _llm_span_sum(
                 attributes, span_token_expr(attributes, AISpanAttributes.TOKENS_INPUT)
@@ -341,51 +358,46 @@ def per_trace_usage_subquery(db: Session, base, *, extra_group_by: Sequence = ()
         .group_by(*extra_group_by, base.c.trace_id)
         .subquery()
     )
-    blobs = _one_blob_per_trace(base)
-    enriched = blobs.c.enriched_data
+    enriched = per_trace.c.enriched_data
 
-    return (
-        db.query(
-            *(raw.c[col.name] for col in extra_group_by),
-            raw.c.trace_id,
-            enriched_token_expr(
-                enriched, EnrichedDataKeys.TOTAL_TOKENS, EnrichedDataKeys.TOTAL_TOKENS
-            ).label("enriched_tokens"),
-            enriched_token_expr(
-                enriched, EnrichedDataKeys.TOTAL_INPUT_TOKENS, EnrichedDataKeys.INPUT_TOKENS
-            ).label("enriched_input_tokens"),
-            enriched_token_expr(
-                enriched, EnrichedDataKeys.TOTAL_OUTPUT_TOKENS, EnrichedDataKeys.OUTPUT_TOKENS
-            ).label("enriched_output_tokens"),
-            # Same breakdown fallback as the two halves below. Without it a blob that
-            # carries a breakdown but no trace-level total reports zero cost beside a
-            # non-zero input and output cost -- three figures from one trace that do not
-            # add up.
-            enriched_cost_expr(
-                enriched, EnrichedDataKeys.TOTAL_COST_USD, EnrichedDataKeys.TOTAL_COST_USD
-            ).label("cost_usd"),
-            enriched_cost_expr(
-                enriched, EnrichedDataKeys.TOTAL_INPUT_COST_USD, EnrichedDataKeys.INPUT_COST_USD
-            ).label("input_cost_usd"),
-            enriched_cost_expr(
-                enriched, EnrichedDataKeys.TOTAL_OUTPUT_COST_USD, EnrichedDataKeys.OUTPUT_COST_USD
-            ).label("output_cost_usd"),
-            # The same cost figure again, but NULL where the two above bottom out at
-            # zero. It is the only way to tell a trace priced at nothing from a trace
-            # nothing could price, which the zero they share cannot express.
-            enriched_cost_expr(
-                enriched,
-                EnrichedDataKeys.TOTAL_COST_USD,
-                EnrichedDataKeys.TOTAL_COST_USD,
-                default=None,
-            ).label("known_cost_usd"),
-            raw.c.raw_tokens,
-            raw.c.raw_input_tokens,
-            raw.c.raw_output_tokens,
-        )
-        .join(blobs, blobs.c.trace_id == raw.c.trace_id)
-        .subquery()
-    )
+    return db.query(
+        *(per_trace.c[col.name] for col in extra_group_by),
+        per_trace.c.trace_id,
+        enriched_token_expr(
+            enriched, EnrichedDataKeys.TOTAL_TOKENS, EnrichedDataKeys.TOTAL_TOKENS
+        ).label("enriched_tokens"),
+        enriched_token_expr(
+            enriched, EnrichedDataKeys.TOTAL_INPUT_TOKENS, EnrichedDataKeys.INPUT_TOKENS
+        ).label("enriched_input_tokens"),
+        enriched_token_expr(
+            enriched, EnrichedDataKeys.TOTAL_OUTPUT_TOKENS, EnrichedDataKeys.OUTPUT_TOKENS
+        ).label("enriched_output_tokens"),
+        # Same breakdown fallback as the two halves below. Without it a blob that
+        # carries a breakdown but no trace-level total reports zero cost beside a
+        # non-zero input and output cost -- three figures from one trace that do not
+        # add up.
+        enriched_cost_expr(
+            enriched, EnrichedDataKeys.TOTAL_COST_USD, EnrichedDataKeys.TOTAL_COST_USD
+        ).label("cost_usd"),
+        enriched_cost_expr(
+            enriched, EnrichedDataKeys.TOTAL_INPUT_COST_USD, EnrichedDataKeys.INPUT_COST_USD
+        ).label("input_cost_usd"),
+        enriched_cost_expr(
+            enriched, EnrichedDataKeys.TOTAL_OUTPUT_COST_USD, EnrichedDataKeys.OUTPUT_COST_USD
+        ).label("output_cost_usd"),
+        # The same cost figure again, but NULL where the two above bottom out at
+        # zero. It is the only way to tell a trace priced at nothing from a trace
+        # nothing could price, which the zero they share cannot express.
+        enriched_cost_expr(
+            enriched,
+            EnrichedDataKeys.TOTAL_COST_USD,
+            EnrichedDataKeys.TOTAL_COST_USD,
+            default=None,
+        ).label("known_cost_usd"),
+        per_trace.c.raw_tokens,
+        per_trace.c.raw_input_tokens,
+        per_trace.c.raw_output_tokens,
+    ).subquery()
 
 
 def models_used_select(base, *, extra_columns: Sequence = ()) -> Any:
