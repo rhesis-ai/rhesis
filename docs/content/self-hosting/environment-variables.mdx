@@ -189,6 +189,11 @@ memory until Redis is back.
 | Variable | Description | Default |
 |---|---|---|
 | `RATELIMIT_ENABLED` | Set `false` to turn off every API rate limit | `true` |
+| `TRUSTED_PROXY_COUNT` | Number of reverse proxies in front of the backend. `0` uses the connection's address as the client IP. A higher number reads the client IP from `X-Forwarded-For`, skipping that many entries from the right, so each proxy must set or append that header | `0` in docker-compose, `1` in Helm |
+
+With `0` behind a reverse proxy, every client shares one rate-limit count. If you put Caddy,
+nginx or a load balancer in front of the backend, set `TRUSTED_PROXY_COUNT` to the number of
+proxies, usually `1`.
 
 ## AI models
 

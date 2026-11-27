@@ -16,6 +16,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 ### Upgrading a self-hosted deployment
 
 1. If you upgrade from a release before 0.23.0, run 0.23.0 until its worker has emptied the old `telemetry` queue. The jobs that finished traces queued by older releases are removed in this release.
+2. If a reverse proxy (Caddy, nginx, a load balancer) sits in front of the backend in a docker-compose install, set `TRUSTED_PROXY_COUNT` to the number of proxies, usually `1`. Since 0.23.0, docker-compose sets it to `0`, which reads the client IP from the connection, so every client behind the proxy shares one rate-limit count. The Helm chart is not affected.
 
 ### Changed
 
