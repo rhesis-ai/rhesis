@@ -14,12 +14,15 @@ RED_FLAG_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
         r"\bchest pain\b",
-        r"\bcan(?:'|no)t breathe\b|\bshortness of breath\b|\btrouble breathing\b",
+        r"\bcan(?:'|no)t breathe\b|\bshortness of breath\b|\b(?:trouble|difficulty) breathing\b"
+        r"|\b(?:hard|struggling|unable) to breathe\b",
         r"\bunconscious\b|\bpassed out\b|\blost consciousness\b",
-        r"\bstroke\b|\bface droop\b|\bslurred speech\b|\bnumbness on one side\b",
+        r"\bstroke\b|\bface (?:is )?droop(?:s|ed|ing|y)?\b|\bdrooping face\b"
+        r"|\bslurred speech\b|\bspeech (?:is |was )?slurred\b|\bnumbness on one side\b",
         r"\bsevere bleeding\b|\buncontrolled bleeding\b",
         r"\bsuicid(e|al)\b|\bkill myself\b|\bwant to die\b",
-        r"\bworst headache\b|\bsudden severe headache\b|\bthunderclap headache\b",
+        r"\bworst headache\b|\bsudden severe headache\b|\bthunderclap headache\b"
+        r"|\bexplosive headache\b|\bheadache\b[^.]{0,40}\bworst of my life\b",
         r"\bheart attack\b",
         r"\bseizure\b|\bconvulsions\b",
         r"\bpoison(ing|ed)\b|\boverdose\b",

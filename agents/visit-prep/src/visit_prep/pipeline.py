@@ -12,6 +12,8 @@ from visit_prep.agents.coordinator import create_coordinator_agent, is_internal_
 from visit_prep.client import build_chat_generator
 from visit_prep.config import VisitPrepConfig
 from visit_prep.state import Phase, Slots, VisitPrepState, describe_slots
+from visit_prep.terminals import escalate
+from visit_prep.tools import conversation_red_flag_report
 from visit_prep.utils import as_text, tool_result_text
 
 COORDINATOR = "coordinator"
@@ -155,6 +157,39 @@ def _finish_turn(state: VisitPrepState, raw: dict[str, Any], message: str) -> di
     }
 
 
+def _escalated_turn(state: VisitPrepState, message: str) -> dict[str, Any]:
+    """Answer a turn after a red flag with the escalation reply, without asking the model.
+
+    A prompt override was not enough: models went back to gathering history on roughly one
+    turn in three. Like the critic's veto, stickiness is enforced here instead. The two tool
+    functions really run, so the turn reports them as its tool calls.
+    """
+    messages = [*_history_to_chat_messages(state.history), ChatMessage.from_user(message)]
+    reply = escalate()
+    updated = state.model_copy(deep=True)
+    updated.turn += 1
+    updated.history = [
+        *updated.history,
+        {"role": "user", "content": message},
+        {"role": "assistant", "content": reply},
+    ]
+    updated.phase = Phase.ESCALATED
+    updated.red_flag = True
+    return {
+        "response": reply,
+        "state": updated,
+        "tool_calls": [
+            {
+                "name": "check_red_flags",
+                "arguments": {},
+                "output": conversation_red_flag_report(messages),
+            },
+            {"name": "escalate", "arguments": {}, "output": reply},
+        ],
+        "raw": {},
+    }
+
+
 def run_turn(
     message: str,
     state: VisitPrepState | None = None,
@@ -169,6 +204,8 @@ def run_turn(
     """
     current = state or VisitPrepState()
     text = as_text(message)
+    if current.red_flag:
+        return _escalated_turn(current, text)
     pipe = pipeline or build_coordinator_pipeline()
     raw = pipe.run(data=_run_data(text, current))
     return _finish_turn(current, raw, text)
@@ -183,6 +220,8 @@ async def run_turn_async(
     """Async variant of :func:`run_turn`, sharing its input and result handling."""
     current = state or VisitPrepState()
     text = as_text(message)
+    if current.red_flag:
+        return _escalated_turn(current, text)
     pipe = pipeline or build_coordinator_pipeline()
     raw = await pipe.run_async(data=_run_data(text, current))
     return _finish_turn(current, raw, text)

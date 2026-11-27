@@ -1,12 +1,12 @@
 """Coordinator tool wiring and the rule-based red-flag check."""
 
-from haystack.dataclasses import ChatRole
+from haystack.dataclasses import ChatMessage, ChatRole
 
 from tests.mocks import greeting_script, make_pipeline, out_of_scope_script, stub_generator
 from visit_prep.agents.coordinator import TERMINAL_TOOLS, create_coordinator_agent
 from visit_prep.pipeline import run_turn
 from visit_prep.state import VisitPrepState
-from visit_prep.tools import NO_MESSAGE_TO_SCAN, red_flag_report
+from visit_prep.tools import NO_MESSAGE_TO_SCAN, conversation_red_flag_report, red_flag_report
 
 
 def test_red_flag_report_detects_chest_pain():
@@ -15,6 +15,23 @@ def test_red_flag_report_detects_chest_pain():
 
 def test_red_flag_report_clears_benign_text():
     assert "No red flags" in red_flag_report("mild headache for two days")
+
+
+def test_conversation_report_keeps_an_earlier_red_flag():
+    """The turn after an emergency must not read "no red flags, continue"."""
+    messages = [
+        ChatMessage.from_user("I have chest pain right now"),
+        ChatMessage.from_assistant("Please call emergency services."),
+        ChatMessage.from_user("Back to my knee, please."),
+    ]
+    report = conversation_red_flag_report(messages)
+    assert report.startswith("RED_FLAG_DETECTED")
+    assert "chest pain" in report
+
+
+def test_conversation_report_clears_a_benign_conversation():
+    messages = [ChatMessage.from_user("mild headache for two days")]
+    assert "No red flags" in conversation_red_flag_report(messages)
 
 
 def test_red_flag_report_handles_empty_text():
