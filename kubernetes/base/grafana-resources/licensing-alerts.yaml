@@ -48,7 +48,9 @@ spec:
             # One row per subscription: text columns become labels (the subscription
             # id keeps label sets unique), "value" the number.
             rawSql: |
-              SELECT id::text AS subscription, customer_slug AS customer, COALESCE(owner, 'unassigned') AS owner, deployment, edition,
+              SELECT id::text AS subscription, customer_slug AS customer, customer_name AS name,
+                COALESCE(saas_org_id::text, 'self-hosted') AS org_id, COALESCE(current_jti::text, 'none') AS license,
+                COALESCE(owner, 'unassigned') AS owner, deployment, edition,
                 environment, term_end::text AS term_end, COALESCE(primary_contact_email, '') AS contact,
                 -- The stage the reminder is in. A new stage is a new alert instance,
                 -- so it notifies when the countdown crosses 60, 30, 14 and 7 even
@@ -85,8 +87,8 @@ spec:
         # Routed to the weekly sub-route in notification-policy.yaml.
         reminder: renewal
       annotations:
-        summary: "{{ $labels.customer }}: {{ $labels.edition }} ({{ $labels.deployment }}) renews in {{ $values.A.Value }} days"
-        description: "Term ends {{ $labels.term_end }}. Owner: {{ $labels.owner }}. Contact: {{ $labels.contact }}. Firing from 90 days before the end of the term; notifies on entering each stage (90/60/30/14/7 days), then weekly. After the renewal is signed: [Enterprise] Subscription (renew), then issue a new license for it."
+        summary: "{{ if $labels.name }}{{ $labels.name }}: {{ $labels.edition }} ({{ $labels.deployment }}) renews in {{ $values.A.Value }} days{{ else }}Licensing registry query failed: see the Error annotation{{ end }}"
+        description: "{{ if $labels.name }}{{ $labels.name }}. Organization: {{ $labels.org_id }}. License (jti): {{ $labels.license }}. Subscription: {{ $labels.subscription }}. Term ends {{ $labels.term_end }}. Owner: {{ $labels.owner }}. Contact: {{ $labels.contact }}. Firing from 90 days before the end of the term; notifies on entering each stage (90/60/30/14/7 days), then weekly. After the renewal is signed: [Enterprise] Subscription (renew), then issue a new license for it.{{ else }}Licensing registry query failed: see the Error annotation{{ end }}"
     - uid: rhesis-licensing-license-not-covered
       title: License expiring or missing
       condition: B
@@ -111,7 +113,9 @@ spec:
             # One row per subscription: text columns become labels (the subscription
             # id keeps label sets unique), "value" the number.
             rawSql: |
-              SELECT id::text AS subscription, customer_slug AS customer, COALESCE(owner, 'unassigned') AS owner, deployment, edition,
+              SELECT id::text AS subscription, customer_slug AS customer, customer_name AS name,
+                COALESCE(saas_org_id::text, 'self-hosted') AS org_id, COALESCE(current_jti::text, 'none') AS license,
+                COALESCE(owner, 'unassigned') AS owner, deployment, edition,
                 environment, term_end::text AS term_end, COALESCE(primary_contact_email, '') AS contact,
                 COALESCE(days_to_license_expiry, -1) AS value
               FROM v_subscriptions
@@ -138,8 +142,8 @@ spec:
         severity: critical
         category: licensing
       annotations:
-        summary: "{{ $labels.customer }}: license expires in {{ $values.A.Value }} days or was never issued"
-        description: "A live subscription whose license expires within a month (30 days) ({{ $values.A.Value }}; -1 = none issued). Owner: {{ $labels.owner }}. If the contract was renewed, issue a new license for the subscription; if not, cancel or expire the subscription."
+        summary: "{{ if $labels.name }}{{ $labels.name }}: license expires in {{ $values.A.Value }} days or was never issued{{ else }}Licensing registry query failed: see the Error annotation{{ end }}"
+        description: "{{ if $labels.name }}{{ $labels.name }}. Organization: {{ $labels.org_id }}. License (jti): {{ $labels.license }}. Subscription: {{ $labels.subscription }}. A live subscription whose license expires within a month (30 days) ({{ $values.A.Value }}; -1 = none issued). Owner: {{ $labels.owner }}. If the contract was renewed, issue a new license for the subscription; if not, cancel or expire the subscription.{{ else }}Licensing registry query failed: see the Error annotation{{ end }}"
     - uid: rhesis-licensing-term-ended
       title: Subscription term ended
       condition: B
@@ -164,7 +168,9 @@ spec:
             # One row per subscription: text columns become labels (the subscription
             # id keeps label sets unique), "value" the number.
             rawSql: |
-              SELECT id::text AS subscription, customer_slug AS customer, COALESCE(owner, 'unassigned') AS owner, deployment, edition,
+              SELECT id::text AS subscription, customer_slug AS customer, customer_name AS name,
+                COALESCE(saas_org_id::text, 'self-hosted') AS org_id, COALESCE(current_jti::text, 'none') AS license,
+                COALESCE(owner, 'unassigned') AS owner, deployment, edition,
                 environment, term_end::text AS term_end, COALESCE(primary_contact_email, '') AS contact,
                 -days_to_renewal AS value
               FROM v_subscriptions
@@ -189,5 +195,5 @@ spec:
         severity: warning
         category: licensing
       annotations:
-        summary: "{{ $labels.customer }}: term ended {{ $values.A.Value }} days ago and the subscription is still live"
-        description: "Term ended {{ $labels.term_end }}. Renew it, or mark it canceled/expired, with [Enterprise] Subscription. Owner: {{ $labels.owner }}."
+        summary: "{{ if $labels.name }}{{ $labels.name }}: term ended {{ $values.A.Value }} days ago and the subscription is still live{{ else }}Licensing registry query failed: see the Error annotation{{ end }}"
+        description: "{{ if $labels.name }}{{ $labels.name }}. Organization: {{ $labels.org_id }}. License (jti): {{ $labels.license }}. Subscription: {{ $labels.subscription }}. Term ended {{ $labels.term_end }}. Renew it, or mark it canceled/expired, with [Enterprise] Subscription. Owner: {{ $labels.owner }}.{{ else }}Licensing registry query failed: see the Error annotation{{ end }}"
