@@ -295,6 +295,7 @@ Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
 | `SMTP_USER` | SMTP username | *(unset)* |
 | `SMTP_PASSWORD` | SMTP password | *(unset)* |
 | `FROM_EMAIL` | From address, as `noreply@example.com` or `"Acme Evals" <noreply@example.com>`. Mail to an organization with a branded product name goes out under that name instead | `noreply@example.com` |
+| `EMAIL_IMPRINT` | Your company's legal details at the foot of every email, one per line (`\n` in a `.env` file). The first line is shown in bold and an email address becomes a link. Unset, emails carry no imprint and the backend logs a warning at startup once `SMTP_HOST` is set. In Germany, for example, business email must name the sending company and its register details. Helm: `config.emailImprint` | *(unset)* |
 | `EMAIL_ASSET_BASE_URL` | Where emails load their logo, header image and font from. Mail clients fetch these directly, so it must be publicly reachable. Helm: set it in `backend.env` and each `workers[].env` | `https://rhesis.ai` |
 
 ## Object storage

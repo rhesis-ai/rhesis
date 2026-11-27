@@ -20,7 +20,7 @@ An empty field shows what it inherits rather than reading as blank: the colour s
 
 [Report](/docs/reports) PDFs use the organization's product name, primary colour and favicon as the logo in the page corner. They don't use the brand font, an SVG favicon, or the deployment's `BRAND_*` defaults: without a product name the PDF shows the organization's name, and without a colour or favicon it uses the Rhesis colour and no logo.
 
-Email to the organization's members (invitations, sign-in and password links, task and test run notifications) uses its product name as the sender name and in the subject and text, with its favicon beside the name where the Rhesis logo was. Links and accents take the primary colour and buttons the secondary colour. The Rhesis imprint stays at the bottom. Without a product name the email keeps the Rhesis name and logo but still takes the colours. An SVG favicon is left out. The onboarding emails only take the sender name.
+Email to the organization's members (invitations, sign-in and password links, task and test run notifications) uses its product name as the sender name and in the subject and text, with its favicon beside the name where the Rhesis logo was. Links and accents take the primary colour and buttons the secondary colour. Without a product name the email keeps the Rhesis name and logo but still takes the colours. An SVG favicon is left out. The onboarding emails only take the sender name.
 
 Light and dark shades are derived from each colour, and button label text switches between white and near-black to stay readable, so a pale brand colour needs no extra configuration.
 
@@ -50,7 +50,7 @@ Three things keep their Rhesis identity on purpose: chart palettes, which need d
 
 The sign-in page shows the deployment's branding rather than any organization's, because no organization is known until you have signed in.
 
-Transactional email — invitations, verification, password resets — is sent with Rhesis branding and the sending entity's legal imprint. That is the identity of whoever operates the deployment and sends the mail, not of an organization inside it, so organization branding does not change it.
+The legal imprint at the foot of each email names whoever operates the deployment and sends the mail, not an organization inside it, so organization branding does not change it. It comes from [`EMAIL_IMPRINT`](/self-hosting/environment-variables#smtp-and-email).
 
 ## Permissions
 
