@@ -97,10 +97,18 @@ class TestMetricTargetForms:
         with pytest.raises(ValueError, match="not a target"):
             MetricSpec(name="Refunds", description="d", target={"on": "workflow"})
 
-    def test_a_bare_kind_is_saved_as_the_stored_form(self):
+    def test_a_bare_kind_stays_a_kind_when_saved(self):
+        # Plans saved before full targets hold the kind alone; they must save back unchanged.
         dumped = MetricSpec(name="Refunds", description="d", target="tool_call").model_dump()
 
-        assert dumped["target"] == {"on": TargetKind.TOOL_CALL.value}
+        assert dumped["target"] == TargetKind.TOOL_CALL.value
+
+    def test_a_narrowed_preset_is_saved_as_the_stored_form(self):
+        dumped = MetricSpec(
+            name="Refunds", description="d", target={"on": "tool_call", "name": "issue_refund"}
+        ).model_dump(mode="json")
+
+        assert dumped["target"] == {"on": TargetKind.TOOL_CALL.value, "name": "issue_refund"}
 
     def test_the_older_where_is_saved_as_a_list(self):
         metric = MetricSpec(

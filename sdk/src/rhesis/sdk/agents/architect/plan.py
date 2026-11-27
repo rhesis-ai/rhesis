@@ -1,6 +1,6 @@
 """ArchitectPlan and spec models for test suite configuration."""
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
 
@@ -234,9 +234,12 @@ class MetricSpec(BaseModel):
         return Target.coerce(value)
 
     @field_serializer("target")
-    def _stored_target(self, target: Target) -> Dict[str, Any]:
-        # The form the platform stores in config.target, so a saved plan reads like the metric.
-        return target.to_config()
+    def _stored_target(self, target: Target) -> Union[str, Dict[str, Any]]:
+        # A bare kind stays a string, so plans saved before full targets round-trip unchanged;
+        # anything more is the form the platform stores in config.target.
+        stored = target.to_config()
+        bare = Target.model_construct(on=target.on).to_config()
+        return target.on.value if stored == bare else stored
 
     @model_validator(mode="before")
     @classmethod
