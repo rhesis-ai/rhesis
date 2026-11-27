@@ -2,6 +2,7 @@ import React from 'react';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
+import { getSpanTypeInfo } from '@/constants/span-types';
 import { TEST_TYPES } from '@/constants/test-types';
 import type {
   MetricConfig,
@@ -107,13 +108,41 @@ export function editedTarget(
   return { ...rest, ...next };
 }
 
-export function getMetricTargetIcon(on: string): React.ReactElement {
+type TargetChoiceKind = Pick<MetricTargetChoice, 'on' | 'span_kind'>;
+
+/**
+ * A target's icon. A per-span target takes the icon the trace view gives its
+ * span kind, so "each tool call" looks like a tool span; that needs `choices`.
+ */
+export function getMetricTargetIcon(
+  on: string,
+  choices?: TargetChoiceKind[],
+  fontSize: 'small' | 'inherit' = 'small'
+): React.ReactElement {
+  const spanKind = choices?.find(c => c.on === on)?.span_kind;
+  if (spanKind) {
+    const Icon = getSpanTypeInfo(spanKind).icon;
+    return <Icon fontSize={fontSize} />;
+  }
   switch (on) {
     case METRIC_TARGET.TURN:
-      return <ChatBubbleOutlineIcon fontSize="small" />;
+      return <ChatBubbleOutlineIcon fontSize={fontSize} />;
     case METRIC_TARGET.CONVERSATION:
-      return <ForumOutlinedIcon fontSize="small" />;
+      return <ForumOutlinedIcon fontSize={fontSize} />;
     default:
-      return <AccountTreeOutlinedIcon fontSize="small" />;
+      return <AccountTreeOutlinedIcon fontSize={fontSize} />;
   }
+}
+
+/**
+ * A target as the end of a sentence about its metric ("on each tool call"):
+ * the registry label with a lower-case first letter. Null until the labels load.
+ */
+export function targetPhrase(
+  target: Pick<MetricTarget, 'on'>,
+  choices: Pick<MetricTargetChoice, 'on' | 'label'>[] | undefined
+): string | null {
+  const label = choices?.find(c => c.on === target.on)?.label;
+  if (!label) return null;
+  return label.charAt(0).toLowerCase() + label.slice(1);
 }

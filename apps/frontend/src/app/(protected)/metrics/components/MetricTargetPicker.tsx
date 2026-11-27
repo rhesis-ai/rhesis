@@ -43,7 +43,7 @@ export default function MetricTargetPicker({
               <Chip
                 role="radio"
                 aria-checked={isSelected}
-                icon={getMetricTargetIcon(choice.on)}
+                icon={getMetricTargetIcon(choice.on, choices)}
                 label={choice.label}
                 clickable
                 color={isSelected ? 'primary' : 'default'}

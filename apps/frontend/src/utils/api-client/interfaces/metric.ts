@@ -45,6 +45,8 @@ export interface MetricTargetChoice {
   label: string;
   description: string;
   per_span: boolean;
+  /** The span type a per-span target judges one by one, e.g. `tool.invoke`. */
+  span_kind?: string | null;
 }
 
 export interface Metric {

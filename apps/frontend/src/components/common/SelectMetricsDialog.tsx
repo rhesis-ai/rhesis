@@ -383,7 +383,7 @@ export default function SelectMetricsDialog({
                       const target = getMetricTarget(metric);
                       return target ? (
                         <Chip
-                          icon={getMetricTargetIcon(target.on)}
+                          icon={getMetricTargetIcon(target.on, targetChoices)}
                           label={formatMetricTarget(target, targetChoices)}
                           size="small"
                           variant="outlined"

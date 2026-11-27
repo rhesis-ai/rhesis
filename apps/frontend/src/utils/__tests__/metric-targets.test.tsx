@@ -1,6 +1,9 @@
+import { render } from '@testing-library/react';
 import {
   editedTarget,
   formatMetricTarget,
+  getMetricTargetIcon,
+  targetPhrase,
   isTargetOnValue,
   metricRunsOnTestType,
   offeredTargets,
@@ -111,5 +114,44 @@ describe('isTargetOnValue', () => {
   it('accepts target values and rejects junk', () => {
     expect(isTargetOnValue('tool_call')).toBe(true);
     expect(isTargetOnValue('Three-Turn')).toBe(false);
+  });
+});
+
+describe('getMetricTargetIcon', () => {
+  const kinds = [
+    { on: 'turn' },
+    { on: 'tool_call', span_kind: 'tool.invoke' },
+    { on: 'retrieval', span_kind: 'retrieval' },
+  ];
+  const iconId = (on: string, choices?: typeof kinds) =>
+    render(getMetricTargetIcon(on, choices)).container.querySelector('svg')
+      ?.dataset.testid;
+
+  it('gives a per-span target the icon of its span kind', () => {
+    expect(iconId('tool_call', kinds)).toBe('BuildIcon');
+    expect(iconId('retrieval', kinds)).toBe('SearchIcon');
+  });
+
+  it('keeps the turn and conversation icons', () => {
+    expect(iconId('turn', kinds)).toBe('ChatBubbleOutlineIcon');
+    expect(iconId('conversation', kinds)).toBe('ForumOutlinedIcon');
+  });
+
+  it('falls back to one icon for spans when the kinds are not loaded', () => {
+    expect(iconId('tool_call')).toBe('AccountTreeOutlinedIcon');
+  });
+});
+
+describe('targetPhrase', () => {
+  it('reads the label as the end of a sentence', () => {
+    expect(targetPhrase({ on: 'turn' }, CHOICES)).toBe('each turn');
+    expect(targetPhrase({ on: 'conversation' }, CHOICES)).toBe(
+      'the conversation'
+    );
+  });
+
+  it('is null until the labels load', () => {
+    expect(targetPhrase({ on: 'turn' }, undefined)).toBeNull();
+    expect(targetPhrase({ on: 'unknown' }, CHOICES)).toBeNull();
   });
 });

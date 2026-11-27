@@ -1608,7 +1608,7 @@ export function MetricDetailView({
                 />
               ) : storedTarget ? (
                 <Chip
-                  icon={getMetricTargetIcon(storedTarget.on)}
+                  icon={getMetricTargetIcon(storedTarget.on, allTargets)}
                   label={formatMetricTarget(storedTarget, allTargets)}
                   color="primary"
                   size="small"
