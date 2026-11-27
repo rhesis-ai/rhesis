@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **API Tokens for Members**: Members can open the API page to manage their own tokens; it no longer requires an admin role.
 - **Span Input and Timing**: A REST invocation span shows the turn's input and output, and a retrieval span its query and documents. A span the endpoint reported shows No timing instead of 0µs.
+- **Not Applicable Results**: A test's Evaluation tab says Not applicable for such a result, where it said Not scored. A single-turn test's turn no longer reads as an error when a metric fails or is not applicable; only a failed endpoint call does. A rule's page no longer shows the raw target value while the target labels load.
 
 ## [0.22.0] - 2026-11-19
 
