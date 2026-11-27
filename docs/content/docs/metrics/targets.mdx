@@ -27,7 +27,7 @@ Each thing a target picks is judged as a trace of its own: the span and everythi
 
 A span or a turn is held to the test's goal, instructions and restrictions. A span is not held to the test's expected response or expected tool calls, which describe the whole response. A turn is held to its own expected tool calls: its entry in `expected_tool_calls_per_turn` on a multi-turn test, or the test's `expected_tool_calls` on a single-turn test. So a metric that needs a reference answer can't take a per-span target, and the [Tool Call Trajectory](/docs/metrics/tool-calls) metric takes `turn`, `conversation` or `run`.
 
-Otherwise a metric can take the targets that fit what it reads. A judge reads input and output, so it can judge turns and any kind of span. A [code metric](/docs/metrics/code-metrics) that declares `trace` can take every target. A conversational metric judges the conversation. A target the metric can't take is refused when it is saved, with the choices it can take. Each metric the API returns lists its `supported_targets`. `GET /metrics/targets` returns `targets`, every choice with its label and `span_kind`, along with `operators` and `special_fields`, the parts a span condition is built from (see [Span targets](#span-targets)).
+Otherwise a metric can take the targets that fit what it reads. A judge reads input and output, so it can judge turns and any kind of span. A [code metric](/docs/metrics/code-metrics) that declares `trace` can take every target. A conversational metric judges the conversation. A target the metric can't take is refused when it is saved, with the choices it can take. Each metric the API returns lists its `supported_targets`. `GET /metrics/targets` returns `targets`, every choice with its label and `span_kind`. It also returns what a span target is built from: `operators` and `special_fields` for its conditions, and `readers` and `event_prefix` for its `read` (see [Span targets](#span-targets)). A core install, which runs no metrics, gets empty lists and a `null` `event_prefix`.
 
 The per-span presets take two refinements. `name` keeps only spans with this tool, agent or model name, such as `"issue_refund"`. `within` keeps only spans inside the agent with this name, at any depth.
 
@@ -41,7 +41,7 @@ The short form is stored as conditions with `==` (or `in` for a list), so the AP
 
 ## Span targets
 
-A span target, `on: "span"`, judges each span that meets its conditions. Use it when a preset can't say which spans you mean: spans told apart by an attribute, spans of several kinds, or slow or failed spans.
+A span target, `on: "span"`, judges each span that meets its conditions. Use it when the spans you mean cross kinds, or when no kind fits them. A preset also takes `where`, so a condition on an attribute, the duration or the status alone doesn't need a span target.
 
 <CodeBlock filename="span-target.json" language="json">
 {`{
@@ -94,12 +94,12 @@ A span that doesn't have the field passes only `!=`, `not_in` and `not_exists`, 
 
 ### What the metric reads
 
-`read` says what each unit hands the metric as its `input` and `output`. Without it, the metric gets the span kind's own: a tool call's arguments and result, a retrieval's query and documents, and so on. Each side is one of:
+`read` says what each unit hands the metric as its `input` and `output`. Without it, the metric gets the span kind's own, such as a tool call's arguments and result, or a retrieval's query and documents. Each side takes one of these values.
 
-- an attribute key, such as `ai.tool.arguments`
-- `input` or `output`, the span's own input or output
-- `conversation.input` or `conversation.output`, the span's `rhesis.conversation.input` or `rhesis.conversation.output` attribute, which a turn's root span carries
-- `event:` and an event name, such as `event:ai.retrieval.query`, which reads that event's attribute, or all its attributes when it has several
+- An attribute key, such as `ai.tool.arguments`.
+- `input` or `output`, the span's own input or output.
+- `conversation.input` or `conversation.output`, the turn the unit belongs to. It reads the turn's root span, its `rhesis.conversation.input` or `rhesis.conversation.output` attribute, else the root span's own input or output. So a tool call can be judged against what the user asked in that turn.
+- `event:` and an event name, such as `event:ai.retrieval.query`. It reads that event's attribute, or all its attributes when it has several.
 
 A side left out keeps the kind's own. `read` works on targets with several units: `turn`, the per-span presets and `span`. It is refused on `conversation` and `run`.
 
@@ -122,7 +122,7 @@ Each per-span preset is a short form of a span target. `{"on": "tool_call", "nam
 }`}
 </CodeBlock>
 
-Matching always uses this expanded form, so a preset and the span target it stands for pick the same spans. The SDK's `Target.expand()` gives it. `turn`, `conversation` and `run` are not spans and don't expand. When a preset picks the right spans, keep the preset: it is shorter and reads better in the app.
+Matching always uses this expanded form, so a preset and the span target it stands for pick the same spans. The SDK's `Target.expand()` gives it. `turn`, `conversation` and `run` are not spans and don't expand. When a preset picks the right spans, keep the preset. It is shorter and reads better in the app.
 
 ### Summary text
 
@@ -130,19 +130,30 @@ Each metric the API returns carries `target_summary`, its target in words, and `
 
 ### Regular expressions
 
-The platform matches `matches` patterns in two places: in Python when it evaluates, and in the database when it lists the spans a target picks. So `matches`, in targets and in `FieldRule` alike, accepts only patterns that mean the same in both. A pattern that uses one of these is refused, with the portable form where there is one:
+The platform matches `matches` patterns in two places: in Python when it evaluates, and in the database when it lists the spans a target picks. So `matches`, in targets and in `FieldRule` alike, accepts only patterns that mean the same in both, and that can't take exponential time. A pattern that uses one of these is refused when it is saved, with the portable form where there is one.
 
 | Refused | Write instead |
 | --- | --- |
-| `\b` (word boundary) | `(^\|\W)` before the word, `(\W\|$)` after it |
+| `\d`, `\D` | `[0-9]`, `[^0-9]` |
+| `\w`, `\W` | `[A-Za-z0-9_]`, `[^A-Za-z0-9_]` |
+| `\s`, `\S` | `[ \t\n\r\f\v]`, `[^ \t\n\r\f\v]` |
+| `\b` (word boundary) | `(^\|[^A-Za-z0-9_])` before the word, `([^A-Za-z0-9_]\|$)` after it |
 | `\A`, `\Z`, `\z` | `^`, `$` |
 | A named group, `(?P<name>...)` or `(?<name>...)` | A plain group, `(...)` |
 | An atomic group, `(?>...)` | A plain group, `(...)` |
 | Inline flags, such as `(?i)` | Both cases, such as `[Rr]efund` |
-| A possessive quantifier, such as `a++` | A plain quantifier, such as `a+` |
-| `\B`, `\G`, a named backreference `(?P=name)`, a lookbehind `(?<=...)` or `(?<!...)`, a comment `(?#...)` | No portable form; rewrite the pattern without it |
+| A possessive quantifier, such as `a++` or `a{2}+` | A plain quantifier, such as `a+` or `a{2}` |
+| A quantifier with no lower bound, such as `a{,3}` | `a{0,3}` |
+| A repeat count over 255, such as `a{300}` | A count of at most 255 |
+| A POSIX class `[[:alpha:]]`, a collating element `[[.a.]]` or an equivalence class `[[=e=]]` | The characters themselves, such as `[A-Za-z]`, `a` or `[eé]` |
+| `\N{...}`, a character by name | The character itself |
+| `\x` with two hex digits followed by another hex digit, such as `\x41B` | The character itself |
+| A repeated group whose body repeats something, such as `(a+)+`, or whose alternatives can start with the same character, such as `(a\|ab)*` | A pattern without the nested repeat |
+| `\B`, `\G`, a named backreference `(?P=name)`, a lookbehind `(?<=...)` or `(?<!...)`, a comment `(?#...)`, a conditional group `(?(1)...)` | No portable form; rewrite the pattern without it |
 
-The error names the construct and the portable form, for example `The regular expression uses \b (a word boundary in Python, a backspace in Postgres), which doesn't work the same everywhere Rhesis matches patterns; write (^|\W) or (\W|$) instead`.
+`\d`, `\w` and `\s` are refused inside a character class too, since which characters they cover differs between Python and Postgres. A nested repeat is refused because Python's matcher can take exponential time on text that almost matches. The check reads the pattern, not the text, so it also refuses some patterns that are safe, such as `([a-z]+\.)*com`. Patterns such as `(ab)+` and `(cat|dog)+` are kept.
+
+A rule saved before these checks still loads and runs with Python's meaning. It is refused the next time it is saved, until its pattern is rewritten.
 
 ### Examples
 

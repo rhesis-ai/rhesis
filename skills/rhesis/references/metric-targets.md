@@ -23,7 +23,7 @@ See [Glossary](https://docs.rhesis.ai/glossary.md) (`glossary/metric-target.md`)
 
 The per-span targets (`tool_call`, `retrieval`, `model_call`, `agent`, `guardrail`) also take `name` (only spans with that tool, agent or model name), `within` (only spans inside that agent), and `aggregate`: `"all"` (default, every span passes), `"any"`, or `"share"` with `min_share` (0 to 1).
 
-The per-span targets and `turn` also take `where`: conditions the span must meet. The short form maps attribute keys to values, such as `{"rhesis.reported.metadata.channel": "email"}`, and a list of values means any of them. It is stored as a list of conditions (see [Span targets](#span-targets)). Use it to judge only a slice, for example only email conversations.
+The per-span targets and `turn` also take `where`, the conditions the span must meet. The short form maps attribute keys to values, such as `{"rhesis.reported.metadata.channel": "email"}`, and a list of values means any of them. It is stored as a list of conditions (see [Span targets](#span-targets)). Use it to judge only a slice, for example only email conversations.
 
 Each thing a target picks is judged as its own trace: the span and everything under it. A code metric that reads `trace` can take every target, and on `agent` it sees only that agent's calls.
 
@@ -71,14 +71,14 @@ A per-span target only matches what the endpoint reports. SDK endpoints report e
 - `field` is `kind` (`tool.invoke`, `retrieval`, `llm.invoke`, `agent.invoke`, `guardrail`, `endpoint.invoke`), `name` (tool, agent or model name, else the span name), `span_name`, `duration_ms`, `status` (`ok` or `error`), or any span attribute key. Write `attributes.status` for an attribute named like a special field.
 - `op` is `==`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not_in`, `contains`, `matches`, `exists` or `not_exists`. `in` and `not_in` take a list; `exists` and `not_exists` take no value. There is no "or" across conditions; use `in`.
 - A span without the field passes only `!=`, `not_in` and `not_exists`. So "`app.customer_tier` is not `gold`" keeps spans with no tier.
-- `matches` accepts only patterns that mean the same in Python and Postgres. `\b`, `\A`, `\Z`, named groups, lookbehind, inline flags such as `(?i)` and possessive quantifiers are refused, and the refusal names the portable form, such as `(^|\W)` for `\b` or `[Rr]efund` for `(?i)refund`.
+- `matches` accepts only patterns that mean the same in Python and Postgres and can't take exponential time. It refuses `\d`, `\w` and `\s` (write `[0-9]`, `[A-Za-z0-9_]`, `[ \t\n\r\f\v]`), `\b`, `\A`, `\Z`, named groups, lookbehind, inline flags such as `(?i)` (write `[Rr]efund`), possessive quantifiers, `{,n}` (write `{0,n}`), repeat counts over 255, POSIX classes such as `[[:alpha:]]`, and a repeated group that repeats inside, such as `(a+)+` or `([a-z]+\.)*com`. The refusal names the construct and the portable form where there is one.
 - Conditions read the span's own attributes, not its parent's or the turn's.
 
 `within`, `read`, `aggregate` and `min_share` work as on the presets. A span target needs at least one condition (use `run` for the whole trace) and takes no `name`; write a `name` condition instead.
 
 ### When a preset is enough
 
-Each per-span preset is a short form of a span target: `{"on": "tool_call", "name": "issue_refund", "within": "billing_agent"}` matches exactly what `{"on": "span", "where": [kind == tool.invoke, name == issue_refund], "within": "billing_agent"}` does. Use the preset when the spans are told apart by their kind, their name and the agent they run in. A preset also takes `where`, so a tool call with one extra attribute condition is still a preset. Write `"span"` only when the spans cross kinds, or no kind fits, or the condition is on timing or status.
+Each per-span preset is a short form of a span target. `{"on": "tool_call", "name": "issue_refund", "within": "billing_agent"}` matches exactly what `{"on": "span", "where": [kind == tool.invoke, name == issue_refund], "within": "billing_agent"}` does. Use the preset whenever the spans are all of one kind. A preset also takes `where`, on attributes, `status` or `duration_ms`, so a tool call with extra conditions is still a preset. Write `"span"` only when the spans cross kinds or no kind fits.
 
 ### Workflow
 
@@ -92,7 +92,7 @@ The response's `target_summary` is the target in words. Read it back to the user
 
 ### What the metric reads
 
-`read` sets what each unit hands the metric as `input` and `output`, when the kind's own (a tool call's arguments and result, a retrieval's query and documents) aren't what the criteria judge. Each side is an attribute key, `input`, `output`, `conversation.input`, `conversation.output` (the span's own `rhesis.conversation.*` attribute, which a turn's root span carries), or `event:<name>`, such as `event:ai.retrieval.query`. Leave a side out to keep the kind's own. `read` is refused on `conversation` and `run`.
+`read` sets what each unit hands the metric as `input` and `output`, when the kind's own (a tool call's arguments and result, a retrieval's query and documents) aren't what the criteria judge. Each side is an attribute key, `input`, `output`, `conversation.input`, `conversation.output`, or `event:<name>`, such as `event:ai.retrieval.query`. The conversation readers read the turn the unit belongs to. They take its root span's `rhesis.conversation.input` or `rhesis.conversation.output`, else that root span's own input or output. Use `{"input": "conversation.input"}` to judge a tool call against what the user asked in that turn. Leave a side out to keep the kind's own. `read` is refused on `conversation` and `run`.
 
 ### Example: refund policy
 
@@ -131,7 +131,7 @@ Reuse the seeded rules first: "Response Time", "No Failed Tool Calls", "Token Bu
 | Never deletes an account | `FieldRule` `{"field": "span_count", "span_kind": "tool_call", "span_name": "delete_account", "op": "==", "value": 0}` | `run` |
 | Stays under a token budget | `FieldRule` `{"field": "tokens.total", "op": "<=", "value": 20000}` | `run` or `conversation` |
 | Returns valid JSON | `FieldRule` `{"field": "output", "op": "is_json"}` | `turn` |
-| Leaks no email address | `FieldRule` `{"field": "output", "op": "matches", "value": "[\\w.]+@[\\w.]+", "negate": true}` | `turn` |
+| Leaks no email address | `FieldRule` `{"field": "output", "op": "matches", "value": "[A-Za-z0-9_.]+@[A-Za-z0-9_.]+", "negate": true}` | `turn` |
 | Equals the expected answer | `ResponseRule` `{"match": "exact"}` | `turn` |
 | Calls the expected tools in order | `ToolCallTrajectory` `{"match": "in_order"}` | `run` |
 

@@ -112,6 +112,21 @@ judge = NumericJudge(
 result = judge.evaluate(trace=trace, target=target)`}
 </CodeBlock>
 
+To write a target against your project's real traces, read the attribute keys first and preview the target on the platform before you push the metric. `Project.trace_attributes(kind=None, days=7)` returns the [attribute catalogue](/docs/metrics/targets#finding-keys-and-checking-a-target) as a dict. `kind` takes a span kind or a preset's name. `target.preview(project, traces=50)` takes a `Project` or its id and returns the preview as a dict, with `matching_traces`, `units`, `not_applicable_traces` and `samples`.
+
+<CodeBlock filename="preview.py" language="python">
+{`from rhesis.sdk.entities import Project
+from rhesis.sdk.metrics import Target
+
+project = Project(id=project_id)
+catalogue = project.trace_attributes(kind="tool_call")
+keys = [a["key"] for a in catalogue["kinds"]["tool.invoke"]["attributes"]]
+
+target = Target.spans(kind="tool_call", name="issue_refund", where=[("status", "==", "ok")])
+preview = target.preview(project)
+print(preview["matching_traces"], "of", preview["traces"], "traces match")`}
+</CodeBlock>
+
 A pulled metric whose target this SDK can't read, such as one a newer Rhesis version saved, raises `UnsupportedTarget` (from `rhesis.sdk.metrics`) instead of a validation error. Its message names the valid targets and says to upgrade `rhesis-sdk`.
 
 ### Trace Evaluation

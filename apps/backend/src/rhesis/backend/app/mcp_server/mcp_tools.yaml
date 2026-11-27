@@ -1294,7 +1294,7 @@ tools:
       expected_tool_calls_per_turn), "conversation" or "run". A target the
       metric can't take is refused with the choices it can. A malformed one
       is refused with "Invalid target: ..." naming the part that is wrong
-      and the valid choices: fix that part and send again. A metric whose
+      and the valid choices. Fix that part and send again. A metric whose
       target matches nothing in a test's trace is reported as not
       applicable, with the reason. On an endpoint that sends no traces, only
       tool calls, retrievals and one model call are seen, and only when its
@@ -2640,9 +2640,10 @@ tools:
       get_trace has those.
 
       Pass target, a metric target as JSON text, to list exactly the spans
-      that target picks, matched as a metric's evaluation matches them: for a
-      per-span target, each matching span; for "turn", each turn's root span;
-      for "run", each trace's first root. This is how you show which spans a
+      that target picks, matched as a metric's evaluation matches them. For a
+      per-span target that is each matching span; for "turn", each turn's
+      root span; for "run", each trace's first root; for "conversation", the
+      first root of each conversation. This is how you show which spans a
       metric judges, or check a target against more than preview_target's
       latest traces. It applies together with every other filter. A target
       that isn't JSON or isn't valid is refused with "Invalid target: ..."
@@ -2732,7 +2733,7 @@ tools:
       changes nothing.
 
       A target that picks no units, or far more than the user expects, is
-      almost always a wrong key, value or operator: check the conditions
+      almost always a wrong key, value or operator. Check the conditions
       against list_trace_attributes and try again before writing the metric.
       A target that isn't valid is refused with "Invalid target: ..." naming
       the part that is wrong and the valid choices.
