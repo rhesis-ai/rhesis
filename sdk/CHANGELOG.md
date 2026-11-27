@@ -29,13 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metrics judging the conversation, and a `create_metric` call whose target differs from the
   planned one.
 - `MetricSynthesizer` proposes a `target` (`"turn"` or `"conversation"`) instead of a scope.
-- **BREAKING:** Every metric's `evaluate()` and `a_evaluate()` take up to four arguments: `input`,
-  `output`, `trace` and `expectations`. What happened is the `trace`; what should have happened is
-  `expectations`, an `Expectations` with `response`, `goal`, `instructions`, `restrictions` and
-  `contract`. A string passed as `expectations` is the reference answer. Callers can still pass
-  `context=`, `tool_calls=`, `metadata=` or `conversation=`, and the SDK builds the trace from them.
-  To migrate a call:
-
 - `LiteLLMProxy.a_generate()` calls the proxy on an async HTTP client instead of running the blocking call in a thread, so many evaluations can wait on the proxy at once.
 - Blocking model calls made from the SDK's background event loop run on a pool of `RHESIS_SDK_LOOP_THREADS` threads (default 64). Before, a process made at most `os.cpu_count() + 4` such calls at once, and in a container that is the host's core count.
 - Creating a metric imports only its own provider. A Rhesis metric no longer imports deepeval and garak, which took seconds of CPU on a process's first evaluation.
