@@ -1339,31 +1339,6 @@ def span_facets(
     )
 
 
-def get_unprocessed_traces(
-    db: Session,
-    limit: int = 100,
-) -> List[models.Trace]:
-    """
-    Get traces that haven't been processed yet.
-
-    Used by background workers to find traces needing enrichment.
-
-    Args:
-        db: Database session
-        limit: Maximum traces to return
-
-    Returns:
-        List of unprocessed Trace models
-    """
-    return (
-        db.query(models.Trace)
-        .filter(models.Trace.processed_at.is_(None))
-        .order_by(models.Trace.created_at)
-        .limit(limit)
-        .all()
-    )
-
-
 def mark_trace_processed(
     db: Session,
     trace_id: str,
