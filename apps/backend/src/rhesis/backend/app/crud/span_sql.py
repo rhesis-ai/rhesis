@@ -10,6 +10,7 @@ from typing import Any, Callable, Collection, List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import (
+    Text,
     and_,
     any_,
     asc,
@@ -19,10 +20,12 @@ from sqlalchemy import (
     exists,
     false,
     func,
+    literal,
     or_,
     select,
     type_coerce,
 )
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import aliased
 
@@ -95,6 +98,38 @@ def span_token_columns() -> tuple:
         attributes[AISpanAttributes.TOKENS_TOTAL].as_float().isnot(None),
     )
     return input_tokens, output_tokens, case((reported, span_total_tokens_expr(attributes)))
+
+
+#: The attributes holding a span's name, ahead of its span name: the SDK's ``targets.NAME_KEYS``.
+SPAN_NAME_KEYS = (
+    AISpanAttributes.TOOL_NAME,
+    AISpanAttributes.AGENT_NAME,
+    AISpanAttributes.MODEL_NAME,
+)
+#: What ``jsonb_typeof`` says of a JSON string.
+JSONB_STRING = "string"
+
+
+def span_name_field_expr(trace=models.Trace) -> Any:
+    """The ``name`` a metric target reads, for *trace* (the table or an alias of it): the
+    first of ``SPAN_NAME_KEYS`` that is a non-empty string, else the span name. Every query
+    that reads a span's name builds it here."""
+
+    def named(key: str) -> Any:
+        value = trace.attributes.op("->")(literal(key, Text))
+        as_text = trace.attributes.op("->>", return_type=Text)(literal(key, Text))
+        is_string = func.jsonb_typeof(value) == JSONB_STRING
+        return case((and_(is_string, as_text != ""), as_text))
+
+    return func.coalesce(*(named(key) for key in SPAN_NAME_KEYS), trace.span_name)
+
+
+def span_name_field_sql() -> str:
+    """``span_name_field_expr`` as SQL text over the ``trace`` table, for raw statements."""
+    compiled = span_name_field_expr().compile(
+        dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+    )
+    return str(compiled)
 
 
 def span_scope(trace, org_uuid, project_id: Optional[str]) -> list:
@@ -245,6 +280,11 @@ def span_filter_clauses(
         clauses.append(span_agent_expr().in_(filters.agents))
     if filters.tools:
         clauses.append(span_tool_expr().in_(filters.tools))
+    if filters.target is not None:
+        # Imports the SDK, which a core install hasn't: only when a target is given.
+        from rhesis.backend.app.crud.span_target_sql import target_clause
+
+        clauses.append(target_clause(filters.target))
     return clauses
 
 

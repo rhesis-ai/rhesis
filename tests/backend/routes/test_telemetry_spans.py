@@ -4,6 +4,7 @@ Filter and sort behaviour is covered in tests/backend/crud/test_span_list.py; th
 check the HTTP layer: params, validation, auth and tenant isolation.
 """
 
+import json
 import uuid
 
 import pytest
@@ -76,6 +77,75 @@ class TestListSpans:
 
         assert response.status_code == status.HTTP_200_OK, response.text
         assert [s["span_id"] for s in response.json()["spans"]] == [refund["span_id"]]
+
+    def test_target_param(self, authenticated_client: TestClient, db_project):
+        project_id = str(db_project.id)
+        tool = {"ai.operation.type": "tool.invoke"}
+        gold = ingest(
+            authenticated_client,
+            project_id,
+            span_name="ai.tool.invoke",
+            attributes={**tool, "ai.tool.name": "issue_refund", "app.tier": "gold"},
+        )
+        ingest(
+            authenticated_client,
+            project_id,
+            span_name="ai.tool.invoke",
+            attributes={**tool, "ai.tool.name": "issue_refund", "app.tier": "silver"},
+        )
+        ingest(
+            authenticated_client,
+            project_id,
+            span_name="ai.tool.invoke",
+            attributes={**tool, "ai.tool.name": "lookup_order", "app.tier": "gold"},
+        )
+        target = {
+            "on": "tool_call",
+            "where": [{"field": "app.tier", "op": "==", "value": "gold"}],
+        }
+
+        for path in ("/telemetry/spans", "/telemetry/spans/facets"):
+            response = authenticated_client.get(
+                path, params={"project_id": project_id, "target": json.dumps(target)}
+            )
+            assert response.status_code == status.HTTP_200_OK, response.text
+        assert sum(row["count"] for row in response.json()["span_types"]) == 2
+
+        # With the old tool filter too, both apply.
+        response = authenticated_client.get(
+            "/telemetry/spans",
+            params={
+                "project_id": project_id,
+                "target": json.dumps(target),
+                "tool": ["issue_refund"],
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert [s["span_id"] for s in response.json()["spans"]] == [gold["span_id"]]
+
+    @pytest.mark.parametrize(
+        "target, problem",
+        [
+            ("{not json", "not JSON"),
+            ('{"on": "nowhere"}', "'nowhere' is not a target"),
+            ('{"on": "span"}', "A span target needs conditions"),
+            (
+                '{"on": "span", "where": [{"field": "kind", "op": "~", "value": "x"}]}',
+                "op must be one of",
+            ),
+        ],
+    )
+    def test_bad_target_is_a_422(
+        self, authenticated_client: TestClient, db_project, target, problem
+    ):
+        for path in ("/telemetry/spans", "/telemetry/spans/facets"):
+            response = authenticated_client.get(
+                path, params={"project_id": str(db_project.id), "target": target}
+            )
+
+            assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.text
+            detail = response.json()["detail"]
+            assert detail.startswith("Invalid target: ") and problem in detail, detail
 
     def test_sort_and_page(self, authenticated_client: TestClient, db_project):
         project_id = str(db_project.id)

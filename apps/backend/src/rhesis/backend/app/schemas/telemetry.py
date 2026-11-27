@@ -229,6 +229,8 @@ class SpanFilters:
     providers: Optional[List[str]] = None
     agents: Optional[List[str]] = None
     tools: Optional[List[str]] = None
+    # The SDK's Target: only the spans it picks, the root span of each of its units.
+    target: Optional[Any] = None
 
 
 class SpanSummary(BaseModel):

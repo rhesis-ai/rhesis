@@ -55,6 +55,7 @@ from rhesis.backend.app.crud.span_sql import (
     span_cost_expr,
     span_filter_clauses,
     span_model_expr,
+    span_name_field_sql,
     span_recorded_provider_expr,
     span_scope,
     span_sort_clauses,
@@ -416,22 +417,8 @@ def move_spans_to_trace(
 # Deeper than any real span tree; stops the walk if duplicate span ids make a loop.
 AGENT_PATH_MAX_DEPTH = 1000
 
-# The SDK's _name for an agent span: the first non-empty string of the NAME_KEYS
-# attributes, else the span name.
-_AGENT_NAME_SQL = """
-    CASE WHEN span_type = :agent_kind THEN coalesce(
-        CASE WHEN jsonb_typeof(attributes -> CAST(:tool_key AS text)) = 'string'
-                  AND attributes ->> CAST(:tool_key AS text) <> ''
-             THEN attributes ->> CAST(:tool_key AS text) END,
-        CASE WHEN jsonb_typeof(attributes -> CAST(:agent_key AS text)) = 'string'
-                  AND attributes ->> CAST(:agent_key AS text) <> ''
-             THEN attributes ->> CAST(:agent_key AS text) END,
-        CASE WHEN jsonb_typeof(attributes -> CAST(:model_key AS text)) = 'string'
-                  AND attributes ->> CAST(:model_key AS text) <> ''
-             THEN attributes ->> CAST(:model_key AS text) END,
-        span_name, '')
-    END
-"""
+# The SDK's _name for an agent span: the target's name field.
+_AGENT_NAME_SQL = f"CASE WHEN span_type = :agent_kind THEN {span_name_field_sql()} END"
 
 # A root is a span whose parent isn't stored in the trace, as tree_builder has it. A span
 # the walk never reaches (a parent loop) gets an empty path and isn't a root: no tree shows it.
@@ -496,9 +483,6 @@ def update_agent_paths(db: Session, trace_ids: Iterable[str]) -> None:
         {
             "trace_ids": trace_ids,
             "agent_kind": AIAttributes.OPERATION_AGENT_INVOKE,
-            "tool_key": AIAttributes.TOOL_NAME,
-            "agent_key": AIAttributes.AGENT_NAME,
-            "model_key": AIAttributes.MODEL_NAME,
             "max_depth": AGENT_PATH_MAX_DEPTH,
         },
     )
