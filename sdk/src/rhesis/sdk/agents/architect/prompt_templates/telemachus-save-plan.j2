@@ -28,8 +28,10 @@ Top-level structure (all three array fields are required, even if empty):
 - `explanation`: string (optional, expected for new metrics) — what a pass and a fail mean for the system under test, and what to do about a fail.
 - `threshold`: number (optional, defaults to 1.0)
 - `threshold_operator`: string (optional, defaults to `">="`)
+- `rule`: string (optional) — set for a rule, a metric with no model: `"FieldRule"` (a field of the trace against a value, such as `duration_ms`), `"ResponseRule"` (the output against the expected response) or `"ToolCallTrajectory"` (the tool calls against the expected ones). Leave it out for a judge. Sent to `create_metric` as `class_name`, with `metric_type: "rule"` and `backend_type: "rhesis"`.
+- `rule_settings`: object (optional) — a rule's settings, sent in `config` next to the target, such as `{"field": "duration_ms", "op": "<=", "value": 5000}`.
 
-For every metric with `reuse_status: "new"`, write these fields out in full — this is the wording the user approves and the wording you send to `create_metric` afterwards. A one-sentence placeholder here means a threadbare metric later. See `metric-authoring.md` for the depth expected.
+For a rule, `evaluation_prompt` is the rule in one line (`"duration_ms <= 5000"`), and `evaluation_steps` and `reasoning` stay empty: there is no judge to instruct. For every judge with `reuse_status: "new"`, write these fields out in full — this is the wording the user approves and the wording you send to `create_metric` afterwards. A one-sentence placeholder here means a threadbare metric later. See `metric-authoring.md` for the depth expected.
 
 `test_sets[]` items:
 - `name`: string (required)

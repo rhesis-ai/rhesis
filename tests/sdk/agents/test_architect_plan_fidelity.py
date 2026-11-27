@@ -322,6 +322,40 @@ class TestThingsGetBuiltInTheShapeThatWasPlanned:
 
         assert error is None
 
+    def test_a_planned_rule_must_be_created_as_that_rule(self):
+        plan = _plan(
+            metrics=[
+                MetricSpec(
+                    name="Response Speed",
+                    description="Each answer comes within 5 seconds",
+                    rule="FieldRule",
+                    rule_settings={"field": "duration_ms", "op": "<=", "value": 5000},
+                )
+            ],
+            test_sets=[],
+        )
+
+        judge = _agent(plan)._check_plan_constraints(_call("create_metric", name="Response Speed"))
+        rule = _agent(plan)._check_plan_constraints(
+            _call(
+                "create_metric",
+                name="Response Speed",
+                class_name="FieldRule",
+                metric_type="rule",
+                config={"field": "duration_ms", "op": "<=", "value": 5000},
+            )
+        )
+
+        assert judge is not None and "FieldRule" in judge
+        assert rule is None
+
+    def test_a_planned_judge_takes_any_class(self):
+        error = _agent()._check_plan_constraints(
+            _call("create_metric", name="Safety Compliance", class_name="NumericJudge")
+        )
+
+        assert error is None
+
     def test_an_unplanned_set_is_not_shape_checked(self):
         """The name guard owns that case; reporting both at once is noise."""
         plan = _plan(test_sets=[])

@@ -42,6 +42,36 @@ class TestMetricTargetField:
 
 
 @pytest.mark.unit
+class TestPlannedRules:
+    def test_a_metric_is_a_judge_unless_a_rule_is_named(self):
+        metric = MetricSpec(name="Accuracy", description="d")
+
+        assert metric.rule is None
+        assert metric.rule_settings == {}
+
+    def test_a_rule_keeps_its_settings(self):
+        metric = MetricSpec(
+            name="Response Speed",
+            description="d",
+            rule="FieldRule",
+            rule_settings={"field": "duration_ms", "op": "<=", "value": 5000},
+        )
+
+        assert metric.rule == "FieldRule"
+        assert metric.rule_settings["value"] == 5000
+
+    def test_an_unknown_rule_is_refused(self):
+        with pytest.raises(ValueError, match="rule"):
+            MetricSpec(name="Accuracy", description="d", rule="LatencyJudge")
+
+    def test_save_plan_offers_every_rule(self):
+        schema = str(build_save_plan_tool())
+
+        for rule in ("FieldRule", "ResponseRule", "ToolCallTrajectory"):
+            assert rule in schema
+
+
+@pytest.mark.unit
 class TestMetricCoverage:
     def _plan(self, *, test_type: str = "Single-Turn", target: str = "turn") -> ArchitectPlan:
         return ArchitectPlan(

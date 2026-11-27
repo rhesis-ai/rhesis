@@ -158,6 +158,20 @@ def _check_target(spec: MetricSpec, arguments: Dict[str, Any]) -> Optional[str]:
     )
 
 
+def _check_rule(spec: MetricSpec, arguments: Dict[str, Any]) -> Optional[str]:
+    if spec.rule is None:
+        return None
+    sent = arguments.get("class_name")
+    if sent == spec.rule:
+        return None
+    return (
+        f"Metric '{spec.name}' is planned as a {spec.rule} rule but this call "
+        f"{'sends class_name ' + repr(sent) if sent else 'sends no class_name'}. A rule needs "
+        f'class_name "{spec.rule}", metric_type "rule" and backend_type "rhesis", with its '
+        f"settings in config. Send them, or call save_plan."
+    )
+
+
 def _check_threshold(spec: MetricSpec, arguments: Dict[str, Any]) -> Optional[str]:
     if "threshold" not in arguments:
         return None
@@ -199,6 +213,7 @@ def check_metric_shape(plan: ArchitectPlan, arguments: Dict[str, Any]) -> Option
         return None
 
     for problem in (
+        _check_rule(spec, arguments),
         _check_target(spec, arguments),
         _check_threshold(spec, arguments),
         _check_threshold_operator(spec, arguments),

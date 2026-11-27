@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from rhesis.sdk.agents.constants import InternalTool, ToolMeta
 from rhesis.sdk.metrics.targets import TARGETS, TargetKind
 
+#: The classes of the metrics that check with no model, sent to create_metric as class_name.
+RuleClass = Literal["FieldRule", "ResponseRule", "ToolCallTrajectory"]
+
 ReuseStatus = Literal["reuse", "improve", "new"]
 
 _TARGET_CHOICES = "; ".join(
@@ -170,6 +173,26 @@ class MetricSpec(BaseModel):
             '"turn" is the default and judges every turn of a conversation too; '
             '"conversation" judges a whole conversation and never runs on '
             f"Single-Turn tests. Choices: {_TARGET_CHOICES}."
+        ),
+    )
+    rule: Optional[RuleClass] = Field(
+        default=None,
+        description=(
+            "Set for a rule, a metric with no model that checks a field of the trace or an "
+            "expectation against a fixed value; leave empty for a judge. Sent to "
+            'create_metric as class_name, with metric_type "rule" and backend_type "rhesis". '
+            "Plan a rule whenever the requirement is a limit or an exact check (answers "
+            "within 5 seconds, never calls a tool, stays under a token budget, valid JSON, "
+            "equals the expected answer): FieldRule for a field of the trace, ResponseRule "
+            "for the expected response, ToolCallTrajectory for the expected tool calls."
+        ),
+    )
+    rule_settings: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "A rule's settings, sent to create_metric in config next to the target, such as "
+            '{"field": "duration_ms", "op": "<=", "value": 5000} for a FieldRule. See '
+            "create_metric's description for every field and operator. Empty for a judge."
         ),
     )
     completed: bool = Field(

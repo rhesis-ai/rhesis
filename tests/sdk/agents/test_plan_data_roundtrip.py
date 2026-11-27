@@ -58,6 +58,8 @@ _STORED_PLAN_DATA = {
             "threshold": 1.0,
             "threshold_operator": ">=",
             "target": "turn",
+            "rule": None,
+            "rule_settings": {},
             "completed": False,
         }
     ],
