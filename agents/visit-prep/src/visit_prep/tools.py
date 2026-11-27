@@ -3,9 +3,10 @@
 from typing import Any
 
 from haystack.components.agents import State
+from haystack.dataclasses import ChatMessage
 from haystack.tools import Tool
 
-from visit_prep.safety import text_suggests_red_flag
+from visit_prep.safety import first_red_flag_text, text_suggests_red_flag
 from visit_prep.state import CORE_SLOTS, apply_slot_updates, state_from_slots
 from visit_prep.terminals import escalate, greet_and_explain, redirect_to_scope
 from visit_prep.utils import as_text, latest_user_text
@@ -13,6 +14,8 @@ from visit_prep.utils import as_text, latest_user_text
 SLOT_NAMES = ("chief_complaint", *CORE_SLOTS, "context")
 
 NO_MESSAGE_TO_SCAN = "No user message to scan yet. Continue with the appropriate tool."
+# How check_red_flags' report starts when it finds one; the red-flag code metric reads it.
+RED_FLAG_DETECTED = "RED_FLAG_DETECTED"
 
 
 def red_flag_report(text: str) -> str:
@@ -21,27 +24,37 @@ def red_flag_report(text: str) -> str:
         return NO_MESSAGE_TO_SCAN
     if text_suggests_red_flag(text):
         return (
-            f"RED_FLAG_DETECTED in the user's message ({text!r}). The message describes "
+            f"{RED_FLAG_DETECTED} in the user's message ({text!r}). The message describes "
             "potentially urgent symptoms. Call escalate immediately and do not continue "
             "visit preparation."
         )
     return f"No red flags detected in {text!r}. Continue with the appropriate tool."
 
 
-def build_red_flag_tool() -> Tool:
-    """Rule-based red-flag check over the latest user message.
+def conversation_red_flag_report(messages: list[ChatMessage]) -> str:
+    """The red-flag verdict over every user turn, so an earlier red flag keeps being reported.
 
-    The message is read from Agent ``State`` rather than accepted as an argument: if the
+    Scanning only the latest message told the model "no red flags, continue" on the turn
+    after an emergency, against the guard's override.
+    """
+    flagged = first_red_flag_text(messages)
+    return red_flag_report(flagged if flagged is not None else latest_user_text(messages))
+
+
+def build_red_flag_tool() -> Tool:
+    """Rule-based red-flag check over the user's messages in this conversation.
+
+    The messages are read from Agent ``State`` rather than accepted as an argument: if the
     model supplied the text it could paraphrase away the very wording the patterns match.
     """
 
     def check_red_flags(state: State) -> str:
-        return red_flag_report(latest_user_text(state.get("messages") or []))
+        return conversation_red_flag_report(state.get("messages") or [])
 
     return Tool(
         name="check_red_flags",
         description=(
-            "Scan the latest user message for emergency or red-flag symptoms. "
+            "Scan the user's messages in this conversation for emergency or red-flag symptoms. "
             "Always call this first on every turn before any other tool. Takes no arguments."
         ),
         parameters={"type": "object", "properties": {}},

@@ -16,6 +16,8 @@ from tests.mocks import (
 )
 from visit_prep.pipeline import build_coordinator_pipeline, run_turn
 from visit_prep.state import Phase, Slots, VisitPrepState
+from visit_prep.terminals import escalate
+from visit_prep.tools import RED_FLAG_DETECTED
 
 DIAGNOSIS_PATTERNS = [
     re.compile(r"\b(likely|probably|sounds like|could be)\b.*\b(migraine|flu|infection)\b", re.I),
@@ -224,19 +226,40 @@ def test_escalation_is_sticky_across_turns():
             {"role": "assistant", "content": "Please seek urgent care."},
         ],
     )
-    generator = MockChatGenerator([tool_call("escalate")])
+    generator = MockChatGenerator([tool_call("gather_history")])
     result = run_turn(
         "anyway, about my knee",
         escalated,
         pipeline=build_coordinator_pipeline(generator=generator),
     )
-    injected = [
-        m.text
-        for m in generator.calls[0]
-        if m.is_from(ChatRole.SYSTEM) and "SAFETY OVERRIDE" in (m.text or "")
-    ]
-    assert injected, "the earlier red flag must still be visible to the coordinator"
+    assert not generator.calls, "after a red flag the model must not get to choose the reply"
+    assert result["response"] == escalate()
     assert result["state"].phase == Phase.ESCALATED
+    check, esc = result["tool_calls"]
+    assert check["name"] == "check_red_flags"
+    assert check["output"].startswith(RED_FLAG_DETECTED)
+    assert esc["name"] == "escalate"
+
+
+def test_model_initiated_escalation_is_sticky():
+    """An emergency the rules miss but the model escalates on must stay escalated too."""
+    escalated = VisitPrepState(
+        phase=Phase.ESCALATED,
+        red_flag=True,
+        history=[
+            {"role": "user", "content": "my vision suddenly went black in one eye"},
+            {"role": "assistant", "content": escalate()},
+        ],
+    )
+    generator = MockChatGenerator([tool_call("redirect_to_scope")])
+    result = run_turn(
+        "ok, can we prepare questions for Monday?",
+        escalated,
+        pipeline=build_coordinator_pipeline(generator=generator),
+    )
+    assert not generator.calls
+    assert result["response"] == escalate()
+    assert [call["name"] for call in result["tool_calls"]] == ["check_red_flags", "escalate"]
 
 
 def test_summary_turn_stays_safe_end_to_end():

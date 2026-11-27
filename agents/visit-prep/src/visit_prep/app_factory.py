@@ -52,6 +52,10 @@ class ChatResponse(BaseModel):
     conversation_id: str = Field(..., description="Conversation id for session grouping.")
     phase: Phase = Field(..., description="Current conversation phase.")
     turn: int = Field(..., description="Turn counter for this conversation.")
+    tool_calls: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="The coordinator's tool calls this turn, as name, arguments and output.",
+    )
 
 
 def _chat_response_from_result(result: dict[str, Any]) -> ChatResponse:
@@ -61,6 +65,7 @@ def _chat_response_from_result(result: dict[str, Any]) -> ChatResponse:
         conversation_id=result["conversation_id"],
         phase=state.phase,
         turn=state.turn,
+        tool_calls=result.get("tool_calls") or [],
     )
 
 
@@ -83,6 +88,7 @@ def create_app(tracing_cls: TracingFactory) -> FastAPI:
     tracing_configured = bool(os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"))
     if tracing_configured:
         client = RhesisClient.from_environment()
+        import visit_prep.metrics  # noqa: F401  (registers the code metrics on this client)
     else:
         logger.info(
             "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient. "
@@ -156,6 +162,8 @@ def create_app(tracing_cls: TracingFactory) -> FastAPI:
             "output": "{{ response }}",
             "session_id": "{{ conversation_id }}",
             "metadata": "{{ {'phase': phase, 'turn': turn} | tojson }}",
+            # A bare variable keeps the list a list; a Jinja expression would render a string.
+            "tool_calls": "{{ tool_calls }}",
         },
     )
     async def chat_endpoint_traced(
