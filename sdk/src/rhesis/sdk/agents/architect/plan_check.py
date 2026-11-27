@@ -23,7 +23,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional, Sequence
 
-from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec
+from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec, class_default_target
 from rhesis.sdk.agents.architect.tool_registry import PlanCategory
 from rhesis.sdk.metrics.targets import TargetKind
 
@@ -147,8 +147,13 @@ def _check_target(spec: MetricSpec, arguments: Dict[str, Any]) -> Optional[str]:
     sent = target.get("on") if isinstance(target, dict) else target
     if sent is not None and not isinstance(sent, str):
         return None
-    # A metric created without a target judges each turn.
-    if (sent or TargetKind.TURN.value) == spec.target.value:
+    if sent is None:
+        # The server stores the class's own default: a run for Tool Call Trajectory, a
+        # conversation for a conversational judge, each turn for a custom judge.
+        sent_default = class_default_target(arguments.get("class_name")) or TargetKind.TURN
+        if sent_default is spec.target:
+            return None
+    elif sent == spec.target.value:
         return None
     return (
         f"Metric '{spec.name}' is planned to judge '{spec.target.value}' but this "

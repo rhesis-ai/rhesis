@@ -28,7 +28,7 @@ from rhesis.sdk.entities.trace import (
     _documents,
     _recorded,
 )
-from rhesis.sdk.metrics.arguments import judged_input_output
+from rhesis.sdk.metrics.arguments import judged_input_output, judging_unit
 from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.metrics.constants import THRESHOLD_OPERATOR_MAP
 from rhesis.sdk.metrics.expectations import Expectations
@@ -669,17 +669,21 @@ def evaluate_target(
     target = check_target(metric, target)
     expectations = Expectations.coerce(expectations)
     declared = _declared(metric)
-    if target.on not in PER_UNIT:
-        [unit] = matching_units(trace, target)
-        return metric.evaluate(**unit_arguments(declared, unit, expectations))
-    return judge_units(
-        trace,
-        target,
-        lambda unit: metric.evaluate(
-            **unit_arguments(declared, unit, unit_expectations(target, expectations, unit))
-        ),
-        verdict or (lambda result: _verdict(result, metric)),
-    )
+    token = judging_unit.set(True)
+    try:
+        if target.on not in PER_UNIT:
+            [unit] = matching_units(trace, target)
+            return metric.evaluate(**unit_arguments(declared, unit, expectations))
+        return judge_units(
+            trace,
+            target,
+            lambda unit: metric.evaluate(
+                **unit_arguments(declared, unit, unit_expectations(target, expectations, unit))
+            ),
+            verdict or (lambda result: _verdict(result, metric)),
+        )
+    finally:
+        judging_unit.reset(token)
 
 
 async def a_evaluate_target(
@@ -693,14 +697,18 @@ async def a_evaluate_target(
     target = check_target(metric, target)
     expectations = Expectations.coerce(expectations)
     declared = _declared(metric, "a_evaluate")
-    if target.on not in PER_UNIT:
-        [unit] = matching_units(trace, target)
-        return await metric.a_evaluate(**unit_arguments(declared, unit, expectations))
 
     async def judge(unit: Unit) -> MetricResult:
         held_to = unit_expectations(target, expectations, unit)
         return await metric.a_evaluate(**unit_arguments(declared, unit, held_to))
 
-    return await a_judge_units(
-        trace, target, judge, verdict or (lambda result: _verdict(result, metric))
-    )
+    token = judging_unit.set(True)
+    try:
+        if target.on not in PER_UNIT:
+            [unit] = matching_units(trace, target)
+            return await metric.a_evaluate(**unit_arguments(declared, unit, expectations))
+        return await a_judge_units(
+            trace, target, judge, verdict or (lambda result: _verdict(result, metric))
+        )
+    finally:
+        judging_unit.reset(token)

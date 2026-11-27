@@ -12,7 +12,7 @@ import math
 import re
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
-from rhesis.sdk.entities.trace import Span, Trace
+from rhesis.sdk.entities.trace import _REPORTED, _SPAN_SOURCE, Span, Trace
 from rhesis.sdk.metrics.arguments import evaluation_arguments
 from rhesis.sdk.metrics.base import (
     BaseMetric,
@@ -48,6 +48,10 @@ SIMILARITIES = ("edit_distance", "rouge_l")
 
 #: Above this many characters, edit distance compares words, to stay fast.
 _CHARACTER_EDIT_LIMIT = 2000
+#: A regular expression is searched in at most this many characters, and may be at most
+#: ``_PATTERN_LIMIT`` long: the standard library has no time limit for a slow pattern.
+_REGEX_TEXT_LIMIT = 100_000
+_PATTERN_LIMIT = 1000
 #: The most characters of a text kept in a result's details.
 _DETAIL_TEXT_LIMIT = 500
 
@@ -178,6 +182,10 @@ class FieldRule(TraceRule):
         if op == "matches":
             if not isinstance(value, str):
                 raise ValueError("'matches' takes a regular expression")
+            if len(value) > _PATTERN_LIMIT:
+                raise ValueError(
+                    f"The regular expression is longer than {_PATTERN_LIMIT} characters"
+                )
             try:
                 re.compile(value)
             except re.error as e:
@@ -209,6 +217,11 @@ class FieldRule(TraceRule):
         measured, missing = self._read(input, output, trace)
         if missing is not None and self.op != "exists":
             return rule_not_applicable(missing)
+        if self.op in NUMERIC_OPS and _number(measured) is None:
+            return rule_not_applicable(
+                f"{_label(self.field)} is {_shown(measured)}, not a number, so "
+                f"`{self.statement}` can't be judged."
+            )
         passed, failure = _compare(self.op, measured, self.value, self.field)
         if self.negate:
             passed = not passed
@@ -221,7 +234,8 @@ class FieldRule(TraceRule):
     def _read(self, input: Any, output: Any, trace: Optional[Trace]) -> Tuple[Any, Optional[str]]:
         """The field's value, and why it is missing (None when it was read)."""
         roots = list(trace.root_spans) if trace is not None else []
-        spans = trace.spans() if roots else []
+        # A call the endpoint both recorded and reported counts once, as in trace.tool_calls.
+        spans = _deduplicated(trace.spans()) if roots else []
         field = self.field
         if field == "duration_ms":
             value = _duration(roots)
@@ -229,10 +243,18 @@ class FieldRule(TraceRule):
                 "No timing was recorded here. Reported spans and traces built from a bare "
                 "response have none; send traces to judge timing."
             )
-        if field == "status":
-            return ("error" if any(_status(span) == "error" for span in roots) else "ok"), None
-        if field == "error_count":
-            return sum(1 for span in spans if _status(span) == "error"), None
+        if field in ("status", "error_count"):
+            # A reported span carries no status, so it can neither pass nor fail one.
+            read = [span for span in (roots if field == "status" else spans) if not _reported(span)]
+            if not read:
+                return None, (
+                    "Only reported spans are here, and they carry no status. Send traces to "
+                    "judge whether calls failed."
+                )
+            errors = sum(1 for span in read if _status(span) == "error")
+            if field == "status":
+                return ("error" if errors else "ok"), None
+            return errors, None
         if field == "span_count":
             return sum(1 for span in spans if self._counted(span)), None
         if field.startswith("tokens."):
@@ -250,7 +272,8 @@ class FieldRule(TraceRule):
             return value, None if value is not None else f"The attribute `{key}` isn't set."
         which = field.split(".", 1)[1] if field.startswith("length.") else field
         text = _turn_value(trace, which, input if which == "input" else output)
-        if text is None:
+        # An empty value reads as one never recorded: traces don't keep the difference.
+        if text is None or text == "":
             return None, f"No {which} was recorded here."
         if field.startswith("length."):
             return len(_text(text)), None
@@ -325,11 +348,13 @@ class ResponseRule(TraceRule):
         self, output: Optional[Any] = None, expectations: ExpectationsLike = None
     ) -> MetricResult:
         expected = expectations.response if expectations is not None else None
-        if expected is None:
+        # Tests store a missing expected response as "", which is no reference to compare with.
+        if expected is None or not _text(expected).strip():
             return rule_not_applicable(
                 "The test has no expected response. Add one to compare the output with it."
             )
-        if output is None:
+        # An empty output reads as one never recorded: traces don't keep the difference.
+        if output is None or _text(output) == "":
             return rule_not_applicable("No output was recorded here.")
         actual, wanted = _text(output), _text(expected)
         if self.match == "exact":
@@ -349,8 +374,13 @@ class ResponseRule(TraceRule):
             )
             return rule_result(passed, reason, actual, wanted)
         if self.match == "matches":
+            if len(wanted) > _PATTERN_LIMIT:
+                return rule_not_applicable(
+                    f"The expected response is longer than {_PATTERN_LIMIT} characters, too "
+                    "long to use as a regular expression."
+                )
             try:
-                passed = re.search(wanted, actual) is not None
+                passed = re.search(wanted, actual[:_REGEX_TEXT_LIMIT]) is not None
             except re.error as e:
                 return rule_not_applicable(
                     f"The expected response is not a valid regular expression: {e}"
@@ -452,6 +482,16 @@ def _duration(roots: List[Span]) -> Optional[float]:
     return (end - start).total_seconds() * 1000
 
 
+def _reported(span: Span) -> bool:
+    return span.attributes.get(_SPAN_SOURCE) == _REPORTED
+
+
+def _deduplicated(spans: List[Span]) -> List[Span]:
+    """``spans`` with a kind's reported spans left out wherever that kind was recorded."""
+    recorded_kinds = {span.kind for span in spans if not _reported(span)}
+    return [span for span in spans if not (_reported(span) and span.kind in recorded_kinds)]
+
+
 def _status(span: Span) -> str:
     code = (span.status_code or "").lower().removeprefix("status_code_")
     return "error" if code == "error" else "ok"
@@ -511,9 +551,8 @@ def _compare(op: str, measured: Any, value: Any, field: str) -> Tuple[bool, Opti
     if op == "is_json":
         return _is_json(measured), None
     if op in NUMERIC_OPS:
+        # FieldRule.evaluate makes a non-number not applicable before comparing.
         left, right = _number(measured), _number(value)
-        if left is None:
-            return False, f"{_label(field)} is {_shown(measured)}, not a number, so"
         return {
             "<": left < right,
             "<=": left <= right,
@@ -530,7 +569,7 @@ def _compare(op: str, measured: Any, value: Any, field: str) -> Tuple[bool, Opti
         return not any(_same(measured, choice, field) for choice in value), None
     if op == "contains":
         return _text(value) in _text(measured), None
-    return re.search(value, _text(measured)) is not None, None
+    return re.search(value, _text(measured)[:_REGEX_TEXT_LIMIT]) is not None, None
 
 
 def _same(measured: Any, value: Any, field: str) -> bool:

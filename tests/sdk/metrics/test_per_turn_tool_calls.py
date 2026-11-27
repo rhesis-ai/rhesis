@@ -25,9 +25,13 @@ def conversation(*replies):
 
 class TestExpectations:
     def test_the_conversation_expects_its_turns_calls_in_order(self):
-        expectations = Expectations(tool_calls_per_turn=[[LOOKUP], None, [REFUND]])
+        expectations = Expectations(tool_calls_per_turn=[[LOOKUP], [], [REFUND]])
 
         assert [call.name for call in expectations.tool_calls] == ["lookup_order", "issue_refund"]
+
+    def test_a_turn_left_open_leaves_the_conversation_open(self):
+        # Joining would make turn 2 expect no calls, which the test never said.
+        assert Expectations(tool_calls_per_turn=[[LOOKUP], None, [REFUND]]).tool_calls is None
 
     def test_a_list_of_its_own_wins(self):
         expectations = Expectations(tool_calls=[CANCEL], tool_calls_per_turn=[[LOOKUP]])

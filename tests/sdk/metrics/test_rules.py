@@ -268,12 +268,14 @@ def test_a_missing_attribute_is_not_applicable_unless_asked_whether_it_exists():
     assert verdict(exists) is False
 
 
-def test_a_value_that_is_not_a_number_fails_a_numeric_rule():
+@pytest.mark.parametrize("negate", [False, True], ids=["plain", "negated"])
+def test_a_value_that_is_not_a_number_is_not_applicable_to_a_numeric_rule(negate):
     t = trace(turn(attributes={"attributes_value": "fast"}))
 
-    result = judged(FieldRule(field="attributes.attributes_value", op="<", value=3), t)
+    rule = FieldRule(field="attributes.attributes_value", op="<", value=3, negate=negate)
+    result = judged(rule, t)
 
-    assert verdict(result) is False
+    assert result.details["not_applicable"] is True
     assert "not a number" in result.details["reason"]
 
 
@@ -402,3 +404,126 @@ def test_every_tool_call_must_succeed():
 
     assert verdict(result) is False
     assert result.details["passed"] == 1
+
+
+# ── review findings ──────────────────────────────────────────────
+
+REPORTED = {"rhesis.span.source": "reported"}
+
+
+def reported(kind, name=None, attributes=None):
+    return span(kind, name=name, attributes={**REPORTED, **(attributes or {})})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("on", ["turn", "run"])
+@pytest.mark.parametrize(
+    "rule",
+    [
+        FieldRule(field="output", op="exists"),
+        FieldRule(field="length.output", op="<", value=5),
+        ResponseRule(),
+    ],
+    ids=["exists", "length", "response"],
+)
+async def test_an_output_never_recorded_is_missing(rule, on):
+    t = Trace.from_response("hi", None)
+    expectations = Expectations(response="Hello")
+    if isinstance(rule, ResponseRule) and on == "run":
+        pytest.skip("A response rule judges each turn only.")
+    kwargs = {"trace": t, "target": on}
+    if isinstance(rule, ResponseRule):
+        kwargs["expectations"] = expectations
+
+    results = [rule.evaluate(**kwargs), await rule.a_evaluate(**kwargs)]
+
+    for result in results:
+        if isinstance(rule, FieldRule) and rule.op == "exists":
+            # exists reads the missing output, and fails on it.
+            assert verdict(result) is False
+        else:
+            assert result.details["not_applicable"] is True
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_a_blank_expected_response_is_no_reference(blank):
+    result = ResponseRule(match="contains").evaluate(
+        output="anything", expectations=Expectations(response=blank)
+    )
+
+    assert result.details["not_applicable"] is True
+
+
+def test_a_call_recorded_and_reported_counts_once():
+    t = trace(
+        turn(
+            children=[
+                span("tool.invoke", name="lookup", ms=5),
+                reported("tool.invoke", name="lookup"),
+                model(input_tokens=10, output_tokens=2),
+                reported("llm.invoke", attributes={"ai.llm.tokens.input": 10}),
+            ]
+        )
+    )
+
+    calls = judged(FieldRule(field="span_count", op="==", value=1, span_kind="tool_call"), t)
+    tokens = judged(FieldRule(field="tokens.input", op="==", value=10), t)
+
+    assert verdict(calls) is True
+    assert verdict(tokens) is True
+
+
+def test_reported_tool_calls_carry_no_status():
+    t = trace(turn(children=[reported("tool.invoke", name="lookup")]))
+
+    errors = FieldRule(field="error_count", op="==", value=0).evaluate(trace=t, target="tool_call")
+    status = FieldRule(field="status", op="==", value="ok").evaluate(trace=t, target="tool_call")
+
+    assert errors.details["not_applicable"] is True
+    assert status.details["not_applicable"] is True
+
+
+def test_a_turn_counts_errors_on_its_recorded_spans_only():
+    t = trace(turn(children=[reported("tool.invoke", name="lookup"), span("tool.invoke", ms=3)]))
+
+    result = judged(FieldRule(field="error_count", op="==", value=0), t)
+
+    assert verdict(result) is True
+    assert result.details["measured"] == 0
+
+
+@pytest.mark.asyncio
+async def test_a_rule_judges_its_own_target_when_the_call_names_none():
+    three = trace(
+        turn(ms=1000, offset_ms=0),
+        turn(ms=1000, offset_ms=10_000),
+        turn(ms=1000, offset_ms=20_000),
+    )
+    rule = FieldRule(field="duration_ms", op="<=", value=5000, target={"on": "turn"})
+
+    for result in (rule.evaluate(trace=three), await rule.a_evaluate(trace=three)):
+        assert verdict(result) is True
+        assert result.details["passed"] == 3
+
+
+def test_target_none_asks_for_no_target():
+    two = trace(turn(ms=1000), turn(ms=1000, offset_ms=10_000))
+    rule = FieldRule(field="duration_ms", op="<=", value=5000, target={"on": "turn"})
+
+    result = rule.evaluate(trace=two, target=None)
+
+    # The two turns together run from the first start to the last end, 11 s.
+    assert verdict(result) is False
+
+
+def test_a_long_pattern_is_refused():
+    with pytest.raises(ValueError, match="longer than"):
+        FieldRule(field="output", op="matches", value="a" * 1001)
+
+
+def test_a_long_expected_pattern_is_not_applicable():
+    result = ResponseRule(match="matches").evaluate(
+        output="aaa", expectations=Expectations(response="a" * 1001)
+    )
+
+    assert result.details["not_applicable"] is True

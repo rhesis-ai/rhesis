@@ -10,6 +10,7 @@ from rhesis.sdk.agents.architect.plan import (
     TestSetSpec,
     build_save_plan_tool,
 )
+from rhesis.sdk.agents.architect.plan_check import check_metric_shape
 from rhesis.sdk.metrics.targets import TargetKind
 
 
@@ -69,6 +70,49 @@ class TestPlannedRules:
 
         for rule in ("FieldRule", "ResponseRule", "ToolCallTrajectory"):
             assert rule in schema
+
+    @pytest.mark.parametrize(
+        "rule, target",
+        [
+            ("ToolCallTrajectory", TargetKind.RUN),
+            ("FieldRule", TargetKind.TURN),
+            ("ResponseRule", TargetKind.TURN),
+        ],
+    )
+    def test_a_rule_without_a_target_gets_its_class_default(self, rule, target):
+        # The same default the server stores for that class.
+        assert MetricSpec(name="Calls", description="d", rule=rule).target is target
+
+    def test_a_chosen_target_is_kept(self):
+        metric = MetricSpec(name="Calls", description="d", rule="ToolCallTrajectory", target="turn")
+
+        assert metric.target is TargetKind.TURN
+
+
+@pytest.mark.unit
+class TestCreateCallTarget:
+    """A create_metric call is checked against the planned target. Sending none means the
+    server stores the class's own default."""
+
+    @staticmethod
+    def _plan(**metric) -> ArchitectPlan:
+        return ArchitectPlan(metrics=[MetricSpec(name="Calls", description="d", **metric)])
+
+    def test_no_target_matches_a_trajectory_planned_on_the_run(self):
+        plan = self._plan(rule="ToolCallTrajectory")
+        call = {"name": "Calls", "class_name": "ToolCallTrajectory"}
+
+        assert check_metric_shape(plan, call) is None
+
+    def test_no_target_is_not_each_turn_for_a_trajectory(self):
+        plan = self._plan(rule="ToolCallTrajectory", target="turn")
+
+        problem = check_metric_shape(plan, {"name": "Calls", "class_name": "ToolCallTrajectory"})
+
+        assert problem is not None and "sends no target" in problem
+
+    def test_no_target_on_a_custom_judge_is_each_turn(self):
+        assert check_metric_shape(self._plan(), {"name": "Calls"}) is None
 
 
 @pytest.mark.unit
