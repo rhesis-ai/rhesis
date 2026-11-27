@@ -166,7 +166,7 @@ services:
       - ../apps/backend/src:/app/apps/backend/src
       - ../apps/backend/start.sh:/app/apps/backend/start.sh
 
-  # Stores ingested trace spans: POST /telemetry/traces queues them for a worker.
+  # Stores ingested trace spans and runs test runs, so an SDK test set can run end to end.
   sdk-test-worker:
     build:
       context: ..
@@ -183,7 +183,7 @@ services:
     healthcheck:
       disable: true
     env_file: []
-    command: ["celery", "-A", "rhesis.backend.worker.app", "worker", "--pool", "threads", "--queues=trace-ingest", "--concurrency=2", "--loglevel=INFO"]
+    command: ["celery", "-A", "rhesis.backend.worker.app", "worker", "--pool", "threads", "--queues=trace-ingest,test-runs", "--concurrency=2", "--loglevel=INFO"]
     working_dir: /app/apps/backend
     volumes:
       - ../apps/backend/src:/app/apps/backend/src
