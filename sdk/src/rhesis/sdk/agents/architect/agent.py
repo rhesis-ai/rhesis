@@ -63,6 +63,13 @@ CHART_NUDGE = (
     "chart fits this answer, finish again."
 )
 
+# Starts the message the backend sends itself when background tasks finish.
+# Must match ARCHITECT_RESUME_PREFIX in rhesis.backend.app.constants.
+TASK_COMPLETED_PREFIX = "[TASK_COMPLETED]"
+
+# Marks an approved entity that now exists, in the approval scope's kind field.
+_CREATED_PREFIX = "created:"
+
 # Seed for a turn whose create/update calls were held for approval.
 HELD_BACK_SEED = "Here is what I'll do once you accept. Nothing has been created yet."
 # Seed for an approved turn that reached work the user hadn't approved.
@@ -236,11 +243,18 @@ class ArchitectAgent(BaseAgent):
         #   confirmable tool that we just intercepted.
         self._creation_approved: bool = False
         self._confirming_tools: FrozenSet[str] = frozenset()
-        # What an Accept approves: the held calls and the plan items saved when
-        # they were held, as (kind, name) pairs, or ("tool", name) for a call
-        # with no entity name. Work the agent adds after that, even through
-        # save_plan, is held again.
+        # What the open confirmation prompt shows: the held calls and the plan
+        # items saved when they were held, as (kind, name) pairs, or ("tool", …)
+        # for a call with no entity name. An Accept moves it into _approved_scope.
+        self._pending_scope: FrozenSet[Tuple[str, str]] = frozenset()
+        # The entities the user has accepted this session, so creating them is
+        # not asked about again in a later turn. Each covers one create; it is then
+        # kept as "created:<kind>" so links to it stay covered. Work the agent adds
+        # later, even through save_plan, is held again.
         self._approved_scope: FrozenSet[Tuple[str, str]] = frozenset()
+        # What the prompt this turn answers showed. Every other approved call
+        # (an update, a schedule) must be in it: an older Accept doesn't cover it.
+        self._turn_accepted: FrozenSet[Tuple[str, str]] = frozenset()
         self._mutating_tools: Optional[FrozenSet[str]] = None
         # Populated by get_available_tools(); empty until the first call,
         # which makes the pre-dispatch check a no-op rather than a false
@@ -250,6 +264,9 @@ class ArchitectAgent(BaseAgent):
         self._environment_names: Optional[List[str]] = None
         self._auto_approve_all: bool = False
         self._blocked_this_turn: bool = False
+        # A [TASK_COMPLETED] turn that arrived while a prompt was open: the
+        # user hasn't answered it, so it is still open when this turn ends.
+        self._prompt_kept_open: bool = False
         # The calls the guard held back this turn. They are what the user is
         # asked to approve, so the reply writer gets them verbatim.
         self._blocked_calls: List[ToolCall] = []
@@ -363,18 +380,28 @@ class ArchitectAgent(BaseAgent):
             self._conversation_history.append({"role": Role.USER, "content": message})
             self._maybe_update_workflow_path(message)
 
-            # If the previous turn asked for confirmation, unlock
-            # only the specific tools that were blocked.
-            if self._needs_confirmation and self._confirming_tools:
+            # A reply to a confirmation prompt answers it; the backend's own
+            # task-completed message is not the user saying yes, so the prompt
+            # stays open through it.
+            resumed = message.startswith(TASK_COMPLETED_PREFIX)
+            prompt_open = self._needs_confirmation and bool(self._confirming_tools)
+            self._turn_accepted = frozenset()
+            if prompt_open and not resumed:
                 self._creation_approved = approve is not False
+                if self._creation_approved:
+                    self._turn_accepted = self._pending_scope
+                    entities = {k for k in self._pending_scope if k[0] != "tool"}
+                    self._approved_scope = self._approved_scope | entities
+                self._pending_scope = frozenset()
+            self._prompt_kept_open = prompt_open and resumed
             # The last turn's question is answered now. A finish sets it again if
             # this turn holds something; a turn cut off by the iteration cap
             # never reaches a finish and must not offer Accept a second time.
-            self._needs_confirmation = False
+            self._needs_confirmation = self._prompt_kept_open
 
             # When auto-resumed after background tasks, mark the
             # corresponding plan items as completed.
-            if message.startswith("[TASK_COMPLETED]") and self._plan:
+            if resumed and self._plan:
                 await self._apply_task_completions(message)
 
             if self.verbose:
@@ -504,17 +531,26 @@ class ArchitectAgent(BaseAgent):
         return {
             "needs_confirmation": self._needs_confirmation,
             "confirming_tools": list(self._confirming_tools),
+            "pending_scope": [list(entry) for entry in sorted(self._pending_scope)],
             "approved_scope": [list(entry) for entry in sorted(self._approved_scope)],
             "auto_approve_all": self._auto_approve_all,
         }
 
     @guard_state.setter
     def guard_state(self, value: Dict[str, Any]) -> None:
+        def scope(key: str) -> FrozenSet[Tuple[str, str]]:
+            return frozenset((str(kind), str(name)) for kind, name in value.get(key, []))
+
         self._needs_confirmation = value.get("needs_confirmation", False)
         self._confirming_tools = frozenset(value.get("confirming_tools", []))
-        self._approved_scope = frozenset(
-            (str(kind), str(name)) for kind, name in value.get("approved_scope", [])
-        )
+        if "pending_scope" in value:
+            self._pending_scope = scope("pending_scope")
+            self._approved_scope = scope("approved_scope")
+        else:
+            # Saved before pending_scope existed: approved_scope then held what
+            # the open prompt showed, which is not approved until answered.
+            self._pending_scope = scope("approved_scope")
+            self._approved_scope = frozenset()
         self._auto_approve_all = value.get("auto_approve_all", False)
 
     def reset(self) -> None:
@@ -526,8 +562,11 @@ class ArchitectAgent(BaseAgent):
         self._workflow_path = WorkflowPath.UNSET
         self._creation_approved = False
         self._confirming_tools = frozenset()
+        self._pending_scope = frozenset()
         self._approved_scope = frozenset()
+        self._turn_accepted = frozenset()
         self._blocked_this_turn = False
+        self._prompt_kept_open = False
         self._mutating_tools = None
         self._auto_approve_all = False
         self._attachments = None
@@ -670,8 +709,19 @@ class ArchitectAgent(BaseAgent):
 
         mutating = [tc for tc in action.tool_calls if self._is_mutating(tc.tool_name)]
 
-        if mutating and not self._is_approved(mutating):
-            blocked_names = [tc.tool_name for tc in mutating]
+        # Never ask the user to approve a call that cannot run as written: once
+        # fixed it no longer matches what they approved, so they get asked twice.
+        invalid = {
+            id(tc): err
+            for tc in mutating
+            if (err := self._check_plan_fit(tc) or self._argument_error(tc))
+        }
+        if invalid:
+            return await self._return_invalid_calls(action, iteration, invalid)
+
+        held = [tc for tc in mutating if not self._is_approved([tc])]
+        if held:
+            blocked_names = [tc.tool_name for tc in held]
             logger.info(
                 "[Architect] Blocked tools pending confirmation: %s",
                 blocked_names,
@@ -685,26 +735,28 @@ class ArchitectAgent(BaseAgent):
             # not claim nothing was created.
             approved_turn = self._creation_approved
             self._blocked_this_turn = True
-            self._blocked_calls.extend(mutating)
+            self._blocked_calls.extend(held)
 
             # An Accept approves what the user is about to be shown: these
             # calls and the plan as saved now, not every creating tool.
             self._confirming_tools = frozenset(blocked_names)
-            self._approved_scope = self._scope_shown(mutating)
+            self._pending_scope = self._scope_shown(held)
 
-            # Still allow read-only tools to execute
-            read_only = [tc for tc in action.tool_calls if not self._is_mutating(tc.tool_name)]
-            if read_only:
-                read_results = await self._execute_tools(read_only)
+            # The step's read-only calls and its already-approved ones still run:
+            # holding an approved call with the new ones would ask about it again.
+            runnable = [tc for tc in action.tool_calls if not any(tc is h for h in held)]
+            if runnable:
+                results = await self._execute_tools(runnable, reasoning=action.reasoning)
                 self._execution_history.append(
                     ExecutionStep(
                         iteration=iteration,
                         reasoning=action.reasoning,
                         action=Action.CALL_TOOL,
-                        tool_calls=read_only,
-                        tool_results=read_results,
+                        tool_calls=runnable,
+                        tool_results=results,
                     )
                 )
+            ran_approved = any(self._is_mutating(tc.tool_name) for tc in runnable)
 
             # ``_confirming_tools`` was populated above; the
             # downstream ``_handle_finish_action`` derives
@@ -720,7 +772,9 @@ class ArchitectAgent(BaseAgent):
                 action=Action.FINISH,
                 # The model wrote its answer expecting the calls to run ("I have
                 # created..."), so it can't be the seed for a turn that held them.
-                final_answer=HELD_BACK_NEXT_SEED if approved_turn else HELD_BACK_SEED,
+                final_answer=(
+                    HELD_BACK_NEXT_SEED if approved_turn or ran_approved else HELD_BACK_SEED
+                ),
             )
             return await self._handle_finish_action(finish_action, iteration)
 
@@ -730,9 +784,51 @@ class ArchitectAgent(BaseAgent):
         """Check if the requested tool calls are approved."""
         if self._auto_approve_all:
             return True
-        if not self._creation_approved:
-            return False
         return all(self._in_approved_scope(tc) for tc in tool_calls)
+
+    def _argument_error(self, tool_call: ToolCall) -> Optional[str]:
+        """Why the call's arguments can't be sent as they are, or None."""
+        return (
+            self._validate_tool_arguments(tool_call)
+            or find_placeholder_ids(tool_call.arguments or {})
+            or find_missing_arguments(
+                tool_call.arguments,
+                self._tool_schemas.get(tool_call.tool_name),
+            )
+        )
+
+    async def _return_invalid_calls(
+        self, action: AgentAction, iteration: int, errors: Dict[int, str]
+    ) -> Tuple[ExecutionStep, bool]:
+        """Run the step's read-only calls; send none of its mutating ones.
+
+        The invalid calls come back with their error, reported like any failed
+        call. The valid mutating ones wait, so the step's writes go out together.
+        """
+        read_only = [tc for tc in action.tool_calls if not self._is_mutating(tc.tool_name)]
+        ran = iter(await self._execute_tools(read_only, reasoning=action.reasoning))
+        results: List[ToolResult] = []
+        for tc in action.tool_calls:
+            if not self._is_mutating(tc.tool_name):
+                results.append(next(ran))
+            elif id(tc) in errors:
+                results.append(await self._report_unsent(tc, errors[id(tc)], action.reasoning))
+            else:
+                results.append(
+                    ToolResult(
+                        tool_name=tc.tool_name,
+                        success=False,
+                        error="Not run: another call in this step needs fixing. Send it again.",
+                    )
+                )
+        step = ExecutionStep(
+            iteration=iteration,
+            reasoning=action.reasoning,
+            action=Action.CALL_TOOL,
+            tool_calls=action.tool_calls,
+            tool_results=results,
+        )
+        return step, False
 
     def _scope_key(self, tool_call: ToolCall) -> Tuple[str, str]:
         """What a call acts on: (plan category, name), else ("tool", tool name)."""
@@ -772,21 +868,46 @@ class ArchitectAgent(BaseAgent):
 
     def _in_approved_scope(self, tool_call: ToolCall) -> bool:
         key = self._scope_key(tool_call)
-        if key in self._approved_scope:
+        if key[0] != "tool" and plan_category_for(tool_call.tool_name) is not None:
+            # Creating an approved entity stays approved across turns until it exists, once.
+            if key in self._approved_scope:
+                return True
+        elif key in self._turn_accepted:
+            # Anything else (an update, scheduling a test set) only if the prompt this
+            # turn answers showed it: an older Accept doesn't cover it.
             return True
         if tool_call.tool_name == "add_requirement_to_metric":
             # A link between two approved entities was part of what was shown.
+            # The typed maps only hold this turn's results; _id_to_name is restored
+            # across turns, so a metric approved in an earlier turn still resolves.
             args = tool_call.arguments or {}
-            requirement = self._requirement_id_names.get(str(args.get("requirement_id")), "")
-            metric = self._metric_id_names.get(str(args.get("metric_id")), "")
-            return (
-                str(PlanCategory.REQUIREMENT),
-                requirement.lower(),
-            ) in self._approved_scope and (
-                str(PlanCategory.METRIC),
-                metric.lower(),
-            ) in self._approved_scope
+            requirement_id = str(args.get("requirement_id"))
+            metric_id = str(args.get("metric_id"))
+            requirement = self._requirement_id_names.get(requirement_id) or self._id_to_name.get(
+                requirement_id, ""
+            )
+            metric = self._metric_id_names.get(metric_id) or self._id_to_name.get(metric_id, "")
+            return self._entity_approved(
+                str(PlanCategory.REQUIREMENT), requirement
+            ) and self._entity_approved(str(PlanCategory.METRIC), metric)
         return False
+
+    def _entity_approved(self, kind: str, name: str) -> bool:
+        """Whether the user approved this entity, whether or not it exists yet."""
+        name = name.strip().lower()
+        return bool(name) and (
+            (kind, name) in self._approved_scope
+            or (_CREATED_PREFIX + kind, name) in self._approved_scope
+        )
+
+    def _spend_approval(self, tool_call: ToolCall, key: Tuple[str, str]) -> None:
+        """Use up the approval a call ran under, once it succeeded."""
+        if key[0] == "tool":
+            self._turn_accepted = self._turn_accepted - {key}
+        elif key in self._approved_scope and plan_category_for(tool_call.tool_name) is not None:
+            # Created now: a second create needs its own Accept, but links to it stay covered.
+            created = (_CREATED_PREFIX + key[0], key[1])
+            self._approved_scope = (self._approved_scope - {key}) | {created}
 
     # ── argument validation ──────────────────────────────────────
 
@@ -831,6 +952,16 @@ class ArchitectAgent(BaseAgent):
 
         Returns an error message if the call is invalid, None if ok.
         """
+        return self._check_plan_fit(tool_call) or (
+            self._check_execution_order(tool_call) if self._plan else None
+        )
+
+    def _check_plan_fit(self, tool_call: ToolCall) -> Optional[str]:
+        """The plan checks that don't depend on what else runs first.
+
+        Run before a call is held too, so the user is never asked to approve
+        a call the plan will reject.
+        """
         if not self._plan:
             return None
 
@@ -845,7 +976,6 @@ class ArchitectAgent(BaseAgent):
             self._check_planned_name,
             self._check_planned_shape,
             self._check_already_completed,
-            self._check_execution_order,
         ):
             problem = check(tool_call)
             if problem:
@@ -974,15 +1104,7 @@ class ArchitectAgent(BaseAgent):
 
         scoped = await self._scope_to_named_environments(tool_call)
         filled = self._fill_chart_filters(tool_call)
-        error = (
-            self._check_plan_constraints(tool_call)
-            or self._validate_tool_arguments(tool_call)
-            or find_placeholder_ids(tool_call.arguments or {})
-            or find_missing_arguments(
-                tool_call.arguments,
-                self._tool_schemas.get(tool_call.tool_name),
-            )
-        )
+        error = self._check_plan_constraints(tool_call) or self._argument_error(tool_call)
         if error:
             logger.warning(
                 "[Architect] Rejected tool %s: %s",
@@ -999,7 +1121,10 @@ class ArchitectAgent(BaseAgent):
         if target_mode is not None:
             await self.set_mode_async(target_mode)
 
+        scope_key = self._scope_key(tool_call)
         result = await super().execute_tool(tool_call)
+        if result.success:
+            self._spend_approval(tool_call, scope_key)
         if filled and result.success:
             result.content = (
                 f"Added {filled} from this turn's get_insights call for the same breakdown, so "
@@ -2055,7 +2180,9 @@ class ArchitectAgent(BaseAgent):
         # spurious Accept/Change prompts on later turns (for example,
         # the auto-resumed [TASK_COMPLETED] summary that follows an
         # already-approved exploration).
-        confirmation = self._blocked_this_turn and not self._auto_approve_all
+        confirmation = (
+            self._blocked_this_turn or self._prompt_kept_open
+        ) and not self._auto_approve_all
         self._needs_confirmation = confirmation
 
         seed = action.final_answer or ""

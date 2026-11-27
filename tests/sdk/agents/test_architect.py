@@ -924,8 +924,305 @@ class TestArchitectWriteGuard:
             _tool_dict("create_requirement", {"name": "Always use English"}),
         )
 
-        assert restored._approved_scope == agent._approved_scope
+        assert restored._approved_scope == agent._pending_scope
         assert restored._blocked_calls == []
+
+    @staticmethod
+    def _tool(name, required=()):
+        """A tool that succeeds, with a schema the guard can check arguments against."""
+
+        class Named(BaseTool):
+            @property
+            def name(self) -> str:
+                return name
+
+            @property
+            def description(self) -> str:
+                return name
+
+            @property
+            def parameters_schema(self) -> dict:
+                props = {"name": {"type": "string"}, **{r: {"type": "string"} for r in required}}
+                return {"properties": props, "required": list(required)}
+
+            async def execute(self, **kwargs) -> ToolResult:
+                return ToolResult(tool_name=name, success=True, content="{}")
+
+        return Named()
+
+    async def _turn(self, agent, mock_model, message, *steps, approve=None):
+        async def fake_stream(**kw):
+            yield "Reply"
+
+        mock_model.a_generate = AsyncMock(side_effect=[*steps, _finish_dict("Reply")])
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async(message, approve=approve)
+
+    @pytest.mark.asyncio
+    async def test_approved_work_is_not_asked_about_again_in_a_later_turn(self, mock_model):
+        """The Accept turn stopped to ask something; the approved create runs next turn."""
+        agent = _make_agent(mock_model, tools=[self._tool("create_requirement")])
+        agent._mutating_tools = frozenset({"create_requirement"})
+        await self._hold(agent, mock_model, "create_requirement", "Always use English")
+        await self._turn(agent, mock_model, "Yes, go ahead.", approve=True)
+
+        create = _tool_dict("create_requirement", {"name": "Always use English"})
+        await self._turn(agent, mock_model, "It should cover replies only.", create)
+
+        assert agent._blocked_calls == []
+        assert agent._needs_confirmation is False
+
+    @pytest.mark.asyncio
+    async def test_a_later_hold_keeps_what_was_approved_before(self, mock_model):
+        """Approving a requirement must not withdraw the metric approved a turn earlier."""
+        tools = [self._tool("create_metric"), self._tool("create_requirement")]
+        agent = _make_agent(mock_model, tools=tools)
+        agent._mutating_tools = frozenset({"create_metric", "create_requirement"})
+        await self._hold(agent, mock_model, "create_metric", "Language Compliance")
+        await self._accept(agent, mock_model)
+        await self._hold(agent, mock_model, "create_requirement", "Always use English")
+        await self._accept(agent, mock_model)
+
+        assert ("metric", "language compliance") in agent._approved_scope
+        assert ("requirement", "always use english") in agent._approved_scope
+
+    @pytest.mark.asyncio
+    async def test_a_link_between_entities_approved_in_earlier_turns_runs(self, mock_model):
+        """A fresh agent per turn has only _id_to_name to resolve the ids in a link."""
+        tools = [self._tool("add_requirement_to_metric")]
+        agent = _make_agent(mock_model, tools=tools)
+        agent._mutating_tools = frozenset({"add_requirement_to_metric"})
+        agent.guard_state = {
+            "pending_scope": [],
+            "approved_scope": [["requirement", "always use english"], ["metric", "language"]],
+        }
+        agent._id_to_name = {"r1": "Always use English", "m1": "Language"}
+
+        link = _tool_dict("add_requirement_to_metric", {"requirement_id": "r1", "metric_id": "m1"})
+        await self._turn(agent, mock_model, "Link them.", link)
+
+        assert agent._blocked_calls == []
+
+    @pytest.mark.asyncio
+    async def test_a_one_off_approval_is_spent_once_it_ran(self, mock_model):
+        """Approving one update of a metric must not cover the next update of it."""
+        agent = _make_agent(mock_model, tools=[self._tool("update_metric")])
+        agent._mutating_tools = frozenset({"update_metric"})
+        update = _tool_dict("update_metric", {"metric_id": "m1", "threshold": "0.8"})
+        await self._turn(agent, mock_model, "Set the threshold to 0.8.", update)
+        await self._accept(agent, mock_model, update)
+        assert agent._blocked_calls == []
+
+        again = _tool_dict("update_metric", {"metric_id": "m1", "threshold": "0.9"})
+        await self._turn(agent, mock_model, "Make it 0.9.", again)
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["update_metric"]
+
+    @pytest.mark.asyncio
+    async def test_an_approved_update_that_never_ran_does_not_cover_a_later_turn(self, mock_model):
+        """Otherwise a different change to the same metric could run days later unasked."""
+        agent = _make_agent(mock_model, tools=[self._tool("update_metric")])
+        agent._mutating_tools = frozenset({"update_metric"})
+        update = _tool_dict("update_metric", {"metric_id": "m1", "threshold": "0.8"})
+        await self._turn(agent, mock_model, "Set the threshold to 0.8.", update)
+        await self._accept(agent, mock_model)
+
+        other = _tool_dict("update_metric", {"metric_id": "m1", "threshold": "0.1"})
+        await self._turn(agent, mock_model, "What else?", other)
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["update_metric"]
+
+    @pytest.mark.asyncio
+    async def test_an_approved_create_covers_one_create(self, mock_model):
+        """Once created, the same name again is new work and asks."""
+        agent = _make_agent(mock_model, tools=[self._tool("create_metric")])
+        agent._mutating_tools = frozenset({"create_metric"})
+        create = _tool_dict("create_metric", {"name": "Language"})
+        await self._hold(agent, mock_model, "create_metric", "Language")
+        await self._accept(agent, mock_model, create)
+        assert agent._blocked_calls == []
+
+        await self._turn(agent, mock_model, "Make another.", create)
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["create_metric"]
+
+    @pytest.mark.asyncio
+    async def test_a_link_to_entities_created_in_earlier_turns_runs(self, mock_model):
+        tools = [
+            self._tool("create_requirement"),
+            self._tool("create_metric"),
+            self._tool("add_requirement_to_metric"),
+        ]
+        agent = _make_agent(mock_model, tools=tools)
+        agent._mutating_tools = frozenset(
+            {"create_requirement", "create_metric", "add_requirement_to_metric"}
+        )
+        agent._plan = self._plan(requirements=["Refund policy"], metrics=["Refund accuracy"])
+        await self._hold(agent, mock_model, "create_requirement", "Refund policy")
+        await self._accept(
+            agent,
+            mock_model,
+            _tool_dict("create_requirement", {"name": "Refund policy"}),
+            _tool_dict("create_metric", {"name": "Refund accuracy"}),
+        )
+        agent._id_to_name.update({"r1": "Refund policy", "m1": "Refund accuracy"})
+
+        link = _tool_dict("add_requirement_to_metric", {"requirement_id": "r1", "metric_id": "m1"})
+        await self._turn(agent, mock_model, "Now link them.", link)
+
+        assert agent._blocked_calls == []
+
+    @pytest.mark.asyncio
+    async def test_scheduling_an_approved_test_set_in_a_later_turn_asks(self, mock_model):
+        """Approving a test set's creation is not approval to schedule it later."""
+        agent = _make_agent(mock_model, tools=[self._tool("schedule_test_set")])
+        agent._mutating_tools = frozenset({"schedule_test_set"})
+        agent._test_set_names_by_id = {"ts1": "Claims smoke"}
+        agent.guard_state = {"pending_scope": [], "approved_scope": [["test_set", "claims smoke"]]}
+
+        schedule = _tool_dict("schedule_test_set", {"test_set_id": "ts1", "cron": "0 2 * * *"})
+        await self._turn(agent, mock_model, "Schedule it nightly.", schedule)
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["schedule_test_set"]
+
+    @pytest.mark.asyncio
+    async def test_a_later_accept_does_not_cover_scheduling_an_earlier_test_set(self, mock_model):
+        """Only the prompt being answered counts for calls other than creates."""
+        tools = [self._tool("create_requirement"), self._tool("schedule_test_set")]
+        agent = _make_agent(mock_model, tools=tools)
+        agent._mutating_tools = frozenset({"create_requirement", "schedule_test_set"})
+        agent._test_set_names_by_id = {"ts1": "Claims smoke"}
+        agent.guard_state = {"pending_scope": [], "approved_scope": [["test_set", "claims smoke"]]}
+        await self._hold(agent, mock_model, "create_requirement", "Always use English")
+
+        schedule = _tool_dict("schedule_test_set", {"test_set_id": "ts1", "cron": "0 2 * * *"})
+        await self._accept(agent, mock_model, schedule)
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["schedule_test_set"]
+
+    @pytest.mark.asyncio
+    async def test_scheduling_shown_with_the_prompt_runs_on_its_accept(self, mock_model):
+        agent = _make_agent(mock_model, tools=[self._tool("schedule_test_set")])
+        agent._mutating_tools = frozenset({"schedule_test_set"})
+        agent._test_set_names_by_id = {"ts1": "Claims smoke"}
+        schedule = _tool_dict("schedule_test_set", {"test_set_id": "ts1", "cron": "0 2 * * *"})
+        await self._turn(agent, mock_model, "Schedule it nightly.", schedule)
+        assert agent._needs_confirmation is True
+
+        await self._accept(agent, mock_model, schedule)
+
+        assert agent._blocked_calls == []
+
+    @pytest.mark.asyncio
+    async def test_a_step_runs_its_approved_calls_and_holds_only_the_new_ones(self, mock_model):
+        """Holding the approved create along with the new one would ask about it again."""
+        tools = [self._tool("create_requirement"), self._tool("create_metric")]
+        agent = _make_agent(mock_model, tools=tools)
+        agent._mutating_tools = frozenset({"create_requirement", "create_metric"})
+        await self._hold(agent, mock_model, "create_requirement", "Refund policy")
+
+        step = _tool_dict("create_requirement", {"name": "Refund policy"})
+        step["tool_calls"].append(
+            {"tool_name": "create_metric", "arguments": json.dumps({"name": "Refund accuracy"})}
+        )
+        await self._accept(agent, mock_model, step)
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["create_metric"]
+        ran = [r.tool_name for s in agent._execution_history for r in s.tool_results if r.success]
+        assert "create_requirement" in ran
+        assert agent._pending_scope == frozenset({("metric", "refund accuracy")})
+
+    @pytest.mark.asyncio
+    async def test_change_keeps_what_was_approved_before(self, mock_model):
+        tools = [self._tool("create_metric"), self._tool("create_requirement")]
+        agent = _make_agent(mock_model, tools=tools)
+        agent._mutating_tools = frozenset({"create_metric", "create_requirement"})
+        await self._hold(agent, mock_model, "create_metric", "Language")
+        await self._accept(agent, mock_model)
+        await self._hold(agent, mock_model, "create_requirement", "Always use English")
+
+        await self._turn(agent, mock_model, "Change: call it English only.", approve=False)
+
+        assert ("metric", "language") in agent._approved_scope
+        assert agent._pending_scope == frozenset()
+
+    @pytest.mark.asyncio
+    async def test_a_task_completed_turn_keeps_the_open_prompt(self, mock_model):
+        """The user hasn't answered, so Accept must still be there when the turn ends."""
+        agent = _make_agent(mock_model, tools=[self._tool("create_requirement")])
+        agent._mutating_tools = frozenset({"create_requirement"})
+        await self._hold(agent, mock_model, "create_requirement", "Always use English")
+
+        await self._turn(agent, mock_model, "[TASK_COMPLETED] generation finished")
+
+        assert agent._needs_confirmation is True
+        assert agent._pending_scope == frozenset({("requirement", "always use english")})
+
+    @pytest.mark.asyncio
+    async def test_the_task_completed_message_does_not_approve(self, mock_model):
+        """The backend's resume message arrives with approve=None; it is not a yes."""
+        agent = _make_agent(mock_model, tools=[self._tool("create_requirement")])
+        agent._mutating_tools = frozenset({"create_requirement"})
+        await self._hold(agent, mock_model, "create_requirement", "Always use English")
+
+        create = _tool_dict("create_requirement", {"name": "Always use English"})
+        await self._turn(agent, mock_model, "[TASK_COMPLETED] generation finished", create)
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["create_requirement"]
+        assert agent._approved_scope == frozenset()
+
+    @pytest.mark.asyncio
+    async def test_a_call_missing_arguments_is_returned_not_shown_for_approval(self, mock_model):
+        """Held as written, it fails after the Accept and the fix is asked about again."""
+        tool = self._tool("create_metric", required=("score_type",))
+        agent = _make_agent(mock_model, tools=[tool])
+        agent._mutating_tools = frozenset({"create_metric"})
+        create = _tool_dict("create_metric", {"name": "Language"})
+        await self._turn(agent, mock_model, "Create a language metric.", create)
+
+        assert agent._blocked_calls == []
+        assert agent._needs_confirmation is False
+        errors = [r.error for s in agent._execution_history for r in s.tool_results if r.error]
+        assert any("score_type" in e for e in errors)
+
+    @pytest.mark.asyncio
+    async def test_a_returned_call_lets_the_read_only_calls_in_its_step_run(self, mock_model):
+        tool = self._tool("create_metric", required=("score_type",))
+        agent = _make_agent(mock_model, tools=[tool, DummyTool()])
+        agent._mutating_tools = frozenset({"create_metric"})
+        step = _tool_dict("dummy", {"x": "1"})
+        step["tool_calls"].append(
+            {"tool_name": "create_metric", "arguments": json.dumps({"name": "Language"})}
+        )
+        await self._turn(agent, mock_model, "Create a language metric.", step)
+
+        results = {r.tool_name: r for s in agent._execution_history for r in s.tool_results}
+        assert results["dummy"].success is True
+        assert "score_type" in results["create_metric"].error
+
+    @pytest.mark.asyncio
+    async def test_a_returned_call_sent_again_unchanged_is_refused(self, mock_model):
+        """Reported like a failed call, so the repeat guard stops a loop on it."""
+        tool = self._tool("create_metric", required=("score_type",))
+        agent = _make_agent(mock_model, tools=[tool])
+        agent._mutating_tools = frozenset({"create_metric"})
+        create = _tool_dict("create_metric", {"name": "Language"})
+        await self._turn(agent, mock_model, "Create a language metric.", create, create)
+
+        errors = [r.error for s in agent._execution_history for r in s.tool_results if r.error]
+        assert errors[-1].startswith("Not sent: this exact call already failed")
+
+    def test_a_session_saved_before_pending_scope_reads_its_scope_as_pending(self, mock_model):
+        """In-flight sessions keep their open prompt across the upgrade, unapproved."""
+        agent = _make_agent(mock_model)
+        agent.guard_state = {
+            "needs_confirmation": True,
+            "confirming_tools": ["create_requirement"],
+            "approved_scope": [["requirement", "always use english"]],
+        }
+
+        assert agent._pending_scope == frozenset({("requirement", "always use english")})
+        assert agent._approved_scope == frozenset()
 
     @pytest.mark.asyncio
     async def test_approved_turn_that_hits_the_iteration_cap_asks_nothing(self, mock_model):
