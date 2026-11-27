@@ -1,7 +1,7 @@
 {% extends '_base.html.jinja2' %}
-{% import '_components.html.jinja2' as c %}
+{% import '_components.html.jinja2' as c with context %}
 
-{% block title %}Verify your email - Rhesis AI{% endblock %}
+{% block title %}Verify your email - {{ brand.product_name }}{% endblock %}
 {% block preheader %}One quick step to get started. This link expires in 24 hours.{% endblock %}
 
 {% block content %}
@@ -9,11 +9,11 @@
 
 {% call c.row_prose() %}
     {{ c.p("Hi" ~ (' ' ~ recipient_name if recipient_name else '') ~ ",") }}
-    {{ c.p('Thanks for signing up for Rhesis AI! Please verify your email address by clicking the button below.') }}
+    {{ c.p('Thanks for signing up for ' ~ brand.product_name ~ '! Please verify your email address by clicking the button below.') }}
     {{ c.p('This link will expire in 24 hours.', size=brand.type.small, color=brand.color.muted, bottom=0) }}
 {% endcall %}
 
 {{ c.row_button(verification_url, 'Verify email address') }}
 {{ c.row_fallback_link(verification_url) }}
-{{ c.row_note("If you didn't create an account with Rhesis AI, you can safely ignore this email.") }}
+{{ c.row_note("If you didn't create an account with " ~ brand.product_name ~ ", you can safely ignore this email.") }}
 {% endblock %}

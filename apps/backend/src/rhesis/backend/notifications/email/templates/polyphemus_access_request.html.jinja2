@@ -1,5 +1,5 @@
 {% extends '_base.html.jinja2' %}
-{% import '_components.html.jinja2' as c %}
+{% import '_components.html.jinja2' as c with context %}
 
 {% block title %}Polyphemus Access Request - Rhesis AI{% endblock %}
 {% block preheader %}{{ user_name }} requested access to the Polyphemus adversarial model.{% endblock %}

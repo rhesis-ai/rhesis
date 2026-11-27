@@ -9,12 +9,19 @@ Run from apps/backend:
     uv run python scripts/preview_emails.py
     open /tmp/rhesis-email-preview/index.html
 
+Pass --product-name (and optionally --primary-color, --secondary-color and
+--favicon) to render as a white-labelled organization's members see it:
+
+    uv run python scripts/preview_emails.py --product-name "Acme Evals" \
+        --primary-color "#6A1B9A" --secondary-color "#FFD600" --favicon icon.png
+
 Pass --out to write somewhere else. Note this renders with whatever
 EMAIL_ASSET_BASE_URL resolves to, so the logo, header wash, and web fonts only
 appear if that host is reachable and already has the assets deployed.
 """
 
 import argparse
+import base64
 import sys
 from pathlib import Path
 
@@ -23,6 +30,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
+from rhesis.backend.notifications.email.brand import (  # noqa: E402
+    LOGO_CONTENT_ID,
+    OrganizationBrand,
+    get_brand,
+)
 from rhesis.backend.notifications.email.template_service import (  # noqa: E402
     EmailTemplate,
     TemplateService,
@@ -53,7 +65,20 @@ the asset host is live.</div>
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="/tmp/rhesis-email-preview", type=Path)
+    parser.add_argument("--product-name")
+    parser.add_argument("--primary-color")
+    parser.add_argument("--secondary-color")
+    parser.add_argument("--favicon", type=Path, help="A PNG, attached inline when sent")
     args = parser.parse_args()
+
+    logo_png = args.favicon.read_bytes() if args.favicon else None
+    organization = OrganizationBrand(
+        product_name=args.product_name,
+        primary_color=args.primary_color,
+        secondary_color=args.secondary_color,
+        logo_png=logo_png,
+    )
+    brand = get_brand(organization) if organization != OrganizationBrand() else None
 
     out_dir: Path = args.out
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -68,7 +93,12 @@ def main() -> None:
 
     index = [INDEX_HEAD]
     for name, template, variables in cases:
-        html = service.render_template(template, variables)
+        html = service.render_template(template, variables, brand=brand)
+        if logo_png:
+            # A sent message carries the favicon as an inline part; a browser can't
+            # resolve cid:, so the preview inlines it instead.
+            data_uri = "data:image/png;base64," + base64.b64encode(logo_png).decode()
+            html = html.replace(f"cid:{LOGO_CONTENT_ID}", data_uri)
         (out_dir / f"{name}.html").write_text(html, encoding="utf-8")
         index.append(
             f'<section><h2>{name}<a href="{name}.html" target="_blank">open</a></h2>'

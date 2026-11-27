@@ -53,6 +53,7 @@ from rhesis.backend.app.utils.rate_limit import (
 from rhesis.backend.app.utils.user_model_utils import MODEL_PURPOSES, check_model_fits_purpose
 from rhesis.backend.app.utils.validation import validate_and_normalize_email
 from rhesis.backend.notifications import email_service
+from rhesis.backend.notifications.email.organization_brand import load_organization_brand
 
 logger = logging.getLogger(__name__)
 
@@ -304,6 +305,7 @@ def create_user(
                 organization_slug=organization.slug if organization else None,
                 sso_enabled=_org_sso_enabled(organization),
                 magic_link_url=magic_link_url,
+                organization=load_organization_brand(db, current_user.organization_id),
             )
 
             if success:

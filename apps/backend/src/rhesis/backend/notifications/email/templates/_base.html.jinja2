@@ -24,7 +24,7 @@
         which otherwise mangles the flattened header assets. -#}
     <meta name="color-scheme" content="light">
     <meta name="supported-color-schemes" content="light">
-    <title>{% block title %}Rhesis AI{% endblock %}</title>
+    <title>{% block title %}{{ brand.product_name }}{% endblock %}</title>
     <!--[if mso]>
     <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
     <![endif]-->
@@ -120,9 +120,15 @@
                     the button. At 375px the 600px image is centre-cropped
                     instead, which is fine — the bloom is centred and already
                     bleeds off both sides. -#}
+                {#- A white-labelled organization gets no wash: it is a Rhesis-coloured image. -#}
+                {%- if brand.white_label -%}
+                <table role="presentation" width="{{ brand.layout.width }}" cellpadding="0" cellspacing="0" border="0" class="sm-full"
+                       style="width: {{ brand.layout.width }}px; max-width: {{ brand.layout.width }}px;">
+                {%- else -%}
                 <table role="presentation" width="{{ brand.layout.width }}" cellpadding="0" cellspacing="0" border="0" class="sm-full wash"
                        background="{{ brand.wash_url }}"
                        style="width: {{ brand.layout.width }}px; max-width: {{ brand.layout.width }}px; background-image: url('{{ brand.wash_url }}'); background-position: center {{ brand.layout.wash_offset }}px; background-repeat: no-repeat; background-size: {{ brand.layout.width }}px {{ brand.layout.wash_height }}px;">
+                {%- endif %}
 
                     {#- The lockup is a raster because on the site the wordmark
                         is live Sora text, and Sora has no usable fallback in
@@ -131,11 +137,31 @@
                         so the bloom sits behind the headline. -#}
                     <tr>
                         <td align="center" style="padding: 0 0 6px 0;">
+                            {% if brand.white_label %}
+                            {#- The organization's favicon is attached to the message
+                                (cid:), since its upload is only served to signed-in
+                                users. The name is live text: unlike Sora, the
+                                product name needs no particular face. -#}
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="height: {{ brand.layout.logo_height }}px;">
+                                <tr>
+                                    {% if brand.has_logo %}
+                                    <td valign="middle" style="padding: 0 12px 0 0;">
+                                        <img src="cid:{{ brand.logo_cid }}" alt="" width="{{ brand.layout.org_logo_size }}" height="{{ brand.layout.org_logo_size }}"
+                                             style="display: block; width: {{ brand.layout.org_logo_size }}px; height: {{ brand.layout.org_logo_size }}px; border: 0;">
+                                    </td>
+                                    {% endif %}
+                                    <td valign="middle" style="font-family: {{ brand.font.sans }}; font-size: {{ brand.type.lede }}px; font-weight: 700; line-height: 1.2; color: {{ brand.color.heading }};">
+                                        {{ brand.product_name }}
+                                    </td>
+                                </tr>
+                            </table>
+                            {% else %}
                             <a href="https://rhesis.ai" style="text-decoration: none;">
                                 <img src="{{ brand.logo_url }}" alt="Rhesis AI"
                                      width="{{ brand.layout.logo_width }}" height="{{ brand.layout.logo_height }}"
                                      style="display: block; width: {{ brand.layout.logo_width }}px; height: auto; border: 0;">
                             </a>
+                            {% endif %}
                         </td>
                     </tr>
 
@@ -148,7 +174,7 @@
                     {% block signoff %}
                     <tr>
                         <td class="sm-px" style="padding: 8px 0 36px 0; font-family: {{ brand.font.sans }}; font-size: {{ brand.type.body }}px; line-height: 1.6; color: {{ brand.color.body }};">
-                            Best regards,<br>The Rhesis AI team
+                            Best regards,<br>The {{ brand.product_name }} team
                         </td>
                     </tr>
                     {% endblock %}

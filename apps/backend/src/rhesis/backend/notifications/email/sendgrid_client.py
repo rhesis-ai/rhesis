@@ -5,6 +5,7 @@ SendGrid v3 API client for sending emails with dynamic templates.
 import logging
 import os
 from datetime import datetime, timedelta, timezone
+from email.header import decode_header, make_header
 from email.utils import parseaddr
 from typing import Optional, Tuple
 
@@ -43,6 +44,8 @@ class SendGridClient:
             Tuple of (email_address, name or None)
         """
         name, email = parseaddr(email_string)
+        # SendGrid takes the name as JSON, so undo the RFC 2047 encoding of a non-ASCII one.
+        name = str(make_header(decode_header(name))) if name else name
         return email, name if name else None
 
     def send_scheduled_dynamic_template(

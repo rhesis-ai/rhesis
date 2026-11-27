@@ -6,11 +6,11 @@ import logging
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import jinja2
 
-from rhesis.backend.notifications.email.brand import get_brand
+from rhesis.backend.notifications.email.brand import Brand, get_brand
 
 logger = logging.getLogger(__name__)
 
@@ -147,13 +147,17 @@ class TemplateService:
             return value
         return value.strftime(format) if value else ""
 
-    def render_template(self, template: EmailTemplate, variables: Dict[str, Any]) -> str:
+    def render_template(
+        self, template: EmailTemplate, variables: Dict[str, Any], brand: Optional[Brand] = None
+    ) -> str:
         """
         Render an email template with the provided variables.
 
         Args:
             template: The email template to render
             variables: Dictionary of variables to pass to the template
+            brand: The recipient organization's brand. Without one the Rhesis brand
+                global applies.
 
         Returns:
             str: Rendered HTML content
@@ -167,6 +171,8 @@ class TemplateService:
 
             # Prepare context with all required variables
             context = self._prepare_context(template, variables)
+            if brand is not None:
+                context["brand"] = brand
 
             # Render the template
             rendered_content = jinja_template.render(**context)

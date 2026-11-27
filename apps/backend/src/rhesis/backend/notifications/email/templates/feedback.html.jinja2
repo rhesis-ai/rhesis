@@ -1,5 +1,5 @@
 {% extends '_base.html.jinja2' %}
-{% import '_components.html.jinja2' as c %}
+{% import '_components.html.jinja2' as c with context %}
 
 {% block title %}Rhesis AI Feedback{% endblock %}
 {% block preheader %}{{ user_name }} submitted feedback{% if rating and rating != 'N/A' %} ({{ rating }}/5){% endif %}.{% endblock %}

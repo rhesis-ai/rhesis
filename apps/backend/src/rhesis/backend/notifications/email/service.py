@@ -5,16 +5,47 @@ Main email service that orchestrates SMTP and template services.
 import logging
 import os
 import re
+from email.mime.base import MIMEBase
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Any, ClassVar, Dict, List, Optional
 from urllib.parse import quote
 
 from rhesis.backend.app.config.settings import get_frontend_settings
+from rhesis.backend.notifications.email.brand import (
+    DEFAULT_PRODUCT_NAME,
+    LOGO_CONTENT_ID,
+    OrganizationBrand,
+    get_brand,
+)
+from rhesis.backend.notifications.email.sender import sender_with_name
 from rhesis.backend.notifications.email.sendgrid_client import SendGridClient
 from rhesis.backend.notifications.email.smtp import SMTPService
 from rhesis.backend.notifications.email.template_service import EmailTemplate, TemplateService
 
 logger = logging.getLogger(__name__)
+
+
+def _product_name(organization: Optional[OrganizationBrand]) -> str:
+    """What the email calls the product: the organization's product name, or Rhesis AI."""
+    if organization and organization.product_name:
+        return organization.product_name
+    return DEFAULT_PRODUCT_NAME
+
+
+def _message(html_content: str, logo_from: Optional[OrganizationBrand]) -> MIMEBase:
+    """The HTML part, with the organization's favicon attached inline when it is shown."""
+    html = MIMEText(html_content, "html")
+    if logo_from is None or not logo_from.logo_png:
+        return html
+    message = MIMEMultipart("related")
+    message.attach(html)
+    logo = MIMEImage(logo_from.logo_png, "png")
+    logo.add_header("Content-ID", f"<{LOGO_CONTENT_ID}>")
+    logo.add_header("Content-Disposition", "inline", filename="logo.png")
+    message.attach(logo)
+    return message
 
 
 class EmailService:
@@ -66,6 +97,7 @@ class EmailService:
         task_id: Optional[str] = None,
         from_email: Optional[str] = None,
         bcc: Optional[str] = None,
+        organization: Optional[OrganizationBrand] = None,
     ) -> bool:
         """
         Send an email using the specified template.
@@ -78,6 +110,8 @@ class EmailService:
             task_id: Optional task ID for logging purposes
             from_email: Optional custom from email address (overrides default)
             bcc: Optional BCC email address
+            organization: The recipient organization's branding. Its product name,
+                colours and favicon replace Rhesis's in the message and the From name.
 
         Returns:
             bool: True if email was sent successfully, False otherwise
@@ -89,13 +123,17 @@ class EmailService:
         logger.info(f"Starting email to {recipient_email} using template {template.value}")
 
         try:
-            # Render the template
-            html_content = self.template_service.render_template(template, template_variables)
+            brand = get_brand(organization)
+            html_content = self.template_service.render_template(
+                template, template_variables, brand=brand
+            )
 
-            # Create HTML message
-            msg = MIMEText(html_content, "html")
+            msg = _message(html_content, organization if brand.has_logo else None)
             msg["Subject"] = subject
-            msg["From"] = from_email if from_email else self.smtp_service.from_email
+            msg["From"] = sender_with_name(
+                from_email or self.smtp_service.from_email,
+                organization.product_name if organization else None,
+            )
             msg["To"] = recipient_email
 
             logger.debug(f"Created HTML email message with subject: {msg['Subject']}")
@@ -138,6 +176,7 @@ class EmailService:
         organization_slug: Optional[str] = None,
         sso_enabled: bool = False,
         magic_link_url: Optional[str] = None,
+        organization: Optional[OrganizationBrand] = None,
     ) -> bool:
         """
         Send a team invitation email to a new user.
@@ -172,7 +211,7 @@ class EmailService:
         if not frontend_url:
             frontend_url = get_frontend_settings().url
 
-        subject = f"You're invited to join {organization_name} on Rhesis AI!"
+        subject = f"You're invited to join {organization_name} on {_product_name(organization)}!"
 
         # Deep-link to the login page so it offers that org's identity provider.
         # The `org` param is what AuthForm reads to fetch the org's auth config;
@@ -216,6 +255,7 @@ class EmailService:
             subject=subject,
             template_variables=template_variables,
             task_id="team_invitation",
+            organization=organization,
         )
 
     @staticmethod
@@ -287,6 +327,7 @@ class EmailService:
         delay_hours: int,
         delay_minutes: int = 0,
         frontend_url: Optional[str] = None,
+        organization: Optional[OrganizationBrand] = None,
     ) -> bool:
         """
         Schedule one onboarding email using a SendGrid Dynamic Template.
@@ -320,7 +361,10 @@ class EmailService:
         if not frontend_url:
             frontend_url = get_frontend_settings().url
 
-        from_email = os.getenv("WELCOME_FROM_EMAIL", '"Nicolai from Rhesis AI" <hello@rhesis.ai>')
+        from_email = sender_with_name(
+            os.getenv("WELCOME_FROM_EMAIL", '"Nicolai from Rhesis AI" <hello@rhesis.ai>'),
+            organization.product_name if organization else None,
+        )
 
         dynamic_template_data = {
             "recipient_name": recipient_name or "there",
@@ -344,6 +388,7 @@ class EmailService:
         recipient_email: str,
         recipient_name: Optional[str],
         frontend_url: Optional[str] = None,
+        organization: Optional[OrganizationBrand] = None,
     ) -> bool:
         """
         Schedule the first onboarding email (connect your app) 10 minutes after onboarding.
@@ -358,6 +403,7 @@ class EmailService:
             delay_hours=0,
             delay_minutes=10,
             frontend_url=frontend_url,
+            organization=organization,
         )
 
     def send_day_2_email(
@@ -365,6 +411,7 @@ class EmailService:
         recipient_email: str,
         recipient_name: Optional[str],
         frontend_url: Optional[str] = None,
+        organization: Optional[OrganizationBrand] = None,
     ) -> bool:
         """Schedule the second onboarding email (requirements, then tests) 24h after onboarding."""
         return self._send_scheduled_onboarding_email(
@@ -374,6 +421,7 @@ class EmailService:
             template_env_var="SENDGRID_DAY_2_EMAIL_TEMPLATE_ID",
             delay_hours=24,
             frontend_url=frontend_url,
+            organization=organization,
         )
 
     def send_day_3_email(
@@ -381,6 +429,7 @@ class EmailService:
         recipient_email: str,
         recipient_name: Optional[str],
         frontend_url: Optional[str] = None,
+        organization: Optional[OrganizationBrand] = None,
     ) -> bool:
         """
         Schedule the third onboarding email (reading results) 71h 59m after onboarding.
@@ -395,6 +444,7 @@ class EmailService:
             delay_hours=71,
             delay_minutes=59,
             frontend_url=frontend_url,
+            organization=organization,
         )
 
     def send_verification_email(
@@ -402,6 +452,7 @@ class EmailService:
         recipient_email: str,
         recipient_name: Optional[str],
         verification_url: str,
+        organization: Optional[OrganizationBrand] = None,
     ) -> bool:
         """Send an email verification link to a user."""
         if not self.is_configured:
@@ -413,12 +464,13 @@ class EmailService:
         return self.send_email(
             template=EmailTemplate.EMAIL_VERIFICATION,
             recipient_email=recipient_email,
-            subject="Verify your email - Rhesis AI",
+            subject=f"Verify your email - {_product_name(organization)}",
             template_variables={
                 "recipient_name": recipient_name or "",
                 "verification_url": verification_url,
             },
             task_id="email_verification",
+            organization=organization,
         )
 
     def send_password_reset_email(
@@ -426,6 +478,7 @@ class EmailService:
         recipient_email: str,
         recipient_name: Optional[str],
         reset_url: str,
+        organization: Optional[OrganizationBrand] = None,
     ) -> bool:
         """Send a password reset link to a user."""
         if not self.is_configured:
@@ -437,12 +490,13 @@ class EmailService:
         return self.send_email(
             template=EmailTemplate.PASSWORD_RESET,
             recipient_email=recipient_email,
-            subject="Reset your password - Rhesis AI",
+            subject=f"Reset your password - {_product_name(organization)}",
             template_variables={
                 "recipient_name": recipient_name or "",
                 "reset_url": reset_url,
             },
             task_id="password_reset",
+            organization=organization,
         )
 
     def send_migration_reset_email(
@@ -476,6 +530,7 @@ class EmailService:
         recipient_name: Optional[str],
         magic_link_url: str,
         is_new_user: bool = False,
+        organization: Optional[OrganizationBrand] = None,
     ) -> bool:
         """Send a magic link email to a user.
 
@@ -484,6 +539,7 @@ class EmailService:
             recipient_name: The recipient's display name.
             magic_link_url: The magic link URL.
             is_new_user: Whether this is a newly created account.
+            organization: The user's organization's branding, if it has any.
         """
         if not self.is_configured:
             logger.warning(
@@ -492,7 +548,8 @@ class EmailService:
             )
             return False
 
-        subject = "Welcome to Rhesis AI" if is_new_user else "Sign in to Rhesis AI"
+        product = _product_name(organization)
+        subject = f"Welcome to {product}" if is_new_user else f"Sign in to {product}"
 
         return self.send_email(
             template=EmailTemplate.MAGIC_LINK,
@@ -504,4 +561,5 @@ class EmailService:
                 "is_new_user": is_new_user,
             },
             task_id="magic_link",
+            organization=organization,
         )

@@ -71,6 +71,15 @@ def get_organization(
     return get_item(db, models.Organization, organization_id, tenant_organization_id, user_id)
 
 
+def find_organization(
+    db: Session, organization_id: Optional[UUID | str]
+) -> Optional[models.Organization]:
+    """The organization, or ``None``. Unlike ``get_organization`` it never raises."""
+    if organization_id is None:
+        return None
+    return db.get(models.Organization, organization_id)
+
+
 def get_organizations(
     db: Session,
     skip: int = 0,

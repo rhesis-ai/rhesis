@@ -5,7 +5,7 @@ SMTP service for sending emails via SendGrid or other SMTP providers.
 import logging
 import smtplib
 import socket
-from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
 
 from rhesis.backend.app.config.settings import get_smtp_settings
 
@@ -22,11 +22,7 @@ class SMTPService:
         self.smtp_port = settings.port
         self.smtp_user = settings.user
         self.smtp_password = settings.password
-        from_email = settings.from_email
-        # Wrap bare email addresses with a display name
-        if "<" not in from_email:
-            from_email = f'"Harry from Rhesis AI" <{from_email}>'
-        self.from_email = from_email
+        self.from_email = settings.from_email
 
         # Check if all required SMTP configurations are present
         self.is_configured = all([self.smtp_host, self.smtp_user, self.smtp_password])
@@ -39,7 +35,7 @@ class SMTPService:
             )
 
     def send_message(
-        self, msg: MIMEMultipart, recipient_email: str, task_id: str, bcc: str | None = None
+        self, msg: MIMEBase, recipient_email: str, task_id: str, bcc: str | None = None
     ) -> bool:
         """
         Send the email message with proper SSL/TLS handling and timeout.

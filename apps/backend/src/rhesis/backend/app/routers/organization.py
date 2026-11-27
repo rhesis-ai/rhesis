@@ -53,6 +53,8 @@ from rhesis.backend.app.utils.rate_limit import (
     count_post_parse_hit,
     post_parse_limit_reached,
 )
+from rhesis.backend.notifications.email.brand import OrganizationBrand
+from rhesis.backend.notifications.email.organization_brand import load_organization_brand
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +152,12 @@ def read_organizations(
 # ---------------------------------------------------------------------------
 
 
-def _send_onboarding_emails_bg(email: str, name: str | None, organization_id: str) -> None:
+def _send_onboarding_emails_bg(
+    email: str,
+    name: str | None,
+    organization_id: str,
+    organization: OrganizationBrand | None = None,
+) -> None:
     """Best-effort Day 1/2/3 onboarding emails, safe for BackgroundTasks."""
     from rhesis.backend.notifications.email.service import EmailService
 
@@ -161,7 +168,9 @@ def _send_onboarding_emails_bg(email: str, name: str | None, organization_id: st
         (3, svc.send_day_3_email),
     ]:
         try:
-            success = send_method(recipient_email=email, recipient_name=name)
+            success = send_method(
+                recipient_email=email, recipient_name=name, organization=organization
+            )
             if not success:
                 logger.warning(
                     "Day %s email not scheduled for org_id=%s — check SENDGRID_API_KEY "
@@ -616,6 +625,7 @@ def initialize_organization_data(
         current_user.email,
         current_user.name or current_user.given_name,
         str(organization_id),
+        load_organization_brand(db, organization_id),
     )
     response["email_schedule"] = "pending"
     return response

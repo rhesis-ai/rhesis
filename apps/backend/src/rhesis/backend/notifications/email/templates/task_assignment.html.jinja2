@@ -1,7 +1,7 @@
 {% extends '_base.html.jinja2' %}
-{% import '_components.html.jinja2' as c %}
+{% import '_components.html.jinja2' as c with context %}
 
-{% block title %}Task Assignment Notification - Rhesis AI{% endblock %}
+{% block title %}Task Assignment Notification - {{ brand.product_name }}{% endblock %}
 {% block preheader %}{{ assigner_name }} assigned you: {{ task_title }}{% endblock %}
 
 {% block content %}

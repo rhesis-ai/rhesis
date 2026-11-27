@@ -2,7 +2,7 @@ import logging
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 from uuid import UUID
 
 from celery import Task
@@ -23,6 +23,9 @@ from rhesis.backend.app.utils.deadline import JobTimeLimitExceeded
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.jobs.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
 from rhesis.sdk.models.providers.native import PlatformRefusedCall
+
+if TYPE_CHECKING:
+    from rhesis.backend.notifications.email.brand import OrganizationBrand
 
 logger = logging.getLogger(__name__)
 
@@ -830,16 +833,17 @@ class BaseJob(Task):
 
     def _get_user_info(
         self, user_id: str, organization_id: str | None = None
-    ) -> Tuple[Optional[str], Optional[str], bool]:
+    ) -> Tuple[Optional[str], Optional[str], bool, Optional["OrganizationBrand"]]:
         """
-        Get user email, name and email preference for notifications.
+        Get user email, name, email preference and organization branding for notifications.
 
         Args:
             user_id: The user ID to look up
 
         Returns:
-            Tuple of (email, name, wants_job_completion_emails). The preference
-            rides along here because the user row is already loaded; it reads
+            Tuple of (email, name, wants_job_completion_emails, organization_brand).
+            The preference and the branding ride along here because the user row is
+            already loaded; the preference reads
             True for a user who never opened the setting.
         """
         try:
@@ -847,6 +851,9 @@ class BaseJob(Task):
             from rhesis.backend.app.services.notification import (
                 EmailNotificationKind,
                 email_enabled,
+            )
+            from rhesis.backend.notifications.email.organization_brand import (
+                load_organization_brand,
             )
 
             with self.get_db_session() as db:
@@ -859,13 +866,14 @@ class BaseJob(Task):
                         else (user.name or user.given_name or user.email)
                     )
                     wants_email = email_enabled(user, EmailNotificationKind.JOB_COMPLETION)
-                    return user.email, display_name, wants_email
-                return None, None, True
+                    organization = load_organization_brand(db, user.organization_id)
+                    return user.email, display_name, wants_email, organization
+                return None, None, True, None
         except Exception as e:
             self.log_with_context(
                 "warning", "Failed to get user info for notifications", error=str(e)
             )
-            return None, None, True
+            return None, None, True, None
 
     def _send_task_completion_email(
         self, status: str, error_message: Optional[str] = None, **kwargs
@@ -888,7 +896,9 @@ class BaseJob(Task):
                 return
 
             # Get user information
-            user_email, user_name, wants_email = self._get_user_info(user_id, organization_id)
+            user_email, user_name, wants_email, organization = self._get_user_info(
+                user_id, organization_id
+            )
 
             if not user_email:
                 self.log_with_context("warning", f"No email found for user {user_id}")
@@ -957,6 +967,7 @@ class BaseJob(Task):
                 subject=subject,
                 template_variables=template_variables,
                 task_id=self.request.id,
+                organization=organization,
             )
 
             if success:
