@@ -215,9 +215,11 @@ export default function TestDetailConversationTab({
           endpointFailure?.responseBody ||
           endpointFailure?.summary ||
           '',
-        // Single-turn results have no goal_evaluation, so the turn status comes
-        // from the result status (review > backend status > metrics).
-        success: getEffectiveTestResultStatus(test) === 'Pass',
+        // Whether the call itself went through, as for a conversation's turns: a
+        // turn that failed its metrics is not an error. The result's own verdict
+        // shows in the header.
+        success:
+          !endpointFailure && getEffectiveTestResultStatus(test) !== 'Error',
       },
     ];
 

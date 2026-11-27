@@ -68,7 +68,12 @@ from rhesis.backend.jobs.execution.constants import (
     PENELOPE_GOAL_METRIC_KEY,
 )
 from rhesis.backend.jobs.execution.executors.data import get_test_metrics
-from rhesis.backend.metrics.applicability import applicable, expected_tool_calls, metric_class
+from rhesis.backend.metrics.applicability import (
+    applicable,
+    expected_tool_calls,
+    expected_tool_calls_per_turn,
+    metric_class,
+)
 from rhesis.sdk.metrics import Expectations
 
 _EMPTY_PLAN: Dict[str, Any] = {
@@ -154,12 +159,19 @@ def _expectations_by_test(
     """What each test expects, read only when one of the metrics depends on it."""
     if not any(getattr(metric_class(m), "REQUIRED_EXPECTATIONS", ()) for _, m, _ in keyed):
         return {}
-    rows = db.query(models.Test.id, models.Test.test_configuration).filter(
-        models.Test.id.in_([uuid.UUID(t) for t in test_ids])
+    rows = (
+        db.query(models.Test.id, models.Test.test_configuration, models.Prompt.expected_response)
+        .outerjoin(models.Prompt, models.Prompt.id == models.Test.prompt_id)
+        .filter(models.Test.id.in_([uuid.UUID(t) for t in test_ids]))
     )
     return {
-        str(test_id): Expectations(tool_calls=expected_tool_calls(config))
-        for test_id, config in rows
+        str(test_id): Expectations(
+            # As the evaluation reads it: an empty expected response is none.
+            response=expected_response or None,
+            tool_calls=expected_tool_calls(config),
+            tool_calls_per_turn=expected_tool_calls_per_turn(config),
+        )
+        for test_id, config, expected_response in rows
     }
 
 

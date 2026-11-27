@@ -29,7 +29,10 @@ from rhesis.backend.jobs.execution.constants import (
     TURN_METADATA_KEY,
     TURN_TOOL_CALLS_KEY,
 )
-from rhesis.backend.metrics.applicability import expected_tool_calls
+from rhesis.backend.metrics.applicability import (
+    expected_tool_calls,
+    expected_tool_calls_per_turn,
+)
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.metrics.inputs import ResponseTrace, TraceLoader
 from rhesis.sdk.entities.trace import Trace
@@ -150,6 +153,7 @@ def conversation_expectations(
         restrictions=test_config.get("restrictions") or None,
         contract=contract,
         tool_calls=expected_tool_calls(test_config),
+        tool_calls_per_turn=expected_tool_calls_per_turn(test_config),
     )
 
 
@@ -212,7 +216,8 @@ def evaluate_single_turn_metrics(
         metrics_results = metrics_evaluator.evaluate(
             metrics,
             response_trace(prompt_content, result, context, trace_loader),
-            Expectations(response=expected_response, tool_calls=expected_tool_calls),
+            # A test with no expected response has none to compare with, not an empty one.
+            Expectations(response=expected_response or None, tool_calls=expected_tool_calls),
         )
     except Exception as e:
         logger.warning(f"Error evaluating metrics: {str(e)}")

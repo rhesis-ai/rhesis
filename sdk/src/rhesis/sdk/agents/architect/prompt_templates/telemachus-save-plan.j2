@@ -21,15 +21,17 @@ Top-level structure (all three array fields are required, even if empty):
 - `description`: string (required) — what this metric evaluates
 - `reuse_status`: string (optional, defaults to `"new"`) — same allowed values as requirements
 - `existing_id`: string (optional) — required when `reuse_status` is `"reuse"` or `"improve"`
-- `target`: string (optional, defaults to `"turn"`) — what the metric judges, which you send to `create_metric` as `config: {"target": {"on": ...}}`. `"turn"` judges each request and its response, and every turn of a Multi-Turn test on its own. `"conversation"` judges a whole conversation at once and never runs on Single-Turn tests. The schema lists the other choices, which judge each span of one kind, such as each tool call (see `metric-targets.md`).
+- `target`: string (optional, defaults to `"turn"`, and to `"run"` for a `ToolCallTrajectory` rule) — what the metric judges, which you send to `create_metric` as `config: {"target": {"on": ...}}`. `"turn"` judges each request and its response, and every turn of a Multi-Turn test on its own. `"conversation"` judges a whole conversation at once and never runs on Single-Turn tests. The schema lists the other choices, which judge each span of one kind, such as each tool call (see `metric-targets.md`).
 - `evaluation_prompt`: string (optional, expected for new metrics) — the criteria the judge applies, as you will send them to `create_metric`: a criterion naming something a reader could point at in the output, one bullet per testable clause, score bands tied to conditions. No placeholders.
 - `evaluation_steps`: string (optional, expected for new metrics) — 4-7 ordered steps, one action each, scoring last. Format: `Step N:` on its own line, steps joined by a line containing only `---`.
 - `reasoning`: string (optional, expected for new metrics) — the judge's reasoning instructions: what evidence to quote, which clause to tie it to, how to break a tie. Not a note about why the metric is in the plan.
 - `explanation`: string (optional, expected for new metrics) — what a pass and a fail mean for the system under test, and what to do about a fail.
 - `threshold`: number (optional, defaults to 1.0)
 - `threshold_operator`: string (optional, defaults to `">="`)
+- `rule`: string (optional) — set for a rule, a metric with no model: `"FieldRule"` (a field of the trace against a value, such as `duration_ms`), `"ResponseRule"` (the output against the expected response) or `"ToolCallTrajectory"` (the tool calls against the expected ones). Leave it out for a judge. Sent to `create_metric` as `class_name`, with `metric_type: "rule"` and `backend_type: "rhesis"`.
+- `rule_settings`: object (optional) — a rule's settings, sent in `config` next to the target, such as `{"field": "duration_ms", "op": "<=", "value": 5000}`.
 
-For every metric with `reuse_status: "new"`, write these fields out in full — this is the wording the user approves and the wording you send to `create_metric` afterwards. A one-sentence placeholder here means a threadbare metric later. See `metric-authoring.md` for the depth expected.
+For a rule, `evaluation_prompt` is the rule in one line (`"duration_ms <= 5000"`), and `evaluation_steps` and `reasoning` stay empty: there is no judge to instruct. For every judge with `reuse_status: "new"`, write these fields out in full — this is the wording the user approves and the wording you send to `create_metric` afterwards. A one-sentence placeholder here means a threadbare metric later. See `metric-authoring.md` for the depth expected.
 
 `test_sets[]` items:
 - `name`: string (required)

@@ -1,6 +1,6 @@
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
-import type { TestResultStatus } from '@/constants/outcomes';
+import { applicableMetrics, type TestResultStatus } from '@/constants/outcomes';
 
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 
@@ -23,8 +23,10 @@ export function mapTestResultToHistoryRow(
   // Per-metric counts stay local -- they are display detail ("2/3 passed"),
   // not the execution's outcome. The outcome itself comes from the backend,
   // so a reviewed or errored run reads the same here as everywhere else.
-  const metrics = result.test_metrics?.metrics || {};
-  const metricValues = Object.values(metrics);
+  // Not applicable metrics count neither way, as in the result drawer.
+  const metricValues = Object.values(
+    applicableMetrics(result.test_metrics?.metrics)
+  );
   const passedMetrics = metricValues.filter(m => m.is_successful).length;
   const totalMetrics = metricValues.length;
   const status = getEffectiveTestResultStatus(result);

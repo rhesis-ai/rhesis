@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Spans a Metric Judges**: A metric card says what the metric judges under its name, such as "on each tool call named `issue_refund`", with the target's icon. The target links to the Traces page filtered to those spans, where a chip names the target and its metric and removing it clears those filters. Each target judged span by span has the icon the trace view gives that kind of span, so each tool call shows a wrench and each retrieval a magnifier. The spans list's filters include models and tools, kept in the URL.
 - **Target Parts the Traces List Skips**: When a target is narrowed to an agent (`within`) or to attributes (`where`), the Traces chip opened from it says which of those the list doesn't apply, such as "Not applied here: inside billing_agent".
 - **Run Sets With a Tag**: New Test Run can run every test set carrying a tag, each as its own run, and lists the sets the tag covers. Runs of several sets or experiments now start through one server request, which checks every set and the quota before any run starts.
+- **Rules**: The metrics page creates a field rule or a response rule with a target. A rule's page states what it checks in plain words and edits its settings, cards and filters label it Rule, and a result whose data is missing shows as Not applicable with its reason. Duplicating a rule keeps it a rule. A response rule is hidden from multi-turn sets, like Exact Match, and an attribute rule using `contains` or `matches` keeps its value as text. Run comparison and test history leave not-applicable metrics out of their counts and show them as Not applicable.
 - **Endpoint Call Spans**: The trace view labels REST and WebSocket invocation spans (`endpoint.invoke`) as Endpoint call.
 - **Run Tagged Tests**: The run drawer's What to run section has an Only tests tagged field. Pick tags from the set's tests, with how many tests carry each, to run only those tests. Schedules keep the choice, re-runs start with it, and a run's Configuration tab and a schedule's run settings show it.
 
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **API Tokens for Members**: Members can open the API page to manage their own tokens; it no longer requires an admin role.
 - **Span Input and Timing**: A REST invocation span shows the turn's input and output, and a retrieval span its query and documents. A span the endpoint reported shows No timing instead of 0µs.
+- **Not Applicable Results**: A test's Evaluation tab says Not applicable for such a result, where it said Not scored. A single-turn test's turn no longer reads as an error when a metric fails or is not applicable; only a failed endpoint call does. A rule's page no longer shows the raw target value while the target labels load.
 
 ## [0.22.0] - 2026-11-19
 

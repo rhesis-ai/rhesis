@@ -7,7 +7,25 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from rhesis.sdk.agents.constants import InternalTool, ToolMeta
 from rhesis.sdk.metrics.targets import TARGETS, TargetKind
 
+#: The classes of the metrics that check with no model, sent to create_metric as class_name.
+RuleClass = Literal["FieldRule", "ResponseRule", "ToolCallTrajectory"]
+
 ReuseStatus = Literal["reuse", "improve", "new"]
+
+
+def class_default_target(class_name: Any) -> Optional[TargetKind]:
+    """The target the server stores for a built-in class created without one, or None for a
+    name that isn't a built-in class (a custom judge, which judges each turn)."""
+    if not isinstance(class_name, str):
+        return None
+    from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
+    from rhesis.sdk.metrics.targets import default_target
+
+    factory = RhesisMetricFactory()
+    if class_name not in factory.list_supported_metrics():
+        return None
+    return default_target(factory.metric_class(class_name))
+
 
 _TARGET_CHOICES = "; ".join(
     f'"{kind.value}" ({preset.label}): {preset.description}' for kind, preset in TARGETS.items()
@@ -167,9 +185,30 @@ class MetricSpec(BaseModel):
         default=TargetKind.TURN,
         description=(
             "What the metric judges, sent to create_metric as config.target.on. "
-            '"turn" is the default and judges every turn of a conversation too; '
+            '"turn" is the default (a ToolCallTrajectory rule defaults to "run") and judges '
+            "every turn of a conversation too; "
             '"conversation" judges a whole conversation and never runs on '
             f"Single-Turn tests. Choices: {_TARGET_CHOICES}."
+        ),
+    )
+    rule: Optional[RuleClass] = Field(
+        default=None,
+        description=(
+            "Set for a rule, a metric with no model that checks a field of the trace or an "
+            "expectation against a fixed value; leave empty for a judge. Sent to "
+            'create_metric as class_name, with metric_type "rule" and backend_type "rhesis". '
+            "Plan a rule whenever the requirement is a limit or an exact check (answers "
+            "within 5 seconds, never calls a tool, stays under a token budget, valid JSON, "
+            "equals the expected answer): FieldRule for a field of the trace, ResponseRule "
+            "for the expected response, ToolCallTrajectory for the expected tool calls."
+        ),
+    )
+    rule_settings: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "A rule's settings, sent to create_metric in config next to the target, such as "
+            '{"field": "duration_ms", "op": "<=", "value": 5000} for a FieldRule. See '
+            "create_metric's description for every field and operator. Empty for a judge."
         ),
     )
     completed: bool = Field(
@@ -178,12 +217,15 @@ class MetricSpec(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _read_legacy_scope(cls, data: Any) -> Any:
+    def _default_target(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or data.get("target") is not None:
+            return data
         # Plans saved before targets carry metric_scope; Multi-Turn alone judged conversations.
-        if isinstance(data, dict) and "target" not in data:
-            if data.get("metric_scope") == ["Multi-Turn"]:
-                return {**data, "target": TargetKind.CONVERSATION}
-        return data
+        if data.get("metric_scope") == ["Multi-Turn"]:
+            return {**data, "target": TargetKind.CONVERSATION}
+        # A rule left without a target gets its class's default, as the server stores it.
+        default = class_default_target(data.get("rule"))
+        return {**data, "target": default} if default is not None else data
 
 
 class MappingSpec(BaseModel):

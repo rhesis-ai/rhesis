@@ -9,6 +9,7 @@ needs no tracing set up.
 
 import inspect
 import json
+from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, Tuple, TypeVar
 
@@ -135,13 +136,27 @@ def _targeted(args: tuple, kwargs: Dict[str, Any]) -> Tuple[Any, Trace, Any, Any
     return args[0], trace, target, expectations
 
 
+#: Set while the targets module judges one unit, so that call isn't fanned out again.
+judging_unit: ContextVar[bool] = ContextVar("judging_unit", default=False)
+
+
+def _own_target(args: tuple, kwargs: Dict[str, Any]) -> None:
+    """Judge the metric's own target when the call names none, as the platform does. Only
+    for a call passing everything by name; ``target=None`` asks for no target."""
+    if "target" in kwargs or len(args) != 1 or judging_unit.get():
+        return
+    target = getattr(args[0], "target", None)
+    if target is not None:
+        kwargs["target"] = target
+
+
 def evaluation_arguments(func: F) -> F:
     """Prepare what a metric's ``evaluate``/``a_evaluate`` receives.
 
     Strings become ``Expectations``. When the method declares ``trace`` and none is passed,
     one is built from ``input``, ``output`` and the shortcuts; ``input`` and ``output`` not
-    passed are read from the trace. Passing ``target=`` judges what it names in the trace
-    instead (see ``rhesis.sdk.metrics.targets``).
+    passed are read from the trace. Passing ``target=``, or a metric holding a target of its
+    own, judges what it names in the trace instead (see ``rhesis.sdk.metrics.targets``).
     """
     signature = inspect.signature(func)
 
@@ -149,6 +164,7 @@ def evaluation_arguments(func: F) -> F:
 
         @wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            _own_target(args, kwargs)
             if kwargs.get("target") is not None:
                 from rhesis.sdk.metrics.targets import a_evaluate_target
 
@@ -161,6 +177,7 @@ def evaluation_arguments(func: F) -> F:
 
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
+        _own_target(args, kwargs)
         if kwargs.get("target") is not None:
             from rhesis.sdk.metrics.targets import evaluate_target
 

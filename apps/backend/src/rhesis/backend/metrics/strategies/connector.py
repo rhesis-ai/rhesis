@@ -219,7 +219,7 @@ def _unit_inputs(
 ) -> Dict[str, Any]:
     """The inputs sent to an SDK metric for one span or turn: the unit's own trace, the span
     and everything under it."""
-    expectations = unit_expectations(target, inputs.expectations)
+    expectations = unit_expectations(target, inputs.expectations, unit)
     payload: Dict[str, Any] = {
         "input": unit.input,
         "output": unit.output,

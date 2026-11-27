@@ -121,6 +121,8 @@ class MetricType:
     """Values for the MetricType type_lookup used on metrics."""
 
     CUSTOM_PROMPT = "custom-prompt"
+    # Checked against a field of the trace or an expectation, with no model.
+    RULE = "rule"
 
 
 # Marker requirement name stored in test_set.attributes["metadata"]["requirements"] for Explorer

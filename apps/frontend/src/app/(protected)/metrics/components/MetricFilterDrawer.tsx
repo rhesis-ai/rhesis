@@ -9,6 +9,10 @@ import {
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
+import {
+  METRIC_TYPE_LABELS,
+  type MetricTypeValue,
+} from '@/constants/metric-types';
 import { rem } from '@/styles/theme-constants';
 
 export interface MetricDrawerFilters {
@@ -42,14 +46,6 @@ export function countActiveMetricDrawerFilters(f: MetricDrawerFilters): number {
     (f.requirement !== '' ? 1 : 0)
   );
 }
-
-const METRIC_TYPE_LABELS: Record<string, string> = {
-  'custom-prompt': 'LLM Judge',
-  'api-call': 'External API',
-  'custom-code': 'Script',
-  grading: 'Grades',
-  framework: 'Framework',
-};
 
 export interface MetricFilterOptions {
   type: { type_value: string; description: string }[];
@@ -121,7 +117,8 @@ export default function MetricFilterDrawer({
                 onClick={() => toggleMulti('type', opt.type_value)}
                 sx={filterChipSx(draft.type.includes(opt.type_value))}
               >
-                {METRIC_TYPE_LABELS[opt.type_value] ?? opt.type_value}
+                {METRIC_TYPE_LABELS[opt.type_value as MetricTypeValue] ??
+                  opt.type_value}
               </Box>
             ))}
           </Box>

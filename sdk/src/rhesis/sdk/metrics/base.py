@@ -58,6 +58,8 @@ class MetricType(str, Enum):
     CUSTOM_CODE = "custom-code"
     CUSTOM_PROMPT = "custom-prompt"
     FRAMEWORK = "framework"
+    # No model and no user code: a field of the trace or an expectation, checked
+    RULE = "rule"
 
 
 class ThresholdOperator(str, Enum):

@@ -41,7 +41,9 @@ jest.mock('@/hooks/useLookups', () => ({
   useTypeLookups: () => ({
     data: [
       { id: 'mt-1', type_name: 'MetricType', type_value: 'custom-prompt' },
+      { id: 'mt-rule', type_name: 'MetricType', type_value: 'rule' },
       { id: 'bt-1', type_name: 'BackendType', type_value: 'custom' },
+      { id: 'bt-rhesis', type_name: 'BackendType', type_value: 'rhesis' },
     ],
   }),
   useMetricTargets: () => ({
@@ -149,5 +151,101 @@ describe('NewMetricForm target', () => {
     const payload = await submit();
 
     expect(payload.config).toEqual({ target: { on: 'conversation' } });
+  });
+});
+
+describe('NewMetricForm rule', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCreateMetric.mockResolvedValue({ id: 'metric-1' });
+  });
+
+  function nameIt() {
+    fireEvent.change(screen.getByRole('textbox', { name: /^Name/ }), {
+      target: { value: 'Response time' },
+    });
+  }
+
+  it('shows rule settings instead of a prompt and model', () => {
+    render(<NewMetricForm type="rule" initialModels={[]} />);
+
+    expect(screen.getByRole('radio', { name: 'Field rule' })).toBeVisible();
+    expect(
+      screen.queryByLabelText(/Evaluation Prompt/)
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Evaluation Model/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Threshold Value/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Passes when duration_ms <= 5000.')
+    ).toBeInTheDocument();
+  });
+
+  it('posts a field rule with its config, target and statement', async () => {
+    render(<NewMetricForm type="rule" initialModels={[]} />);
+    nameIt();
+    const payload = await submit();
+
+    expect(payload).toMatchObject({
+      name: 'Response time',
+      class_name: 'FieldRule',
+      ground_truth_required: false,
+      metric_type_id: 'mt-rule',
+      backend_type_id: 'bt-rhesis',
+      score_type: 'numeric',
+      min_score: 0,
+      max_score: 1,
+      threshold: 1,
+      threshold_operator: '>=',
+      evaluation_prompt: 'duration_ms <= 5000',
+      config: {
+        field: 'duration_ms',
+        op: '<=',
+        value: 5000,
+        target: { on: 'turn' },
+      },
+    });
+    expect(payload).not.toHaveProperty('model_id');
+  });
+
+  it('refuses a comparison with a value that is not a number', async () => {
+    render(<NewMetricForm type="rule" initialModels={[]} />);
+    nameIt();
+    fireEvent.change(screen.getByLabelText('Value'), {
+      target: { value: 'fast' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a number');
+    expect(mockCreateMetric).not.toHaveBeenCalled();
+  });
+
+  it('limits a response rule to targets with an expected response', async () => {
+    render(<NewMetricForm type="rule" initialModels={[]} />);
+    const targets = screen.getByRole('radiogroup', { name: 'Target' });
+    fireEvent.click(
+      within(targets).getByRole('radio', { name: 'Each tool call' })
+    );
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Response rule' }));
+
+    expect(
+      within(targets).queryByRole('radio', { name: 'Each tool call' })
+    ).not.toBeInTheDocument();
+    expect(
+      within(targets).queryByRole('radio', { name: 'The conversation' })
+    ).not.toBeInTheDocument();
+    expect(
+      within(targets).getByRole('radio', { name: 'Each turn' })
+    ).toHaveAttribute('aria-checked', 'true');
+
+    nameIt();
+    const payload = await submit();
+    expect(payload).toMatchObject({
+      class_name: 'ResponseRule',
+      ground_truth_required: true,
+      config: { match: 'exact', target: { on: 'turn' } },
+    });
   });
 });

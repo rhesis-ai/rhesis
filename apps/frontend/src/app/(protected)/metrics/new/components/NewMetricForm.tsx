@@ -48,6 +48,17 @@ import {
 import MetricTargetPicker, {
   type MetricTargetValue,
 } from '../../components/MetricTargetPicker';
+import RuleFields, { RuleSummary } from '../../components/RuleFields';
+import { METRIC_TYPES } from '@/constants/metric-types';
+import {
+  describeRule,
+  initialRuleDraft,
+  RULE_CLASSES,
+  ruleConfig,
+  ruleDraftError,
+  ruleTargetChoices,
+  type RuleDraft,
+} from '@/utils/metric-rules';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { validateScore } from '@/utils/validation';
@@ -82,6 +93,7 @@ interface MetricFormData {
   explanation: string;
   model_id: string;
   target: MetricTargetValue;
+  rule: RuleDraft;
 }
 
 const initialFormData: MetricFormData = {
@@ -101,7 +113,11 @@ const initialFormData: MetricFormData = {
   explanation: '',
   model_id: '',
   target: { on: METRIC_TARGET.TURN, name: '' },
+  rule: initialRuleDraft,
 };
+
+// A rule is fixed to pass at a score of 1; it reports 1 or 0.
+const RULE_SCORE = { min: 0, max: 1, threshold: 1 } as const;
 
 const NO_TARGETS: MetricTargetChoice[] = [];
 
@@ -122,18 +138,40 @@ export default function NewMetricForm({
   const notifications = useNotifications();
   const { data: session, status } = useSession();
   const theme = useTheme();
+  const isRule = type === METRIC_TYPES.RULE;
+  // Rules run in Rhesis itself; judges written here are the organization's own.
+  const backendTypeValue = isRule ? 'rhesis' : 'custom';
   const { data: allTypeLookups } = useTypeLookups(
-    `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq 'custom')`
+    `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq '${backendTypeValue}')`
   );
   const { data: allTargets = NO_TARGETS } = useMetricTargets();
-  // The form has no "ground truth required" field, so nothing narrows this yet.
-  const targetChoices = React.useMemo(
-    () => offeredTargets(allTargets),
-    [allTargets]
-  );
   const [activeStep, setActiveStep] = React.useState(0);
   const [formData, setFormData] =
     React.useState<MetricFormData>(initialFormData);
+  // The form has no "ground truth required" field, so only a rule narrows this.
+  const targetChoices = React.useMemo(
+    () =>
+      isRule
+        ? ruleTargetChoices(formData.rule.ruleClass, allTargets)
+        : offeredTargets(allTargets),
+    [allTargets, isRule, formData.rule.ruleClass]
+  );
+  const spanKinds = React.useMemo(
+    () => allTargets.filter(choice => choice.per_span),
+    [allTargets]
+  );
+
+  const handleRuleChange = (rule: RuleDraft) => {
+    setFormData(prev => {
+      const choices = ruleTargetChoices(rule.ruleClass, allTargets);
+      // A target the new kind of rule can't take falls back to each turn.
+      const target =
+        choices.length === 0 || choices.some(c => c.on === prev.target.on)
+          ? prev.target
+          : { on: METRIC_TARGET.TURN, name: '' };
+      return { ...prev, rule, target };
+    });
+  };
   const [models, setModels] = React.useState<Model[]>(initialModels ?? []);
   const [isLoadingModels, setIsLoadingModels] = React.useState(
     initialModels === undefined
@@ -249,6 +287,7 @@ export default function NewMetricForm({
   const isStepValid = React.useCallback((): boolean => {
     // Common required fields
     if (!formData.name.trim()) return false;
+    if (isRule) return ruleDraftError(formData.rule) === null;
     if (!formData.evaluation_prompt.trim()) return false;
 
     // Score type conditional validation
@@ -268,7 +307,7 @@ export default function NewMetricForm({
     }
 
     return true;
-  }, [formData]);
+  }, [formData, isRule]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -295,7 +334,8 @@ export default function NewMetricForm({
       );
       const backendTypes = (allTypeLookups ?? []).filter(
         lookup =>
-          lookup.type_name === 'BackendType' && lookup.type_value === 'custom'
+          lookup.type_name === 'BackendType' &&
+          lookup.type_value === backendTypeValue
       );
 
       if (!typeLookups.length) {
@@ -303,53 +343,78 @@ export default function NewMetricForm({
       }
 
       if (!backendTypes.length) {
-        throw new Error('Custom backend type not found');
+        throw new Error(`Backend type "${backendTypeValue}" not found`);
       }
 
-      // Create the metric request object (tags will be added separately)
-      const metricRequest: MetricCreate = {
-        name: formData.name,
-        description: formData.description || '',
-        tags: [], // Tags will be assigned separately after creation
-        evaluation_prompt: formData.evaluation_prompt,
-        evaluation_steps: formatEvaluationSteps(formData.evaluation_steps),
-        reasoning: formData.reasoning || '',
-        score_type: formData.score_type,
-        // Categorical metric fields
-        categories:
-          formData.score_type === SCORE_TYPES.CATEGORICAL
-            ? formData.categories
-            : undefined,
-        passing_categories:
-          formData.score_type === SCORE_TYPES.CATEGORICAL
-            ? formData.passing_categories
-            : undefined,
-        // Numeric metric fields
-        // Number, not parseFloat: validateScore rejects what Number rejects, so
-        // the two agree on what reaches the API. parseFloat would accept more.
-        min_score:
-          formData.score_type === SCORE_TYPES.NUMERIC
-            ? Number(formData.min_score)
-            : undefined,
-        max_score:
-          formData.score_type === SCORE_TYPES.NUMERIC
-            ? Number(formData.max_score)
-            : undefined,
-        threshold:
-          formData.score_type === SCORE_TYPES.NUMERIC
-            ? Number(formData.threshold)
-            : undefined,
-        threshold_operator:
-          formData.score_type === SCORE_TYPES.NUMERIC
-            ? formData.threshold_operator
-            : undefined,
-        explanation: formData.explanation || '',
-        metric_type_id: typeLookups[0].id as UUID,
-        backend_type_id: backendTypes[0].id as UUID,
-        model_id: formData.model_id ? (formData.model_id as UUID) : undefined,
-        owner_id: session?.user?.id as UUID,
-        config: { target: toMetricTarget(formData.target, targetChoices) },
-      };
+      const target = toMetricTarget(formData.target, targetChoices);
+      // Tags are added separately, after the metric exists.
+      const metricRequest: MetricCreate = isRule
+        ? {
+            name: formData.name,
+            description: formData.description || '',
+            tags: [],
+            // The column needs text; for a rule it is the rule in one line.
+            evaluation_prompt: describeRule(formData.rule),
+            score_type: SCORE_TYPES.NUMERIC,
+            min_score: RULE_SCORE.min,
+            max_score: RULE_SCORE.max,
+            threshold: RULE_SCORE.threshold,
+            threshold_operator: '>=',
+            explanation: '',
+            class_name: formData.rule.ruleClass,
+            // Lets the metric pickers leave a response rule off multi-turn sets.
+            ground_truth_required:
+              formData.rule.ruleClass === RULE_CLASSES.RESPONSE,
+            metric_type_id: typeLookups[0].id as UUID,
+            backend_type_id: backendTypes[0].id as UUID,
+            owner_id: session?.user?.id as UUID,
+            config: { ...ruleConfig(formData.rule), target },
+          }
+        : {
+            name: formData.name,
+            description: formData.description || '',
+            tags: [], // Tags will be assigned separately after creation
+            evaluation_prompt: formData.evaluation_prompt,
+            evaluation_steps: formatEvaluationSteps(formData.evaluation_steps),
+            reasoning: formData.reasoning || '',
+            score_type: formData.score_type,
+            // Categorical metric fields
+            categories:
+              formData.score_type === SCORE_TYPES.CATEGORICAL
+                ? formData.categories
+                : undefined,
+            passing_categories:
+              formData.score_type === SCORE_TYPES.CATEGORICAL
+                ? formData.passing_categories
+                : undefined,
+            // Numeric metric fields
+            // Number, not parseFloat: validateScore rejects what Number rejects, so
+            // the two agree on what reaches the API. parseFloat would accept more.
+            min_score:
+              formData.score_type === SCORE_TYPES.NUMERIC
+                ? Number(formData.min_score)
+                : undefined,
+            max_score:
+              formData.score_type === SCORE_TYPES.NUMERIC
+                ? Number(formData.max_score)
+                : undefined,
+            threshold:
+              formData.score_type === SCORE_TYPES.NUMERIC
+                ? Number(formData.threshold)
+                : undefined,
+            threshold_operator:
+              formData.score_type === SCORE_TYPES.NUMERIC
+                ? formData.threshold_operator
+                : undefined,
+            explanation: formData.explanation || '',
+            metric_type_id: typeLookups[0].id as UUID,
+            backend_type_id: backendTypes[0].id as UUID,
+            model_id: formData.model_id
+              ? (formData.model_id as UUID)
+              : undefined,
+            owner_id: session?.user?.id as UUID,
+            config: { target },
+          };
 
       // Create the metric
       const createdMetric = await metricsClient.createMetric(metricRequest);
@@ -456,6 +521,52 @@ export default function NewMetricForm({
         />
       </Box>
 
+      {isRule ? renderRuleSection() : renderJudgeSections()}
+    </>
+  );
+
+  const renderTargetPicker = () =>
+    targetChoices.length > 0 && (
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
+          Target
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Choose the part of the trace this metric looks at.
+        </Typography>
+        <MetricTargetPicker
+          choices={targetChoices}
+          value={formData.target}
+          onChange={target => setFormData(prev => ({ ...prev, target }))}
+        />
+      </Box>
+    );
+
+  const renderRuleSection = () => (
+    <Box>
+      <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>
+        Rule
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        A rule checks a value in the trace, or the output against the expected
+        response, with no model. It passes or fails, and is not applicable when
+        the trace doesn&apos;t have the value.
+      </Typography>
+      <Box sx={{ mb: 4 }}>
+        <RuleFields
+          draft={formData.rule}
+          onChange={handleRuleChange}
+          spanKinds={spanKinds}
+          showErrors={showErrors}
+          allowClassChoice
+        />
+      </Box>
+      {renderTargetPicker()}
+    </Box>
+  );
+
+  const renderJudgeSections = () => (
+    <>
       {/* Evaluation Section */}
       <Box sx={{ mb: 5 }}>
         <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
@@ -813,21 +924,7 @@ export default function NewMetricForm({
           </>
         )}
 
-        {targetChoices.length > 0 && (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
-              Target
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Choose the part of the trace this metric looks at.
-            </Typography>
-            <MetricTargetPicker
-              choices={targetChoices}
-              value={formData.target}
-              onChange={target => setFormData(prev => ({ ...prev, target }))}
-            />
-          </Box>
-        )}
+        {renderTargetPicker()}
 
         <TextField
           fullWidth
@@ -901,6 +998,51 @@ export default function NewMetricForm({
         </Box>
       </Box>
 
+      {isRule ? renderRuleConfirmation() : renderJudgeConfirmation()}
+    </Box>
+  );
+
+  const renderTargetConfirmation = () => (
+    <Box sx={{ mb: 3 }}>
+      <Typography
+        variant="subtitle2"
+        color="text.secondary"
+        sx={{ fontWeight: 'medium', mb: 1 }}
+      >
+        Target
+      </Typography>
+      <Chip
+        label={formatMetricTarget(
+          toMetricTarget(formData.target, targetChoices),
+          allTargets
+        )}
+        color="primary"
+        variant="filled"
+      />
+    </Box>
+  );
+
+  const renderRuleConfirmation = () => (
+    <Box>
+      <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+        Rule
+      </Typography>
+      <Box sx={{ mb: 3 }}>
+        <Typography
+          variant="subtitle2"
+          color="text.secondary"
+          sx={{ fontWeight: 'medium', mb: 1 }}
+        >
+          Passes when
+        </Typography>
+        <RuleSummary draft={formData.rule} />
+      </Box>
+      {renderTargetConfirmation()}
+    </Box>
+  );
+
+  const renderJudgeConfirmation = () => (
+    <>
       {/* Evaluation Section Review */}
       <Box sx={{ mb: 5 }}>
         <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
@@ -1172,23 +1314,7 @@ export default function NewMetricForm({
           </Box>
         )}
 
-        <Box sx={{ mb: 3 }}>
-          <Typography
-            variant="subtitle2"
-            color="text.secondary"
-            sx={{ fontWeight: 'medium', mb: 1 }}
-          >
-            Target
-          </Typography>
-          <Chip
-            label={formatMetricTarget(
-              toMetricTarget(formData.target, targetChoices),
-              allTargets
-            )}
-            color="primary"
-            variant="filled"
-          />
-        </Box>
+        {renderTargetConfirmation()}
 
         <Box>
           <Typography
@@ -1220,7 +1346,7 @@ export default function NewMetricForm({
           </Box>
         </Box>
       </Box>
-    </Box>
+    </>
   );
 
   const getStepContent = (step: number) => {

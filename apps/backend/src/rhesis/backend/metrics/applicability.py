@@ -1,10 +1,10 @@
 """Which metrics apply to a test, by their target and the expectations the test carries.
 
-A metric that can't judge a test is not applicable to it: it is left out rather than scored
-or failed. That is a metric judging the conversation on a single-turn test, a metric
-comparing with a reference answer on a conversation (which has none), and a metric
-comparing with an expectation the test doesn't have (a trajectory metric on a test without
-expected tool calls).
+A metric that can't judge a test is not applicable to it, rather than scored or failed. A
+metric judging the conversation on a single-turn test, or comparing with a reference answer
+on a conversation (which has none), is left out. A metric comparing with an expectation the
+test doesn't have (a trajectory metric on a test without expected tool calls) gets a
+not-applicable result saying so.
 """
 
 from __future__ import annotations
@@ -15,7 +15,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from sqlalchemy import inspect as sa_inspect
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
-from rhesis.backend.app.schemas.multi_turn_test_config import EXPECTED_TOOL_CALLS_KEY
+from rhesis.backend.app.schemas.multi_turn_test_config import (
+    EXPECTED_TOOL_CALLS_KEY,
+    EXPECTED_TOOL_CALLS_PER_TURN_KEY,
+)
 
 # Imported by run_models, which core installs load without the SDK.
 if TYPE_CHECKING:
@@ -31,6 +34,13 @@ def expected_tool_calls(test_configuration: Any) -> Optional[List[dict]]:
     if not isinstance(test_configuration, dict):
         return None
     return test_configuration.get(EXPECTED_TOOL_CALLS_KEY)
+
+
+def expected_tool_calls_per_turn(test_configuration: Any) -> Optional[List[Optional[List[dict]]]]:
+    """A multi-turn test's expected tool calls turn by turn, or None when it doesn't say."""
+    if not isinstance(test_configuration, dict):
+        return None
+    return test_configuration.get(EXPECTED_TOOL_CALLS_PER_TURN_KEY)
 
 
 def _backend_and_class(metric: Any) -> tuple:
@@ -136,13 +146,61 @@ def fits(metric: Any, conversation: bool) -> bool:
     return metric_target(metric) != "conversation"
 
 
+def missing_expectation(metric: Any, expectations: Optional[Expectations]) -> Optional[str]:
+    """The first expectation the metric compares with that the test doesn't give, if any."""
+    required = getattr(metric_class(metric), "REQUIRED_EXPECTATIONS", ())
+    return next((f for f in required if not _has_expectation(expectations, f)), None)
+
+
+def _has_expectation(expectations: Optional[Expectations], field: str) -> bool:
+    if getattr(expectations, field, None) is not None:
+        return True
+    # Calls expected turn by turn count: a turn or run without its own is the metric's to report.
+    per_turn = getattr(expectations, "tool_calls_per_turn", None) if field == "tool_calls" else None
+    return any(calls is not None for calls in per_turn or ())
+
+
 def applies(metric: Any, expectations: Optional[Expectations], conversation: bool = False) -> bool:
     """Whether the metric can judge a test with these expectations; ``conversation`` says
     whether the test is one."""
-    required = getattr(metric_class(metric), "REQUIRED_EXPECTATIONS", ())
-    if not all(getattr(expectations, field, None) is not None for field in required):
+    if missing_expectation(metric, expectations) is not None:
         return False
     return fits(metric, conversation)
+
+
+_MISSING_REASONS = {
+    "response": "The test has no expected response, so there is nothing to compare with.",
+    "tool_calls": "The test has no expected tool calls, so there is nothing to compare with.",
+}
+
+
+def not_applicable_results(
+    metrics: List[Any], expectations: Optional[Expectations], conversation: bool = False
+) -> Dict[str, Dict[str, Any]]:
+    """Not-applicable results for the metrics a test leaves out only because it lacks an
+    expectation they compare with, keyed by name. A metric left out for its target stays
+    out, and production traces (no expectations at all) get none."""
+    from rhesis.backend.metrics.result_builder import MetricResultBuilder
+
+    if expectations is None:
+        return {}
+    results: Dict[str, Dict[str, Any]] = {}
+    for metric in metrics:
+        missing = missing_expectation(metric, expectations)
+        if missing is None or not fits(metric, conversation):
+            continue
+        name = getattr(metric, "name", None) or getattr(metric, "class_name", None) or "metric"
+        backend = getattr(metric, "backend", None)
+        results[name] = MetricResultBuilder.success(
+            score=None,
+            reason=_MISSING_REASONS.get(missing, f"The test has no expected {missing}."),
+            is_successful=None,
+            backend=str(getattr(backend, "value", backend) or "rhesis"),
+            name=name,
+            class_name=getattr(metric, "class_name", None) or "",
+            extra={"not_applicable": True},
+        )
+    return results
 
 
 _NO_TEXT_REASON = (

@@ -109,7 +109,27 @@ describe('TestDetailConversationTab — single-turn turn status', () => {
     expect(lastSummary[0].success).toBe(true);
   });
 
-  it('marks the turn failed when a metric failed', () => {
+  it('marks the turn failed when the call to the endpoint failed', () => {
+    const test = makeSingleTurnResult({
+      execution: 'error',
+      verdict: null,
+      test_output: {
+        output: 'HTTP 500 error from endpoint',
+        error: true,
+        error_type: 'http_error',
+        status_code: 500,
+      },
+      status: { id: u(12), name: 'Error' },
+    } as unknown as Partial<TestResultDetail>);
+
+    render(<TestDetailConversationTab test={test} />);
+
+    expect(lastSummary[0].success).toBe(false);
+  });
+
+  // The turn reads as an error only when the call failed, as a conversation's turns do;
+  // the failed verdict is the result's, shown below the turn.
+  it('keeps a turn whose metric failed as a call that went through', () => {
     const test = makeSingleTurnResult({
       execution: 'ok',
       verdict: 'fail',
@@ -130,7 +150,7 @@ describe('TestDetailConversationTab — single-turn turn status', () => {
 
     render(<TestDetailConversationTab test={test} />);
 
-    expect(lastSummary[0].success).toBe(false);
+    expect(lastSummary[0].success).toBe(true);
   });
 
   it('follows a human annotation that overrides a failed result', () => {

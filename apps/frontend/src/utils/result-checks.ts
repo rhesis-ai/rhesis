@@ -28,6 +28,16 @@ export interface ResultCheck {
   result?: MetricResult;
 }
 
+/** A check whose metric had nothing to judge, such as a rule reading a value the trace lacks. */
+export function isNotApplicable(check: ResultCheck): boolean {
+  return check.result?.not_applicable === true;
+}
+
+/** How a check with no verdict is labelled. */
+export function noVerdictLabel(check: ResultCheck): string {
+  return isNotApplicable(check) ? 'Not applicable' : 'Not scored';
+}
+
 export interface ResultCheckGroup {
   key: 'test' | 'metrics';
   title: string;

@@ -196,7 +196,8 @@ async def _evaluate_single_turn_metrics(
         metric_configs,
         trace,
         Expectations(
-            response=expected_response,
+            # A test with no expected response has none to compare with, not an empty one.
+            response=expected_response or None,
             tool_calls=expected_tool_calls(getattr(test, "test_configuration", None)),
         ),
         on_metric_complete=on_metric_complete,

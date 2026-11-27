@@ -80,6 +80,9 @@ _EXTRA_DETAIL_KEYS = (
     "passed",
     "spans",
     "not_applicable",
+    # What a rule read and what it compared it with.
+    "measured",
+    "expected",
 )
 
 

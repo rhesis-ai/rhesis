@@ -4,6 +4,7 @@ import {
   checksStatus,
   checksSummary,
   countChecks,
+  noVerdictLabel,
   turnScopeLabel,
   turnVerdict,
 } from '@/utils/result-checks';
@@ -89,6 +90,30 @@ describe('buildResultChecks', () => {
     });
     expect(countChecks(groups[0].checks)).toEqual({ passed: 1, total: 1 });
     expect(checksSummary(groups)).toBe('1 of 1 check passed');
+  });
+});
+
+describe('noVerdictLabel', () => {
+  it('names a not-applicable check apart from one that was not scored', () => {
+    const [group] = buildResultChecks({
+      metrics: {
+        'Response Time': metric({
+          score: undefined as unknown as number,
+          is_successful: null,
+          not_applicable: true,
+          reason: 'The span has no timing; send traces to measure it.',
+        }),
+        Judge: metric({ is_successful: null }),
+      },
+    });
+    const [rule, judge] = group.checks;
+
+    expect(noVerdictLabel(rule)).toBe('Not applicable');
+    expect(rule.reason).toBe(
+      'The span has no timing; send traces to measure it.'
+    );
+    expect(noVerdictLabel(judge)).toBe('Not scored');
+    expect(countChecks(group.checks)).toEqual({ passed: 0, total: 0 });
   });
 });
 

@@ -40,6 +40,7 @@ import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { OWASP_METRIC_FILTER_VALUE, OWASP_METRIC_TAG_NAME } from './list';
 import { PAGE_HEADERS } from '@/constants/page-headers';
 import { getMetricTarget } from '@/utils/metric-targets';
+import { METRIC_TYPES } from '@/constants/metric-types';
 export interface FilterState {
   search: string;
   backend: string[];
@@ -350,6 +351,14 @@ export default function MetricsDirectoryTab({
               }}
             >
               LLM judge
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setFabAnchorEl(null);
+                router.push(`/metrics/new?type=${METRIC_TYPES.RULE}`);
+              }}
+            >
+              Rule
             </MenuItem>
             <MenuItem
               onClick={() => {

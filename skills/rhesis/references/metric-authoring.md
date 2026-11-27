@@ -10,6 +10,10 @@ Read this before `create_metric`, `generate_metric`, `improve_metric`, or writin
 `save_plan`. Pair it with `metric-targets.md` (what the metric judges and which tests it runs on) and
 `prd/metric-design.md` (where the pass condition comes from in a requirements plan).
 
+A limit or an exact check (answers within 5 seconds, valid JSON, equals the expected answer) needs
+no judge prompt at all: it is a rule, a metric with no model. See "When a rule fits" in
+`metric-targets.md`. This page is about judges.
+
 ---
 
 ## The five fields and what each must contain

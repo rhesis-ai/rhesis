@@ -97,10 +97,14 @@ class TestStoredTargets:
 
         assert config == {"match": "exact", "target": {"on": "run"}}
 
-    @pytest.mark.parametrize("on", ["turn", "tool_call"])
-    def test_expected_tool_calls_are_not_held_against_a_turn_or_span(self, on):
-        with pytest.raises(ValueError, match=f"can't judge '{on}'. Choices: The conversation"):
-            check_metric_config("ToolCallTrajectory", {"target": {"on": on}})
+    def test_expected_tool_calls_are_not_held_against_a_span(self):
+        with pytest.raises(ValueError, match="can't judge 'tool_call'. Choices: Each turn"):
+            check_metric_config("ToolCallTrajectory", {"target": {"on": "tool_call"}})
+
+    def test_a_turn_is_held_to_its_own_expected_tool_calls(self):
+        config = check_metric_config("ToolCallTrajectory", {"target": {"on": "turn"}})
+
+        assert config == {"target": {"on": "turn"}}
 
     def test_a_metric_needing_a_reference_answer_takes_no_per_span_target(self):
         with pytest.raises(ValueError, match="can't judge 'retrieval'"):
@@ -135,8 +139,12 @@ class TestStoredTargets:
             check_metric_config(None, {"target": {"on": "run", "where": where}}, accepted=["trace"])
 
     def test_a_malformed_target_names_the_problem(self):
-        with pytest.raises(ValueError, match="Invalid target: on: Input should be"):
+        with pytest.raises(ValueError, match="Invalid target: 'spans' is not a target; valid"):
             check_metric_config(None, {"target": {"on": "spans"}})
+
+    def test_a_malformed_refinement_names_the_problem(self):
+        with pytest.raises(ValueError, match="Invalid target: name: String should have"):
+            check_metric_config(None, {"target": {"on": "tool_call", "name": ""}})
 
     def test_a_custom_metric_takes_a_per_span_target(self):
         metric = MetricCreate(
@@ -176,12 +184,12 @@ class TestEvaluatingTargets:
 
     def test_a_target_the_metric_cannot_take_is_an_error_result(self):
         results = MetricEvaluator().evaluate(
-            [trajectory({"on": "turn"})],
+            [trajectory({"on": "tool_call"})],
             Trace.from_conversation(CONVERSATION),
             Expectations(tool_calls=[{"name": "lookup_order"}]),
         )
 
-        assert "can't judge 'turn'" in results["Tool Call Trajectory"]["error"]
+        assert "can't judge 'tool_call'" in results["Tool Call Trajectory"]["error"]
 
     def test_the_whole_run_is_judged_once(self):
         results = MetricEvaluator().evaluate(

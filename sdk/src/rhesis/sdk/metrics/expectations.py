@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ExpectedToolCall(BaseModel):
@@ -36,7 +36,29 @@ class Expectations(BaseModel):
     """The evaluation contract read from the test: the criteria the endpoint must meet."""
     tool_calls: Optional[List[ExpectedToolCall]] = None
     """The tools the endpoint should call, in order. An empty list expects no calls; None
-    means the test doesn't say."""
+    means the test doesn't say. On a conversation with ``tool_calls_per_turn`` and no list of
+    its own, the turns' calls in order, when every turn has an entry."""
+    tool_calls_per_turn: Optional[List[Optional[List[ExpectedToolCall]]]] = None
+    """A conversation's expected tool calls turn by turn: item i is turn i+1's, None where
+    the test doesn't say for that turn."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _join_turns(cls, data: Any) -> Any:
+        # The whole conversation's calls are its turns' calls, unless the test lists its own.
+        # Only when every turn says: a turn left open would read as "expects no calls".
+        if not isinstance(data, dict) or data.get("tool_calls") is not None:
+            return data
+        turns = data.get("tool_calls_per_turn")
+        if not turns or any(turn is None for turn in turns):
+            return data
+        return {**data, "tool_calls": [call for turn in turns for call in turn]}
+
+    def turn_tool_calls(self, turn: int) -> Optional[List[ExpectedToolCall]]:
+        """The calls expected in turn ``turn`` (0 for the first), or None when the test
+        doesn't say."""
+        turns = self.tool_calls_per_turn or []
+        return turns[turn] if 0 <= turn < len(turns) else None
 
     @classmethod
     def coerce(

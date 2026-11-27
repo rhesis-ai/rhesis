@@ -474,6 +474,11 @@
         },
         {
             "type_name": "MetricType",
+            "type_value": "rule",
+            "description": "Rule with no model: a field of the trace or an expectation, checked against a fixed value"
+        },
+        {
+            "type_name": "MetricType",
             "type_value": "custom-prompt",
             "description": "Metric defined using user-crafted LLM prompts and output rules"
         },
@@ -2253,7 +2258,7 @@
             "ground_truth_required": false,
             "context_required": false,
             "class_name": "ToolCallTrajectory",
-            "metric_type": "custom-code",
+            "metric_type": "rule",
             "backend_type": "rhesis",
             "status": "New",
             "requirements": [],
@@ -2262,6 +2267,108 @@
                 "arguments": "partial",
                 "target": {
                     "on": "run"
+                }
+            }
+        },
+        {
+            "name": "Response Time",
+            "description": "Checks that each turn answered within 5 seconds. Reads the turn's timing from the trace, without a model. A turn with no timing, such as one built from a stored response, is not applicable.",
+            "evaluation_prompt": "duration_ms <= 5000",
+            "score_type": "numeric",
+            "min_score": 0,
+            "max_score": 1,
+            "threshold": 1,
+            "threshold_operator": ">=",
+            "explanation": "Scores 1 and passes when the turn took 5,000 ms or less; the reason gives the time it took.",
+            "ground_truth_required": false,
+            "context_required": false,
+            "class_name": "FieldRule",
+            "metric_type": "rule",
+            "backend_type": "rhesis",
+            "status": "New",
+            "requirements": [],
+            "config": {
+                "field": "duration_ms",
+                "op": "<=",
+                "value": 5000,
+                "target": {
+                    "on": "turn"
+                }
+            }
+        },
+        {
+            "name": "No Failed Tool Calls",
+            "description": "Checks that no tool call ended in an error. Reads each tool call's status from the trace, without a model. Not applicable when the endpoint reports no tool calls.",
+            "evaluation_prompt": "error_count == 0",
+            "score_type": "numeric",
+            "min_score": 0,
+            "max_score": 1,
+            "threshold": 1,
+            "threshold_operator": ">=",
+            "explanation": "Scores 1 and passes when every tool call succeeded; the reason names the ones that failed.",
+            "ground_truth_required": false,
+            "context_required": false,
+            "class_name": "FieldRule",
+            "metric_type": "rule",
+            "backend_type": "rhesis",
+            "status": "New",
+            "requirements": [],
+            "config": {
+                "field": "error_count",
+                "op": "==",
+                "value": 0,
+                "target": {
+                    "on": "tool_call"
+                }
+            }
+        },
+        {
+            "name": "Token Budget",
+            "description": "Checks that a whole run used at most 20,000 tokens. Sums the token counts of the model calls in the trace, without a model. Not applicable when no model call reports tokens.",
+            "evaluation_prompt": "tokens.total <= 20000",
+            "score_type": "numeric",
+            "min_score": 0,
+            "max_score": 1,
+            "threshold": 1,
+            "threshold_operator": ">=",
+            "explanation": "Scores 1 and passes when the run used 20,000 tokens or fewer; the reason gives the count.",
+            "ground_truth_required": false,
+            "context_required": false,
+            "class_name": "FieldRule",
+            "metric_type": "rule",
+            "backend_type": "rhesis",
+            "status": "New",
+            "requirements": [],
+            "config": {
+                "field": "tokens.total",
+                "op": "<=",
+                "value": 20000,
+                "target": {
+                    "on": "run"
+                }
+            }
+        },
+        {
+            "name": "Exact Match",
+            "description": "Checks that each answer is exactly the test's expected response, without a model. Not applicable when the test has no expected response.",
+            "evaluation_prompt": "output == expected response",
+            "score_type": "numeric",
+            "min_score": 0,
+            "max_score": 1,
+            "threshold": 1,
+            "threshold_operator": ">=",
+            "explanation": "Scores 1 and passes when the answer equals the expected response.",
+            "ground_truth_required": true,
+            "context_required": false,
+            "class_name": "ResponseRule",
+            "metric_type": "rule",
+            "backend_type": "rhesis",
+            "status": "New",
+            "requirements": [],
+            "config": {
+                "match": "exact",
+                "target": {
+                    "on": "turn"
                 }
             }
         }

@@ -23,7 +23,7 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional, Sequence
 
-from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec
+from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec, class_default_target
 from rhesis.sdk.agents.architect.tool_registry import PlanCategory
 from rhesis.sdk.metrics.targets import TargetKind
 
@@ -147,14 +147,33 @@ def _check_target(spec: MetricSpec, arguments: Dict[str, Any]) -> Optional[str]:
     sent = target.get("on") if isinstance(target, dict) else target
     if sent is not None and not isinstance(sent, str):
         return None
-    # A metric created without a target judges each turn.
-    if (sent or TargetKind.TURN.value) == spec.target.value:
+    if sent is None:
+        # The server stores the class's own default: a run for Tool Call Trajectory, a
+        # conversation for a conversational judge, each turn for a custom judge.
+        sent_default = class_default_target(arguments.get("class_name")) or TargetKind.TURN
+        if sent_default is spec.target:
+            return None
+    elif sent == spec.target.value:
         return None
     return (
         f"Metric '{spec.name}' is planned to judge '{spec.target.value}' but this "
         f"call {'sends ' + repr(sent) if sent else 'sends no target'}. The target "
         f"decides what the metric judges and which tests it runs on. Send "
         f'config {{"target": {{"on": "{spec.target.value}"}}}}, or call save_plan.'
+    )
+
+
+def _check_rule(spec: MetricSpec, arguments: Dict[str, Any]) -> Optional[str]:
+    if spec.rule is None:
+        return None
+    sent = arguments.get("class_name")
+    if sent == spec.rule:
+        return None
+    return (
+        f"Metric '{spec.name}' is planned as a {spec.rule} rule but this call "
+        f"{'sends class_name ' + repr(sent) if sent else 'sends no class_name'}. A rule needs "
+        f'class_name "{spec.rule}", metric_type "rule" and backend_type "rhesis", with its '
+        f"settings in config. Send them, or call save_plan."
     )
 
 
@@ -199,6 +218,7 @@ def check_metric_shape(plan: ArchitectPlan, arguments: Dict[str, Any]) -> Option
         return None
 
     for problem in (
+        _check_rule(spec, arguments),
         _check_target(spec, arguments),
         _check_threshold(spec, arguments),
         _check_threshold_operator(spec, arguments),

@@ -113,7 +113,8 @@ tools:
           REQUIRED, non-empty array, 25 or fewer. Each test takes the same
           shape as in create_test_set_bulk: prompt, requirement, category,
           topic, test_type, and test_configuration (a Multi-Turn test's goal,
-          or either type's expected_tool_calls).
+          either type's expected_tool_calls, or a Multi-Turn test's
+          expected_tool_calls_per_turn).
       test_set_id:
         description: >
           REQUIRED in practice. UUID of the set these tests join, from the
@@ -224,9 +225,14 @@ tools:
           test_configuration.expected_tool_calls: a list of {name,
           arguments} in the order expected, where arguments is optional and
           lists only the keys that matter. It works on both test types; a
-          Single-Turn test sends it beside prompt. The built-in "Tool Call
-          Trajectory" metric compares it with the calls the endpoint made,
-          and skips tests that have none.
+          Single-Turn test sends it beside prompt. A Multi-Turn test can
+          instead give test_configuration.expected_tool_calls_per_turn: one
+          entry per turn, item i for turn i+1, each a list like the above or
+          null where the test doesn't say for that turn. The built-in "Tool
+          Call Trajectory" metric compares them with the calls the endpoint
+          made: targeting "turn", each turn with its own entry; targeting
+          "conversation" or "run", the whole conversation with all of them
+          in order. It skips tests that have none.
       metadata:
         description: >
           Omit. Free-form storage the synthesizers use to record how a
@@ -776,7 +782,9 @@ tools:
           test_configuration from get_test with your change made: dropping
           a Multi-Turn test's goal breaks the test. Holds expected_tool_calls
           (a list of {name, arguments}, arguments optional and listing only
-          the keys that matter) on either test type. Omit to keep unchanged.
+          the keys that matter) on either test type, and on a Multi-Turn test
+          expected_tool_calls_per_turn (one such list per turn, null where
+          the test doesn't say). Omit to keep unchanged.
 
   # ── Test Runs ─────────────────────────────────────────────
   - name: list_test_runs
@@ -1098,12 +1106,15 @@ tools:
     method: GET
     path: /metrics/
     default_query:
-      $select: "id,name,description,score_type,threshold,config"
+      $select: "id,name,description,score_type,threshold,class_name,config"
     page_size: 20
     description: >
       List available metrics for evaluating test results. ENTITY: Metric.
       PREREQUISITES: none. CHAIN: resolve by name here, then get_metric
       for full evaluation_prompt before update_metric or improve_metric.
+      A class_name of FieldRule, ResponseRule or ToolCallTrajectory marks a
+      rule, a metric with no model whose config holds its settings (see
+      create_metric).
       By default excludes evaluation_prompt — use get_metric for the
       full prompt. Link to requirements via add_requirement_to_metric.
 
@@ -1168,6 +1179,49 @@ tools:
       the built-in "Tool Call Trajectory" metric and give the tests
       expected_tool_calls (see create_test_set_bulk). Change how it matches
       with update_metric's config.
+
+      RULES. A rule is a metric with no model: it reads a field of the
+      trace, or one of the test's expectations, and compares it with a
+      fixed value, so it costs no judge calls and always gives the same
+      verdict. Prefer a rule over a judge whenever the requirement is a
+      limit or an exact check: answers within 5 seconds, never calls
+      delete_account, at most 20,000 tokens, valid JSON, equals the expected
+      answer. Seeded rules already exist ("Response Time", "No Failed Tool
+      Calls", "Token Budget", "Exact Match", "Tool Call Trajectory"); check
+      list_metrics before creating one. For a rule send metric_type "rule",
+      backend_type "rhesis", score_type "numeric", min_score 0, max_score 1,
+      threshold 1, threshold_operator ">=", an evaluation_prompt stating the
+      rule in one line (such as "duration_ms <= 5000"), a description and an
+      explanation. evaluation_steps and reasoning don't apply to rules.
+      class_name and config pick the rule:
+      - "FieldRule": config {"field", "op", "value"}, and optionally
+        "negate" (true inverts the check). field is one of duration_ms,
+        status, error_count, span_count, tokens.input, tokens.output,
+        tokens.total, cost_usd, input, output, length.input, length.output,
+        or attributes.<key> (a REST endpoint's mapped metadata is
+        attributes.rhesis.reported.metadata.<key>). With span_count,
+        "span_kind" and "span_name" count only spans of that kind and name.
+        op is one of <, <=, >, >=, ==, !=, in, not_in (value is a list),
+        contains, matches (a regular expression), exists, is_json (no value
+        for the last two). Default target "turn"; it can take every target,
+        for example {"field": "error_count", "op": "==", "value": 0,
+        "target": {"on": "tool_call"}}.
+      - "ResponseRule": compares the output with the test's
+        expected_response. config {"match": "exact" | "contains" | "matches"
+        | "similar"}; with "similar" also "min_similarity" (0 to 1) and
+        optionally "similarity" ("rouge_l", the default, or
+        "edit_distance"). Set ground_truth_required true. It judges each
+        turn only (target "turn"), not spans, a conversation or the whole run.
+      - "ToolCallTrajectory": compares the trace's tool calls with the
+        test's expected_tool_calls; config {"match": "exact" | "in_order" |
+        "any_order" | "subset" | "superset", "arguments": "exact" |
+        "partial" | "ignore"}. Default target "run"; it can also take
+        "conversation", or "turn" to hold each turn to its entry in
+        expected_tool_calls_per_turn.
+      When the data a rule reads is missing (no timing on a span, no token
+      counts, an attribute that isn't set, no expected response or tool
+      calls on the test), its result is not applicable, never a pass or a
+      fail.
     parameters:
       name:
         description: "Metric name, unique within the organization (required, string)"
@@ -1209,12 +1263,12 @@ tools:
           Explanation".
       metric_type:
         description: >
-          Must be "custom-prompt" for user-defined metrics. Always
-          include this field.
+          "custom-prompt" for a judge, "rule" for a rule (see RULES in this
+          tool's description). Always include this field.
       backend_type:
         description: >
-          Must be "custom" for user-defined metrics. Always include
-          this field.
+          "custom" for a judge, "rhesis" for a rule. Always include this
+          field.
       score_type:
         description: >
           REQUIRED. Use "numeric" or "categorical". The third value the
@@ -1243,10 +1297,14 @@ tools:
       reference_score:
         description: "Deprecated. Omit — use categories instead."
       class_name:
-        description: "Omit. Only used by built-in provider-backed metrics."
+        description: >
+          Omit for a judge. For a rule: "FieldRule", "ResponseRule" or
+          "ToolCallTrajectory" (see RULES in this tool's description).
       config:
         description: >
-          What the metric judges, as {"target": {"on": ...}}. Omit it for
+          What the metric judges, as {"target": {"on": ...}}, and for a rule
+          its settings next to the target (see RULES in this tool's
+          description). Omit the target for
           the default, which is stored and returned in the response's
           config: "turn" (each request and its response, and every turn of
           a conversation on its own). Send {"target": {"on":
@@ -1388,8 +1446,11 @@ tools:
           order, others allowed between; the default), "any_order",
           "subset" (every call made was expected) or "superset" (every
           expected call was made); arguments is "partial" (listed keys must
-          match; the default), "exact" or "ignore". Omit to keep. The whole
-          object is replaced, so send the settings to keep with a change.
+          match; the default), "exact" or "ignore". For the other rules
+          (class_name FieldRule or ResponseRule), the settings are those
+          listed under RULES in create_metric's description. Omit to keep.
+          The whole object is replaced, so send the settings to keep with a
+          change.
 
           Every metric's config holds "target", what it judges in a trace,
           and so which tests it runs on. "on" is one of: "turn" (each turn; on a conversation, every turn on its own),
@@ -1410,7 +1471,8 @@ tools:
           "issue_refund"}}. A span is held to the test's goal and
           instructions, not its expected response or expected tool calls, so
           a metric with ground_truth_required takes no per-span target, and
-          Tool Call Trajectory takes only "conversation" or "run". A target
+          Tool Call Trajectory takes "turn" (each turn against its entry in
+          expected_tool_calls_per_turn), "conversation" or "run". A target
           the metric can't take is refused with the choices it can. A metric
           whose target matches nothing in a test's trace is reported as not
           applicable, with the reason. On an endpoint that sends no traces,

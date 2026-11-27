@@ -18,7 +18,8 @@ KIND_CODE = "code"
 
 
 def kind_of(metric_type: Any, provider: Any) -> str:
-    if metric_type == "custom-code":
+    # A rule runs no model, like code.
+    if metric_type in ("custom-code", "rule"):
         return KIND_CODE
     if provider == "jev":
         return KIND_JEV

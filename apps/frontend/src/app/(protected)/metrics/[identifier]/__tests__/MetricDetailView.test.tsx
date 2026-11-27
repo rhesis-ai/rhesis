@@ -13,6 +13,7 @@ import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 
 const mockGetMetric = jest.fn();
 const mockUpdateMetric = jest.fn();
+const mockCreateMetric = jest.fn();
 const mockGetModels = jest.fn();
 
 jest.mock('next-auth/react', () => ({
@@ -27,6 +28,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
     getMetricsClient: () => ({
       getMetric: mockGetMetric,
       updateMetric: mockUpdateMetric,
+      createMetric: mockCreateMetric,
     }),
     getModelsClient: () => ({
       getModels: mockGetModels,
@@ -51,34 +53,39 @@ jest.mock('@/components/common/Can', () => ({
   Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+let mockTargetsPending = false;
+
 jest.mock('@/hooks/useLookups', () => ({
   useMetricTargets: () => ({
-    data: [
-      {
-        on: 'turn',
-        label: 'Each turn',
-        description: 'Each exchange.',
-        per_span: false,
-      },
-      {
-        on: 'conversation',
-        label: 'The conversation',
-        description: 'The whole conversation.',
-        per_span: false,
-      },
-      {
-        on: 'tool_call',
-        label: 'Each tool call',
-        description: 'Each tool call.',
-        per_span: true,
-      },
-      {
-        on: 'retrieval',
-        label: 'Each retrieval',
-        description: 'Each retrieval.',
-        per_span: true,
-      },
-    ],
+    isPending: mockTargetsPending,
+    data: mockTargetsPending
+      ? undefined
+      : [
+          {
+            on: 'turn',
+            label: 'Each turn',
+            description: 'Each exchange.',
+            per_span: false,
+          },
+          {
+            on: 'conversation',
+            label: 'The conversation',
+            description: 'The whole conversation.',
+            per_span: false,
+          },
+          {
+            on: 'tool_call',
+            label: 'Each tool call',
+            description: 'Each tool call.',
+            per_span: true,
+          },
+          {
+            on: 'retrieval',
+            label: 'Each retrieval',
+            description: 'Each retrieval.',
+            per_span: true,
+          },
+        ],
   }),
 }));
 
@@ -461,6 +468,22 @@ describe('MetricDetailView — target', () => {
     expect(screen.getByText('Each tool call (search)')).toBeInTheDocument();
   });
 
+  it('never shows the raw target value while the labels load', async () => {
+    mockTargetsPending = true;
+    try {
+      mockGetMetric.mockResolvedValue({
+        ...mockMetric,
+        config: { target: { on: 'tool_call' } },
+      });
+      await renderAndViewMetric();
+
+      expect(screen.getByLabelText('Loading target')).toBeInTheDocument();
+      expect(screen.queryByText('tool_call')).not.toBeInTheDocument();
+    } finally {
+      mockTargetsPending = false;
+    }
+  });
+
   it('offers only the supported targets and keeps other config keys on save', async () => {
     mockGetMetric.mockResolvedValue({
       ...mockMetric,
@@ -499,6 +522,101 @@ describe('MetricDetailView — target', () => {
     expect(mockUpdateMetric.mock.calls[0][1]).toEqual({
       config: {
         match: 'exact',
+        target: { on: 'tool_call', name: 'search' },
+      },
+    });
+  });
+});
+
+describe('MetricDetailView — rule', () => {
+  const ruleMetric = {
+    ...mockMetric,
+    evaluation_prompt: 'duration_ms <= 5000',
+    evaluation_steps: '',
+    reasoning: '',
+    min_score: 0,
+    max_score: 1,
+    threshold: 1,
+    class_name: 'FieldRule',
+    metric_type: { id: 'mt-rule', type_name: 'MetricType', type_value: 'rule' },
+    config: {
+      field: 'duration_ms',
+      op: '<=',
+      value: 5000,
+      target: { on: 'tool_call', name: 'search' },
+    },
+    supported_targets: ['turn', 'conversation', 'tool_call'],
+    model_id: undefined,
+  } as unknown as MetricDetail;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetMetric.mockResolvedValue(ruleMetric);
+    mockGetModels.mockResolvedValue({ data: [] });
+    mockUpdateMetric.mockResolvedValue({});
+  });
+
+  function ruleCard(): HTMLElement {
+    const card = screen
+      .getByText('Evaluation Process')
+      .closest('.MuiPaper-root');
+    if (!card) throw new Error('Evaluation Process card not found');
+    return card as HTMLElement;
+  }
+
+  it('shows the rule instead of a prompt, steps and score settings', async () => {
+    await renderAndViewMetric();
+
+    expect(within(ruleCard()).getByText('duration_ms <= 5000')).toBeVisible();
+    expect(within(ruleCard()).getByText('FieldRule')).toBeVisible();
+    expect(screen.queryByText('Evaluation Prompt')).not.toBeInTheDocument();
+    expect(screen.queryByText('Result Configuration')).not.toBeInTheDocument();
+  });
+
+  it('saves the rule settings and keeps the target', async () => {
+    await renderAndViewMetric();
+    const card = ruleCard();
+
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /^edit$/i }));
+    });
+    fireEvent.change(within(card).getByLabelText('Value'), {
+      target: { value: '3000' },
+    });
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /save/i }));
+    });
+
+    await waitFor(() => expect(mockUpdateMetric).toHaveBeenCalled());
+    expect(mockUpdateMetric.mock.calls[0][1]).toEqual({
+      evaluation_prompt: 'duration_ms <= 3000',
+      config: {
+        field: 'duration_ms',
+        op: '<=',
+        value: 3000,
+        target: { on: 'tool_call', name: 'search' },
+      },
+    });
+  });
+
+  it('duplicates a rule as the same rule class with its settings', async () => {
+    mockCreateMetric.mockResolvedValue({ id: 'metric-2' });
+    await renderAndViewMetric();
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /duplicate metric/i })
+      );
+    });
+
+    await waitFor(() => expect(mockCreateMetric).toHaveBeenCalled());
+    expect(mockCreateMetric.mock.calls[0][0]).toMatchObject({
+      class_name: 'FieldRule',
+      metric_type_id: 'mt-rule',
+      config: {
+        field: 'duration_ms',
+        op: '<=',
+        value: 5000,
         target: { on: 'tool_call', name: 'search' },
       },
     });

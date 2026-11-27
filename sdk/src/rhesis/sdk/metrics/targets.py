@@ -28,7 +28,7 @@ from rhesis.sdk.entities.trace import (
     _documents,
     _recorded,
 )
-from rhesis.sdk.metrics.arguments import judged_input_output
+from rhesis.sdk.metrics.arguments import judged_input_output, judging_unit
 from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.metrics.constants import THRESHOLD_OPERATOR_MAP
 from rhesis.sdk.metrics.expectations import Expectations
@@ -135,6 +135,32 @@ AttributeValue = Union[str, int, float, bool]
 REFINEMENTS = ("name", "within", "where")
 
 
+class UnsupportedTarget(ValueError):
+    """A target this SDK can't read: unknown, or written by a newer Rhesis version.
+    ``reason`` says what is wrong without the advice to upgrade."""
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(
+            f"{reason}. If the metric was made with a newer Rhesis version, this metric's "
+            "target needs a newer rhesis-sdk: upgrade it."
+        )
+
+
+def _check_supported(value: Dict[str, Any]) -> None:
+    """Refuse a target in a shape this SDK doesn't know, saying so instead of failing
+    validation: a metric made with a newer Rhesis version can carry one."""
+    kinds = [kind.value for kind in TargetKind]
+    on = value.get("on")
+    if on not in kinds:
+        raise UnsupportedTarget(f"'{on}' is not a target; valid targets: {', '.join(kinds)}")
+    unknown = sorted(set(value) - set(Target.model_fields))
+    if unknown:
+        raise UnsupportedTarget(f"A target has no {', '.join(unknown)}")
+    if isinstance(value.get("where"), list):
+        raise UnsupportedTarget("where takes attribute values, not a list of conditions")
+
+
 class Target(BaseModel):
     """What a metric judges. ``name`` and ``within`` narrow a per-span target, and ``where``
     any per-unit target."""
@@ -176,7 +202,10 @@ class Target(BaseModel):
         if isinstance(value, Target) or value is None:
             return value
         if isinstance(value, (str, TargetKind)):
+            _check_supported({"on": getattr(value, "value", value)})
             return cls(on=value)
+        if isinstance(value, dict):
+            _check_supported(value)
         return cls.model_validate(value)
 
     @property
@@ -223,9 +252,9 @@ def targets_for(
     can take every target, since every unit is a trace: a span and what's under it, a turn,
     the conversation or the whole run. A conversational metric judges conversations.
     ``compares`` lists the expectations the metric compares with: one that describes the
-    whole test (``response``, ``tool_calls``) can't be held against a span, and
-    expected tool calls can't be held against one turn of a conversation either. A
-    conversation has no expected response, so a metric comparing with one can't judge it.
+    whole test (``response``, ``tool_calls``) can't be held against a span. A turn is held
+    to its own expected tool calls (``unit_expectations``). A conversation has no expected
+    response, so a metric comparing with one can't judge it.
     """
     if conversational:
         return [TargetKind.CONVERSATION, TargetKind.RUN]
@@ -240,8 +269,6 @@ def targets_for(
         kinds += [kind for kind in TargetKind if kind in PER_UNIT and kind not in kinds]
     if set(compares) & set(WHOLE_TEST_EXPECTATIONS):
         kinds = [kind for kind in kinds if not TARGETS[kind].span_kind]
-    if "tool_calls" in compares:
-        kinds = [kind for kind in kinds if kind is not TargetKind.TURN]
     if "response" in compares:
         kinds = [kind for kind in kinds if kind is not TargetKind.CONVERSATION]
     return kinds
@@ -310,6 +337,10 @@ class Unit:
     output: Optional[str]
     trace: Trace
     name: Optional[str]
+    turn: Optional[int] = None
+    """For a turn: its place in the conversation, 0 for the first."""
+    turns: Optional[int] = None
+    """For a turn: how many turns the conversation has."""
 
 
 def _text(value: Any) -> str:
@@ -375,12 +406,14 @@ def _has_attributes(span: Span, where: Optional[Dict[str, Any]]) -> bool:
 
 def _turns(trace: Trace, target: Target) -> List[Unit]:
     units = []
-    for root in trace._turn_roots():
+    roots = trace._turn_roots()
+    for turn, root in enumerate(roots):
         if not _has_attributes(root, target.where):
             continue
         user = _turn_input(root)
         reply = root.attributes.get(_CONVERSATION_OUTPUT) or root.output
-        units.append(Unit(root, _text(user), _text(reply), _subtree(trace, root), None))
+        subtree = _subtree(trace, root)
+        units.append(Unit(root, _text(user), _text(reply), subtree, None, turn, len(roots)))
     return units
 
 
@@ -472,6 +505,10 @@ def _numeric(score: Any) -> Optional[float]:
     return float(score) if isinstance(score, (int, float)) and not isinstance(score, bool) else None
 
 
+def _is_not_applicable(result: MetricResult) -> bool:
+    return bool(result.details.get("not_applicable"))
+
+
 def combine(
     target: Target,
     units: Sequence[Unit],
@@ -485,11 +522,25 @@ def combine(
             "span_id": unit.span.span_id,
             "name": unit.name,
             "score": result.score,
-            "is_successful": verdict,
+            "is_successful": None if _is_not_applicable(result) else verdict,
             "reason": result.details.get("reason"),
+            **({"not_applicable": True} if _is_not_applicable(result) else {}),
         }
         for unit, result, verdict in zip(units, results, verdicts, strict=True)
     ]
+    if rows and all(row.get("not_applicable") for row in rows):
+        # Nothing to judge in any unit (a rule's missing field): not applicable, not a fail.
+        return MetricResult(
+            score=None,
+            details={
+                "is_successful": None,
+                "not_applicable": True,
+                "reason": rows[0]["reason"],
+                "target": target.on.value,
+                "matched": matched,
+                "spans": rows,
+            },
+        )
     decided = [row for row in rows if row["is_successful"] is not None]
     passed = sum(1 for row in decided if row["is_successful"])
     share: Optional[float] = passed / len(decided) if decided else None
@@ -533,6 +584,9 @@ def _reason(target, rows, decided, passed, matched, is_successful) -> str:
     counted = f"{passed} of {len(decided)} {_described(target, len(decided))} passed."
     if not decided:
         counted = f"No verdict for any of the {len(rows)} {_described(target, len(rows))}."
+    skipped = sum(1 for row in rows if row.get("not_applicable"))
+    if skipped:
+        counted += f" {skipped} could not be judged: {_first_skipped_reason(rows)}"
     if matched > len(rows):
         counted += f" Only the first {len(rows)} of {matched} were judged."
     # Name the first failing span only when it cost the metric its pass.
@@ -541,6 +595,11 @@ def _reason(target, rows, decided, passed, matched, is_successful) -> str:
         label = f"`{failed['name']}`" if failed.get("name") else f"#{rows.index(failed) + 1}"
         counted += f" {label}: {failed['reason']}"
     return counted
+
+
+def _first_skipped_reason(rows: Sequence[Dict[str, Any]]) -> str:
+    row = next(row for row in rows if row.get("not_applicable"))
+    return row.get("reason") or "not applicable."
 
 
 def _single_turn(target: Target, units: Sequence[Unit]) -> bool:
@@ -589,15 +648,25 @@ async def a_judge_units(
 
 
 def unit_expectations(
-    target: Target, expectations: Optional[Expectations]
+    target: Target, expectations: Optional[Expectations], unit: Optional[Unit] = None
 ) -> Optional[Expectations]:
     """What one unit is held to. A span answers neither for the test's expected response nor
-    its expected tool calls, and a turn not for the calls of the whole conversation; the
-    goal, instructions and restrictions still apply."""
+    its expected tool calls. A turn answers for its own expected tool calls: its entry in
+    ``tool_calls_per_turn``, or the test's list when the test has one turn. The goal,
+    instructions and restrictions always apply."""
     if expectations is None or target.on not in PER_UNIT:
         return expectations
-    dropped = ("tool_calls",) if target.on is TargetKind.TURN else WHOLE_TEST_EXPECTATIONS
-    return expectations.model_copy(update=dict.fromkeys(dropped))
+    if target.on is not TargetKind.TURN:
+        dropped = (*WHOLE_TEST_EXPECTATIONS, "tool_calls_per_turn")
+        return expectations.model_copy(update=dict.fromkeys(dropped))
+    turn = unit.turn if unit is not None else None
+    if expectations.tool_calls_per_turn is not None:
+        calls = expectations.turn_tool_calls(turn) if turn is not None else None
+    elif unit is not None and unit.turns == 1:
+        calls = expectations.tool_calls
+    else:
+        calls = None
+    return expectations.model_copy(update={"tool_calls": calls, "tool_calls_per_turn": None})
 
 
 def unit_arguments(
@@ -629,16 +698,21 @@ def evaluate_target(
     target = check_target(metric, target)
     expectations = Expectations.coerce(expectations)
     declared = _declared(metric)
-    if target.on not in PER_UNIT:
-        [unit] = matching_units(trace, target)
-        return metric.evaluate(**unit_arguments(declared, unit, expectations))
-    expectations = unit_expectations(target, expectations)
-    return judge_units(
-        trace,
-        target,
-        lambda unit: metric.evaluate(**unit_arguments(declared, unit, expectations)),
-        verdict or (lambda result: _verdict(result, metric)),
-    )
+    token = judging_unit.set(True)
+    try:
+        if target.on not in PER_UNIT:
+            [unit] = matching_units(trace, target)
+            return metric.evaluate(**unit_arguments(declared, unit, expectations))
+        return judge_units(
+            trace,
+            target,
+            lambda unit: metric.evaluate(
+                **unit_arguments(declared, unit, unit_expectations(target, expectations, unit))
+            ),
+            verdict or (lambda result: _verdict(result, metric)),
+        )
+    finally:
+        judging_unit.reset(token)
 
 
 async def a_evaluate_target(
@@ -652,14 +726,18 @@ async def a_evaluate_target(
     target = check_target(metric, target)
     expectations = Expectations.coerce(expectations)
     declared = _declared(metric, "a_evaluate")
-    if target.on not in PER_UNIT:
-        [unit] = matching_units(trace, target)
-        return await metric.a_evaluate(**unit_arguments(declared, unit, expectations))
-    expectations = unit_expectations(target, expectations)
 
     async def judge(unit: Unit) -> MetricResult:
-        return await metric.a_evaluate(**unit_arguments(declared, unit, expectations))
+        held_to = unit_expectations(target, expectations, unit)
+        return await metric.a_evaluate(**unit_arguments(declared, unit, held_to))
 
-    return await a_judge_units(
-        trace, target, judge, verdict or (lambda result: _verdict(result, metric))
-    )
+    token = judging_unit.set(True)
+    try:
+        if target.on not in PER_UNIT:
+            [unit] = matching_units(trace, target)
+            return await metric.a_evaluate(**unit_arguments(declared, unit, expectations))
+        return await a_judge_units(
+            trace, target, judge, verdict or (lambda result: _verdict(result, metric))
+        )
+    finally:
+        judging_unit.reset(token)

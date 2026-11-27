@@ -27,7 +27,11 @@ _CONFIGURATION_FIELDS = (
     "max_turns",
     "min_turns",
     "expected_tool_calls",
+    "expected_tool_calls_per_turn",
 )
+
+# Expected tool calls a test may carry beside test_configuration.
+_TOOL_CALL_FIELDS = ("expected_tool_calls", "expected_tool_calls_per_turn")
 
 
 class TestConfiguration(BaseModel):
@@ -39,6 +43,8 @@ class TestConfiguration(BaseModel):
     min_turns: Optional[int] = None  # Minimum turns before early stopping
     # The tools the endpoint should call, in order; read by ToolCallTrajectory
     expected_tool_calls: Optional[List[ExpectedToolCall]] = None
+    # A multi-turn test's calls turn by turn: item i is turn i+1's, None where it doesn't say
+    expected_tool_calls_per_turn: Optional[List[Optional[List[ExpectedToolCall]]]] = None
 
     def to_payload(self) -> Dict[str, Any]:
         """The fields that are set: a single-turn test's has no goal, and the backend reads
@@ -72,6 +78,7 @@ class Test(BaseEntity):
     max_turns: Optional[int] = None
     min_turns: Optional[int] = None
     expected_tool_calls: Optional[List[Any]] = None
+    expected_tool_calls_per_turn: Optional[List[Any]] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -86,16 +93,17 @@ class Test(BaseEntity):
 
         # If test_configuration already provided, use it and remove separate fields
         if "test_configuration" in data and data["test_configuration"] is not None:
-            calls = data.get("expected_tool_calls")
             config = data["test_configuration"]
-            if calls is not None:
+            for key in _TOOL_CALL_FIELDS:
+                calls = data.get(key)
+                if calls is None:
+                    continue
                 if isinstance(config, TestConfiguration):
                     config = config.model_dump(exclude_none=True)
-                if config.get("expected_tool_calls") is not None:
-                    raise ValueError(
-                        "Pass expected_tool_calls either in test_configuration or beside it."
-                    )
-                data["test_configuration"] = {**config, "expected_tool_calls": calls}
+                if config.get(key) is not None:
+                    raise ValueError(f"Pass {key} either in test_configuration or beside it.")
+                config = {**config, key: calls}
+                data["test_configuration"] = config
             # Remove the separate fields if they exist
             for field in _CONFIGURATION_FIELDS:
                 data.pop(field, None)
@@ -116,8 +124,9 @@ class Test(BaseEntity):
                 config_data["max_turns"] = data["max_turns"]
             if data.get("min_turns") is not None:
                 config_data["min_turns"] = data["min_turns"]
-        if data.get("expected_tool_calls") is not None:
-            config_data["expected_tool_calls"] = data["expected_tool_calls"]
+        for key in _TOOL_CALL_FIELDS:
+            if data.get(key) is not None:
+                config_data[key] = data[key]
         if config_data:
             data["test_configuration"] = config_data
             for field in _CONFIGURATION_FIELDS:

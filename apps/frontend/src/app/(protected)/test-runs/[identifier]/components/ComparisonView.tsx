@@ -25,6 +25,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
@@ -52,7 +53,7 @@ import {
 } from '@/styles/theme-constants';
 import { scaledVh } from '@/styles/viewport-scaling';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
-import { passRate } from '@/constants/outcomes';
+import { applicableMetrics, passRate } from '@/constants/outcomes';
 import RunUsageLines from './RunUsageLines';
 import { useTestRunUsage } from '../hooks/useTestRunUsage';
 
@@ -147,8 +148,20 @@ function ExperimentRunLink({
   );
 }
 
+/** Passed and total metrics, leaving out the not applicable ones, as the result drawer does. */
+export function metricCounts(metrics?: Record<string, MetricResult> | null): {
+  passed: number;
+  total: number;
+} {
+  const applicable = Object.values(applicableMetrics(metrics));
+  return {
+    passed: applicable.filter(m => m.is_successful).length,
+    total: applicable.length,
+  };
+}
+
 // Individual metric result row matching Figma "Testrun Comparison" component
-function MetricRow({
+export function MetricRow({
   metricName,
   result,
 }: {
@@ -156,13 +169,24 @@ function MetricRow({
   result?: MetricResult;
 }) {
   const isPassed = result?.is_successful ?? false;
+  const notApplicable = result?.not_applicable === true;
   return (
     <Paper
       variant="outlined"
       sx={{ borderRadius: '4px', pt: '30px', pb: '20px', px: '30px' }}
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-        {isPassed ? (
+        {notApplicable ? (
+          <RemoveCircleOutlineIcon
+            aria-label="Not applicable"
+            sx={{
+              color: 'text.disabled',
+              fontSize: rem(24),
+              flexShrink: 0,
+              mt: '2px',
+            }}
+          />
+        ) : isPassed ? (
           <CheckCircleIcon
             sx={{
               color: 'success.main',
@@ -187,6 +211,11 @@ function MetricRow({
           >
             {metricName}
           </Typography>
+          {notApplicable && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Not applicable{result?.reason ? `: ${result.reason}` : ''}
+            </Typography>
+          )}
           {result != null && result.score != null && (
             <Box sx={{ mt: 1 }}>
               <Box
@@ -926,15 +955,12 @@ export default function ComparisonView({
                 const baselineMetrics =
                   test.baseline?.test_metrics?.metrics || {};
                 const currentMetrics = test.current.test_metrics?.metrics || {};
-                const baselinePassedCount = Object.values(
-                  baselineMetrics
-                ).filter(m => m.is_successful).length;
-                const baselineTotalCount =
-                  Object.values(baselineMetrics).length;
-                const currentPassedCount = Object.values(currentMetrics).filter(
-                  m => m.is_successful
-                ).length;
-                const currentTotalCount = Object.values(currentMetrics).length;
+                const {
+                  passed: baselinePassedCount,
+                  total: baselineTotalCount,
+                } = metricCounts(baselineMetrics);
+                const { passed: currentPassedCount, total: currentTotalCount } =
+                  metricCounts(currentMetrics);
 
                 // Get content based on test type
                 const contentLabel = isMultiTurn ? 'Goal' : 'Prompt';
@@ -1295,16 +1321,14 @@ export default function ComparisonView({
                               selectedTest.baseline
                             )}
                             passedCount={
-                              Object.values(
-                                selectedTest.baseline.test_metrics?.metrics ||
-                                  {}
-                              ).filter(m => m.is_successful).length
+                              metricCounts(
+                                selectedTest.baseline.test_metrics?.metrics
+                              ).passed
                             }
                             totalCount={
-                              Object.values(
-                                selectedTest.baseline.test_metrics?.metrics ||
-                                  {}
-                              ).length
+                              metricCounts(
+                                selectedTest.baseline.test_metrics?.metrics
+                              ).total
                             }
                             size="small"
                             variant="filled"
@@ -1394,14 +1418,14 @@ export default function ComparisonView({
                             selectedTest.current
                           )}
                           passedCount={
-                            Object.values(
-                              selectedTest.current.test_metrics?.metrics || {}
-                            ).filter(m => m.is_successful).length
+                            metricCounts(
+                              selectedTest.current.test_metrics?.metrics
+                            ).passed
                           }
                           totalCount={
-                            Object.values(
-                              selectedTest.current.test_metrics?.metrics || {}
-                            ).length
+                            metricCounts(
+                              selectedTest.current.test_metrics?.metrics
+                            ).total
                           }
                           size="small"
                           variant="filled"
@@ -1502,14 +1526,14 @@ export default function ComparisonView({
                             selectedTest.baseline
                           )}
                           passedCount={
-                            Object.values(
-                              selectedTest.baseline.test_metrics?.metrics || {}
-                            ).filter(m => m.is_successful).length
+                            metricCounts(
+                              selectedTest.baseline.test_metrics?.metrics
+                            ).passed
                           }
                           totalCount={
-                            Object.values(
-                              selectedTest.baseline.test_metrics?.metrics || {}
-                            ).length
+                            metricCounts(
+                              selectedTest.baseline.test_metrics?.metrics
+                            ).total
                           }
                           size="small"
                           variant="filled"
@@ -1541,14 +1565,14 @@ export default function ComparisonView({
                           selectedTest.current
                         )}
                         passedCount={
-                          Object.values(
-                            selectedTest.current.test_metrics?.metrics || {}
-                          ).filter(m => m.is_successful).length
+                          metricCounts(
+                            selectedTest.current.test_metrics?.metrics
+                          ).passed
                         }
                         totalCount={
-                          Object.values(
-                            selectedTest.current.test_metrics?.metrics || {}
-                          ).length
+                          metricCounts(
+                            selectedTest.current.test_metrics?.metrics
+                          ).total
                         }
                         size="small"
                         variant="filled"
@@ -1641,15 +1665,17 @@ export default function ComparisonView({
                               m.result !== undefined
                           );
                         if (bMetrics.length === 0) return null;
-                        const passed = bMetrics.filter(
-                          m => m.result.is_successful
-                        ).length;
+                        const counts = metricCounts(
+                          Object.fromEntries(
+                            bMetrics.map(m => [m.name, m.result])
+                          )
+                        );
                         return (
                           <RequirementSection
                             key={requirement.id}
                             requirementName={requirement.name}
-                            passedCount={passed}
-                            totalCount={bMetrics.length}
+                            passedCount={counts.passed}
+                            totalCount={counts.total}
                           >
                             {bMetrics.map(m => (
                               <MetricRow
@@ -1686,15 +1712,17 @@ export default function ComparisonView({
                               m.result !== undefined
                           );
                         if (bMetrics.length === 0) return null;
-                        const passed = bMetrics.filter(
-                          m => m.result.is_successful
-                        ).length;
+                        const counts = metricCounts(
+                          Object.fromEntries(
+                            bMetrics.map(m => [m.name, m.result])
+                          )
+                        );
                         return (
                           <RequirementSection
                             key={requirement.id}
                             requirementName={requirement.name}
-                            passedCount={passed}
-                            totalCount={bMetrics.length}
+                            passedCount={counts.passed}
+                            totalCount={counts.total}
                           >
                             {bMetrics.map(m => (
                               <MetricRow

@@ -411,6 +411,42 @@ class TestGetVerdictMatrix:
         # pass_rate comment in get_verdict_matrix.
         assert matrix.kpis.pass_rate == 1.0
 
+    @pytest.mark.parametrize(
+        ("result", "cell"),
+        [
+            ({"is_successful": None, "score": None, "not_applicable": True}, "X"),
+            ({"is_successful": None, "score": 0.4}, "S"),
+        ],
+    )
+    def test_a_not_applicable_result_reads_as_not_applicable(
+        self, test_db: Session, verdict_matrix_setup, result, cell
+    ):
+        setup = verdict_matrix_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        metrics = {"Accuracy": result}
+        test_db.add(
+            models.TestResult(
+                test_run_id=test_run.id,
+                test_configuration_id=setup["test_config"].id,
+                test_id=setup["test_b"].id,
+                organization_id=test_run.organization_id,
+                user_id=test_run.user_id,
+                test_metrics={"metrics": metrics},
+                **_execution_verdict(metrics),
+            )
+        )
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        row = get_verdict_matrix(test_db, test_run).rows[0]
+
+        index_b = plan["test_order"].index(str(setup["test_b"].id))
+        assert row.verdicts[index_b] == cell
+
     def test_columns_none_omits_test_ids(self, test_db: Session, verdict_matrix_setup):
         setup = verdict_matrix_setup
         plan = build_metric_plan(

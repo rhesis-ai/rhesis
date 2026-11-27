@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `TestSet.execute()` takes `tests_tagged`, a list of tag names. Only the set's tests carrying any of them run.
+- Rules: `FieldRule` checks a field of the trace (duration, status, errors, span counts, tokens, cost, input, output, length, attributes) and `ResponseRule` compares the output with the expected response (exact, contains, regex, or ROUGE-L or edit-distance similarity). Neither needs a model, and both have the new `MetricType.RULE`. `ToolCallTrajectory` is a rule too, and is not applicable instead of raising on a test without expected tool calls. Missing data makes a rule not applicable, and a per-unit target leaves those units out of its verdict. Rules are also not applicable on missing or empty input or output, a blank expected response, a non-number under a numeric comparison, and `status` or `error_count` on reported spans. A call both recorded and reported counts once.
+- `Expectations.tool_calls_per_turn` and `Test(expected_tool_calls_per_turn=...)`: a turn unit is held to its own expected tool calls, and metrics comparing tool calls can take `turn`.
+- The Architect plans a rule, not a judge, for a requirement that is a limit (`MetricSpec.rule`, `rule_settings`), and checks a planned rule is created with that class.
+- `metric.evaluate()` without `target=` uses the metric's own target, so a pulled metric judges a trace locally the way the platform does.
+- `UnsupportedTarget`: a target this SDK can't read, such as one a newer Rhesis version wrote, raises it with the valid targets and a note to upgrade `rhesis-sdk`, instead of a validation error.
 
 ### Changed
 - **BREAKING:** `MetricScope` and `MetricConfig.metric_scope` are removed. A metric's

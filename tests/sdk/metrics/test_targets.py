@@ -401,7 +401,12 @@ def test_a_turn_keeps_the_expected_answer_but_not_the_conversations_calls():
 
 
 def test_metrics_comparing_whole_test_expectations_take_no_per_span_target():
-    assert supported_targets(ToolCallTrajectory) == [TargetKind.CONVERSATION, TargetKind.RUN]
+    # A turn is held to its own expected calls, so the trajectory takes turns but no span.
+    assert supported_targets(ToolCallTrajectory) == [
+        TargetKind.TURN,
+        TargetKind.CONVERSATION,
+        TargetKind.RUN,
+    ]
     assert TargetKind.TOOL_CALL not in supported_targets(Longer, compares=["response"])
     assert TargetKind.TURN in supported_targets(Longer, compares=["response"])
 

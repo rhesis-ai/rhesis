@@ -854,3 +854,104 @@ class TestMetricConfig(MetricTestMixin):
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["config"] == config
+
+
+class TestRuleMetrics(MetricTestMixin):
+    """Rules are metrics with no model: their settings and target are checked on write."""
+
+    def _rule(self, class_name: str, config: Dict[str, Any], **fields: Any) -> Dict[str, Any]:
+        return {
+            **MetricDataFactory.sample_data(),
+            "class_name": class_name,
+            "metric_type": "rule",
+            "backend_type": "rhesis",
+            "score_type": "numeric",
+            "threshold": 1,
+            "threshold_operator": ">=",
+            "evaluation_prompt": "a readable rule",
+            "config": config,
+            **fields,
+        }
+
+    def _create(self, metric_factory, data):
+        return metric_factory.client.post(self.endpoints.create, json=data)
+
+    def test_a_field_rule_is_stored_as_a_rule_judging_each_turn(self, metric_factory):
+        response = self._create(
+            metric_factory,
+            self._rule("FieldRule", {"field": "duration_ms", "op": "<=", "value": 5000}),
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        created = response.json()
+        assert created["metric_type"]["type_value"] == "rule"
+        assert created["config"] == {
+            "field": "duration_ms",
+            "op": "<=",
+            "value": 5000,
+            "target": {"on": "turn"},
+        }
+
+    def test_a_field_rule_can_take_every_target(self, metric_factory):
+        response = self._create(
+            metric_factory,
+            self._rule(
+                "FieldRule",
+                {"field": "error_count", "op": "==", "value": 0, "target": {"on": "tool_call"}},
+            ),
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        supported = set(response.json()["supported_targets"])
+        assert {"turn", "conversation", "run", "tool_call", "retrieval"} <= supported
+
+    @pytest.mark.parametrize(
+        "config",
+        [
+            {"field": "duration_ms", "op": "about", "value": 5000},
+            {"field": "mood", "op": "==", "value": "happy"},
+            {"field": "duration_ms", "op": "<="},
+            {"field": "duration_ms", "op": "<=", "value": 5000, "colour": "red"},
+        ],
+        ids=["unknown operator", "unknown field", "missing value", "unknown setting"],
+    )
+    def test_a_field_rule_with_bad_settings_is_refused(self, metric_factory, config):
+        response = self._create(metric_factory, self._rule("FieldRule", config))
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_a_response_rule_judges_turns_but_not_spans_or_the_conversation(self, metric_factory):
+        response = self._create(
+            metric_factory,
+            self._rule("ResponseRule", {"match": "exact"}, ground_truth_required=True),
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        created = response.json()
+        assert created["config"]["target"] == {"on": "turn"}
+        supported = set(created["supported_targets"])
+        assert "turn" in supported
+        assert not supported & {"conversation", "tool_call", "retrieval", "model_call"}
+
+    def test_a_response_rule_cannot_take_a_span_target(self, metric_factory):
+        response = self._create(
+            metric_factory,
+            self._rule("ResponseRule", {"match": "exact", "target": {"on": "tool_call"}}),
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_a_similar_response_rule_needs_a_minimum(self, metric_factory):
+        response = self._create(metric_factory, self._rule("ResponseRule", {"match": "similar"}))
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_tool_call_trajectory_takes_what_it_took_before(self, metric_factory):
+        response = self._create(
+            metric_factory, self._rule("ToolCallTrajectory", {"match": "in_order"})
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        created = response.json()
+        assert created["config"]["target"] == {"on": "run"}
+        assert "tool_call" not in created["supported_targets"]

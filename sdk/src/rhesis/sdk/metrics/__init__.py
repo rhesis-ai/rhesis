@@ -43,13 +43,20 @@ if TYPE_CHECKING:
         GoalAchievementScoreResponse,
     )
     from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
+    from rhesis.sdk.metrics.providers.native.rules import FieldRule, ResponseRule, TraceRule
     from rhesis.sdk.metrics.providers.native.tool_call_trajectory import (
         ArgumentMatch,
         ToolCallTrajectory,
         TrajectoryMatch,
     )
     from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
-    from rhesis.sdk.metrics.targets import TARGETS, Aggregation, Target, TargetKind
+    from rhesis.sdk.metrics.targets import (
+        TARGETS,
+        Aggregation,
+        Target,
+        TargetKind,
+        UnsupportedTarget,
+    )
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     # Native — per-module import avoids loading all judges when only one is needed
@@ -74,6 +81,9 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
         "rhesis.sdk.metrics.providers.native.goal_achievement_judge",
         "GoalAchievementScoreResponse",
     ),
+    "TraceRule": ("rhesis.sdk.metrics.providers.native.rules", "TraceRule"),
+    "FieldRule": ("rhesis.sdk.metrics.providers.native.rules", "FieldRule"),
+    "ResponseRule": ("rhesis.sdk.metrics.providers.native.rules", "ResponseRule"),
     "ToolCallTrajectory": (
         "rhesis.sdk.metrics.providers.native.tool_call_trajectory",
         "ToolCallTrajectory",
@@ -88,6 +98,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "Target": ("rhesis.sdk.metrics.targets", "Target"),
     "TargetKind": ("rhesis.sdk.metrics.targets", "TargetKind"),
+    "UnsupportedTarget": ("rhesis.sdk.metrics.targets", "UnsupportedTarget"),
     "Aggregation": ("rhesis.sdk.metrics.targets", "Aggregation"),
     "TARGETS": ("rhesis.sdk.metrics.targets", "TARGETS"),
     "RhesisMetricFactory": (
@@ -154,6 +165,7 @@ __all__ = [
     "UnsupportedModelType",
     "Target",
     "TargetKind",
+    "UnsupportedTarget",
     "Aggregation",
     "TARGETS",
     "MetricConfigLoader",
@@ -200,6 +212,9 @@ __all__ = [
     "GoalAchievementJudge",
     "CriterionEvaluation",
     "GoalAchievementScoreResponse",
+    "TraceRule",
+    "FieldRule",
+    "ResponseRule",
     "ToolCallTrajectory",
     "TrajectoryMatch",
     "ArgumentMatch",
