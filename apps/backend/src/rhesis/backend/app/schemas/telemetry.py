@@ -247,6 +247,10 @@ class SpanSummary(BaseModel):
     )
     start_time: datetime
     duration_ms: float
+    reported: bool = Field(
+        default=False,
+        description="Built from what a response reported: its duration is not a measurement",
+    )
     status_code: str
     environment: str
     conversation_id: Optional[str] = None

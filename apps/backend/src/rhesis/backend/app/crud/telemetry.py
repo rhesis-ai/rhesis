@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, make_transient_to_detached
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import (
+    REPORTED_SPAN_SOURCE,
     AISpanAttributes,
     EnrichedDataKeys,
     TestExecutionContext,
@@ -1241,6 +1242,9 @@ def query_spans(
             output_tokens.label("output_tokens"),
             total_tokens.label("total_tokens"),
             span_cost_expr(entry).label("cost_usd"),
+            (trace.attributes[AISpanAttributes.SPAN_SOURCE].astext == REPORTED_SPAN_SOURCE).label(
+                "reported"
+            ),
         )
         .filter(trace.id.in_(ids))
         .all()
