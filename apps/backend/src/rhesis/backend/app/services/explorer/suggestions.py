@@ -32,6 +32,7 @@ from rhesis.backend.app.services.streaming_utils import (
 )
 from rhesis.backend.app.services.streaming_utils import ndjson as _ndjson
 from rhesis.backend.app.utils.model_errors import EmbeddingProviderNotConfigured
+from rhesis.backend.metrics.inputs import TraceLoader
 from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
@@ -498,7 +499,9 @@ async def suggestion_pipeline_stream(
             embed_results[idx] = None
             await fanout.emit({"type": "embedding", "index": idx})
 
-    async def _evaluate_one(index: int, input_text: str, output_text: str):
+    async def _evaluate_one(
+        index: int, input_text: str, output_text: str, trace_loader: Optional[TraceLoader]
+    ):
         nonlocal evals_done, evals_failed
         logger.info("[%s] idx=%02d evaluation_start", _ts(), index)
         async with eval_semaphore:
@@ -507,6 +510,7 @@ async def suggestion_pipeline_stream(
                     sdk_metrics,
                     input_text,
                     output_text,
+                    trace_loader=trace_loader,
                 )
                 verdict = aggregate_metric_verdict(metric_results, metric_names)
                 if verdict is None:
@@ -550,7 +554,7 @@ async def suggestion_pipeline_stream(
     async def _invoke_one(index: int, input_text: str):
         nonlocal outputs_generated, outputs_failed
         logger.info("[%s] idx=%02d output_start", _ts(), index)
-        output, error = await invoker.invoke(input_text)
+        output, error, trace_loader = await invoker.invoke_traced(input_text)
         if error:
             logger.warning("Pipeline output failed for index %s: %s", index, error)
             outputs_failed += 1
@@ -570,7 +574,7 @@ async def suggestion_pipeline_stream(
         )
 
         if not error and output and output != NO_OUTPUT:
-            fanout.spawn(_evaluate_one(index, input_text, output))
+            fanout.spawn(_evaluate_one(index, input_text, output, trace_loader))
 
     # ── Stream suggestions, immediately spawning all background work ──
 

@@ -129,6 +129,10 @@ def test_every_target_has_a_label_and_a_description():
         {"on": "tool_call", "tool": "x"},
         {"on": "run", "aggregate": "any"},
         {"on": "conversation", "aggregate": "share", "min_share": 0.5},
+        {"on": "run", "where": {"channel": "email"}},
+        {"on": "turn", "where": {}},
+        {"on": "turn", "where": {"channel": []}},
+        {"on": "turn", "where": {"channel": {"nested": "x"}}},
     ],
 )
 def test_malformed_targets_are_refused(config):
@@ -154,14 +158,21 @@ def test_a_metric_reading_input_and_output_judges_turns_and_spans():
     assert TargetKind.RUN not in supported_targets(Longer)
 
 
-def test_a_metric_reading_the_trace_judges_turns_conversations_and_runs():
+def test_a_metric_reading_the_trace_takes_every_target():
+    # Every unit is a trace, so a span and what's under it can be read as one too.
     assert default_target(ReadsTrace) is TargetKind.RUN
     assert supported_targets(ReadsTrace) == [
         TargetKind.TURN,
         TargetKind.CONVERSATION,
         TargetKind.RUN,
+        TargetKind.TOOL_CALL,
+        TargetKind.RETRIEVAL,
+        TargetKind.MODEL_CALL,
+        TargetKind.AGENT,
+        TargetKind.GUARDRAIL,
     ]
     assert default_target(ToolCallTrajectory) is TargetKind.RUN
+    assert TargetKind.TOOL_CALL not in supported_targets(ToolCallTrajectory)
 
 
 def test_judges_read_both():
@@ -181,7 +192,7 @@ def test_a_conversational_metric_judges_conversations():
 
 def test_a_target_the_metric_cannot_take_names_the_choices():
     with pytest.raises(ValueError, match=r"Choices: Each turn \(turn\)"):
-        check_target(ReadsTrace, "tool_call")
+        check_target(Longer, "run")
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +222,103 @@ def test_a_name_and_an_agent_narrow_the_spans():
     assert metric.calls == [('{"order": 42}', "ok")]
     assert result.details["is_successful"] is True
     assert result.details["spans"][0]["name"] == "issue_refund"
+
+
+def test_each_span_is_judged_as_its_own_trace():
+    metric = ReadsTrace()
+
+    result = metric.evaluate(trace=agent_trace(), target="agent")
+
+    support, billing = metric.traces
+    assert [s.span_name for s in support.root_spans] == ["support"]
+    assert [call["name"] for call in support.tool_calls] == ["lookup_order", "issue_refund"]
+    assert [call["name"] for call in billing.tool_calls] == ["issue_refund"]
+    assert result.details["matched"] == 2
+
+
+def test_a_span_judged_through_the_connector_sends_its_own_trace():
+    from rhesis.sdk.metrics.targets import matching_units
+
+    [lookup, *_] = matching_units(agent_trace(), Target(on="tool_call"))
+
+    assert [s.span_name for s in lookup.trace.root_spans] == ["lookup_order"]
+    assert lookup.trace.root_spans[0].children == []
+
+
+def test_where_keeps_the_spans_with_those_attributes():
+    root = span(
+        "function",
+        "function.endpoint_invoke",
+        children=[
+            span("tool.invoke", "search", "{}", "a", region="eu"),
+            span("tool.invoke", "search", "{}", "bb", region="us"),
+            span("tool.invoke", "search", "{}", "ccc", region="apac"),
+        ],
+    )
+    trace = Trace(root_spans=[root])
+    trace._detail_loaded = True
+    metric = Longer(threshold=0)
+
+    result = metric.evaluate(
+        trace=trace, target={"on": "tool_call", "where": {"region": ["eu", "apac"]}}
+    )
+
+    assert [call[1] for call in metric.calls] == ["a", "ccc"]
+    assert result.details["matched"] == 2
+
+
+def turn_root(user, reply, **attributes):
+    return Span(
+        span_id=f"turn-{user}",
+        span_name="function.endpoint_invoke",
+        attributes={
+            "rhesis.conversation.input": user,
+            "rhesis.conversation.output": reply,
+            **attributes,
+        },
+    )
+
+
+def test_where_keeps_the_turns_with_those_attributes():
+    trace = Trace(
+        root_spans=[
+            turn_root("Hi", "Hello", **{"rhesis.reported.metadata.channel": "email"}),
+            turn_root("Hey", "Yo", **{"rhesis.reported.metadata.channel": "chat"}),
+        ]
+    )
+    trace._detail_loaded = True
+    metric = Longer(threshold=10)
+
+    result = metric.evaluate(
+        trace=trace, target={"on": "turn", "where": {"rhesis.reported.metadata.channel": "email"}}
+    )
+
+    assert metric.calls == [("Hi", "Hello")]
+    # One turn left by a filter still reads as a count, not as the metric's own result.
+    assert result.details["matched"] == 1
+    assert result.details["reason"].startswith(
+        "0 of 1 turn where `rhesis.reported.metadata.channel` is email passed."
+    )
+
+
+@pytest.mark.parametrize(("stored", "wanted"), [("200", 200), ("true", True), (3.5, "3.5")])
+def test_where_matches_values_however_they_were_recorded(stored, wanted):
+    trace = Trace(root_spans=[turn_root("Hi", "Hello", status=stored)])
+    trace._detail_loaded = True
+    metric = Longer(threshold=0)
+
+    metric.evaluate(trace=trace, target={"on": "turn", "where": {"status": wanted}})
+
+    assert metric.calls == [("Hi", "Hello")]
+
+
+def test_where_matching_nothing_is_not_applicable_and_says_why():
+    result = Longer().evaluate(
+        trace=agent_trace(), target={"on": "tool_call", "where": {"region": "eu"}}
+    )
+
+    assert result.details["not_applicable"] is True
+    assert "tool calls where `region` is eu" in result.details["reason"]
 
 
 @pytest.mark.parametrize(

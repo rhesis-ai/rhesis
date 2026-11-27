@@ -1235,6 +1235,14 @@ class TestMetricTargets:
         missing = [k.value for k in [*TargetKind, *Aggregation] if f'"{k.value}"' not in described]
         assert not missing, f"update_metric's config doesn't describe {missing}"
 
+    def test_every_refinement_is_described(self):
+        from rhesis.sdk.metrics.targets import REFINEMENTS
+
+        described = self._config("update_metric")
+
+        missing = [name for name in REFINEMENTS if f'"{name}"' not in described]
+        assert not missing, f"update_metric's config doesn't describe {missing}"
+
     def test_create_metric_points_at_them(self):
         assert '{"target": {"on": ...}}' in self._config("create_metric")
 

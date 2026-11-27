@@ -4,6 +4,7 @@ import * as React from 'react';
 import type { UUID } from 'crypto';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
 import { useQuery } from '@tanstack/react-query';
 import { metricKeys } from '@/constants/query-keys';
 import { useMetricTargets } from '@/hooks/useLookups';
@@ -15,7 +16,7 @@ import {
   getMetricTargetIcon,
   targetPhrase,
 } from '@/utils/metric-targets';
-import { targetTraceFilters } from './target-filters';
+import { targetTraceFilters, unappliedRefinements } from './target-filters';
 import type { TraceDrawerFilters } from './trace-filter-params';
 
 interface TargetFilterChipProps {
@@ -53,9 +54,19 @@ export default function TargetFilterChip({
   ]
     .filter(Boolean)
     .join(' · ');
+  const unapplied = unappliedRefinements(target);
 
   return (
-    <Box sx={{ mb: 2 }}>
+    <Box
+      sx={{
+        mb: 2,
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        columnGap: 1.5,
+        rowGap: 0.5,
+      }}
+    >
       <Chip
         data-testid="target-filter-chip"
         color="primary"
@@ -65,6 +76,15 @@ export default function TargetFilterChip({
         onDelete={() => onRemove(targetTraceFilters(target, choices).filters)}
         sx={{ maxWidth: '100%' }}
       />
+      {unapplied.length > 0 && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          data-testid="target-filter-unapplied"
+        >
+          Not applied here: {unapplied.join(', ')}
+        </Typography>
+      )}
     </Box>
   );
 }

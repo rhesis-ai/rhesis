@@ -51,6 +51,8 @@ class AIAttributes:
     OPERATION_AGENT_HANDOFF = "agent.handoff"
     OPERATION_AGENT_CREATE = "agent.create"
     OPERATION_AGENT_PLAN = "agent.plan"
+    # The platform's call to a REST or WebSocket endpoint: the root span of each turn.
+    OPERATION_ENDPOINT_INVOKE = "endpoint.invoke"
 
     # Model
     MODEL_PROVIDER = "ai.model.provider"

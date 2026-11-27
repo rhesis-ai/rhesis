@@ -1,8 +1,10 @@
 """What a metric judges in a trace: its target.
 
-A metric judges a turn, the conversation or the whole run once, or runs once per span of one
-kind (each tool call, each retrieval, ...) and combines those verdicts into one. ``TARGETS``
-is the one list of choices; validation, the MCP tools and the docs read it.
+A target picks units from the trace: each turn, the conversation, the whole run, or each span
+of one kind (each tool call, each retrieval, ...). Every unit is itself a trace, the selected
+span and everything under it. The metric runs once per unit, and the verdicts of several units
+combine into one. ``TARGETS`` is the one list of choices; validation, the MCP tools and the
+docs read it.
 
     judge.evaluate(trace=trace, target={"on": "tool_call", "name": "issue_refund"})
 """
@@ -126,8 +128,16 @@ PER_UNIT = frozenset(kind for kind, preset in TARGETS.items() if preset.span_kin
 }
 
 
+#: An attribute value a unit's root span must have, or a list of values it may have.
+AttributeValue = Union[str, int, float, bool]
+
+#: The fields that narrow which units a per-unit target judges.
+REFINEMENTS = ("name", "within", "where")
+
+
 class Target(BaseModel):
-    """What a metric judges. ``name`` and ``within`` narrow a per-span target."""
+    """What a metric judges. ``name`` and ``within`` narrow a per-span target, and ``where``
+    any per-unit target."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -136,6 +146,10 @@ class Target(BaseModel):
     """Only spans with this name: the tool, the agent, the model, or the span's name."""
     within: Optional[str] = Field(default=None, min_length=1)
     """Only spans inside the agent with this name."""
+    where: Optional[Dict[str, Union[AttributeValue, List[AttributeValue]]]] = Field(
+        default=None, min_length=1
+    )
+    """Only units whose root span has these attributes; a list means any of its values."""
     aggregate: Aggregation = Aggregation.ALL
     min_share: Optional[float] = Field(default=None, gt=0, le=1)
 
@@ -147,6 +161,10 @@ class Target(BaseModel):
                 raise ValueError(
                     f"{' and '.join(narrowed)} only narrow a per-span target, not '{self.on.value}'"
                 )
+        if self.on not in PER_UNIT and self.where is not None:
+            raise ValueError(f"where narrows a per-unit target, and '{self.on.value}' has one unit")
+        if any(value == [] for value in (self.where or {}).values()):
+            raise ValueError("where needs at least one value per attribute")
         if self.on not in PER_UNIT and self.aggregate is not Aggregation.ALL:
             raise ValueError(f"aggregate combines several verdicts, and '{self.on.value}' has one")
         if (self.aggregate is Aggregation.SHARE) != (self.min_share is not None):
@@ -201,10 +219,11 @@ def targets_for(
 ) -> List[TargetKind]:
     """The targets a metric can take, from the parameters its ``evaluate`` declares.
 
-    A metric reading ``input`` or ``output`` judges a turn or any span; one reading ``trace``
-    judges a turn's trace, the conversation or the whole run. A conversational metric judges
-    conversations. ``compares`` lists the expectations the metric compares with: one that
-    describes the whole test (``response``, ``tool_calls``) can't be held against a span, and
+    A metric reading ``input`` or ``output`` judges a turn or any span. One reading ``trace``
+    can take every target, since every unit is a trace: a span and what's under it, a turn,
+    the conversation or the whole run. A conversational metric judges conversations.
+    ``compares`` lists the expectations the metric compares with: one that describes the
+    whole test (``response``, ``tool_calls``) can't be held against a span, and
     expected tool calls can't be held against one turn of a conversation either. A
     conversation has no expected response, so a metric comparing with one can't judge it.
     """
@@ -218,6 +237,7 @@ def targets_for(
         kinds += [TargetKind.CONVERSATION, TargetKind.RUN]
         if TargetKind.TURN not in kinds:
             kinds.insert(0, TargetKind.TURN)
+        kinds += [kind for kind in TargetKind if kind in PER_UNIT and kind not in kinds]
     if set(compares) & set(WHOLE_TEST_EXPECTATIONS):
         kinds = [kind for kind in kinds if not TARGETS[kind].span_kind]
     if "tool_calls" in compares:
@@ -279,11 +299,15 @@ def check_target(
 
 @dataclass
 class Unit:
-    """One thing a per-unit target judges: a span, as the input and output a metric reads."""
+    """One thing a target judges, as a trace: the selected span and everything under it.
 
-    span: Span
-    input: str
-    output: str
+    ``input`` and ``output`` are read from its root span. A unit of the whole trace (the
+    conversation, the run) has no ``span``, and its input and output are read from the trace
+    only when a metric asks for them."""
+
+    span: Optional[Span]
+    input: Optional[str]
+    output: Optional[str]
     trace: Trace
     name: Optional[str]
 
@@ -319,24 +343,44 @@ def _reported(span: Span) -> bool:
     return span.attributes.get(_SPAN_SOURCE) == _REPORTED
 
 
-def _turn_trace(trace: Trace, root: Span) -> Trace:
-    # One turn of a conversation, judged as a turn and not as a conversation.
-    attributes = {k: v for k, v in root.attributes.items() if k != TRACE_SOURCE_ATTRIBUTE}
-    turn = Trace(
+def _subtree(trace: Trace, span: Span) -> Trace:
+    """``span`` and everything under it, as a trace of its own. A turn of a conversation is
+    judged as a turn, not as a conversation."""
+    attributes = {k: v for k, v in span.attributes.items() if k != TRACE_SOURCE_ATTRIBUTE}
+    unit = Trace(
         trace_id=trace.trace_id,
         conversation_id=trace.conversation_id,
-        root_spans=[root.model_copy(update={"attributes": attributes})],
+        root_spans=[span.model_copy(update={"attributes": attributes})],
     )
-    turn._detail_loaded = True
-    return turn
+    unit._detail_loaded = True
+    return unit
 
 
-def _turns(trace: Trace) -> List[Unit]:
+def _same(actual: Any, wanted: AttributeValue) -> bool:
+    # Attributes arrive as strings from some exporters: 200 and "200", True and "true" match.
+    def plain(value: Any) -> str:
+        return value if isinstance(value, str) else json.dumps(value, default=str)
+
+    return actual is not None and plain(actual) == plain(wanted)
+
+
+def _has_attributes(span: Span, where: Optional[Dict[str, Any]]) -> bool:
+    for key, wanted in (where or {}).items():
+        actual = span.attributes.get(key)
+        choices = wanted if isinstance(wanted, list) else [wanted]
+        if not any(_same(actual, choice) for choice in choices):
+            return False
+    return True
+
+
+def _turns(trace: Trace, target: Target) -> List[Unit]:
     units = []
     for root in trace._turn_roots():
+        if not _has_attributes(root, target.where):
+            continue
         user = _turn_input(root)
         reply = root.attributes.get(_CONVERSATION_OUTPUT) or root.output
-        units.append(Unit(root, _text(user), _text(reply), _turn_trace(trace, root), None))
+        units.append(Unit(root, _text(user), _text(reply), _subtree(trace, root), None))
     return units
 
 
@@ -349,6 +393,7 @@ def _spans(trace: Trace, target: Target) -> List[Unit]:
         if span.kind == kind
         and (target.name is None or _name(span) == target.name)
         and (target.within is None or target.within in agents)
+        and _has_attributes(span, target.where)
     ]
     # A call the endpoint both recorded and reported counts once.
     kept = {id(span) for span in _recorded([span for span, _ in found], kind)}
@@ -362,16 +407,19 @@ def _spans(trace: Trace, target: Target) -> List[Unit]:
             if input in (None, "") and _reported(span):
                 # A response reports the documents, not the query: it is the turn's input.
                 input = _turn_input(root)
-        units.append(Unit(span, _text(input), _text(output), trace, _name(span)))
+        units.append(Unit(span, _text(input), _text(output), _subtree(trace, span), _name(span)))
     return units
 
 
 def matching_units(trace: Trace, target: Target) -> List[Unit]:
-    """What a per-unit target judges in ``trace``, in order."""
+    """The units ``target`` picks from ``trace``, in order. The conversation and the run are
+    one unit each: the whole trace, which is read from storage only if a metric asks."""
+    if target.on not in PER_UNIT:
+        return [Unit(None, None, None, trace, None)]
     if trace.trace_id and not trace.root_spans:
         trace._ensure_detail()
     if target.on is TargetKind.TURN:
-        return _turns(trace)
+        return _turns(trace, target)
     return _spans(trace, target)
 
 
@@ -387,6 +435,9 @@ def _described(target: Target, count: int) -> str:
         noun += f" named `{target.name}`"
     if target.within:
         noun += f" inside `{target.within}`"
+    if target.where:
+        conditions = " and ".join(f"`{key}` is {value}" for key, value in target.where.items())
+        noun += f" where {conditions}"
     return noun
 
 
@@ -493,8 +544,9 @@ def _reason(target, rows, decided, passed, matched, is_successful) -> str:
 
 
 def _single_turn(target: Target, units: Sequence[Unit]) -> bool:
-    # A single-turn test's one turn gives the metric's own result, as it always has.
-    return target.on is TargetKind.TURN and len(units) == 1
+    # A single-turn test's one turn gives the metric's own result, as it always has. One turn
+    # left by a filter is still counted, as "1 of 1 turns".
+    return target.on is TargetKind.TURN and target.where is None and len(units) == 1
 
 
 #: How one unit is judged: given its input, output and trace, its result.
@@ -551,13 +603,14 @@ def unit_expectations(
 def unit_arguments(
     declared: Sequence[str], unit: Unit, expectations: Optional[Expectations]
 ) -> Dict[str, Any]:
-    """What a metric declaring ``declared`` receives for one unit."""
-    values = {
-        "input": unit.input,
-        "output": unit.output,
-        "trace": unit.trace,
-        "expectations": expectations,
-    }
+    """What a metric declaring ``declared`` receives for one unit: the unit's trace, and its
+    input and output. A unit of the whole trace reads its input and output from the trace
+    only for a metric that doesn't take the trace itself (a conversation's transcript)."""
+    values: Dict[str, Any] = {"trace": unit.trace, "expectations": expectations}
+    if unit.span is not None:
+        values["input"], values["output"] = unit.input, unit.output
+    elif "trace" not in declared and set(declared) & {"input", "output"}:
+        values["input"], values["output"] = judged_input_output(unit.trace, expectations)
     return {name: value for name, value in values.items() if name in declared}
 
 
@@ -568,16 +621,17 @@ def evaluate_target(
     expectations: Any = None,
     verdict: Optional[Verdict] = None,
 ) -> MetricResult:
-    """Evaluate ``metric`` on what ``target`` names in ``trace``.
+    """Evaluate ``metric`` on the units ``target`` picks from ``trace``.
 
-    A per-unit target runs the metric once per matching span and combines the verdicts; the
-    others run it once on the whole trace.
+    A per-unit target runs the metric once per unit and combines the verdicts; the
+    conversation and the run are one unit, judged once.
     """
     target = check_target(metric, target)
     expectations = Expectations.coerce(expectations)
     declared = _declared(metric)
     if target.on not in PER_UNIT:
-        return metric.evaluate(**_whole(declared, trace, expectations))
+        [unit] = matching_units(trace, target)
+        return metric.evaluate(**unit_arguments(declared, unit, expectations))
     expectations = unit_expectations(target, expectations)
     return judge_units(
         trace,
@@ -599,7 +653,8 @@ async def a_evaluate_target(
     expectations = Expectations.coerce(expectations)
     declared = _declared(metric, "a_evaluate")
     if target.on not in PER_UNIT:
-        return await metric.a_evaluate(**_whole(declared, trace, expectations))
+        [unit] = matching_units(trace, target)
+        return await metric.a_evaluate(**unit_arguments(declared, unit, expectations))
     expectations = unit_expectations(target, expectations)
 
     async def judge(unit: Unit) -> MetricResult:
@@ -608,10 +663,3 @@ async def a_evaluate_target(
     return await a_judge_units(
         trace, target, judge, verdict or (lambda result: _verdict(result, metric))
     )
-
-
-def _whole(declared, trace: Trace, expectations: Optional[Expectations]) -> Dict[str, Any]:
-    values: Dict[str, Any] = {"trace": trace, "expectations": expectations}
-    if "trace" not in declared:
-        values["input"], values["output"] = judged_input_output(trace, expectations)
-    return {name: value for name, value in values.items() if name in declared}

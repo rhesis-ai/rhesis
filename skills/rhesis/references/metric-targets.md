@@ -23,6 +23,10 @@ See [Glossary](https://docs.rhesis.ai/glossary.md) (`glossary/metric-target.md`)
 
 The per-span targets (`tool_call`, `retrieval`, `model_call`, `agent`, `guardrail`) also take `name` (only spans with that tool, agent or model name), `within` (only spans inside that agent), and `aggregate`: `"all"` (default, every span passes), `"any"`, or `"share"` with `min_share` (0 to 1).
 
+The per-span targets and `turn` also take `where`: attributes the span must have, such as `{"rhesis.reported.metadata.channel": "email"}`. A list of values means any of them. Use it to judge only a slice, for example only email conversations.
+
+Each thing a target picks is judged as its own trace: the span and everything under it. A code metric that reads `trace` can take every target, and on `agent` it sees only that agent's calls.
+
 ---
 
 ## Which tests a metric runs on

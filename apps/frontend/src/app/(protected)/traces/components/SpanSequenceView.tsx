@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import { getSpanIcon, getSpanColor } from '@/utils/span-icon-mapper';
-import { formatDuration } from '@/utils/format-duration';
+import { formatSpanDuration } from '@/utils/format-duration';
 
 interface SpanSequenceViewProps {
   spans: SpanNode[];
@@ -628,7 +628,7 @@ export default function SpanSequenceView({
                     <>
                       <strong>{getSpanDisplayName(span)}</strong>
                       <br />
-                      Duration: {formatDuration(span.duration_ms)}
+                      Duration: {formatSpanDuration(span)}
                       {span.attributes?.['ai.tool.name'] && (
                         <>
                           <br />
@@ -697,7 +697,7 @@ export default function SpanSequenceView({
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {formatDuration(span.duration_ms)}
+                      {formatSpanDuration(span)}
                     </Typography>
                   </Box>
                 </Tooltip>

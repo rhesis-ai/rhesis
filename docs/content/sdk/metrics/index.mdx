@@ -62,7 +62,7 @@ metric = NumericJudge(
 
 ### Trace Evaluation
 
-Any metric can also evaluate live production traces. Add it to a project's **Trace Metrics** in the project settings, and that project's traces are evaluated with it. A metric whose target is `conversation` runs on the whole conversation once it goes quiet; every other metric runs after each turn.
+Any metric can also evaluate live production traces. Add it to a project's **Trace Metrics** in the project settings, and that project's traces are evaluated with it. A metric whose target is `conversation` or `run` judges the whole conversation once it goes quiet; a metric that targets a turn or a span kind runs after each turn.
 
 <Callout type="info">
 

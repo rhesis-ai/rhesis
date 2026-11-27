@@ -211,7 +211,8 @@ class TestEvaluateTurnTraceMetrics:
         assert out["status"] == "success"
         assert out["trace_id"] == TRACE_ID
         mock_load.assert_called_once()
-        assert mock_load.call_args.kwargs.get("phase") == "turn"
+        # With no conversation, the turn is the whole run.
+        assert mock_load.call_args.kwargs.get("phase") == "trace"
         assert mock_load.call_args.args[0] is db
         assert mock_load.call_args.args[1] == ORG_ID
         mock_turn.assert_called_once()
@@ -415,24 +416,63 @@ class TestEvaluateTurnTraceMetrics:
 
         assert out == {"status": "no_root_span", "trace_id": TRACE_ID}
 
-    def test_no_io_attributes(self):
+    def _run_direct_call(self, span_attributes: dict):
+        """Run the turn task on a root span without the turn's input and output, as an
+        endpoint called directly leaves it, with ``span_attributes`` on the stored span."""
         project = _mock_project()
         root = _mock_root_span(
             conversation_id=None,
             attributes={CONVERSATION_INPUT_KEY: "", CONVERSATION_OUTPUT_KEY: ""},
         )
-        db = _db_mock_turn(project, root, None)
+        db = _db_mock_turn(project, root, _mock_status_row("pass-status-id"))
+        stored = Trace.model_validate(
+            {
+                "trace_id": TRACE_ID,
+                "root_spans": [
+                    {
+                        "span_id": "otel-span-1",
+                        "span_name": "function.chat",
+                        "attributes": span_attributes,
+                    }
+                ],
+            }
+        )
+        stored._detail_loaded = True
 
         with (
-            patch(
-                "rhesis.backend.jobs.telemetry.evaluate.SessionLocal",
-                return_value=db,
-            ),
+            patch("rhesis.backend.jobs.telemetry.evaluate.SessionLocal", return_value=db),
             patch("rhesis.backend.jobs.telemetry.evaluate.bind_scope_to_session"),
+            patch(LOAD_METRICS, return_value=[_mock_metric_model()]),
+            patch(
+                "rhesis.backend.jobs.telemetry.evaluate.load_evaluation_trace",
+                return_value=stored,
+            ),
+            patch("rhesis.backend.jobs.telemetry.evaluate.update_trace_turn_metrics") as turn,
+            patch("rhesis.backend.metrics.evaluator.MetricEvaluator") as mock_eval_cls,
         ):
+            mock_eval_cls.return_value.evaluate.return_value = {"m1": {"is_successful": True}}
             out = evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
+        return out, mock_eval_cls.return_value.evaluate, turn
 
-        assert out == {"status": "no_io", "trace_id": TRACE_ID}
+    def test_a_direct_call_is_judged_on_what_its_trace_recorded(self):
+        out, evaluate, _ = self._run_direct_call(
+            {"function.kwargs": '{"input": "hi"}', "function.result": "hello"}
+        )
+
+        assert out["status"] == "success"
+        metrics, trace = evaluate.call_args.args
+        assert [m.name for m in metrics] == ["m1"]
+        assert isinstance(trace, Trace)
+        assert trace.output == "hello"
+
+    def test_a_trace_without_any_text_leaves_judges_not_applicable(self):
+        out, evaluate, turn = self._run_direct_call({})
+
+        assert out["status"] == "success"
+        assert evaluate.call_args.args[0] == []
+        result = turn.call_args.kwargs["turn_metrics"]["metrics"]["m1"]
+        assert result["not_applicable"] is True
+        assert "no input or output" in result["reason"]
 
     def test_non_retryable_exception_propagates(self):
         """Programming errors (RuntimeError, TypeError, etc.) should propagate immediately."""

@@ -23,6 +23,11 @@ export const GENERIC_SPAN_TYPE = 'span';
  * Icons and colours come from the span-name map so the two cannot drift.
  */
 export const SPAN_TYPES: Record<string, SpanTypeInfo> = {
+  'endpoint.invoke': {
+    label: 'Endpoint call',
+    icon: SEMANTIC_LAYER_ICONS['http.'],
+    color: SEMANTIC_LAYER_COLORS['http.'],
+  },
   'llm.invoke': {
     label: 'LLM call',
     icon: SEMANTIC_LAYER_ICONS['ai.llm.invoke'],

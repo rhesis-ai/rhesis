@@ -95,8 +95,9 @@ Map Rhesis variable names to JSONPath expressions (`$.path.to.field`) that extra
 | `output` | **Always** | The primary text response | `$.choices[0].message.content`, `$.content[0].text`, `$.response`, `$.result`, `$.output`, `$.text`, `$.message`, `$.answer` |
 | `conversation_id` | **Multi-turn only** | Session/conversation ID returned by the API. Only map when the API returns a true conversation or session identifier (not a request/completion ID). | `$.conversation_id`, `$.session_id`, `$.thread_id`, `$.chat_id` |
 | `context` | If available | Supporting context, source documents, RAG references | `$.context`, `$.references`, `$.sources`, `$.documents`, `$.citations` |
-| `metadata` | If available | Usage stats, model info, token counts | `$.usage`, `$.model`, `$.metadata`, `$.meta` |
+| `metadata` | If available | Model info and other details about the response | `$.model`, `$.metadata`, `$.meta` |
 | `tool_calls` | If available | Tool/function call data returned by the API | `$.choices[0].message.tool_calls`, `$.tool_calls` |
+| `usage` | If available | Token counts for the call | `$.usage`, `$.usage_metadata` |
 
 # What each category requires
 
@@ -111,7 +112,7 @@ No conversation tracking. One request → one response.
 
 **Response mapping:**
 - `output` (required)
-- `context`, `metadata`, `tool_calls` if available
+- `context`, `metadata`, `tool_calls`, `usage` if available
 
 ## Multi-turn stateless
 
@@ -127,7 +128,7 @@ Rhesis manages conversation history by sending the full `messages` array each tu
 **Response mapping:**
 - `output` (required)
 - `conversation_id` — map to the API's session/conversation ID field if it returns one
-- `metadata`, `tool_calls` if available
+- `metadata`, `tool_calls`, `usage` if available
 
 ## Multi-turn stateful
 
@@ -141,7 +142,7 @@ The API manages conversation state server-side via a session identifier.
 **Response mapping:**
 - `output` (required)
 - `conversation_id` — map to the JSONPath of the session ID in the response (e.g., `"conversation_id": "$.session_id"`)
-- `context`, `metadata`, `tool_calls` if available
+- `context`, `metadata`, `tool_calls`, `usage` if available
 
 # Instructions
 
@@ -159,7 +160,7 @@ Analyze the user's input and produce a complete `AutoConfigureResult`:
 5. **response_mapping**: A flat JSON object mapping Rhesis variable names to JSONPath expressions:
    - Always map `output`.
    - For multi-turn: map `conversation_id` to the session/thread ID field. **WARNING**: Do NOT map `$.id` — this is usually a request/completion ID, not a conversation ID. Only map if the API returns a true session/conversation/thread identifier.
-   - Map `context`, `metadata`, `tool_calls` if available.
+   - Map `context`, `metadata`, `tool_calls`, `usage` if available.
 6. **request_headers**: HTTP headers as `Dict[str, str]`. Always include `Content-Type: application/json`. For Bearer auth use `Bearer {{ "{{" }} auth_token {{ "}}" }}`. For custom auth headers use `{{ "{{" }} auth_token {{ "}}" }}` as the value.
 7. **probe_request**: A concrete JSON body (with real values, not templates) to test the endpoint. Replicate the **exact structure** of the original request, replacing only the user content with a test message. Do NOT include auth fields in the body.
 8. **confidence**: Float 0.0–1.0 for your confidence in the mappings.
@@ -179,4 +180,4 @@ CRITICAL RULES:
 - **Multi-turn = conversation_id is MANDATORY.** If you classified the endpoint as multi-turn (stateless or stateful), you MUST include `"conversation_id": "{{ "{{" }} conversation_id {{ "}}" }}"` in `request_mapping`. This applies regardless of input format — curl, Python SDK, JavaScript, documentation, or any other format.
 - For single-turn endpoints, do NOT include `conversation_id`.
 - **Do NOT map `$.id` to `conversation_id` in response_mapping** — `$.id` is typically a request/completion ID, not a session ID. Only map if the API explicitly returns a session/conversation/thread identifier.
-- Map ALL recognizable platform variables (output, conversation_id, context, metadata, tool_calls) — not just the obvious ones.
+- Map ALL recognizable platform variables (output, conversation_id, context, metadata, tool_calls, usage) — not just the obvious ones.

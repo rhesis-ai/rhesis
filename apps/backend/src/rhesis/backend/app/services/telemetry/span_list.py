@@ -49,6 +49,7 @@ def _summary(row, context: TraceContext) -> SpanSummary:
         trace_name=context.trace_name,
         start_time=row.start_time,
         duration_ms=row.duration_ms or 0.0,
+        reported=bool(row.reported),
         status_code=row.status_code,
         environment=row.environment,
         conversation_id=row.conversation_id or context.conversation_id,

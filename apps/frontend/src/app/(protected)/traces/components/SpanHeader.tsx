@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { GridBadge } from '@/components/common/GridBadge';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import type { SpanNode } from '@/utils/api-client/interfaces/telemetry';
-import { formatDuration } from '@/utils/format-duration';
+import { formatSpanDuration } from '@/utils/format-duration';
 import { formatTokenCount, subtreeUsage } from '@/utils/trace-utils';
 import { getSpanColor, getSpanIcon } from '@/utils/span-icon-mapper';
 import CopyButton from './CopyButton';
@@ -54,7 +54,7 @@ export default function SpanHeader({ span, traceId }: SpanHeaderProps) {
   const totals: { key: string; text: string; title?: string }[] = [
     {
       key: 'duration',
-      text: formatDuration(span.duration_ms),
+      text: formatSpanDuration(span),
       title: `${format(new Date(span.start_time), 'PPpp')} → ${format(new Date(span.end_time), 'PPpp')}`,
     },
   ];

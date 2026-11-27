@@ -43,9 +43,11 @@ interface SpanDetailsPanelProps {
 type TabKey = 'details' | 'evaluation' | 'tasks';
 
 const IO_KIND_LABEL: Record<SpanIO['kind'], string> = {
+  turn: 'Turn',
   function: 'Function',
   llm: 'LLM',
   tool: 'Tool',
+  retrieval: 'Retrieval',
   agent: 'Agent',
 };
 

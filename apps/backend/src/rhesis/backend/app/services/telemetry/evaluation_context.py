@@ -26,25 +26,41 @@ logger = logging.getLogger(__name__)
 _metric_configs = TTLCache(context_ttl_seconds)
 _judge_models = TTLCache(context_ttl_seconds)
 
+# When a production trace is judged. Each metric is judged once, in the phase its target needs.
+TURN_PHASE = "turn"  # Each turn of a conversation, as it arrives.
+TRACE_PHASE = "trace"  # A trace with no conversation: its one turn is the whole run.
+CONVERSATION_PHASE = "conversation"  # A conversation, once it has gone quiet.
+
+_WHOLE_TRACE_TARGETS = frozenset({"conversation", "run"})
+
+
+def judged_in_phase(target: Optional[str], phase: str) -> bool:
+    """Whether a metric with *target* is judged in *phase*.
+
+    ``conversation`` and ``run`` need every turn, so in a conversation they wait for it to
+    go quiet. Turn and per-span targets are judged as each turn arrives. A metric whose
+    target is unknown is judged on each turn.
+    """
+    if phase == CONVERSATION_PHASE:
+        return target in _WHOLE_TRACE_TARGETS
+    if phase == TURN_PHASE:
+        return target not in _WHOLE_TRACE_TARGETS
+    return target != "conversation"
+
 
 def load_project_trace_metrics(
     db: Session, organization_id: str, config: Dict[str, Any], phase: str
 ) -> List[Any]:
-    """The metrics a project assigned to its traces (``config["metric_ids"]``) for *phase*.
-
-    Args:
-        phase: "conversation" loads the metrics that judge the conversation, "turn" the
-            others (judged on every turn, conversation or not).
-    """
+    """The metrics a project assigned to its traces (``config["metric_ids"]``) that are
+    judged in *phase* (``TURN_PHASE``, ``TRACE_PHASE`` or ``CONVERSATION_PHASE``)."""
     metrics = get_metrics_by_ids(db, organization_id, config.get("metric_ids") or [])
-    wanted = phase == "conversation"
-    return [m for m in metrics if (metric_target(m) == "conversation") == wanted]
+    return [m for m in metrics if judged_in_phase(metric_target(m), phase)]
 
 
 def project_metric_configs(
     db: Session, organization_id: str, project_id: str, config: Dict[str, Any], phase: str
 ) -> Tuple[List[MetricConfig], Dict[str, Any]]:
-    """The project's metrics for *phase*: valid configs, and error results for the rest.
+    """The project's metrics judged in *phase*: valid configs, and error results for the rest.
 
     Plain configs and result dicts, not ORM rows: they are shared across threads and
     sessions, and building a config reads the metric's lazy relationships, which must

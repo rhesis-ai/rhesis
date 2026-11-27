@@ -27,10 +27,12 @@ def config(class_name="NumericJudge", target=None, **fields):
 
 def conversation(turns=2):
     return conversation_trace(
-        [
-            {"penelope_message": f"Question {i}", "target_response": f"Answer {i}"}
-            for i in range(turns)
-        ]
+        {
+            "conversation_summary": [
+                {"penelope_message": f"Question {i}", "target_response": f"Answer {i}"}
+                for i in range(turns)
+            ]
+        }
     )
 
 

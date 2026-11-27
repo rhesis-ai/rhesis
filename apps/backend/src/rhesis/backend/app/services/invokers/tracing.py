@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
-from rhesis.sdk.telemetry.reported_spans import reported_spans
+from rhesis.backend.app.services.invokers.conversation.tracker import CONVERSATION_FIELD_NAMES
+from rhesis.sdk.telemetry.reported_spans import reported_attributes, reported_spans
+from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext as ConversationConstants
 from rhesis.telemetry.schemas import OTELSpan, SpanKind, StatusCode
 
@@ -135,7 +137,8 @@ class EndpointAttributes:
     RESPONSE_STATUS = "endpoint.response.status"
     RESPONSE_HAS_OUTPUT = "endpoint.response.has_output"
     RESPONSE_OUTPUT_PREVIEW = "endpoint.response.output_preview"
-    # The mapped response metadata, as JSON text; read back as ``Trace.metadata``.
+    # The mapped response metadata, as JSON text; read back as ``Trace.metadata``. Each key is
+    # also its own attribute (``rhesis.reported.metadata.<key>``), see reported_attributes.
     RESPONSE_METADATA = "endpoint.response.metadata"
 
     # Test context - use constants from TestContextConstants.SpanAttributes
@@ -147,6 +150,74 @@ class EndpointAttributes:
     # Conversation I/O - use constants from ConversationConstants.SpanAttributes
     CONVERSATION_INPUT = ConversationConstants.SpanAttributes.CONVERSATION_INPUT
     CONVERSATION_OUTPUT = ConversationConstants.SpanAttributes.CONVERSATION_OUTPUT
+
+
+# Response fields with their own place in the trace: everything else the mapping exposes
+# becomes a ``rhesis.reported.<name>`` attribute on the invocation span.
+_PLACED_RESPONSE_FIELDS = frozenset(
+    {
+        "output",
+        "context",
+        "tool_calls",
+        "metadata",
+        "usage",
+        "version_info",
+        "status",
+        "error",
+        "message",
+        *CONVERSATION_FIELD_NAMES,
+    }
+)
+
+
+def _other_mapped_fields(endpoint: Endpoint) -> List[str]:
+    mapping = getattr(endpoint, "response_mapping", None)
+    if not isinstance(mapping, dict):
+        return []
+    return [name for name in mapping if name not in _PLACED_RESPONSE_FIELDS]
+
+
+def _request_size(result: Optional[Dict[str, Any]], input_data: Optional[Dict]) -> Optional[int]:
+    """Characters in the request body sent, or in the mapped input when the invoker didn't
+    record the body (WebSocket, errors)."""
+    request = result.get("raw_request") if isinstance(result, dict) else None
+    body = request.get("body") if isinstance(request, dict) else None
+    if body is None and input_data:
+        body = {key: value for key, value in input_data.items() if key != "files"}
+    if body in (None, "", {}):
+        return None
+    return len(body if isinstance(body, str) else json.dumps(body, default=str))
+
+
+def _response_attributes(result: Dict[str, Any], endpoint: Endpoint) -> Dict[str, Any]:
+    """Attributes the invocation span takes from the mapped response."""
+    attributes: Dict[str, Any] = {
+        EndpointAttributes.RESPONSE_STATUS: result.get("status", "unknown"),
+        EndpointAttributes.RESPONSE_HAS_OUTPUT: result.get("output") is not None,
+    }
+
+    # Validated before it reaches the span: unlike the configured value, this one comes
+    # straight from the client's response and is written on every single invocation, so an
+    # unbounded object here would bloat telemetry per call.
+    reported_version = _serialize_version_info(result.get("version_info"))
+    if reported_version is not None:
+        attributes[EndpointAttributes.VERSION_INFO] = reported_version
+
+    metadata = result.get("metadata")
+    if isinstance(metadata, dict) and metadata:
+        metadata_str = json.dumps(metadata, default=str)
+        # Skipped rather than cut: truncated JSON reads back as nothing. The keys are also
+        # recorded one by one below, each cut on its own, so a long map still leaves them.
+        if len(metadata_str) <= ConversationConstants.MAX_IO_LENGTH:
+            attributes[EndpointAttributes.RESPONSE_METADATA] = metadata_str
+    attributes.update(reported_attributes(result, _other_mapped_fields(endpoint)))
+
+    output = result.get("output")
+    if output:
+        output_str = json.dumps(output) if isinstance(output, (dict, list)) else str(output)
+        attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_str[:1000]
+        attributes[EndpointAttributes.RESPONSE_SIZE] = len(output_str)
+    return attributes
 
 
 def generate_trace_id() -> str:
@@ -192,6 +263,7 @@ def create_endpoint_attributes(
         Dictionary of attributes following semantic conventions
     """
     attrs = {
+        AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_ENDPOINT_INVOKE,
         EndpointAttributes.ENDPOINT_ID: str(endpoint.id),
         EndpointAttributes.ENDPOINT_NAME: endpoint.name,
         EndpointAttributes.ENDPOINT_TYPE: endpoint.connection_type,
@@ -312,28 +384,11 @@ async def create_invocation_trace(
             result = result.model_dump(exclude_none=True)
 
         if result and isinstance(result, dict):
-            attributes[EndpointAttributes.RESPONSE_STATUS] = result.get("status", "unknown")
-            attributes[EndpointAttributes.RESPONSE_HAS_OUTPUT] = result.get("output") is not None
+            attributes.update(_response_attributes(result, endpoint))
 
-            # Validated before it reaches the span: unlike the configured value, this one
-            # comes straight from the client's response and is written on every single
-            # invocation, so an unbounded object here would bloat telemetry per call.
-            reported_version = _serialize_version_info(result.get("version_info"))
-            if reported_version is not None:
-                attributes[EndpointAttributes.VERSION_INFO] = reported_version
-
-            metadata = result.get("metadata")
-            if isinstance(metadata, dict) and metadata:
-                metadata_str = json.dumps(metadata, default=str)
-                # Skipped rather than cut: truncated JSON reads back as nothing.
-                if len(metadata_str) <= ConversationConstants.MAX_IO_LENGTH:
-                    attributes[EndpointAttributes.RESPONSE_METADATA] = metadata_str
-
-            output = result.get("output")
-            if output:
-                output_str = json.dumps(output) if isinstance(output, (dict, list)) else str(output)
-                attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_str[:1000]
-                attributes[EndpointAttributes.RESPONSE_SIZE] = len(output_str)
+        request_size = _request_size(result if isinstance(result, dict) else None, input_data)
+        if request_size is not None:
+            attributes[EndpointAttributes.REQUEST_SIZE] = request_size
 
         if input_data:
             mapped_input = str(input_data.get("input", ""))

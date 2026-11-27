@@ -262,6 +262,10 @@ def categorize_test_result_status(status_name: str) -> str:
         return OverallTestResult.ERROR
 
 
+# AISpanAttributes.SPAN_SOURCE of a span built from what a response reported.
+REPORTED_SPAN_SOURCE = "reported"
+
+
 # OpenTelemetry Semantic Convention attribute keys for AI/LLM spans.
 # See: https://opentelemetry.io/docs/specs/semconv/gen-ai/
 class AISpanAttributes:
@@ -272,6 +276,8 @@ class AISpanAttributes:
     MODEL_PROVIDER = "ai.model.provider"
     AGENT_NAME = "ai.agent.name"
     TOOL_NAME = "ai.tool.name"
+    # "reported" on a span built from what a response reported, which has no timing.
+    SPAN_SOURCE = "rhesis.span.source"
     # The trace id a conversation turn arrived under over OTLP, before it was
     # joined onto its conversation's trace.
     SOURCE_TRACE_ID = "rhesis.otlp.source_trace_id"

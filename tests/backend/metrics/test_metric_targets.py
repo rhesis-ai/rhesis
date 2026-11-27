@@ -127,6 +127,13 @@ class TestStoredTargets:
         update = MetricUpdate(ground_truth_required=False, config={"target": "tool_call"})
         assert check_updated_config(update, stored) == {"target": {"on": "tool_call"}}
 
+    def test_where_narrows_turns_and_spans_but_not_the_run(self):
+        where = {"rhesis.reported.metadata.channel": ["email", "sms"]}
+
+        assert check_metric_config(None, {"target": {"on": "turn", "where": where}})
+        with pytest.raises(ValueError, match="where narrows a per-unit target"):
+            check_metric_config(None, {"target": {"on": "run", "where": where}}, accepted=["trace"])
+
     def test_a_malformed_target_names_the_problem(self):
         with pytest.raises(ValueError, match="Invalid target: on: Input should be"):
             check_metric_config(None, {"target": {"on": "spans"}})
@@ -281,7 +288,7 @@ class TestConnectorTargets:
         assert sender.sent == []
         assert "can't judge 'run'" in results["short_output"]["error"]
 
-    def test_each_span_gets_the_goal_and_the_trace_dumped_once(self):
+    def test_each_span_gets_the_goal_and_its_own_trace(self):
         sender = _Sender()
         inputs = EvaluationInputs(
             trace=ResponseTrace(input="Q", output="A", tool_calls=[LOOKUP, REFUND]),
@@ -295,7 +302,21 @@ class TestConnectorTargets:
 
         first, second = sender.sent
         assert first["expectations"] == {"goal": "Refund it"}
-        assert first["trace"] is second["trace"]
+        tools = [
+            [span["attributes"]["ai.tool.name"] for span in sent["trace"]["root_spans"]]
+            for sent in (first, second)
+        ]
+        assert tools == [["lookup_order"], ["issue_refund"]]
+
+    def test_a_function_reading_only_the_trace_takes_a_per_span_target(self):
+        sender = _Sender()
+
+        ConnectorStrategy(connector_metric_sender=sender).evaluate(
+            [_sdk_metric({"on": "tool_call"}, ("trace",))],
+            response(tool_calls=[{**LOOKUP, "output": "found"}]),
+        )
+
+        assert len(sender.sent) == 1
 
 
 @pytest.mark.unit

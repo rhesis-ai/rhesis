@@ -428,6 +428,9 @@ class MultiTurnOutput(OutputProvider):
         # same test_output key single-turn results use, and one query finds both.
         if target.reported_version_info:
             trace["version_info"] = target.reported_version_info
+        # Where the conversation's spans are, so metrics and re-scores read them.
+        if target.conversation_trace_id:
+            trace["trace_id"] = target.conversation_trace_id
 
         # Penelope evaluates metrics internally -> return them with the output.
         return TestOutput(

@@ -13,6 +13,7 @@ from rhesis.backend.app.services.telemetry.evaluation_trace import (
     evaluation_trace_loader,
     load_evaluation_trace,
     trace_from_response,
+    with_conversation_values,
     with_live_values,
 )
 from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
@@ -278,3 +279,74 @@ def test_a_response_from_a_stored_conversation_keeps_only_its_own_turn():
 
     assert [root.span_id for root in trace.root_spans] == ["a" * 16]
     assert not trace.is_conversation
+
+
+def test_a_trace_built_from_the_response_has_no_duration():
+    """Its times only order its spans; nothing was measured."""
+    trace = trace_from_response("Hi", "Hello", tool_calls=[{"name": "book"}])
+
+    assert [span.duration_ms for span in trace.spans()] == [None, None]
+
+
+def test_a_stored_span_keeps_its_duration_and_a_reported_one_has_none():
+    rows = [
+        _row("r" * 16, None, "function.endpoint_rest_invoke", 0),
+        _row("t" * 16, "r" * 16, "book", 0, "tool.invoke", {"rhesis.span.source": "reported"}),
+    ]
+    db_patch, crud_patch = _stored(rows)
+    with db_patch, crud_patch:
+        trace = load_evaluation_trace(TRACE_ID, ORG, PROJECT)
+
+    assert [span.duration_ms for span in trace.spans()] == [1000.0, None]
+
+
+def test_a_multi_turn_test_reads_its_stored_turns_in_full():
+    rows = [_turn("a" * 16, 0, "Hi", "Hel"), _turn("b" * 16, 5, "Book a ro", "Booked")]
+    db_patch, crud_patch = _stored(rows)
+    with db_patch, crud_patch:
+        trace = with_conversation_values(
+            load_evaluation_trace(TRACE_ID, ORG, PROJECT),
+            [("Hi", "Hello, how can I help?"), ("Book a room for two", "Booked")],
+        )
+
+    assert [(m.role, m.content) for m in trace.messages().messages] == [
+        ("user", "Hi"),
+        ("assistant", "Hello, how can I help?"),
+        ("user", "Book a room for two"),
+        ("assistant", "Booked"),
+    ]
+    assert trace.root_spans[0].duration_ms == 1000.0
+
+
+def test_one_turn_of_a_multi_turn_test_is_still_a_conversation():
+    db_patch, crud_patch = _stored([_turn("a" * 16, 0, "Hi", "Hello")])
+    with db_patch, crud_patch:
+        trace = with_conversation_values(
+            load_evaluation_trace(TRACE_ID, ORG, PROJECT), [("Hi", "Hello")]
+        )
+
+    assert trace.is_conversation
+
+
+def test_a_failed_attempt_the_conversation_retried_is_left_out():
+    failed = _turn("a" * 16, 0, "Hi", "")
+    failed.status_code = "ERROR"
+    rows = [failed, _turn("b" * 16, 2, "Hi", "Hello")]
+    db_patch, crud_patch = _stored(rows)
+    with db_patch, crud_patch:
+        trace = with_conversation_values(
+            load_evaluation_trace(TRACE_ID, ORG, PROJECT), [("Hi", "Hello")]
+        )
+
+    assert [root.span_id for root in trace.root_spans] == ["b" * 16]
+
+
+def test_turns_that_dont_pair_with_the_spans_keep_the_stored_texts():
+    db_patch, crud_patch = _stored([_turn("a" * 16, 0, "Hi", "Hel")])
+    with db_patch, crud_patch:
+        trace = with_conversation_values(
+            load_evaluation_trace(TRACE_ID, ORG, PROJECT),
+            [("Hi", "Hello"), ("Bye", "Goodbye")],
+        )
+
+    assert trace.output == "Hel"

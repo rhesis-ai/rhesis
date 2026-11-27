@@ -216,6 +216,19 @@ class TestSpanRows:
         assert tool.model is None and tool.provider is None
         assert tool.total_tokens is None
 
+    def test_a_reported_span_says_so(self, test_db, db_project, test_org_id):
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        reported = make_span(trace_id, project_id, name="ai.tool.invoke", duration_s=0)
+        reported.attributes["rhesis.span.source"] = "reported"
+        recorded = make_span(trace_id, project_id, name="ai.tool.invoke")
+        create_trace_spans(test_db, [reported, recorded], organization_id=test_org_id)
+
+        by_id = {s.span_id: s for s in spans(test_db, test_org_id, project_id).spans}
+
+        assert by_id[reported.span_id].reported is True
+        assert by_id[recorded.span_id].reported is False
+
     def test_unenriched_llm_span_uses_its_own_attributes(self, test_db, db_project, test_org_id):
         project_id = str(db_project.id)
         trace_id = uuid.uuid4().hex

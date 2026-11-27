@@ -3,7 +3,7 @@ import dataclasses
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from uuid import UUID
 
 import anyio
@@ -202,11 +202,14 @@ async def run_metrics_on_text(
     sdk_metrics: List[Tuple[Any, MetricConfig]],
     input_text: str,
     output_text: str,
+    trace_loader: Optional[Callable[[], Any]] = None,
 ) -> Dict[str, Any]:
     """Run all *sdk_metrics* against a single (input, output) pair.
 
     Metrics are evaluated **concurrently** via ``asyncio.gather`` so that
     independent LLM/rubric calls overlap rather than running serially.
+    ``trace_loader`` reads the trace the endpoint call left, when the output was just
+    generated; without it the trace is built from the pair and has no timing.
 
     Returns a dict keyed by metric name with ``score`` and
     ``is_successful`` for each metric that succeeded.
@@ -217,7 +220,9 @@ async def run_metrics_on_text(
     from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 
     score_evaluator = ScoreEvaluator()
-    inputs = EvaluationInputs(trace=ResponseTrace(input=input_text, output=output_text))
+    inputs = EvaluationInputs(
+        trace=ResponseTrace(input=input_text, output=output_text, loader=trace_loader)
+    )
     # Explorer rows carry no expectations, so metrics that compare with them don't apply.
     sdk_metrics = [(m, c) for m, c in sdk_metrics if applies(c, inputs.expectations)]
 

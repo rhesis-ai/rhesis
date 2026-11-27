@@ -11,6 +11,7 @@ from typing import Any
 
 from rhesis.sdk.connector.schemas import TestStatus
 from rhesis.sdk.connector.serializer import TypeSerializer
+from rhesis.sdk.decorators.direct_call import connector_call
 from rhesis.sdk.telemetry.tracer import pop_result_trace_id
 from rhesis.telemetry.constants import ConversationContext as ConvContextConstants
 from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
@@ -239,20 +240,23 @@ class TestExecutor:
                     endpoint_context=endpoint_context,
                 )
 
-                # Execute function (sync or async)
-                if asyncio.iscoroutinefunction(func):
-                    result = await func(**prepared_inputs)
-                else:
-                    # Run sync functions in thread pool to avoid blocking the event loop
-                    # This is critical for long-running functions (e.g., LLM calls) so the
-                    # WebSocket can continue responding to pings during execution
-                    loop = asyncio.get_running_loop()
-                    # Copy context to the thread so contextvars (like test_execution_context)
-                    # are available in the function and its nested calls (e.g., tracer)
-                    ctx = contextvars.copy_context()
-                    result = await loop.run_in_executor(
-                        None, partial(ctx.run, func, **prepared_inputs)
-                    )
+                # Execute function (sync or async). The platform records this turn's input
+                # and output, so the endpoint doesn't record them as a direct call would.
+                with connector_call():
+                    if asyncio.iscoroutinefunction(func):
+                        result = await func(**prepared_inputs)
+                    else:
+                        # Run sync functions in thread pool to avoid blocking the event loop
+                        # This is critical for long-running functions (e.g., LLM calls) so the
+                        # WebSocket can continue responding to pings during execution
+                        loop = asyncio.get_running_loop()
+                        # Copy context to the thread so contextvars (like
+                        # test_execution_context) are available in the function and its
+                        # nested calls (e.g., tracer)
+                        ctx = contextvars.copy_context()
+                        result = await loop.run_in_executor(
+                            None, partial(ctx.run, func, **prepared_inputs)
+                        )
 
                 # Handle generators (consume and collect output)
                 result = await self._consume_generator(result)

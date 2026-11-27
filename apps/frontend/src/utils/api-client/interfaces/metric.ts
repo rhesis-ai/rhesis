@@ -24,11 +24,19 @@ export type MetricTargetOn =
 
 export type MetricTargetAggregate = 'all' | 'any' | 'share';
 
+export type MetricTargetAttributeValue = string | number | boolean;
+
 export interface MetricTarget {
   on: MetricTargetOn | string;
   /** Per-span targets only: only spans with this tool, agent or model name. */
   name?: string;
+  /** Per-span targets only: only spans inside the agent with this name. */
   within?: string;
+  /** Only units whose root span has these attributes; a list means any of its values. */
+  where?: Record<
+    string,
+    MetricTargetAttributeValue | MetricTargetAttributeValue[]
+  >;
   aggregate?: MetricTargetAggregate;
   min_share?: number;
 }

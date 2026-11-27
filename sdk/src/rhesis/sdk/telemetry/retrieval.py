@@ -1,11 +1,13 @@
 """How a retrieval span records the documents it returned, the same way in every integration.
 
 The ``ai.retrieval.results`` event holds a JSON list of the documents' texts, which is what
-``Trace.context`` reads. An empty retrieval records ``[]``.
+``Trace.context`` reads. An empty retrieval records ``[]``. The ``ai.retrieval.query`` event
+holds the query, which is the retrieval span's input.
 """
 
+import inspect
 import json
-from typing import Any, Iterable, List, Optional
+from typing import Any, Callable, Iterable, List, Optional
 
 from rhesis.telemetry.attributes import MAX_CONTENT_LENGTH, AIAttributes, AIEvents
 
@@ -43,6 +45,33 @@ def documents_json(documents: Optional[Iterable[Any]], limit: int = MAX_CONTENT_
             kept.append(text[:room])
         break
     return json.dumps(kept)
+
+
+_QUERY_PARAMETERS = ("query", "question", "q", "text", "input", "prompt")
+
+
+def retrieval_query(func: Callable, args: tuple, kwargs: dict) -> Optional[str]:
+    """The query a retrieval function was called with: the argument named like a query, else
+    its first argument. None when it can't be told."""
+    try:
+        bound = inspect.signature(func).bind_partial(*args, **kwargs).arguments
+    except (TypeError, ValueError):
+        return None
+    named = [value for name, value in bound.items() if name not in ("self", "cls")]
+    value = next((bound[name] for name in _QUERY_PARAMETERS if name in bound), None)
+    if value is None and named:
+        value = named[0]
+    if value is None:
+        return None
+    return value if isinstance(value, str) else json.dumps(value, default=str)
+
+
+def record_query(span: Any, query: Optional[str]) -> None:
+    """Add the retrieval query event, the way the integrations record it."""
+    if query:
+        span.add_event(
+            AIEvents.RETRIEVAL_QUERY, {AIAttributes.PROMPT_CONTENT: query[:MAX_CONTENT_LENGTH]}
+        )
 
 
 def record_documents(span: Any, documents: Optional[Iterable[Any]]) -> None:

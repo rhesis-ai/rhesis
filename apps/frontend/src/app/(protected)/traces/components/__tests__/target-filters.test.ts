@@ -1,7 +1,9 @@
+import type { MetricTarget } from '@/utils/api-client/interfaces/metric';
 import {
   FROM_METRIC_PARAM,
   targetTraceFilters,
   tracesHrefForTarget,
+  unappliedRefinements,
   withoutTargetFilters,
 } from '../target-filters';
 import {
@@ -135,5 +137,40 @@ describe('withoutTargetFilters', () => {
     expect(
       withoutTargetFilters({ timeRange: 'all', isRoot: true }, { isRoot: true })
     ).toEqual({ timeRange: 'all' });
+  });
+});
+
+describe('unappliedRefinements', () => {
+  it('names the agent and attributes the Traces filters leave out', () => {
+    expect(
+      unappliedRefinements({
+        within: 'billing_agent',
+        where: {
+          'rhesis.reported.metadata.channel': 'web',
+          'app.customer_tier': ['gold', 'silver'],
+        },
+      })
+    ).toEqual([
+      'inside billing_agent',
+      'rhesis.reported.metadata.channel is web',
+      'app.customer_tier is one of gold, silver',
+    ]);
+  });
+
+  it('is empty when every part of the target applies', () => {
+    expect(unappliedRefinements({})).toEqual([]);
+  });
+
+  it('still opens the spans of the target kind and name', () => {
+    const target: MetricTarget = {
+      on: 'tool_call',
+      name: 'issue_refund',
+      within: 'billing_agent',
+    };
+
+    expect(targetTraceFilters(target, CHOICES).filters).toEqual({
+      spanTypes: ['tool.invoke'],
+      tools: ['issue_refund'],
+    });
   });
 });

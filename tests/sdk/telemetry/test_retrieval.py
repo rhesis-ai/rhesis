@@ -7,7 +7,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from rhesis.telemetry.attributes import AIAttributes, AIEvents
 
-from rhesis.sdk.telemetry.retrieval import document_text, documents_json, record_documents
+from rhesis.sdk.telemetry.retrieval import (
+    document_text,
+    documents_json,
+    record_documents,
+    retrieval_query,
+)
 
 
 def test_document_text_reads_each_framework_shape():
@@ -111,3 +116,56 @@ def test_other_spans_record_no_documents(tracer):
     tracer._capture_function_result(span, ["doc"])
 
     span.add_event.assert_not_called()
+
+
+def test_retrieval_query_reads_the_argument_named_like_a_query():
+    def search(self, top_k: int, query: str):
+        pass
+
+    assert retrieval_query(search, (object(), 5), {"query": "refund policy"}) == "refund policy"
+
+
+def test_retrieval_query_falls_back_to_the_first_argument():
+    def search(terms, k=3):
+        pass
+
+    assert retrieval_query(search, ("refund policy",), {}) == "refund policy"
+    assert retrieval_query(search, (["a", "b"],), {}) == '["a", "b"]'
+
+
+def test_observe_retrieval_records_the_query(tracer):
+    def search_docs(query: str) -> list:
+        return []
+
+    span = MagicMock()
+    tracer._setup_span_attributes(
+        span,
+        "search_docs",
+        ("refund policy",),
+        {},
+        {AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_RETRIEVAL},
+        func=search_docs,
+    )
+
+    span.add_event.assert_called_once_with(
+        AIEvents.RETRIEVAL_QUERY, {AIAttributes.PROMPT_CONTENT: "refund policy"}
+    )
+
+
+def test_a_recorded_query_is_the_retrieval_spans_input():
+    from rhesis.sdk.entities.trace import Span
+
+    span = Span.model_validate(
+        {
+            "span_id": "0" * 16,
+            "span_name": "ai.retrieval",
+            "events": [
+                {
+                    "name": AIEvents.RETRIEVAL_QUERY,
+                    "attributes": {AIAttributes.PROMPT_CONTENT: "refund policy"},
+                }
+            ],
+        }
+    )
+
+    assert span.input == "refund policy"

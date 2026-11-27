@@ -135,6 +135,24 @@ export function getMetricTargetIcon(
 }
 
 /**
+ * A target's attribute conditions (`where`) as phrases: "channel is web",
+ * "tier is one of gold, silver". Empty when it has none.
+ */
+export function whereConditions(target: Pick<MetricTarget, 'where'>): string[] {
+  return Object.entries(target.where ?? {}).map(([key, value]) =>
+    Array.isArray(value)
+      ? `${key} is one of ${value.map(String).join(', ')}`
+      : `${key} is ${String(value)}`
+  );
+}
+
+/** "and 1 more condition", "and 2 more conditions"; empty for none. */
+export function moreConditionsText(count: number): string {
+  if (count === 0) return '';
+  return `and ${count} more ${count === 1 ? 'condition' : 'conditions'}`;
+}
+
+/**
  * A target as the end of a sentence about its metric ("on each tool call"):
  * the registry label with a lower-case first letter. Null until the labels load.
  */

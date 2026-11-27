@@ -314,6 +314,8 @@ class BackendEndpointTarget(Target):
             if failed is not None:
                 return failed
 
+            self._track_trace(response_data)
+
             # Extract response content
             response_text = response_data.get("output", "")
 
@@ -384,6 +386,11 @@ class BackendEndpointTarget(Target):
             error=str(error),
             metadata={"error_details": error_details},
         )
+
+    @property
+    def conversation_trace_id(self) -> Optional[str]:
+        """The trace the conversation's turns share, once a turn has answered."""
+        return self._current_trace_id
 
     def _track_trace(self, response_data: Dict[str, Any]) -> None:
         """Collect the turn's deferred trace and pin the conversation to one trace id."""

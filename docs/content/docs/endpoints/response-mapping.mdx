@@ -12,7 +12,7 @@ Expressions starting with `$` are evaluated as JSONPath against the response bod
   {`{
   "output": "$.choices[0].message.content",
   "model_used": "$.model",
-  "tokens": "$.usage.total_tokens"
+  "usage": "$.usage"
 }`}
 </CodeBlock>
 
@@ -56,19 +56,21 @@ Each field is evaluated independently — you can mix JSONPath and Jinja2 in the
   `output` must always be mapped. Without it, Rhesis cannot evaluate responses against metrics.
 </Callout>
 
-**Actively used by Rhesis:**
-- `output` — main response text, used for metric evaluation
-- `context` — additional context, used by context-dependent metrics
-- Conversation tracking fields (`conversation_id`, `session_id`, `thread_id`, etc.) — used for [multi-turn conversation](/docs/endpoints/request-mapping#multi-turn-conversations) management
+Each call to a REST or WebSocket endpoint leaves a trace: one `endpoint.invoke` span with the call's timing, status, request and response sizes, input and output. The response mapping decides what else goes into that trace. Every field you map has one place in it:
 
-**Stored and available to metrics:**
-- `metadata` — stored with the test result, available to [custom metrics](/docs/metrics#using-metadata-in-evaluation)
-- `tool_calls` — stored with the test result, available to metrics that evaluate tool use
+| Mapped field | Becomes |
+|---|---|
+| `output` | The span's output, which metrics evaluate. Always map it |
+| `tool_calls` | One `tool.invoke` child span per call, which [tool call metrics](/docs/metrics/tool-calls) and the "Each tool call" [target](/docs/metrics/targets) read |
+| `context` | A `retrieval` child span holding the documents, which context metrics such as faithfulness read |
+| `usage` | An `llm.invoke` child span with the input and output token counts, so the trace's token totals include them. Takes OpenAI's (`prompt_tokens`, `completion_tokens`) or Anthropic's (`input_tokens`, `output_tokens`) shape |
+| `metadata` | One attribute per key on the span, `rhesis.reported.metadata.<key>`, also available to [custom metrics](/docs/metrics#using-metadata-in-evaluation). A long value is cut on its own |
+| Conversation tracking fields (`conversation_id`, `session_id`, `thread_id`, etc.) | The trace's conversation, for [multi-turn conversations](/docs/endpoints/request-mapping#multi-turn-conversations) |
+| `version_info` | The version of your application behind this endpoint, as a JSON object. Recorded on the run and shown in its Configuration tab, the test runs list, and trace span details. Takes precedence over the version configured on the endpoint. See [Version Information](/docs/endpoints/management#version-information) |
+| `status` | The span's `endpoint.response.status` attribute. This is the mapped field, not the HTTP status code |
+| Any other field | An attribute on the span, `rhesis.reported.<name>`, except `error` and `message`, which Rhesis reads to detect failed and finished calls |
 
-**Recorded on the test run:**
-- `version_info` — the version of your application behind this endpoint, as a JSON object. Recorded on the run and shown in its Configuration tab, the test runs list, and trace span details. Takes precedence over the version configured on the endpoint. See [Version Information](/docs/endpoints/management#version-information)
-
-Custom fields beyond these are passed through and stored but not actively used by the platform.
+Child spans made from the response are marked as reported. They have no timing of their own: the endpoint said what happened, not how long it took. An endpoint that sends its own traces, through the Rhesis SDK or OpenTelemetry, adds its spans to the same trace.
 
 ## SDK endpoint return values
 
@@ -133,7 +135,7 @@ def chat(input: str) -> dict:
 <CodeBlock filename="example-response.json" language="json">
   {`{
   "output": "$.choices[0].message.content",
-  "metadata": "$.usage"
+  "usage": "$.usage"
 }`}
 </CodeBlock>
 

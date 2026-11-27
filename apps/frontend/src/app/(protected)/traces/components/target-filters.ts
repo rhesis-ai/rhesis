@@ -2,7 +2,7 @@ import type {
   MetricTarget,
   MetricTargetChoice,
 } from '@/utils/api-client/interfaces/metric';
-import { METRIC_TARGET } from '@/utils/metric-targets';
+import { METRIC_TARGET, whereConditions } from '@/utils/metric-targets';
 import {
   EMPTY_TRACE_DRAWER_FILTERS,
   type TraceDrawerFilters,
@@ -61,6 +61,20 @@ export function targetTraceFilters(
     return { view: 'traces', filters: { traceType: 'Multi-Turn' } };
   }
   return { view: 'traces', filters: {} };
+}
+
+/**
+ * What a target narrows to that the Traces filters can't apply: the agent its
+ * spans run inside, and attributes their root span must have. Read as phrases
+ * ("inside billing_agent", "channel is web"), empty when everything applies.
+ */
+export function unappliedRefinements(
+  target: Pick<MetricTarget, 'within' | 'where'>
+): string[] {
+  return [
+    ...(target.within ? [`inside ${target.within}`] : []),
+    ...whereConditions(target),
+  ];
 }
 
 /** A link to the Traces page filtered to what a metric's target judges. */
