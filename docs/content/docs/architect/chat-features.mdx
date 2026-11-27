@@ -34,6 +34,8 @@ The **Accept** and **Change** buttons appear only when Architect actually tried 
 
 **Accept** approves only what Architect showed you when it asked: the actions it was holding, and the items in the plan at that moment. Linking a requirement to a metric is covered when you approved both. Anything else waits for another **Accept**, including items Architect adds to the plan after you accepted.
 
+Approved requirements, metrics, and test sets stay approved for the rest of the conversation until Architect creates them, so it does not ask again when the work continues in a later message. Linking two of them stays covered too. Other approved actions, such as a new threshold for a metric or a schedule for a test set, run only in Architect's reply to your **Accept**; if they wait longer, Architect asks again. Architect checks each action's fields before asking, so it never asks you to approve an action it would then have to rewrite.
+
 For example, if you ask for one requirement and accept, Architect creates that requirement and stops. It then offers a metric or tests as next steps instead of creating them. A full plan you approve in one go still runs on a single **Accept**.
 
 <ThemeAwareImage
