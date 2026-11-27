@@ -211,7 +211,8 @@ class TestEvaluateTurnTraceMetrics:
         assert out["status"] == "success"
         assert out["trace_id"] == TRACE_ID
         mock_load.assert_called_once()
-        assert mock_load.call_args.kwargs.get("phase") == "turn"
+        # With no conversation, the turn is the whole run.
+        assert mock_load.call_args.kwargs.get("phase") == "trace"
         assert mock_load.call_args.args[0] is db
         assert mock_load.call_args.args[1] == ORG_ID
         mock_turn.assert_called_once()

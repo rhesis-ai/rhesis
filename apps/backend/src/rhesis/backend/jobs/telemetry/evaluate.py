@@ -1,8 +1,10 @@
 """Celery tasks for trace metrics evaluation.
 
-Two-phase evaluation:
-  Phase 1 (evaluate_turn_trace_metrics) - immediate, per-turn
-  Phase 2 (evaluate_conversation_trace_metrics) - debounced, per-conversation
+Every project trace metric is judged once, when its target can be: turn and per-span
+targets as each turn arrives (evaluate_turn_trace_metrics), and in a conversation the
+``conversation`` and ``run`` targets once it has gone quiet
+(evaluate_conversation_trace_metrics, debounced). A trace with no conversation is judged
+whole as its turn arrives. ``judged_in_phase`` holds the rule.
 """
 
 import logging
@@ -22,6 +24,9 @@ from rhesis.backend.app.crud.telemetry import (
 from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
 from rhesis.backend.app.quota.enforcement import QuotaExceededError
 from rhesis.backend.app.services.telemetry.evaluation_context import (
+    CONVERSATION_PHASE,
+    TRACE_PHASE,
+    TURN_PHASE,
     build_evaluator,
     merge_metric_results,
     project_metric_configs,
@@ -198,6 +203,21 @@ def _turn_trace_loader(
     return load
 
 
+def _judge(
+    evaluator: Any,
+    metric_configs: List[Any],
+    invalid_metrics: Dict[str, Any],
+    trace: Any,
+) -> Dict[str, Any]:
+    """One phase's results as stored on the span: the metrics and how long they took."""
+    start_time = time.time()
+    results = merge_metric_results(evaluator.evaluate(metric_configs, trace), invalid_metrics)
+    return {
+        "execution_time": round((time.time() - start_time) * 1000, 1),
+        "metrics": results,
+    }
+
+
 @app.task(bind=True, max_retries=3, default_retry_delay=60)
 def evaluate_turn_trace_metrics(
     self,
@@ -206,11 +226,13 @@ def evaluate_turn_trace_metrics(
     organization_id: str,
     root_span_id: Optional[str] = None,
 ) -> dict:
-    """Phase 1: evaluate one stored turn's trace metrics.
+    """Evaluate the trace metrics one stored turn can be judged with.
 
     Queued once per root span, only for projects with trace metrics, by
-    ``EnrichmentService.dispatch_for_spans`` (the spans were enriched when stored). For
-    turns with a conversation_id, also schedules a debounced conversation-level evaluation.
+    ``EnrichmentService.dispatch_for_spans`` (the spans were enriched when stored). In a
+    conversation these are the turn and per-span targets, and the turn also schedules the
+    debounced conversation evaluation. A trace with no conversation is the whole run, so
+    every metric but ``conversation`` is judged here.
 
     Args:
         root_span_id: DB primary key of the root span to evaluate.
@@ -255,7 +277,11 @@ def evaluate_turn_trace_metrics(
 
         has_conversation = bool(root_span.conversation_id)
         metric_configs, invalid_metrics = project_metric_configs(
-            db, organization_id, project_id, config, "turn"
+            db,
+            organization_id,
+            project_id,
+            config,
+            TURN_PHASE if has_conversation else TRACE_PHASE,
         )
 
         if not (metric_configs or invalid_metrics):
@@ -283,14 +309,7 @@ def evaluate_turn_trace_metrics(
         # End the read transaction so the connection goes back to the pool for the
         # judge calls; the writes below open a new one (GUCs re-applied on begin).
         db.commit()
-        start_time = time.time()
-        results = merge_metric_results(evaluator.evaluate(metric_configs, trace), invalid_metrics)
-        execution_time = (time.time() - start_time) * 1000
-
-        turn_metrics = {
-            "execution_time": round(execution_time, 1),
-            "metrics": results,
-        }
+        turn_metrics = _judge(evaluator, metric_configs, invalid_metrics, trace)
 
         status_id, execution, verdict = _derive_outcome(db, organization_id, turn_metrics)
 
@@ -305,7 +324,7 @@ def evaluate_turn_trace_metrics(
 
         logger.info(
             f"Completed turn metrics evaluation for trace {trace_id}: "
-            f"{len(turn_metrics.get('metrics', {}))} metrics in {execution_time:.0f}ms"
+            f"{len(turn_metrics['metrics'])} metrics in {turn_metrics['execution_time']:.0f}ms"
         )
 
         if has_conversation:
@@ -339,10 +358,11 @@ def evaluate_conversation_trace_metrics(
     project_id: str,
     organization_id: str,
 ) -> dict:
-    """Phase 2: Debounced conversation-level trace metrics evaluation.
+    """Evaluate a conversation's whole-trace metrics once it has gone quiet (debounced).
 
-    Reconstructs the full conversation from all root spans sharing
-    the trace_id and evaluates Multi-Turn scoped metrics.
+    A conversation is one trace id with one root span per turn (the SDK, the invoker and
+    OTLP ingest all file it so), so the stored trace holds every turn. Judges the metrics
+    targeting ``conversation`` or ``run``.
     """
     db: Session = SessionLocal()
 
@@ -354,7 +374,7 @@ def evaluate_conversation_trace_metrics(
             return {"status": "skipped", "trace_id": trace_id}
 
         metric_configs, invalid_metrics = project_metric_configs(
-            db, organization_id, project_id, config, "conversation"
+            db, organization_id, project_id, config, CONVERSATION_PHASE
         )
         if not (metric_configs or invalid_metrics):
             logger.info(f"No conversation project trace metrics for trace {trace_id}")
@@ -379,14 +399,7 @@ def evaluate_conversation_trace_metrics(
         # End the read transaction so the connection goes back to the pool for the
         # judge calls; the writes below open a new one (GUCs re-applied on begin).
         db.commit()
-        start_time = time.time()
-        results = merge_metric_results(evaluator.evaluate(metric_configs, trace), invalid_metrics)
-        execution_time = (time.time() - start_time) * 1000
-
-        conversation_metrics = {
-            "execution_time": round(execution_time, 1),
-            "metrics": results,
-        }
+        conversation_metrics = _judge(evaluator, metric_configs, invalid_metrics, trace)
 
         first_span = root_spans[0]
         status_id, execution, verdict = _derive_combined_outcome(
@@ -408,8 +421,8 @@ def evaluate_conversation_trace_metrics(
 
         logger.info(
             f"Completed conversation metrics evaluation for trace {trace_id}: "
-            f"{len(conversation_metrics.get('metrics', {}))} metrics "
-            f"in {execution_time:.0f}ms"
+            f"{len(conversation_metrics['metrics'])} metrics "
+            f"in {conversation_metrics['execution_time']:.0f}ms"
         )
 
         return {
