@@ -5,7 +5,7 @@ import {
   Box,
   Checkbox,
   FormControlLabel,
-  Stack,
+  Link,
   Switch,
   ToggleButton,
   ToggleButtonGroup,
@@ -92,6 +92,12 @@ export interface AnnotationDrawerProps {
    * requirement. Ignored when editing: the annotation's own link wins.
    */
   initialRequirement?: RequirementOption | null;
+  /**
+   * Whether the automated verdict being judged passed. A verdict that disagrees
+   * with it is the case most worth learning from, so "improve the evaluation"
+   * starts checked then.
+   */
+  automatedPassed?: boolean;
 }
 
 /**
@@ -115,6 +121,7 @@ export default function AnnotationDrawer({
   mentionableTurns = [],
   renderContext,
   initialRequirement = null,
+  automatedPassed,
 }: AnnotationDrawerProps) {
   const isEditing = annotation !== null;
   const { status: sessionStatus } = useSession();
@@ -131,7 +138,9 @@ export default function AnnotationDrawer({
   const [tunableMetrics, setTunableMetrics] = useState<
     MetricWithRelationships[]
   >([]);
-  const [tuningMetricIds, setTuningMetricIds] = useState<string[]>([]);
+  // null until the user ticks or unticks it; until then the default applies.
+  const [improveChoice, setImproveChoice] = useState<boolean | null>(null);
+  const [changingRequirement, setChangingRequirement] = useState(false);
   const notifications = useNotifications();
   // The tuning-case route takes metric:create, like adding a case on the metric.
   const canAddTuningCase = useCan(Capability.Metric.CREATE);
@@ -204,6 +213,8 @@ export default function AnnotationDrawer({
     setError('');
     setSelectedStatusId(annotation ? String(annotation.status_id) : '');
     setResolved(Boolean(annotation?.resolved));
+    setImproveChoice(null);
+    setChangingRequirement(false);
     setRequirement(
       annotation
         ? annotation.requirement_id
@@ -218,7 +229,6 @@ export default function AnnotationDrawer({
   // which of its linked metrics can take a tuning case.
   const requirementId = requirement ? String(requirement.id) : null;
   useEffect(() => {
-    setTuningMetricIds([]);
     setTunableMetrics([]);
     if (!open || !requirementId || !isAuthenticated(sessionStatus)) return;
     let cancelled = false;
@@ -255,6 +265,23 @@ export default function AnnotationDrawer({
     annotation ? (annotation.comments ?? '') : undefined
   );
 
+  const verdictPassed =
+    passStatus && selectedStatusId === String(passStatus.id)
+      ? true
+      : failStatus && selectedStatusId === String(failStatus.id)
+        ? false
+        : undefined;
+  const disagreesWithAutomated =
+    automatedPassed !== undefined &&
+    verdictPassed !== undefined &&
+    verdictPassed !== automatedPassed;
+  const improve =
+    improveChoice ??
+    (isEditing ? originalRequirementId !== null : disagreesWithAutomated);
+  // The requirement the annotation is linked to: only while improving.
+  const linkedRequirementId = improve ? requirementId : null;
+  const tuningMetrics = canAddTuningCase && requirementId ? tunableMetrics : [];
+
   const handleSave = async () => {
     const trimmed = comment.trim();
     if (!commentOk) {
@@ -287,8 +314,8 @@ export default function AnnotationDrawer({
         };
         if (targetToSend) changes.target = targetToSend;
         // Only sent when changed, so an edit never clears a link by accident.
-        if (requirementId !== originalRequirementId) {
-          changes.requirement_id = requirementId;
+        if (linkedRequirementId !== originalRequirementId) {
+          changes.requirement_id = linkedRequirementId;
         }
         saved = await update(annotation.id, changes);
       } else {
@@ -296,7 +323,7 @@ export default function AnnotationDrawer({
           statusId: selectedStatusId,
           comments: trimmed,
           target: targetToSend,
-          requirementId,
+          requirementId: linkedRequirementId,
         });
       }
       await addTuningCases(String(saved.id));
@@ -309,14 +336,15 @@ export default function AnnotationDrawer({
     }
   };
 
-  const visibleTuningMetrics =
-    requirementId && canAddTuningCase ? tunableMetrics : [];
-
   // After the annotation saves: a failure here must not lose the annotation.
+  // An edit adds cases only when it newly links the requirement, so re-saving
+  // an annotation does not duplicate them.
   const addTuningCases = async (annotationId: string) => {
-    const metricIds = tuningMetricIds.filter(id =>
-      visibleTuningMetrics.some(m => String(m.id) === id)
-    );
+    const newlyLinked =
+      linkedRequirementId !== null &&
+      (!isEditing || linkedRequirementId !== originalRequirementId);
+    if (!newlyLinked) return;
+    const metricIds = tuningMetrics.map(m => String(m.id));
     if (metricIds.length === 0) return;
     const client = new ApiClientFactory().getAnnotationsClient();
     const results = await Promise.allSettled(
@@ -445,44 +473,77 @@ export default function AnnotationDrawer({
         minRows={4}
       />
 
-      <RequirementAutocomplete
-        label={ANNOTATION_COPY.requirementLabel}
-        placeholder={ANNOTATION_COPY.requirementPlaceholder}
-        value={requirement}
-        onChange={setRequirement}
-        helperText={ANNOTATION_COPY.requirementHelp}
-        disabled={submitting}
-        sx={drawerOutlinedFieldSx}
-      />
+      {/* One choice for what the verdict is reused for; the plumbing is derived. */}
+      <Box
+        component="section"
+        aria-label={ANNOTATION_COPY.improveLabel}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1.5,
+          pt: 2,
+          borderTop: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <FormControlLabel
+          sx={{ alignItems: 'flex-start' }}
+          control={
+            <Checkbox
+              size="small"
+              sx={{ py: 0.25 }}
+              // The summary line is part of the label visually, not of its name.
+              slotProps={{
+                input: { 'aria-label': ANNOTATION_COPY.improveLabel },
+              }}
+              checked={improve}
+              onChange={event => setImproveChoice(event.target.checked)}
+              disabled={submitting}
+            />
+          }
+          label={
+            <Box>
+              <Typography variant="body2">
+                {ANNOTATION_COPY.improveLabel}
+              </Typography>
+              {improve && requirement && !changingRequirement && (
+                <Typography variant="caption">
+                  {ANNOTATION_COPY.improveSummary(
+                    requirement.name,
+                    tuningMetrics.map(m => m.name)
+                  )}{' '}
+                  <Link
+                    component="button"
+                    type="button"
+                    variant="caption"
+                    onClick={event => {
+                      // Inside the label: a click would also toggle the checkbox.
+                      event.preventDefault();
+                      setChangingRequirement(true);
+                    }}
+                  >
+                    {ANNOTATION_COPY.improveChange}
+                  </Link>
+                </Typography>
+              )}
+            </Box>
+          }
+        />
 
-      {visibleTuningMetrics.length > 0 && (
-        <Stack spacing={0.5}>
-          {visibleTuningMetrics.map(metric => {
-            const id = String(metric.id);
-            return (
-              <FormControlLabel
-                key={id}
-                control={
-                  <Checkbox
-                    checked={tuningMetricIds.includes(id)}
-                    onChange={event =>
-                      setTuningMetricIds(prev =>
-                        event.target.checked
-                          ? [...prev, id]
-                          : prev.filter(m => m !== id)
-                      )
-                    }
-                  />
-                }
-                label={ANNOTATION_COPY.tuningCaseLabel(metric.name)}
-              />
-            );
-          })}
-          <Typography variant="caption" color="text.secondary">
-            {ANNOTATION_COPY.tuningCaseHelp}
-          </Typography>
-        </Stack>
-      )}
+        {improve && (!requirement || changingRequirement) && (
+          <RequirementAutocomplete
+            label={ANNOTATION_COPY.requirementLabel}
+            placeholder={ANNOTATION_COPY.requirementPlaceholder}
+            value={requirement}
+            onChange={value => {
+              setRequirement(value);
+              if (value) setChangingRequirement(false);
+            }}
+            disabled={submitting}
+            sx={drawerOutlinedFieldSx}
+          />
+        )}
+      </Box>
     </BaseDrawer>
   );
 }

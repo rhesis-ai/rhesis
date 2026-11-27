@@ -7,7 +7,10 @@ import { ANNOTATION_ENTITY_TYPES } from '@/utils/api-client/interfaces/annotatio
 import AnnotationsPanel from '@/components/annotations/AnnotationsPanel';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
-import { hasConflictingAnnotation } from '@/utils/test-result-status';
+import {
+  automatedMetricsPassed,
+  hasConflictingAnnotation,
+} from '@/utils/test-result-status';
 import type { MentionOption } from '@/components/common/MentionTextInput';
 import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
 
@@ -104,6 +107,7 @@ export default function TestDetailAnnotationsTab({
         initialComment={pendingCommentRef.current?.comment}
         initialStatus={pendingCommentRef.current?.status}
         initialRequirement={test.test?.requirement ?? null}
+        automatedPassed={automatedMetricsPassed(test)}
         mentionableMetrics={mentionableMetrics}
         mentionableTurns={mentionableTurns}
       />

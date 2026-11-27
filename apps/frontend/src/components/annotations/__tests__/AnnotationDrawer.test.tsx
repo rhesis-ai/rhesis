@@ -124,36 +124,49 @@ beforeEach(() => {
   });
 });
 
-describe('AnnotationDrawer requirement field', () => {
-  it('prefills the requirement and offers tuning only for custom metrics, unchecked', async () => {
+const improveBox = () =>
+  screen.getByRole('checkbox', { name: ANNOTATION_COPY.improveLabel });
+
+describe('AnnotationDrawer "improve the evaluation"', () => {
+  it('names the requirement and its tunable metrics instead of asking for them', async () => {
     renderDrawer({ initialRequirement: REQUIREMENT });
+    const user = userEvent.setup();
 
+    expect(improveBox()).not.toBeChecked();
+    await user.click(improveBox());
+
+    // Only the custom metric can take a tuning case.
     expect(
-      screen.getByRole('combobox', { name: ANNOTATION_COPY.requirementLabel })
-    ).toHaveValue('No investment advice');
-    expect(
-      screen.getByText(ANNOTATION_COPY.requirementHelp)
+      await screen.findByText(
+        ANNOTATION_COPY.improveSummary('No investment advice', [
+          'Advice judge',
+        ]),
+        { exact: false }
+      )
     ).toBeInTheDocument();
-
-    const box = await screen.findByRole('checkbox', {
-      name: ANNOTATION_COPY.tuningCaseLabel('Advice judge'),
-    });
-    expect(box).not.toBeChecked();
     expect(
-      screen.queryByRole('checkbox', {
-        name: ANNOTATION_COPY.tuningCaseLabel('Answer relevancy'),
-      })
+      screen.queryByRole('combobox', { name: ANNOTATION_COPY.requirementLabel })
     ).not.toBeInTheDocument();
   });
 
-  it('sends the requirement and adds a tuning case for each checked metric', async () => {
-    renderDrawer({ initialRequirement: REQUIREMENT });
+  it('starts checked when the verdict disagrees with the automated one', async () => {
+    renderDrawer({ initialRequirement: REQUIREMENT, automatedPassed: true });
+    await fillVerdictAndComment(); // picks Fail
+
+    expect(improveBox()).toBeChecked();
+  });
+
+  it('stays unchecked when the verdict agrees with the automated one', async () => {
+    renderDrawer({ initialRequirement: REQUIREMENT, automatedPassed: false });
+    await fillVerdictAndComment(); // picks Fail
+
+    expect(improveBox()).not.toBeChecked();
+  });
+
+  it('links the requirement and adds a tuning case for each tunable metric', async () => {
+    renderDrawer({ initialRequirement: REQUIREMENT, automatedPassed: true });
     const user = await fillVerdictAndComment();
-    await user.click(
-      await screen.findByRole('checkbox', {
-        name: ANNOTATION_COPY.tuningCaseLabel('Advice judge'),
-      })
-    );
+    await screen.findByText(/used to check Advice judge/);
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
@@ -165,20 +178,8 @@ describe('AnnotationDrawer requirement field', () => {
     expect(mockAddAsTuningCase).toHaveBeenCalledTimes(1);
   });
 
-  it('adds no tuning case when nothing is checked', async () => {
+  it('saves a plain annotation when unchecked', async () => {
     renderDrawer({ initialRequirement: REQUIREMENT });
-    const user = await fillVerdictAndComment();
-    await screen.findByRole('checkbox', {
-      name: ANNOTATION_COPY.tuningCaseLabel('Advice judge'),
-    });
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
-    expect(mockAddAsTuningCase).not.toHaveBeenCalled();
-  });
-
-  it('creates a plain annotation without a requirement', async () => {
-    renderDrawer();
     const user = await fillVerdictAndComment();
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -187,11 +188,30 @@ describe('AnnotationDrawer requirement field', () => {
         expect.objectContaining({ requirementId: null })
       )
     );
-    expect(mockGetRequirementWithMetrics).not.toHaveBeenCalled();
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(mockAddAsTuningCase).not.toHaveBeenCalled();
   });
 
-  it('leaves the requirement out of an edit that did not change it', async () => {
+  it('shows the requirement picker on "Change", and when there is none', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderDrawer({ initialRequirement: REQUIREMENT });
+    await user.click(improveBox());
+    await user.click(
+      await screen.findByRole('button', { name: ANNOTATION_COPY.improveChange })
+    );
+    expect(improveBox()).toBeChecked();
+    expect(
+      screen.getByRole('combobox', { name: ANNOTATION_COPY.requirementLabel })
+    ).toHaveValue('No investment advice');
+    unmount();
+
+    renderDrawer();
+    await user.click(improveBox());
+    expect(
+      screen.getByRole('combobox', { name: ANNOTATION_COPY.requirementLabel })
+    ).toBeInTheDocument();
+  });
+
+  it('keeps an edit that did not change the link as it was, without new cases', async () => {
     const annotation = {
       id: 'ann-1',
       status_id: 'pass-id',
@@ -201,14 +221,30 @@ describe('AnnotationDrawer requirement field', () => {
     } as unknown as Annotation;
     renderDrawer({ annotation });
 
-    await waitFor(() =>
-      expect(
-        screen.getByRole('combobox', { name: ANNOTATION_COPY.requirementLabel })
-      ).toHaveValue('No investment advice')
-    );
+    expect(improveBox()).toBeChecked();
+    await screen.findByText(/No investment advice/);
     await userEvent.setup().click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
     expect(mockUpdate.mock.calls[0][1]).not.toHaveProperty('requirement_id');
+    expect(mockAddAsTuningCase).not.toHaveBeenCalled();
+  });
+
+  it('unlinks the requirement when an edit unticks it', async () => {
+    const annotation = {
+      id: 'ann-1',
+      status_id: 'pass-id',
+      comments: 'Already a long enough comment',
+      resolved: false,
+      requirement_id: 'req-1',
+    } as unknown as Annotation;
+    renderDrawer({ annotation });
+    const user = userEvent.setup();
+
+    await user.click(improveBox());
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    expect(mockUpdate.mock.calls[0][1]).toHaveProperty('requirement_id', null);
   });
 });

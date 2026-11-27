@@ -140,6 +140,18 @@ export function getEffectiveTestResultStatus(
 }
 
 /**
+ * Whether every metric passed as scored automatically, before any human
+ * override. Undefined when the result has no metrics, so callers don't guess.
+ */
+export function automatedMetricsPassed(
+  test: TestResultDetail
+): boolean | undefined {
+  const metrics = Object.values(test.test_metrics?.metrics ?? {});
+  if (metrics.length === 0) return undefined;
+  return metrics.every(m => m.override?.original_value ?? m.is_successful);
+}
+
+/**
  * Whether a result belongs under one of the Tests tab's status filters.
  *
  * "failed" is what the Failures card counts -- a failed verdict or an error.
