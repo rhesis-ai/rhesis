@@ -585,6 +585,55 @@ class TestSuggestionPipelineStream:
 
 
 @pytest.mark.asyncio
+class TestSuggestionCount:
+    """A model that writes fewer suggestions than asked still returns them."""
+
+    async def test_fewer_suggestions_than_asked_fit_the_response(self):
+        from rhesis.backend.app.services.explorer.suggestions import _suggestions_response_model
+
+        model = _suggestions_response_model(20)
+        parsed = model.model_validate({"suggestions": [{"input": f"q{i}"} for i in range(19)]})
+
+        assert len(parsed.suggestions) == 19
+
+    async def test_more_than_asked_does_not(self):
+        from pydantic import ValidationError
+
+        from rhesis.backend.app.services.explorer.suggestions import _suggestions_response_model
+
+        with pytest.raises(ValidationError):
+            _suggestions_response_model(2).model_validate(
+                {"suggestions": [{"input": "a"}, {"input": "b"}, {"input": "c"}]}
+            )
+
+    async def test_a_blank_suggestion_is_dropped(self, monkeypatch):
+        monkeypatch.setattr(get_application_settings(), "embeddings_enabled", False)
+        model = MagicMock()
+        model.a_generate = AsyncMock(
+            return_value={"suggestions": [{"input": "first"}, {"input": "   "}]}
+        )
+        ctx = {
+            "model": model,
+            "response_model": MagicMock(),
+            "prompt_text": "p",
+            "topic_value": "",
+            "sample_size": 2,
+        }
+
+        with patch(
+            "rhesis.backend.app.services.explorer.suggestions._prepare_suggestion_context",
+            return_value=ctx,
+        ):
+            result = await generate_suggestions(
+                db=MagicMock(),
+                test_set_identifier="some-test-set",
+                organization_id=str(uuid.uuid4()),
+                user_id=str(uuid.uuid4()),
+            )
+
+        assert [s.input for s in result.suggestions] == ["first"]
+
+
 class TestSuggestionsWithEmbeddingsOff:
     """generate_embeddings is ignored while EMBEDDINGS_ENABLED is off."""
 

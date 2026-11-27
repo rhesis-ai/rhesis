@@ -44,7 +44,11 @@ class _GeneratedTestSuggestionItem(BaseModel):
 
 
 def _suggestions_response_model(num_suggestions: int) -> type[BaseModel]:
-    """Response type requiring exactly ``num_suggestions`` items."""
+    """Response type of up to ``num_suggestions`` items.
+
+    Not exactly that many: a model that returns one short would otherwise fail the
+    whole request instead of giving the user the suggestions it did write.
+    """
     return create_model(
         "GeneratedTestSuggestionsResponse",
         __base__=BaseModel,
@@ -52,9 +56,9 @@ def _suggestions_response_model(num_suggestions: int) -> type[BaseModel]:
             list[_GeneratedTestSuggestionItem],
             Field(
                 ...,
-                min_length=num_suggestions,
+                min_length=1,
                 max_length=num_suggestions,
-                description="New test inputs; count must match the requested number.",
+                description=f"{num_suggestions} new test inputs.",
             ),
         ),
     )
@@ -333,9 +337,9 @@ async def generate_suggestions(
         raise ValueError("LLM returned unexpected response type (expected structured object)")
 
     rows = raw_output.get("suggestions") or []
-    suggestions = [
-        {"topic": topic_value, "input": str(row.get("input", "")).strip()} for row in rows
-    ]
+    inputs = (str(row.get("input", "")).strip() for row in rows)
+    # min_length is checked before stripping, so a blank input gets this far.
+    suggestions = [{"topic": topic_value, "input": text} for text in inputs if text]
 
     if generate_embeddings:
         from rhesis.backend.app.services.explorer.embeddings import (
