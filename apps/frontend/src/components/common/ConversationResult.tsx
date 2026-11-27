@@ -10,6 +10,7 @@ import { STATUS_LABEL, type TestResultStatus } from '@/constants/outcomes';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 import {
   checksSummary,
+  noVerdictLabel,
   turnScopeLabel,
   type ResultCheck,
   type ResultCheckGroup,
@@ -60,7 +61,11 @@ function CheckLine({
       }}
     >
       {check.passed === null ? (
-        <RemoveIcon aria-label="Not scored" color="disabled" sx={iconSx} />
+        <RemoveIcon
+          aria-label={noVerdictLabel(check)}
+          color="disabled"
+          sx={iconSx}
+        />
       ) : failed ? (
         <CloseIcon aria-label="Failed" color="error" sx={iconSx} />
       ) : (

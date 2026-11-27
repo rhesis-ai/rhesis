@@ -108,6 +108,8 @@ export interface MetricCreate {
   threshold_operator?: ThresholdOperator;
   explanation: string;
   ground_truth_required?: boolean;
+  /** The SDK class a built-in metric is made from, such as a rule's. */
+  class_name?: string;
   config?: MetricConfig | null;
   // ID-based fields (preferred for frontend)
   metric_type_id?: UUID;

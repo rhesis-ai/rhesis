@@ -5,6 +5,7 @@ import EntityCard, {
   type EntityCardRelation,
 } from '@/components/common/EntityCard';
 import { RequirementsIcon, TuneIcon } from '@/components/icons';
+import { METRIC_TYPES, METRIC_TYPE_LABELS } from '@/constants/metric-types';
 import type {
   MetricTarget,
   MetricTargetChoice,
@@ -62,6 +63,7 @@ export default function MetricCard({
   title,
   description,
   backend,
+  metricType,
   scoreType,
   target,
   targetChoices,
@@ -73,7 +75,14 @@ export default function MetricCard({
   onClick,
 }: MetricCardProps) {
   const facts: EntityCardFact[] = [];
-  if (scoreType) {
+  // A rule always scores 1 or 0, so what it is says more than its score type.
+  if (metricType === METRIC_TYPES.RULE) {
+    facts.push({
+      key: 'metric-type',
+      kind: 'type',
+      label: METRIC_TYPE_LABELS[METRIC_TYPES.RULE],
+    });
+  } else if (scoreType) {
     facts.push({
       key: 'score-type',
       kind: 'type',

@@ -78,6 +78,8 @@ import { SCORE_TYPES } from '@/constants/score-types';
 import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 import InfoRow from './MetricInfoRow';
 import FrameworkEvaluation from './FrameworkEvaluation';
+import RuleEvaluation from './RuleEvaluation';
+import { isRuleMetric } from '@/constants/metric-types';
 import {
   isFrameworkMetric,
   isFrameworkPlaceholder,
@@ -213,6 +215,7 @@ export function MetricDetailView({
   const [loading, setLoading] = useState(initialMetric === undefined);
   // A framework metric's definition is the framework's: shown, never edited.
   const isFramework = metric ? isFrameworkMetric(metric) : false;
+  const isRule = metric ? isRuleMetric(metric) : false;
   const canEditDefinition = canEditMetric && !isFramework;
   const [missingError, setMissingError] = useState<unknown>(null);
   const notifications = useNotifications();
@@ -236,6 +239,10 @@ export function MetricDetailView({
   const targetChoices = React.useMemo(
     () => offeredTargets(allTargets, { supported: supportedTargets }),
     [allTargets, supportedTargets]
+  );
+  const spanKinds = React.useMemo(
+    () => allTargets.filter(choice => choice.per_span),
+    [allTargets]
   );
   const storedTarget = metric ? getMetricTarget(metric) : null;
   const [isSaving, setIsSaving] = useState(false);
@@ -988,7 +995,17 @@ export function MetricDetailView({
           </EditableSection>
 
           {/* Evaluation Process Section */}
-          {isFramework ? (
+          {isRule ? (
+            <RuleEvaluation
+              metric={metric}
+              editable={canEditMetric}
+              spanKinds={spanKinds}
+              onSaved={updated => {
+                setMetric(updated);
+                onSaved?.();
+              }}
+            />
+          ) : isFramework ? (
             <FrameworkEvaluation metric={metric} />
           ) : (
             <EditableSection
@@ -1217,376 +1234,386 @@ export function MetricDetailView({
             </EditableSection>
           )}
 
-          {/* Result Configuration Section */}
-          <EditableSection
-            editable={canEditDefinition}
-            title="Result Configuration"
-            section="configuration"
-            isEditing={isEditing}
-            onEdit={handleEdit}
-            onCancel={handleCancelEdit}
-            onConfirm={handleConfirmEdit}
-            isSaving={isSaving}
-            checkChanges={checkForChanges}
-          >
-            <InfoRow label="Score Type">
-              {isEditing === 'configuration' ? (
-                <Box>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    Choose how this metric will be scored:
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {(['numeric', 'categorical'] as const).map(type => {
-                      const isSelected =
-                        (editData.score_type || 'numeric') === type;
-                      return (
-                        <Chip
-                          key={type}
-                          label={type === 'numeric' ? 'Numeric' : 'Categorical'}
-                          clickable
-                          color={isSelected ? 'primary' : 'default'}
-                          variant={isSelected ? 'filled' : 'outlined'}
-                          onClick={() => {
+          {/* Result Configuration Section: a rule's score is fixed at 1 or 0 */}
+          {!isRule && (
+            <EditableSection
+              editable={canEditDefinition}
+              title="Result Configuration"
+              section="configuration"
+              isEditing={isEditing}
+              onEdit={handleEdit}
+              onCancel={handleCancelEdit}
+              onConfirm={handleConfirmEdit}
+              isSaving={isSaving}
+              checkChanges={checkForChanges}
+            >
+              <InfoRow label="Score Type">
+                {isEditing === 'configuration' ? (
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 2 }}
+                    >
+                      Choose how this metric will be scored:
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {(['numeric', 'categorical'] as const).map(type => {
+                        const isSelected =
+                          (editData.score_type || 'numeric') === type;
+                        return (
+                          <Chip
+                            key={type}
+                            label={
+                              type === 'numeric' ? 'Numeric' : 'Categorical'
+                            }
+                            clickable
+                            color={isSelected ? 'primary' : 'default'}
+                            variant={isSelected ? 'filled' : 'outlined'}
+                            onClick={() => {
+                              setEditData(prev => ({
+                                ...prev,
+                                score_type: type,
+                              }));
+                            }}
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: isSelected
+                                  ? 'primary.dark'
+                                  : 'action.hover',
+                              },
+                            }}
+                          />
+                        );
+                      })}
+                    </Box>
+                    {judgeModelMismatch && judgeModel && (
+                      <Alert severity="warning" sx={{ mt: 2 }}>
+                        {judgeModel.name} can only judge categorical metrics.
+                        Change the evaluation model before switching score type.
+                      </Alert>
+                    )}
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'primary.contrastText',
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: theme => theme.shape.borderRadius * 0.25,
+                        fontSize:
+                          theme?.typography?.caption?.fontSize || '0.75rem',
+                        fontWeight: 'medium',
+                      }}
+                    >
+                      {metric.score_type === 'categorical'
+                        ? 'Categorical'
+                        : 'Numeric'}
+                    </Typography>
+                  </Box>
+                )}
+              </InfoRow>
+
+              {(metric.score_type === 'categorical' ||
+                editData.score_type === 'categorical') && (
+                <>
+                  <InfoRow label="Categories">
+                    {isEditing === 'configuration' ? (
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mb: 2 }}
+                        >
+                          Define the possible categorical values (minimum 2
+                          required)
+                        </Typography>
+                        <BaseTag
+                          value={editData.categories || []}
+                          onChange={newCategories =>
                             setEditData(prev => ({
                               ...prev,
-                              score_type: type,
-                            }));
-                          }}
-                          sx={{
-                            '&:hover': {
-                              backgroundColor: isSelected
-                                ? 'primary.dark'
-                                : 'action.hover',
-                            },
-                          }}
+                              categories: newCategories,
+                              // Clear passing categories if they're no longer valid
+                              passing_categories: (
+                                prev.passing_categories || []
+                              ).filter(pc => newCategories.includes(pc)),
+                            }))
+                          }
+                          label="Categories"
+                          placeholder="Add category (e.g., Excellent, Good, Poor)"
+                          chipColor="primary"
+                          addOnBlur
+                          delimiters={[',', 'Enter']}
+                          size="small"
                         />
-                      );
-                    })}
-                  </Box>
-                  {judgeModelMismatch && judgeModel && (
-                    <Alert severity="warning" sx={{ mt: 2 }}>
-                      {judgeModel.name} can only judge categorical metrics.
-                      Change the evaluation model before switching score type.
-                    </Alert>
-                  )}
-                </Box>
-              ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography
-                    sx={{
-                      bgcolor: 'primary.main',
-                      color: 'primary.contrastText',
-                      px: 1.5,
-                      py: 0.5,
-                      borderRadius: theme => theme.shape.borderRadius * 0.25,
-                      fontSize:
-                        theme?.typography?.caption?.fontSize || '0.75rem',
-                      fontWeight: 'medium',
-                    }}
-                  >
-                    {metric.score_type === 'categorical'
-                      ? 'Categorical'
-                      : 'Numeric'}
-                  </Typography>
-                </Box>
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {metric.categories && metric.categories.length > 0 ? (
+                          metric.categories.map(category => (
+                            <Chip
+                              key={category}
+                              label={category}
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ))
+                        ) : (
+                          <Typography color="text.secondary">
+                            No categories defined
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  </InfoRow>
+
+                  <InfoRow label="Passing Categories">
+                    {isEditing === 'configuration' ? (
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mb: 2 }}
+                        >
+                          Select which categories indicate success (at least one
+                          required)
+                        </Typography>
+                        {(editData.categories || []).length >= 2 ? (
+                          <Box
+                            sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}
+                          >
+                            {(editData.categories || []).map(category => {
+                              const isSelected = (
+                                editData.passing_categories || []
+                              ).includes(category);
+                              return (
+                                <Chip
+                                  key={category}
+                                  label={category}
+                                  clickable
+                                  color={isSelected ? 'success' : 'default'}
+                                  variant={isSelected ? 'filled' : 'outlined'}
+                                  onClick={() => {
+                                    const currentPassing =
+                                      editData.passing_categories || [];
+                                    const newPassing = isSelected
+                                      ? currentPassing.filter(
+                                          c => c !== category
+                                        )
+                                      : [...currentPassing, category];
+                                    setEditData(prev => ({
+                                      ...prev,
+                                      passing_categories: newPassing,
+                                    }));
+                                  }}
+                                  icon={isSelected ? <CheckIcon /> : undefined}
+                                  sx={{
+                                    '&:hover': {
+                                      backgroundColor: isSelected
+                                        ? 'success.dark'
+                                        : 'action.hover',
+                                    },
+                                  }}
+                                />
+                              );
+                            })}
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            Add at least 2 categories first
+                          </Typography>
+                        )}
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {metric.passing_categories &&
+                        metric.passing_categories.length > 0 ? (
+                          metric.passing_categories.map(category => (
+                            <Chip
+                              key={category}
+                              label={category}
+                              color="success"
+                              variant="filled"
+                            />
+                          ))
+                        ) : (
+                          <Typography color="text.secondary">
+                            No passing categories defined
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  </InfoRow>
+                </>
               )}
-            </InfoRow>
 
-            {(metric.score_type === 'categorical' ||
-              editData.score_type === 'categorical') && (
-              <>
-                <InfoRow label="Categories">
-                  {isEditing === 'configuration' ? (
-                    <Box>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 2 }}
-                      >
-                        Define the possible categorical values (minimum 2
-                        required)
-                      </Typography>
-                      <BaseTag
-                        value={editData.categories || []}
-                        onChange={newCategories =>
-                          setEditData(prev => ({
-                            ...prev,
-                            categories: newCategories,
-                            // Clear passing categories if they're no longer valid
-                            passing_categories: (
-                              prev.passing_categories || []
-                            ).filter(pc => newCategories.includes(pc)),
-                          }))
-                        }
-                        label="Categories"
-                        placeholder="Add category (e.g., Excellent, Good, Poor)"
-                        chipColor="primary"
-                        addOnBlur
-                        delimiters={[',', 'Enter']}
-                        size="small"
-                      />
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {metric.categories && metric.categories.length > 0 ? (
-                        metric.categories.map(category => (
-                          <Chip
-                            key={category}
-                            label={category}
-                            color="primary"
-                            variant="outlined"
-                          />
-                        ))
-                      ) : (
-                        <Typography color="text.secondary">
-                          No categories defined
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-                </InfoRow>
-
-                <InfoRow label="Passing Categories">
-                  {isEditing === 'configuration' ? (
-                    <Box>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 2 }}
-                      >
-                        Select which categories indicate success (at least one
-                        required)
-                      </Typography>
-                      {(editData.categories || []).length >= 2 ? (
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          {(editData.categories || []).map(category => {
-                            const isSelected = (
-                              editData.passing_categories || []
-                            ).includes(category);
-                            return (
-                              <Chip
-                                key={category}
-                                label={category}
-                                clickable
-                                color={isSelected ? 'success' : 'default'}
-                                variant={isSelected ? 'filled' : 'outlined'}
-                                onClick={() => {
-                                  const currentPassing =
-                                    editData.passing_categories || [];
-                                  const newPassing = isSelected
-                                    ? currentPassing.filter(c => c !== category)
-                                    : [...currentPassing, category];
-                                  setEditData(prev => ({
-                                    ...prev,
-                                    passing_categories: newPassing,
-                                  }));
-                                }}
-                                icon={isSelected ? <CheckIcon /> : undefined}
-                                sx={{
-                                  '&:hover': {
-                                    backgroundColor: isSelected
-                                      ? 'success.dark'
-                                      : 'action.hover',
-                                  },
-                                }}
-                              />
-                            );
-                          })}
-                        </Box>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          Add at least 2 categories first
-                        </Typography>
-                      )}
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {metric.passing_categories &&
-                      metric.passing_categories.length > 0 ? (
-                        metric.passing_categories.map(category => (
-                          <Chip
-                            key={category}
-                            label={category}
-                            color="success"
-                            variant="filled"
-                          />
-                        ))
-                      ) : (
-                        <Typography color="text.secondary">
-                          No passing categories defined
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-                </InfoRow>
-              </>
-            )}
-
-            {(metric.score_type === 'numeric' ||
-              editData.score_type === 'numeric') && (
-              <>
-                <Box sx={{ display: 'flex', gap: 4 }}>
-                  <InfoRow label="Minimum Score">
-                    {isEditing === 'configuration' ? (
-                      <TextField
-                        key={`min-score-field-${metric.id}`}
-                        type="number"
-                        value={editData.min_score || ''}
-                        onChange={e =>
-                          setEditData(prev => ({
-                            ...prev,
-                            min_score: Number(e.target.value),
-                          }))
-                        }
-                        fullWidth
-                        placeholder="Enter minimum score"
-                      />
-                    ) : (
-                      <Typography variant="body1" color="text.primary">
-                        {metric.min_score}
-                      </Typography>
-                    )}
-                  </InfoRow>
-
-                  <InfoRow label="Maximum Score">
-                    {isEditing === 'configuration' ? (
-                      <TextField
-                        key={`max-score-field-${metric.id}`}
-                        type="number"
-                        value={editData.max_score || ''}
-                        onChange={e =>
-                          setEditData(prev => ({
-                            ...prev,
-                            max_score: Number(e.target.value),
-                          }))
-                        }
-                        fullWidth
-                        placeholder="Enter maximum score"
-                      />
-                    ) : (
-                      <Typography variant="body1" color="text.primary">
-                        {metric.max_score}
-                      </Typography>
-                    )}
-                  </InfoRow>
-                </Box>
-
-                <InfoRow label="Threshold">
-                  {isEditing === 'configuration' ? (
-                    <Box>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 2 }}
-                      >
-                        Define the threshold condition for passing:
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 2 }}>
+              {(metric.score_type === 'numeric' ||
+                editData.score_type === 'numeric') && (
+                <>
+                  <Box sx={{ display: 'flex', gap: 4 }}>
+                    <InfoRow label="Minimum Score">
+                      {isEditing === 'configuration' ? (
                         <TextField
-                          key={`threshold-field-${metric.id}`}
-                          required
+                          key={`min-score-field-${metric.id}`}
                           type="number"
-                          label="Threshold Value"
-                          value={editData.threshold || ''}
+                          value={editData.min_score || ''}
                           onChange={e =>
                             setEditData(prev => ({
                               ...prev,
-                              threshold: Number(e.target.value),
+                              min_score: Number(e.target.value),
                             }))
                           }
                           fullWidth
+                          placeholder="Enter minimum score"
                         />
-                        <FormControl fullWidth>
-                          <InputLabel id={`${a11yId}-operator`} required>
-                            Operator
-                          </InputLabel>
-                          <Select
-                            labelId={`${a11yId}-operator`}
-                            value={editData.threshold_operator || '>='}
-                            label="Operator"
+                      ) : (
+                        <Typography variant="body1" color="text.primary">
+                          {metric.min_score}
+                        </Typography>
+                      )}
+                    </InfoRow>
+
+                    <InfoRow label="Maximum Score">
+                      {isEditing === 'configuration' ? (
+                        <TextField
+                          key={`max-score-field-${metric.id}`}
+                          type="number"
+                          value={editData.max_score || ''}
+                          onChange={e =>
+                            setEditData(prev => ({
+                              ...prev,
+                              max_score: Number(e.target.value),
+                            }))
+                          }
+                          fullWidth
+                          placeholder="Enter maximum score"
+                        />
+                      ) : (
+                        <Typography variant="body1" color="text.primary">
+                          {metric.max_score}
+                        </Typography>
+                      )}
+                    </InfoRow>
+                  </Box>
+
+                  <InfoRow label="Threshold">
+                    {isEditing === 'configuration' ? (
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mb: 2 }}
+                        >
+                          Define the threshold condition for passing:
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                          <TextField
+                            key={`threshold-field-${metric.id}`}
+                            required
+                            type="number"
+                            label="Threshold Value"
+                            value={editData.threshold || ''}
                             onChange={e =>
                               setEditData(prev => ({
                                 ...prev,
-                                threshold_operator: e.target
-                                  .value as ThresholdOperator,
+                                threshold: Number(e.target.value),
                               }))
                             }
-                          >
-                            <MenuItem value=">=">&gt;=</MenuItem>
-                            <MenuItem value=">">&gt;</MenuItem>
-                            <MenuItem value="<=">&lt;=</MenuItem>
-                            <MenuItem value="<">&lt;</MenuItem>
-                            <MenuItem value="=">=</MenuItem>
-                            <MenuItem value="!=">!=</MenuItem>
-                          </Select>
-                        </FormControl>
+                            fullWidth
+                          />
+                          <FormControl fullWidth>
+                            <InputLabel id={`${a11yId}-operator`} required>
+                              Operator
+                            </InputLabel>
+                            <Select
+                              labelId={`${a11yId}-operator`}
+                              value={editData.threshold_operator || '>='}
+                              label="Operator"
+                              onChange={e =>
+                                setEditData(prev => ({
+                                  ...prev,
+                                  threshold_operator: e.target
+                                    .value as ThresholdOperator,
+                                }))
+                              }
+                            >
+                              <MenuItem value=">=">&gt;=</MenuItem>
+                              <MenuItem value=">">&gt;</MenuItem>
+                              <MenuItem value="<=">&lt;=</MenuItem>
+                              <MenuItem value="<">&lt;</MenuItem>
+                              <MenuItem value="=">=</MenuItem>
+                              <MenuItem value="!=">!=</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Box>
                       </Box>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Typography
-                        sx={{
-                          bgcolor: 'success.main',
-                          color: 'success.contrastText',
-                          px: 1.5,
-                          py: 0.5,
-                          borderRadius: theme =>
-                            theme.shape.borderRadius * 0.25,
-                          fontSize:
-                            theme?.typography?.caption?.fontSize || '0.75rem',
-                          fontWeight: 'medium',
-                        }}
+                    ) : (
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
                       >
-                        {metric.threshold} {metric.threshold_operator || '>='}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Threshold condition for passing
-                      </Typography>
-                    </Box>
-                  )}
-                </InfoRow>
-              </>
-            )}
-
-            <InfoRow label="Result Explanation">
-              {isEditing === 'configuration' ? (
-                <TextField
-                  key={`explanation-field-${metric.id}`}
-                  fullWidth
-                  multiline
-                  rows={4}
-                  inputRef={explanationRef}
-                  defaultValue={metric.explanation || ''}
-                  placeholder="Enter result explanation"
-                  onChange={markTextFieldDirty}
-                  onBlur={handleTextFieldBlur}
-                />
-              ) : (
-                <Typography
-                  component="pre"
-                  variant="body2"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    fontFamily: 'monospace',
-                    bgcolor: 'action.hover',
-                    borderRadius: theme => theme.shape.borderRadius * 0.25,
-                    padding: 1,
-                    minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {metric.explanation &&
-                  !isFrameworkPlaceholder(metric.explanation)
-                    ? metric.explanation
-                    : '-'}
-                </Typography>
+                        <Typography
+                          sx={{
+                            bgcolor: 'success.main',
+                            color: 'success.contrastText',
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: theme =>
+                              theme.shape.borderRadius * 0.25,
+                            fontSize:
+                              theme?.typography?.caption?.fontSize || '0.75rem',
+                            fontWeight: 'medium',
+                          }}
+                        >
+                          {metric.threshold} {metric.threshold_operator || '>='}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Threshold condition for passing
+                        </Typography>
+                      </Box>
+                    )}
+                  </InfoRow>
+                </>
               )}
-            </InfoRow>
-          </EditableSection>
+
+              <InfoRow label="Result Explanation">
+                {isEditing === 'configuration' ? (
+                  <TextField
+                    key={`explanation-field-${metric.id}`}
+                    fullWidth
+                    multiline
+                    rows={4}
+                    inputRef={explanationRef}
+                    defaultValue={metric.explanation || ''}
+                    placeholder="Enter result explanation"
+                    onChange={markTextFieldDirty}
+                    onBlur={handleTextFieldBlur}
+                  />
+                ) : (
+                  <Typography
+                    component="pre"
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: 'monospace',
+                      bgcolor: 'action.hover',
+                      borderRadius: theme => theme.shape.borderRadius * 0.25,
+                      padding: 1,
+                      minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {metric.explanation &&
+                    !isFrameworkPlaceholder(metric.explanation)
+                      ? metric.explanation
+                      : '-'}
+                  </Typography>
+                )}
+              </InfoRow>
+            </EditableSection>
+          )}
 
           <EditableSectionCard
             editable={canEditMetric && targetChoices.length > 0}

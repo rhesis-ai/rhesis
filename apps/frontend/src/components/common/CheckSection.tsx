@@ -7,6 +7,7 @@ import { CheckIcon, ChevronRightIcon, CloseIcon } from '@/components/icons';
 import RemoveIcon from '@mui/icons-material/Remove';
 import {
   countChecks,
+  noVerdictLabel,
   turnScopeLabel,
   type ResultCheck,
 } from '@/utils/result-checks';
@@ -18,14 +19,20 @@ const overlineSx = (theme: Theme) => ({
   color: 'text.secondary',
 });
 
-function VerdictIcon({ passed }: { passed: boolean | null }) {
+function VerdictIcon({
+  passed,
+  noVerdict = 'Not scored',
+}: {
+  passed: boolean | null;
+  noVerdict?: string;
+}) {
   const sx = {
     fontSize: (theme: Theme) => theme.spacing(2),
     mt: 0.25,
     flexShrink: 0,
   };
   if (passed === null) {
-    return <RemoveIcon aria-label="Not scored" color="disabled" sx={sx} />;
+    return <RemoveIcon aria-label={noVerdict} color="disabled" sx={sx} />;
   }
   return passed ? (
     <CheckIcon aria-label="Passed" color="success" sx={sx} />
@@ -59,7 +66,7 @@ function CheckRow({
   const [open, setOpen] = useState(check.passed === false);
   return (
     <Box sx={{ display: 'flex', gap: 1, py: 0.5 }}>
-      <VerdictIcon passed={check.passed} />
+      <VerdictIcon passed={check.passed} noVerdict={noVerdictLabel(check)} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box
@@ -94,7 +101,7 @@ function CheckRow({
           )}
           {check.passed === null && (
             <Chip
-              label="Not scored"
+              label={noVerdictLabel(check)}
               size="small"
               variant="outlined"
               sx={{ height: theme => theme.spacing(2.5) }}
