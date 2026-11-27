@@ -102,18 +102,18 @@ def check_results(results: list[dict]) -> None:
 
     expected_outputs = {echo(prompt) for prompt in PROMPTS}
     for result in results:
-        output = (result.get("test_output") or {}).get("output")
+        test_output = result.get("test_output")
+        # The backend allows a plain string here too.
+        output = test_output.get("output") if isinstance(test_output, dict) else test_output
         if output not in expected_outputs:
-            sys.exit(
-                f"the endpoint answer did not come back: test_output={result.get('test_output')}"
-            )
+            sys.exit(f"the endpoint answer did not come back: test_output={test_output}")
 
-        metrics = (result.get("test_metrics") or {}).get("metrics") or {}
+        test_metrics = result.get("test_metrics")
+        metrics = test_metrics.get("metrics") if isinstance(test_metrics, dict) else None
+        metrics = metrics if isinstance(metrics, dict) else {}
         scored = metrics.get(METRIC_NAME)
         if not scored:
-            sys.exit(
-                f"{METRIC_NAME} did not score the result: test_metrics={result.get('test_metrics')}"
-            )
+            sys.exit(f"{METRIC_NAME} did not score the result: test_metrics={test_metrics}")
         if scored.get("score") != 1.0 or not scored.get("is_successful"):
             sys.exit(f"{METRIC_NAME} failed: {scored}")
         unexpected = set(metrics) - {METRIC_NAME}
