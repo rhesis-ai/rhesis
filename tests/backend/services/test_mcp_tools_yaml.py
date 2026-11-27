@@ -1467,3 +1467,20 @@ class TestSpanTargetTools:
     def test_list_metrics_selects_the_target_summary(self):
         selected = self._cfg("list_metrics")["default_query"]["$select"].split(",")
         assert "target_summary" in selected
+
+    def test_the_architect_runs_the_preview_without_approval(self, monkeypatch):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server import local_tools
+        from rhesis.sdk.agents.constants import ToolMeta
+
+        monkeypatch.setattr(
+            local_tools, "visible_tools_for", lambda operations, *_args: frozenset(operations)
+        )
+        provider = local_tools.LocalToolProvider(app, "unused", principal=None)
+        provider._initialize()
+        defs = {d["name"]: d for d in provider._tool_defs}
+
+        # The Architect holds every POST for approval unless the tool says it only reads.
+        assert defs["preview_target"][ToolMeta.HTTP_METHOD] == "POST"
+        assert defs["preview_target"][ToolMeta.READONLY_HINT] is True
+        assert ToolMeta.READONLY_HINT not in defs["create_metric"]

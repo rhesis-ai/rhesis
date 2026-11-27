@@ -250,7 +250,7 @@ class TestThingsGetBuiltInTheShapeThatWasPlanned:
         )
 
         assert error is not None
-        assert "'turn'" in error and "'conversation'" in error
+        assert "each turn" in error and "the conversation" in error
 
     def test_no_target_is_the_default_one(self):
         error = _agent()._check_plan_constraints(_call("create_metric", name="Safety Compliance"))

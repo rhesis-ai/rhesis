@@ -20,12 +20,16 @@ the lesson of issues #2402 and #2516.
 
 from __future__ import annotations
 
+import json
 import math
 from typing import Any, Dict, List, Optional, Sequence
 
+from pydantic import ValidationError
+
 from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec, class_default_target
 from rhesis.sdk.agents.architect.tool_registry import PlanCategory
-from rhesis.sdk.metrics.targets import TargetKind
+from rhesis.sdk.metrics.conditions import ConditionOp
+from rhesis.sdk.metrics.targets import Refinement, Target, TargetKind, UnsupportedTarget
 
 # Which argument carries the Single-Turn/Multi-Turn shape. The two test-set
 # writers spell it differently.
@@ -136,30 +140,93 @@ def check_test_set_shape(
     )
 
 
-def _check_target(spec: MetricSpec, arguments: Dict[str, Any]) -> Optional[str]:
+# A one-value choice means the same as the plain comparison.
+_ONE_OF = {ConditionOp.IN: ConditionOp.EQ, ConditionOp.NOT_IN: ConditionOp.NE}
+
+
+def _sorted_by_text(values: List[Any]) -> List[Any]:
+    return sorted(values, key=lambda value: json.dumps(value, sort_keys=True, default=str))
+
+
+def _canonical_condition(condition: Dict[str, Any]) -> Dict[str, Any]:
+    op, value = ConditionOp(condition["op"]), condition.get("value")
+    if isinstance(value, list):
+        if op in _ONE_OF and len(value) == 1:
+            op, value = _ONE_OF[op], value[0]
+        else:
+            value = _sorted_by_text(value)
+    return {**condition, "op": op.value, "value": value}
+
+
+def _canonical(target: Target) -> Dict[str, Any]:
+    """The expanded target with its conditions in a fixed order, so a preset and its span
+    form, or the same conditions written in another order, compare equal."""
+    config = target.expand().to_config()
+    where = config.get(Refinement.WHERE)
+    if where:
+        config[Refinement.WHERE] = _sorted_by_text([_canonical_condition(c) for c in where])
+    return config
+
+
+def _sent_target(arguments: Dict[str, Any]) -> Optional[Target]:
+    """The target a create call stores, or None when the call's target isn't one the
+    server would accept (that refusal is the server's, with its own message)."""
     config = arguments.get("config")
     if config is None:
         config = {}
     if not isinstance(config, dict):
-        # A malformed config is the server's to reject, not ours.
         return None
-    target = config.get("target")
-    sent = target.get("on") if isinstance(target, dict) else target
-    if sent is not None and not isinstance(sent, str):
-        return None
+    sent = config.get("target")
     if sent is None:
         # The server stores the class's own default: a run for Tool Call Trajectory, a
         # conversation for a conversational judge, each turn for a custom judge.
-        sent_default = class_default_target(arguments.get("class_name")) or TargetKind.TURN
-        if sent_default is spec.target:
-            return None
-    elif sent == spec.target.value:
+        return Target(on=class_default_target(arguments.get("class_name")) or TargetKind.TURN)
+    try:
+        return Target.coerce(sent)
+    except (ValidationError, UnsupportedTarget, TypeError):
         return None
+
+
+# The parts of a target describe() puts in words; the rest is read and the pass rule.
+_DESCRIBED = frozenset({"on", Refinement.NAME, Refinement.WITHIN, Refinement.WHERE})
+
+
+def _target_differences(planned: Dict[str, Any], sent: Dict[str, Any]) -> List[str]:
+    """The differing parts describe() leaves out: what is read, and how verdicts combine."""
+    differing = {
+        field
+        for field in (set(planned) | set(sent)) - _DESCRIBED
+        if planned.get(field) != sent.get(field)
+    }
+    differences = []
+    if Refinement.READ in differing:
+        differences.append("what the metric reads")
+    if differing - {Refinement.READ}:
+        differences.append("how the verdicts combine")
+    return differences
+
+
+def _check_target(spec: MetricSpec, arguments: Dict[str, Any]) -> Optional[str]:
+    sent = _sent_target(arguments)
+    if sent is None:
+        return None
+    planned_form, sent_form = _canonical(spec.target), _canonical(sent)
+    if planned_form == sent_form:
+        return None
+    planned_words, sent_words = spec.target.describe(), sent.describe()
+    has_target = isinstance(arguments.get("config"), dict) and "target" in arguments["config"]
+    how = "sends a target that judges" if has_target else "sends no target, so it judges"
+    problem = (
+        f"Metric '{spec.name}' is planned to judge {planned_words}, but this call "
+        f"{how} {sent_words}."
+    )
+    if planned_words == sent_words:
+        differing = _target_differences(planned_form, sent_form) or ["its conditions"]
+        problem += f" The two differ in {' and '.join(differing)}."
     return (
-        f"Metric '{spec.name}' is planned to judge '{spec.target.value}' but this "
-        f"call {'sends ' + repr(sent) if sent else 'sends no target'}. The target "
-        f"decides what the metric judges and which tests it runs on. Send "
-        f'config {{"target": {{"on": "{spec.target.value}"}}}}, or call save_plan.'
+        f"{problem} The target decides what the metric judges and which tests it runs "
+        f'on. Send config {{"target": {json.dumps(spec.target.to_config())}}}, or call '
+        f"save_plan."
     )
 
 

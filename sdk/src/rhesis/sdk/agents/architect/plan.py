@@ -2,10 +2,10 @@
 
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
 
 from rhesis.sdk.agents.constants import InternalTool, ToolMeta
-from rhesis.sdk.metrics.targets import TARGETS, TargetKind
+from rhesis.sdk.metrics.targets import TARGETS, Target, TargetKind, preset_of
 
 #: The classes of the metrics that check with no model, sent to create_metric as class_name.
 RuleClass = Literal["FieldRule", "ResponseRule", "ToolCallTrajectory"]
@@ -30,6 +30,13 @@ def class_default_target(class_name: Any) -> Optional[TargetKind]:
 _TARGET_CHOICES = "; ".join(
     f'"{kind.value}" ({preset.label}): {preset.description}' for kind, preset in TARGETS.items()
 )
+
+
+def _target_schema(schema: Dict[str, Any]) -> None:
+    """Offer the bare kind next to the full target, so "tool_call" stays a valid plan."""
+    full = {key: schema.pop(key) for key in ("$ref", "allOf") if key in schema}
+    schema["anyOf"] = [{"type": "string", "enum": [kind.value for kind in TargetKind]}, full]
+
 
 # Fields that track execution progress and must never be written by the LLM.
 # Referenced by _strip_internal_fields (JSON schema builder) and by
@@ -181,14 +188,19 @@ class MetricSpec(BaseModel):
         default=">=",
         description="Comparison operator for threshold",
     )
-    target: TargetKind = Field(
-        default=TargetKind.TURN,
+    target: Target = Field(
+        default_factory=lambda: Target(on=TargetKind.TURN),
+        json_schema_extra=_target_schema,
         description=(
-            "What the metric judges, sent to create_metric as config.target.on. "
+            "What the metric judges, sent to create_metric as config.target. A kind alone "
+            f'("{TargetKind.TOOL_CALL.value}") is the short form of '
+            f'{{"on": "{TargetKind.TOOL_CALL.value}"}}. '
             '"turn" is the default (a ToolCallTrajectory rule defaults to "run") and judges '
             "every turn of a conversation too; "
             '"conversation" judges a whole conversation and never runs on '
-            f"Single-Turn tests. Choices: {_TARGET_CHOICES}."
+            f"Single-Turn tests. Choices: {_TARGET_CHOICES}. A per-span target also takes "
+            'name, within, where, read, aggregate and min_share; "span" picks spans by '
+            "where conditions on any attribute (see metric-targets.md)."
         ),
     )
     rule: Optional[RuleClass] = Field(
@@ -214,6 +226,17 @@ class MetricSpec(BaseModel):
     completed: bool = Field(
         default=False, description="Whether this metric has been created/resolved"
     )
+
+    @field_validator("target", mode="before")
+    @classmethod
+    def _coerce_target(cls, value: Any) -> Target:
+        # A bare kind ("tool_call") and the older dict form of where both load.
+        return Target.coerce(value)
+
+    @field_serializer("target")
+    def _stored_target(self, target: Target) -> Dict[str, Any]:
+        # The form the platform stores in config.target, so a saved plan reads like the metric.
+        return target.to_config()
 
     @model_validator(mode="before")
     @classmethod
@@ -295,7 +318,7 @@ class ArchitectPlan(BaseModel):
             requirement_to_metrics.setdefault(key, []).extend(mapping.metrics)
 
         targets: Dict[str, TargetKind] = {
-            metric.name.lower(): metric.target for metric in self.metrics
+            metric.name.lower(): metric.target.on for metric in self.metrics
         }
 
         def judges(test_type: str, metric_name: str) -> bool:
@@ -377,7 +400,7 @@ class ArchitectPlan(BaseModel):
             for m in self.metrics:
                 box = "[x]" if m.completed else "[ ]"
                 tag = f" *({m.reuse_status})*" if m.reuse_status != "new" else ""
-                target = TARGETS[m.target].label
+                target = _target_words(m.target)
                 lines.append(f"- {box} **{m.name}**{tag} — judges: {target}")
                 if m.description:
                     lines.append(f"  {m.description}")
@@ -392,6 +415,13 @@ class ArchitectPlan(BaseModel):
             lines.append("")
 
         return "\n".join(lines)
+
+
+def _target_words(target: Target) -> str:
+    """A preset's label when it is used as is, else the target in words."""
+    if target == Target(on=target.on):
+        return preset_of(target.on).label
+    return target.describe()
 
 
 def build_save_plan_tool() -> Dict[str, Any]:
