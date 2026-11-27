@@ -21,6 +21,8 @@ import { RequirementOption } from '@/utils/api-client/interfaces/requirement';
 import { Category } from '@/utils/api-client/interfaces/category';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Tag } from '@/utils/api-client/interfaces/tag';
+import type { EntityType } from '@/types/entity-type';
+import { tagsOnEntityFilter } from '@/utils/api-client/tags-client';
 import { User } from '@/utils/api-client/interfaces/user';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import type { AnnotationFacets } from '@/utils/api-client/interfaces/annotation';
@@ -121,18 +123,24 @@ export function useTopics(entityType: string, enabled = true) {
   });
 }
 
-export function useTags(enabled = true) {
+/** Tags for suggestions. Pass `entityType` to list only tags in use on that kind of entity. */
+export function useTags(enabled = true, entityType?: EntityType) {
   const isAuthenticated = useIsAuthenticated();
   return useQuery<Tag[]>({
-    queryKey: tagKeys.list(),
+    queryKey: tagKeys.list(entityType),
     queryFn: async () => {
-      const tags = await new ApiClientFactory()
-        .getTagsClient()
-        .getTags({ sort_by: 'name', sort_order: 'asc' });
+      const tags = await new ApiClientFactory().getTagsClient().getTags({
+        // `/tags` defaults to 10 rows, which silently cut the list.
+        limit: TYPE_LOOKUP_LIMIT,
+        sort_by: 'name',
+        sort_order: 'asc',
+        ...(entityType && { $filter: tagsOnEntityFilter(entityType) }),
+      });
       return tags;
     },
     enabled: enabled && isAuthenticated,
-    staleTime: STALE_TIME,
+    // Tagging doesn't invalidate this, so refetch on each open to show new tags.
+    staleTime: 0,
   });
 }
 

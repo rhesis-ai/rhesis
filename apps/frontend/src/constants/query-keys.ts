@@ -73,7 +73,7 @@ export const statusKeys = {
 };
 
 export const tagKeys = {
-  list: () => ['tags', 'list'] as const,
+  list: (entityType = '') => ['tags', 'list', entityType] as const,
 };
 
 export const userKeys = {

@@ -11,6 +11,7 @@ import {
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import { TEST_TYPE_FILTER_OPTIONS } from '@/constants/test-types';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
+import { EntityType } from '@/types/entity-type';
 import { useStatuses, useUsers, useTags } from '@/hooks/useLookups';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
 import {
@@ -84,7 +85,10 @@ export default function TestSetFilterDrawer({
     open
   );
   const { data: rawUsers, isLoading: loadingUsers } = useUsers(open);
-  const { data: rawTags, isLoading: loadingTags } = useTags(open);
+  const { data: rawTags, isLoading: loadingTags } = useTags(
+    open,
+    EntityType.TEST_SET
+  );
   const loadingOptions = loadingStatuses || loadingUsers || loadingTags;
 
   const statusOptions = React.useMemo(
