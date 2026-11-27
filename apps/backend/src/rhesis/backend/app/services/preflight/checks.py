@@ -21,6 +21,11 @@ from rhesis.backend.app.models.test_set import TestSet, test_test_set_associatio
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
+from rhesis.backend.app.services.connector.rpc_client import (
+    METRIC_ROUTE_NOT_REGISTERED,
+    METRIC_ROUTE_REGISTERED,
+    sdk_metric_route_status,
+)
 from rhesis.backend.app.services.preflight.constants import (
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
@@ -39,6 +44,7 @@ from rhesis.backend.app.services.preflight.utils import (
     _publish_result,
     _verify_model_responds,
 )
+from rhesis.backend.app.services.run_models import SDK_BACKEND
 from rhesis.backend.app.utils.crud_utils import get_item_detail
 from rhesis.backend.app.utils.model_errors import (
     MODEL_NOT_CONFIGURED,
@@ -190,11 +196,13 @@ def _describe_metrics(db: Session, metrics: List[Metric]):
 def _prepare_metrics(
     db: Session, metric_configs, model, organization_id: Optional[str], user: Optional[User] = None
 ):
-    """Build the metrics; returns the loaded tasks and the metrics refused their model."""
+    """Build the metrics; returns the loaded tasks, the metrics refused their model, and
+    the metrics that failed to build."""
     from rhesis.backend.app.utils.user_model_utils import text_model_for
     from rhesis.backend.metrics.strategies.local import prepare_metrics
 
     refused: list = []
+    failed: list = []
     tasks = prepare_metrics(
         metric_configs,
         model=model,
@@ -202,8 +210,9 @@ def _prepare_metrics(
         organization_id=organization_id,
         refused=refused,
         text_model=text_model_for(db, user, model),
+        failed=failed,
     )
-    return tasks, refused
+    return tasks, refused, failed
 
 
 def _resolve_check_metrics(
@@ -607,55 +616,128 @@ def _model_failure_result(check_id: str, label: str, error: Exception) -> Prefli
     )
 
 
+def _is_sdk_metric(config) -> bool:
+    backend = getattr(config, "backend", None)
+    return getattr(backend, "value", backend) == SDK_BACKEND
+
+
+def _endpoint_route(db: Session, endpoint: Optional[Endpoint]):
+    """The endpoint's ``(project_id, environment)``, the route execution tries first."""
+    if endpoint is None or not endpoint.project_id or not endpoint.environment:
+        return None, None
+    return str(endpoint.project_id), str(endpoint.environment)
+
+
+def _invalid_metric_errors(invalid_results: dict) -> list[str]:
+    errors = []
+    for key, detail in invalid_results.items():
+        if isinstance(detail, dict):
+            name = detail.get("name") or key
+            errors.append(f"{name}: {detail.get('error') or detail.get('reason') or 'unknown'}")
+        else:
+            errors.append(f"{key}: {detail}")
+    return errors
+
+
+def _refused_result(check_id: str, refused: list) -> PreflightCheckResult:
+    over_quota = [r for r in refused if r.get("error_type") == "QuotaExceeded"]
+    heading = (
+        f"{len(over_quota)} metric(s) can't be judged: the model token limit is reached"
+        if len(over_quota) == len(refused)
+        else f"{len(refused)} metric(s) can't be judged by the evaluation model"
+    )
+    return _make_result(
+        check_id,
+        PreflightCheckStatus.FAILED,
+        heading,
+        "; ".join(r["reason"] for r in refused),
+    )
+
+
+async def _load_local_metrics(db: PreflightDbGate, user: User, configs, evaluation_model_id):
+    """Build the non-SDK metrics with the evaluation model.
+
+    Returns ``(loaded_count, refused, errors)``, where each error names its metric.
+    """
+    model = await db.run(_resolve_purpose_model, user, "evaluation", evaluation_model_id)
+    org_id = str(user.organization_id) if user.organization_id else None
+    try:
+        tasks, refused, failed = await db.run(_prepare_metrics, configs, model, org_id, user)
+    except Exception as e:
+        return 0, [], [str(e)]
+    return len(tasks), refused, [f"{f['name']}: {f['reason']}" for f in failed]
+
+
+async def _check_sdk_metrics(db: PreflightDbGate, user: User, configs, endpoint):
+    """Check each SDK metric has a connector to run on.
+
+    Returns ``(errors, unchecked_reason)``. ``unchecked_reason`` is set when Redis can't
+    be asked, which says nothing about the connector, so it is not a failure.
+    """
+    if not configs:
+        return [], None
+
+    project_id, environment = await db.run(_endpoint_route, endpoint)
+    org_id = str(user.organization_id)
+    errors = []
+    for config in configs:
+        # Execution dispatches by class_name, so that is the registered name to look up.
+        route_name = config.class_name or config.name or ""
+        label = config.name or route_name
+        try:
+            status = await sdk_metric_route_status(org_id, route_name, project_id, environment)
+        except Exception as e:
+            logger.warning(f"Could not check SDK metric routes: {e}")
+            return [], f"Could not reach Redis to check the SDK connector: {e}"
+        if status == METRIC_ROUTE_REGISTERED:
+            continue
+        if status == METRIC_ROUTE_NOT_REGISTERED:
+            errors.append(f"{label}: the connected SDK has not registered '{route_name}'")
+        else:
+            errors.append(f"{label}: no connected SDK has registered '{route_name}'")
+    return errors, None
+
+
 async def _validate_metrics_loadable(
     db: PreflightDbGate,
     user: User,
     metrics: List[Metric],
     evaluation_model_id: Optional[str] = None,
+    endpoint: Optional[Endpoint] = None,
 ) -> PreflightCheckResult:
-    """Validate metrics can be instantiated without running full LLM evaluation."""
+    """Validate metrics can be instantiated without running full LLM evaluation.
+
+    SDK metrics run in the user's process, so they are checked through the connector
+    instead and never need the evaluation model.
+    """
     check_id = CHECK_METRIC_FUNCTIONALITY
 
     metric_configs, invalid_results, metric_names = await db.run(_describe_metrics, metrics)
+    sdk_configs = [c for c in metric_configs if _is_sdk_metric(c)]
+    local_configs = [c for c in metric_configs if not _is_sdk_metric(c)]
 
-    load_errors: list[str] = []
+    load_errors = _invalid_metric_errors(invalid_results)
     loaded_count = 0
-    refused: list = []
-
-    if metric_configs:
-        model = await db.run(_resolve_purpose_model, user, "evaluation", evaluation_model_id)
-        org_id = str(user.organization_id) if user.organization_id else None
-
-        try:
-            metric_tasks, refused = await db.run(
-                _prepare_metrics, metric_configs, model, org_id, user
-            )
-            loaded_count = len(metric_tasks)
-        except Exception as e:
-            load_errors.append(str(e))
-
-    # A metric refused its model would error on every test, so this blocks the run.
-    if refused:
-        over_quota = [r for r in refused if r.get("error_type") == "QuotaExceeded"]
-        heading = (
-            f"{len(over_quota)} metric(s) can't be judged: the model token limit is reached"
-            if len(over_quota) == len(refused)
-            else f"{len(refused)} metric(s) can't be judged by the evaluation model"
+    if local_configs:
+        loaded_count, refused, local_errors = await _load_local_metrics(
+            db, user, local_configs, evaluation_model_id
         )
+        # A metric refused its model would error on every test, so this blocks the run.
+        if refused:
+            return _refused_result(check_id, refused)
+        load_errors.extend(local_errors)
+
+    sdk_errors, sdk_unchecked = await _check_sdk_metrics(db, user, sdk_configs, endpoint)
+    if sdk_errors:
         return _make_result(
             check_id,
             PreflightCheckStatus.FAILED,
-            heading,
-            "; ".join(r["reason"] for r in refused),
+            f"{len(sdk_errors)} SDK metric(s) can't be reached",
+            "; ".join(sdk_errors + load_errors),
         )
 
-    for key, detail in invalid_results.items():
-        err = detail.get("error", "unknown") if isinstance(detail, dict) else str(detail)
-        load_errors.append(f"{key}: {err}")
-
     total = len(metric_configs) + len(invalid_results)
-    failed_count = total - loaded_count
-
+    failed_count = len(local_configs) + len(invalid_results) - loaded_count
     if failed_count > 0:
         return _make_result(
             check_id,
@@ -664,10 +746,18 @@ async def _validate_metrics_loadable(
             "; ".join(load_errors[:5]) if load_errors else None,
         )
 
+    if sdk_unchecked:
+        return _make_result(
+            check_id,
+            PreflightCheckStatus.WARNING,
+            f"{len(sdk_configs)} SDK metric(s) could not be checked",
+            sdk_unchecked,
+        )
+
     return _make_result(
         check_id,
         PreflightCheckStatus.PASSED,
-        f"All {loaded_count} metric(s) loaded successfully",
+        f"All {len(metric_configs)} metric(s) loaded successfully",
         ", ".join(metric_names) if metric_names else None,
     )
 
@@ -846,15 +936,19 @@ def _metric_functionality_metrics(
     metric_mode: str,
     selected_metrics: Optional[list],
     is_multi_turn: bool,
+    resolved_metrics: Optional[List[Metric]] = None,
 ):
     """Resolve the metrics to load-test, or the result that ends the check early.
 
+    ``resolved_metrics`` is what the orchestrator already resolved, if it did.
     Returns ``(scope_compatible, early_result)``; exactly one of the two is set.
     """
     check_id = CHECK_METRIC_FUNCTIONALITY
-    metrics = _resolve_check_metrics(
-        db, test_set_id, metric_mode, selected_metrics, str(user.organization_id)
-    )
+    metrics = resolved_metrics
+    if metrics is None:
+        metrics = _resolve_check_metrics(
+            db, test_set_id, metric_mode, selected_metrics, str(user.organization_id)
+        )
 
     if not metrics:
         return None, _make_result(
@@ -891,6 +985,8 @@ async def check_metric_functionality(
     correlation_id: Optional[str] = None,
     publish: bool = True,
     test_set_name: Optional[str] = None,
+    endpoint: Optional[Endpoint] = None,
+    resolved_metrics: Optional[List[Metric]] = None,
 ) -> PreflightCheckResult:
     check_id = CHECK_METRIC_FUNCTIONALITY
     ts_id_str = str(test_set_id) if test_set_name else None
@@ -914,10 +1010,11 @@ async def check_metric_functionality(
             metric_mode,
             selected_metrics,
             is_multi_turn,
+            resolved_metrics,
         )
         if scope_compatible is not None:
             result = await _validate_metrics_loadable(
-                db, user, scope_compatible, evaluation_model_id
+                db, user, scope_compatible, evaluation_model_id, endpoint
             )
     except Exception as e:
         result = _make_result(

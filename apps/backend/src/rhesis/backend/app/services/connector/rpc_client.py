@@ -23,6 +23,44 @@ from rhesis.backend.app.services.connector.pending import (
 
 logger = logging.getLogger(__name__)
 
+# Outcomes of sdk_metric_route_status.
+METRIC_ROUTE_REGISTERED = "registered"
+METRIC_ROUTE_NOT_REGISTERED = "not_registered"
+METRIC_ROUTE_NO_CONNECTOR = "no_connector"
+
+
+def project_route_key(project_id: str, environment: str) -> str:
+    """Redis key that exists while an SDK is connected for this project and environment."""
+    return f"ws:routing:{project_id}:{environment.lower()}"
+
+
+def metric_route_key(organization_id: str, metric_name: str) -> str:
+    """Redis key holding the connection that registered this metric for the organization."""
+    return f"ws:metric:{organization_id}:{metric_name}"
+
+
+async def sdk_metric_route_status(
+    organization_id: str,
+    metric_name: str,
+    project_id: Optional[str] = None,
+    environment: Optional[str] = None,
+) -> str:
+    """Whether a call to an SDK metric would reach a connector that has it.
+
+    Every metric registration, with or without a project, writes the metric route key,
+    so that key is what says the metric is registered. The project route only tells
+    "a connector is up, but without this metric" apart from "no connector at all".
+    Redis errors propagate so the caller can tell "unreachable" from "not registered".
+    """
+    client = (await get_rpc_client())._redis
+    if await client.exists(metric_route_key(organization_id, metric_name)):
+        return METRIC_ROUTE_REGISTERED
+    if project_id and environment:
+        if await client.exists(project_route_key(project_id, environment)):
+            return METRIC_ROUTE_NOT_REGISTERED
+    return METRIC_ROUTE_NO_CONNECTOR
+
+
 # ---------------------------------------------------------------------------
 # Thread-local RPC client
 # ---------------------------------------------------------------------------
@@ -143,9 +181,7 @@ class SDKRpcClient:
             return False
 
         try:
-            environment = environment.lower()
-            key = f"ws:routing:{project_id}:{environment}"
-            exists = await self._redis.exists(key)
+            exists = await self._redis.exists(project_route_key(project_id, environment))
             return exists > 0
         except Exception as e:
             logger.error(f"Exception checking SDK connection status: {e}")
@@ -221,7 +257,7 @@ class SDKRpcClient:
         The receiving worker resolves the target WebSocket locally.
         """
         environment = environment.lower()
-        routing_key = f"ws:routing:{project_id}:{environment}"
+        routing_key = project_route_key(project_id, environment)
         request = {
             "request_id": metric_run_id,
             "request_type": "execute_metric",
@@ -302,7 +338,7 @@ class SDKRpcClient:
             logger.error("Redis not initialized for RPC call")
             return {"error": "send_failed", "details": "Redis not initialized"}
 
-        metric_key = f"ws:metric:{organization_id}:{metric_name}"
+        metric_key = metric_route_key(organization_id, metric_name)
         try:
             connection_id = await self._redis.get(metric_key)
         except Exception as e:

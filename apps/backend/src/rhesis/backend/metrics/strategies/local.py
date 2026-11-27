@@ -809,6 +809,7 @@ def prepare_metrics(
     refused: Optional[List[Dict[str, Any]]] = None,
     require_model: bool = False,
     text_model: Optional[Any] = None,
+    failed: Optional[List[Dict[str, str]]] = None,
 ) -> List[Tuple[str, BaseMetric, MetricConfig, str]]:
     """Instantiate metric objects via SDK factory, resolving models from DB.
 
@@ -828,6 +829,8 @@ def prepare_metrics(
             letting the SDK build its own default (wrong model, no usage stamp).
         text_model: Used instead of the default `model` by a metric that can't judge with
             it. A model set on the metric itself is never swapped: that was a choice.
+        failed: Filled with ``{"name", "reason"}`` per metric that could not be built,
+            so a caller can say which metric failed and why.
 
     Returns:
         List of tuples containing (class_name, metric_instance, metric_config, backend).
@@ -924,6 +927,8 @@ def prepare_metrics(
                     f"{create_error}",
                     exc_info=True,
                 )
+                if failed is not None:
+                    failed.append({"name": metric_name or "Unknown", "reason": str(create_error)})
                 continue
 
             metric_tasks.append((class_name, metric, metric_config, backend))
@@ -935,5 +940,7 @@ def prepare_metrics(
                 f"(class: '{class_name}', backend: '{backend}'): {str(e)}"
             )
             logger.error(error_msg, exc_info=True)
+            if failed is not None:
+                failed.append({"name": metric_name or "Unknown", "reason": str(e)})
 
     return metric_tasks
