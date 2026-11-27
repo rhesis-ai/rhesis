@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: 502c1e4df937b353301c1fdd3529ad5e3ae47485
+    targetRevision: 8736cdd75931def097c325846ed85d529413e0aa
     path: kubernetes/bootstrap/argocd
   destination:
     server: https://kubernetes.default.svc
