@@ -764,9 +764,9 @@ Two more pieces Rhesis's own environments use, each independent of the other.
 
 ### Scale workers on queue length
 
-A CPU-based HPA only adds worker pods once the existing ones are busy. With KEDA, a worker also
-scales on the number of jobs waiting in each Celery queue, so a burst of test runs or traces gets
-more pods before CPU climbs.
+A CPU-based HPA only adds worker pods once the existing ones are busy. With KEDA, a worker
+scales on the number of jobs waiting in each Celery queue instead, so a burst of test runs or
+traces gets more pods before CPU climbs.
 
 1. Install KEDA 2.21 with a wrapper Application reusing `kubernetes/base/keda` (same shape as
    `cert-manager.yaml`, with `name` and `path` swapped). On a private GKE cluster, also allow
@@ -783,7 +783,6 @@ more pods before CPU climbs.
       enabled: true
       minReplicas: 2
       maxReplicas: 6
-      targetCPUUtilizationPercentage: 70
       keda:
         enabled: true
         queues:
@@ -805,16 +804,18 @@ split layout, which uses about 2 GiB per pod under load, so set the worker's
 `resources.limits.memory` to at least 3Gi (the default is 1Gi). The default `combined` layout
 runs 2 jobs at a time per pod, so give its queues lower numbers.
 
-The worker runs at the highest replica count that CPU or any queue asks for, between
+The worker runs at the highest replica count any queue asks for, between
 `minReplicas` and `maxReplicas`, and scales down after 10 minutes of lower demand
 (`keda.scaleDownStabilizationSeconds`). Queue names are the ones in
 `apps/backend/src/rhesis/backend/celery/queues.py`.
 
-The triggers read the bundled Valkey with the password from `valkey.auth.existingSecret`. Without
-KEDA installed, the chart renders the CPU-only HPA instead.
+CPU is not a trigger once queues are set, because a starting worker pod runs at its CPU limit
+for a few minutes and a CPU trigger would answer that with more pods. The triggers read the
+bundled Valkey with the password from `valkey.auth.existingSecret`. Without KEDA installed, the
+chart renders the CPU-only HPA instead.
 
 Check it after the sync: `kubectl get scaledobject -n rhesis` shows `READY True`, and
-`kubectl get hpa worker-default -n rhesis` lists one metric per queue next to CPU.
+`kubectl get hpa worker-default -n rhesis` lists one metric per queue.
 
 ### Pool database connections
 

@@ -13,6 +13,18 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+### Upgrading a self-hosted deployment
+
+1. If you upgrade from a release before 0.23.0, run 0.23.0 until its worker has emptied the `trace-eval` queue. The jobs that finished traces queued by older releases are removed in this release.
+
+### Changed
+
+- Helm chart: a worker with `hpa.keda.enabled` and `hpa.keda.queues` now scales on queue length only. CPU is a trigger only when no queues are set, since a starting worker pod runs at its CPU limit for a few minutes and the CPU trigger answered that with more pods.
+
+### Removed
+
+- The `enrich_trace_async` and `post_ingest_link` worker jobs. Spans are enriched and linked by the job that stores them.
+
 ## [0.23.0] - 2026-11-27
 
 ### Platform Release
