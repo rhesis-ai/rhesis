@@ -30,6 +30,7 @@ from sqlalchemy import (
     literal_column,
     or_,
     select,
+    text,
     true,
 )
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
@@ -87,6 +88,7 @@ from rhesis.backend.app.services.telemetry.providers import (
 from rhesis.backend.app.services.telemetry.span_types import classify_span_type
 from rhesis.backend.app.utils.crud_utils import bulk_update, clean_strings_recursive
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
+from rhesis.telemetry.attributes import AIAttributes
 
 logger = logging.getLogger(__name__)
 
@@ -407,7 +409,99 @@ def move_spans_to_trace(
         synchronize_session=False,
     )
     db.flush()
+    update_agent_paths(db, [source_trace_id, target_trace_id])
     return len(moved)
+
+
+# Deeper than any real span tree; stops the walk if duplicate span ids make a loop.
+AGENT_PATH_MAX_DEPTH = 1000
+
+# The SDK's _name for an agent span: the first non-empty string of the NAME_KEYS
+# attributes, else the span name.
+_AGENT_NAME_SQL = """
+    CASE WHEN span_type = :agent_kind THEN coalesce(
+        CASE WHEN jsonb_typeof(attributes -> CAST(:tool_key AS text)) = 'string'
+                  AND attributes ->> CAST(:tool_key AS text) <> ''
+             THEN attributes ->> CAST(:tool_key AS text) END,
+        CASE WHEN jsonb_typeof(attributes -> CAST(:agent_key AS text)) = 'string'
+                  AND attributes ->> CAST(:agent_key AS text) <> ''
+             THEN attributes ->> CAST(:agent_key AS text) END,
+        CASE WHEN jsonb_typeof(attributes -> CAST(:model_key AS text)) = 'string'
+                  AND attributes ->> CAST(:model_key AS text) <> ''
+             THEN attributes ->> CAST(:model_key AS text) END,
+        span_name, '')
+    END
+"""
+
+# A root is a span whose parent isn't stored in the trace, as tree_builder has it. A span
+# the walk never reaches (a parent loop) gets an empty path and isn't a root: no tree shows it.
+_UPDATE_AGENT_PATHS = text(
+    f"""
+    WITH RECURSIVE spans AS (
+        SELECT id, organization_id, project_id, trace_id, span_id, parent_span_id,
+               {_AGENT_NAME_SQL} AS agent_name
+        FROM trace
+        WHERE trace_id = ANY(CAST(:trace_ids AS text[]))
+    ),
+    walk AS (
+        SELECT s.id, s.organization_id, s.project_id, s.trace_id, s.span_id, s.agent_name,
+               CAST(ARRAY[] AS text[]) AS path, 1 AS depth
+        FROM spans s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM spans p
+            WHERE p.organization_id = s.organization_id AND p.project_id = s.project_id
+              AND p.trace_id = s.trace_id AND p.span_id = s.parent_span_id
+        )
+        UNION ALL
+        SELECT c.id, c.organization_id, c.project_id, c.trace_id, c.span_id, c.agent_name,
+               CASE WHEN w.agent_name IS NULL THEN w.path ELSE w.path || w.agent_name END,
+               w.depth + 1
+        FROM walk w
+        JOIN spans c
+          ON c.organization_id = w.organization_id AND c.project_id = w.project_id
+         AND c.trace_id = w.trace_id AND c.parent_span_id = w.span_id
+        WHERE w.depth < :max_depth
+    ),
+    paths AS (
+        SELECT s.id, coalesce(w.path, CAST(ARRAY[] AS text[])) AS path,
+               NOT EXISTS (
+                   SELECT 1 FROM spans p
+                   WHERE p.organization_id = s.organization_id AND p.project_id = s.project_id
+                     AND p.trace_id = s.trace_id AND p.span_id = s.parent_span_id
+               ) AS is_root
+        FROM spans s LEFT JOIN walk w ON w.id = s.id
+    )
+    UPDATE trace t SET agent_path = paths.path, is_root = paths.is_root
+    FROM paths
+    WHERE t.id = paths.id
+      AND (t.agent_path IS DISTINCT FROM paths.path OR t.is_root IS DISTINCT FROM paths.is_root)
+    """
+)
+
+
+def update_agent_paths(db: Session, trace_ids: Iterable[str]) -> None:
+    """Recompute ``agent_path`` and ``is_root`` for every span of ``trace_ids``.
+
+    A span's path names the agent spans above it, outermost first, the way the SDK's
+    ``targets._walk`` does; an agent span is not inside itself. A span is a root when its
+    parent isn't stored in the trace. Whole traces, because a child can be stored before its
+    parent, which turns it from a root into a child. Call it with the traces' ingest lock held, a
+    handful of traces at a time: one project-wide walk takes minutes.
+    """
+    trace_ids = sorted(set(trace_ids))
+    if not trace_ids:
+        return
+    db.execute(
+        _UPDATE_AGENT_PATHS,
+        {
+            "trace_ids": trace_ids,
+            "agent_kind": AIAttributes.OPERATION_AGENT_INVOKE,
+            "tool_key": AIAttributes.TOOL_NAME,
+            "agent_key": AIAttributes.AGENT_NAME,
+            "model_key": AIAttributes.MODEL_NAME,
+            "max_depth": AGENT_PATH_MAX_DEPTH,
+        },
+    )
 
 
 # What create_trace_spans writes; the rest (created_at, nano_id, defaults) the insert fills.
@@ -547,6 +641,8 @@ def create_trace_spans(
             for row in trace_models:
                 make_transient_to_detached(row)
                 db.add(row)
+            # Before the commit, which releases the caller's ingest lock.
+            update_agent_paths(db, {row.trace_id for row in trace_models})
         db.expire_on_commit = False
         db.commit()
         return trace_models
