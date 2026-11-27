@@ -10,6 +10,7 @@ import {
   Chip,
   useTheme,
   Collapse,
+  ButtonBase,
   IconButton,
   Tooltip,
   Button,
@@ -52,6 +53,60 @@ import {
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
 // U+1F9B8 (superhero) + U+200D (ZWJ) + U+2640 (female sign) + U+FE0F (variation selector)
 const PENELOPE_ICON = String.fromCodePoint(0x1f9b8, 0x200d, 0x2640, 0xfe0f);
+
+/** A quiet "Label ⌄" toggle for a turn's extra details; several sit on one line. */
+function DetailToggle({
+  label,
+  expanded,
+  onToggle,
+}: {
+  label: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <ButtonBase
+      aria-expanded={expanded}
+      aria-label={`${expanded ? 'Collapse' : 'Expand'} ${label}`}
+      onClick={e => {
+        // The response bubble opens the turn's trace on click.
+        e.stopPropagation();
+        onToggle();
+      }}
+      // An outlined pill, so it reads as a control rather than message text.
+      sx={{
+        gap: 0.25,
+        pl: 1,
+        pr: 0.5,
+        py: 0.25,
+        typography: 'caption',
+        lineHeight: 1.5,
+        color: 'text.secondary',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: BORDER_RADIUS.pill,
+        '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
+      }}
+    >
+      {label}
+      <ExpandMoreIcon
+        sx={{
+          fontSize: theme => theme.spacing(1.75),
+          transform: expanded ? 'rotate(180deg)' : 'none',
+          transition: theme => theme.transitions.create('transform'),
+        }}
+      />
+    </ButtonBase>
+  );
+}
+
+/** An opened detail panel under a message, set off by a thin rule. */
+const detailPanelSx = {
+  mt: 1,
+  pt: 1,
+  borderTop: 1,
+  borderColor: 'divider',
+} as const;
 
 function renderJsonPreview(value: unknown) {
   return (
@@ -113,6 +168,8 @@ interface ConversationHistoryProps {
   metricsSource?: MetricsSource | string;
   /** `compact` tightens spacing for side panels such as the trace drawer. */
   density?: 'comfortable' | 'compact';
+  /** Drops the side padding, for a container that already pads its content. */
+  disableGutters?: boolean;
   /** Highlights this turn, e.g. the one whose span is open beside the conversation. */
   selectedTurn?: number | null;
   /** Required when turns carry penelope_files for authenticated downloads. */
@@ -155,6 +212,7 @@ export default function ConversationHistory({
   onUndoReview,
   isUndoingReview = false,
   density = 'comfortable',
+  disableGutters = false,
   selectedTurn = null,
 }: ConversationHistoryProps) {
   const theme = useTheme();
@@ -282,6 +340,7 @@ export default function ConversationHistory({
         height: maxHeight === '100%' ? '100%' : 'auto',
         overflow: 'auto',
         ...(compact ? { px: 2, py: 1.5 } : { p: 3 }),
+        ...(disableGutters && { px: 0 }),
         bgcolor: 'transparent',
         flex: maxHeight === '100%' ? 1 : 'none',
         width: '100%',
@@ -303,6 +362,10 @@ export default function ConversationHistory({
     >
       {actualConversationTurns.map(turn => {
         const turnGroups = checksForTurn(checkGroups, turn.turn);
+        const hasContext = !!turn.context && turn.context.length > 0;
+        const hasMetadata =
+          !!turn.metadata && Object.keys(turn.metadata).length > 0;
+        const hasToolCalls = !!turn.tool_calls && turn.tool_calls.length > 0;
 
         // A human override wins. Otherwise a turn shows the verdict of the findings that cite
         // it, and no verdict at all when none do, unless the call to the target itself failed.
@@ -635,47 +698,12 @@ export default function ConversationHistory({
                 {/* Penelope's Reasoning (collapsible within message) */}
                 {turn.penelope_reasoning && (
                   <>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        cursor: 'pointer',
-                        '&:hover': { opacity: 0.7 },
-                        mt: 1,
-                      }}
-                      onClick={() => toggleReasoning(turn.turn)}
-                    >
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: theme.palette.primary.main,
-                          fontWeight: 500,
-                        }}
-                      >
-                        Reasoning
-                      </Typography>
-                      <IconButton
-                        aria-expanded={!!expandedReasoningTurns[turn.turn]}
-                        aria-label={
-                          expandedReasoningTurns[turn.turn]
-                            ? 'Collapse Reasoning'
-                            : 'Expand Reasoning'
-                        }
-                        size="small"
-                        sx={{
-                          padding: 0,
-                          transform: expandedReasoningTurns[turn.turn]
-                            ? 'rotate(180deg)'
-                            : 'rotate(0deg)',
-                          transition: 'transform 0.2s',
-                          color: theme.palette.primary.main,
-                        }}
-                      >
-                        <ExpandMoreIcon
-                          sx={{ fontSize: theme.spacing(1.75) }}
-                        />
-                      </IconButton>
+                    <Box sx={{ mt: 1 }}>
+                      <DetailToggle
+                        label="Reasoning"
+                        expanded={!!expandedReasoningTurns[turn.turn]}
+                        onToggle={() => toggleReasoning(turn.turn)}
+                      />
                     </Box>
 
                     <Collapse
@@ -738,236 +766,91 @@ export default function ConversationHistory({
                 <Box
                   sx={{
                     wordBreak: 'break-word',
-                    mb:
-                      (turn.context && turn.context.length > 0) ||
-                      (turn.metadata &&
-                        Object.keys(turn.metadata).length > 0) ||
-                      (turn.tool_calls && turn.tool_calls.length > 0)
-                        ? 1
-                        : 0,
+                    mb: 0,
                   }}
                 >
                   {renderMessageContent(turn.target_response || '')}
                 </Box>
 
-                {/* Context (collapsible within response) */}
-                {turn.context && turn.context.length > 0 && (
-                  <>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        cursor: 'pointer',
-                        '&:hover': { opacity: 0.7 },
-                        mt: 1,
-                      }}
-                      onClick={e => {
-                        e.stopPropagation();
-                        toggleContext(turn.turn);
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        sx={{ color: theme.palette.info.main, fontWeight: 500 }}
-                      >
-                        Context
-                      </Typography>
-                      <IconButton
-                        aria-expanded={!!expandedContextTurns[turn.turn]}
-                        aria-label={
-                          expandedContextTurns[turn.turn]
-                            ? 'Collapse Context'
-                            : 'Expand Context'
-                        }
-                        size="small"
-                        sx={{
-                          padding: 0,
-                          transform: expandedContextTurns[turn.turn]
-                            ? 'rotate(180deg)'
-                            : 'rotate(0deg)',
-                          transition: 'transform 0.2s',
-                          color: theme.palette.info.main,
-                        }}
-                      >
-                        <ExpandMoreIcon
-                          sx={{ fontSize: theme.spacing(1.75) }}
-                        />
-                      </IconButton>
-                    </Box>
-
-                    <Collapse
-                      in={expandedContextTurns[turn.turn]}
-                      timeout="auto"
-                      unmountOnExit
-                    >
-                      <Box
-                        sx={{
-                          mt: 1,
-                          pt: 1,
-                          borderTop: `1px solid ${theme.palette.divider}`,
-                        }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {(turn.context ?? []).map((item, idx, arr) => {
-                          const itemContent =
-                            typeof item === 'string'
-                              ? renderMessageContent(item)
-                              : renderJsonPreview(item);
-                          return (
-                            <Box
-                              key={`ctx-${turn.turn}-${typeof item === 'string' ? item : idx}`}
-                              sx={{
-                                color: theme.palette.text.secondary,
-                                mb: idx < arr.length - 1 ? 1 : 0,
-                                pl: 1,
-                                borderLeft: `2px solid ${theme.palette.info.light}`,
-                              }}
-                            >
-                              {itemContent}
-                            </Box>
-                          );
-                        })}
-                      </Box>
-                    </Collapse>
-                  </>
+                {/* Context, metadata and tool calls: one line of toggles, panels below */}
+                {(hasContext || hasMetadata || hasToolCalls) && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 0.75,
+                      mt: 1,
+                    }}
+                  >
+                    {hasContext && (
+                      <DetailToggle
+                        label={`Context (${turn.context?.length})`}
+                        expanded={!!expandedContextTurns[turn.turn]}
+                        onToggle={() => toggleContext(turn.turn)}
+                      />
+                    )}
+                    {hasMetadata && (
+                      <DetailToggle
+                        label="Metadata"
+                        expanded={!!expandedMetadataTurns[turn.turn]}
+                        onToggle={() => toggleMetadata(turn.turn)}
+                      />
+                    )}
+                    {hasToolCalls && (
+                      <DetailToggle
+                        label={`Tool calls (${turn.tool_calls?.length})`}
+                        expanded={!!expandedToolCallsTurns[turn.turn]}
+                        onToggle={() => toggleToolCalls(turn.turn)}
+                      />
+                    )}
+                  </Box>
                 )}
 
-                {/* Metadata (collapsible within response) */}
-                {turn.metadata && Object.keys(turn.metadata).length > 0 && (
-                  <>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        cursor: 'pointer',
-                        '&:hover': { opacity: 0.7 },
-                        mt: 1,
-                      }}
-                      onClick={e => {
-                        e.stopPropagation();
-                        toggleMetadata(turn.turn);
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: theme.palette.warning.main,
-                          fontWeight: 500,
-                        }}
-                      >
-                        Metadata
-                      </Typography>
-                      <IconButton
-                        aria-expanded={!!expandedMetadataTurns[turn.turn]}
-                        aria-label={
-                          expandedMetadataTurns[turn.turn]
-                            ? 'Collapse Metadata'
-                            : 'Expand Metadata'
-                        }
-                        size="small"
-                        sx={{
-                          padding: 0,
-                          transform: expandedMetadataTurns[turn.turn]
-                            ? 'rotate(180deg)'
-                            : 'rotate(0deg)',
-                          transition: 'transform 0.2s',
-                          color: theme.palette.warning.main,
-                        }}
-                      >
-                        <ExpandMoreIcon
-                          sx={{ fontSize: theme.spacing(1.75) }}
-                        />
-                      </IconButton>
-                    </Box>
-
-                    <Collapse
-                      in={expandedMetadataTurns[turn.turn]}
-                      timeout="auto"
-                      unmountOnExit
-                    >
-                      <Box
-                        sx={{
-                          mt: 1,
-                          pt: 1,
-                          borderTop: `1px solid ${theme.palette.divider}`,
-                        }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {renderJsonPreview(turn.metadata)}
-                      </Box>
-                    </Collapse>
-                  </>
-                )}
-
-                {/* Tool Calls (collapsible within response) */}
-                {turn.tool_calls && turn.tool_calls.length > 0 && (
-                  <>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        cursor: 'pointer',
-                        '&:hover': { opacity: 0.7 },
-                        mt: 1,
-                      }}
-                      onClick={e => {
-                        e.stopPropagation();
-                        toggleToolCalls(turn.turn);
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: theme.palette.secondary.main,
-                          fontWeight: 500,
-                        }}
-                      >
-                        Tool Calls
-                      </Typography>
-                      <IconButton
-                        aria-expanded={!!expandedToolCallsTurns[turn.turn]}
-                        aria-label={
-                          expandedToolCallsTurns[turn.turn]
-                            ? 'Collapse Tool Calls'
-                            : 'Expand Tool Calls'
-                        }
-                        size="small"
-                        sx={{
-                          padding: 0,
-                          transform: expandedToolCallsTurns[turn.turn]
-                            ? 'rotate(180deg)'
-                            : 'rotate(0deg)',
-                          transition: 'transform 0.2s',
-                          color: theme.palette.secondary.main,
-                        }}
-                      >
-                        <ExpandMoreIcon
-                          sx={{ fontSize: theme.spacing(1.75) }}
-                        />
-                      </IconButton>
-                    </Box>
-
-                    <Collapse
-                      in={expandedToolCallsTurns[turn.turn]}
-                      timeout="auto"
-                      unmountOnExit
-                    >
-                      <Box
-                        sx={{
-                          mt: 1,
-                          pt: 1,
-                          borderTop: `1px solid ${theme.palette.divider}`,
-                        }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {renderJsonPreview(turn.tool_calls)}
-                      </Box>
-                    </Collapse>
-                  </>
-                )}
+                <Collapse
+                  in={hasContext && expandedContextTurns[turn.turn]}
+                  timeout="auto"
+                  unmountOnExit
+                >
+                  <Box sx={detailPanelSx} onClick={e => e.stopPropagation()}>
+                    {(turn.context ?? []).map((item, idx, arr) => {
+                      const itemContent =
+                        typeof item === 'string'
+                          ? renderMessageContent(item)
+                          : renderJsonPreview(item);
+                      return (
+                        <Box
+                          key={`ctx-${turn.turn}-${typeof item === 'string' ? item : idx}`}
+                          sx={{
+                            color: theme.palette.text.secondary,
+                            mb: idx < arr.length - 1 ? 1 : 0,
+                            pl: 1,
+                            borderLeft: `2px solid ${theme.palette.divider}`,
+                          }}
+                        >
+                          {itemContent}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                </Collapse>
+                <Collapse
+                  in={hasMetadata && expandedMetadataTurns[turn.turn]}
+                  timeout="auto"
+                  unmountOnExit
+                >
+                  <Box sx={detailPanelSx} onClick={e => e.stopPropagation()}>
+                    {renderJsonPreview(turn.metadata)}
+                  </Box>
+                </Collapse>
+                <Collapse
+                  in={hasToolCalls && expandedToolCallsTurns[turn.turn]}
+                  timeout="auto"
+                  unmountOnExit
+                >
+                  <Box sx={detailPanelSx} onClick={e => e.stopPropagation()}>
+                    {renderJsonPreview(turn.tool_calls)}
+                  </Box>
+                </Collapse>
               </Paper>
               <Tooltip title={displayProjectName} placement="right">
                 <Box

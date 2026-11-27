@@ -52,7 +52,6 @@ function SimulationSetup({ test }: { test: TestResultDetail }) {
   return (
     <Box
       sx={{
-        mx: 3,
         px: 2,
         py: 1,
         borderRadius: BORDER_RADIUS.md,
@@ -223,9 +222,10 @@ export default function TestDetailConversationTab({
 
     return (
       <Box
-        sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}
+        sx={{ py: 3, height: '100%', display: 'flex', flexDirection: 'column' }}
       >
         <ConversationHistory
+          disableGutters
           conversationSummary={singleTurnSummary}
           goalEvaluation={test.test_output?.goal_evaluation}
           metrics={test.test_metrics?.metrics}
@@ -285,10 +285,11 @@ export default function TestDetailConversationTab({
 
   return (
     <Box
-      sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}
+      sx={{ py: 3, height: '100%', display: 'flex', flexDirection: 'column' }}
     >
       <SimulationSetup test={test} />
       <ConversationHistory
+        disableGutters
         conversationSummary={conversationSummary}
         goalEvaluation={test.test_output?.goal_evaluation}
         metrics={test.test_metrics?.metrics}

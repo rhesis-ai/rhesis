@@ -19,6 +19,7 @@ import {
   Stack,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -429,6 +430,8 @@ export default function TestResultDrawer({
       return <EmptyState />;
     }
 
+    const testId = test.test?.id ?? test.test_id;
+
     return (
       <Box
         sx={{
@@ -565,6 +568,17 @@ export default function TestResultDrawer({
           }}
         >
           <Stack direction="row" spacing={2} justifyContent="flex-end">
+            {testId && (
+              <Button
+                variant="outlined"
+                href={`/tests/${testId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                endIcon={<OpenInNewIcon />}
+              >
+                Open test
+              </Button>
+            )}
             <Button variant="contained" onClick={onClose}>
               Close
             </Button>

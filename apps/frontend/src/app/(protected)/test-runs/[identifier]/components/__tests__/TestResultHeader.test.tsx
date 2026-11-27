@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
@@ -10,7 +10,7 @@ import type { UUID } from 'crypto';
 const u = (n: number): UUID =>
   `00000000-0000-0000-0000-${String(n).padStart(12, '0')}` as UUID;
 
-const result = {
+const scored = {
   id: u(1),
   test_id: u(2),
   execution: 'ok',
@@ -34,22 +34,17 @@ const result = {
   },
 } as unknown as TestResultDetail;
 
+function renderHeader(test: TestResultDetail) {
+  return render(
+    <ThemeProvider theme={lightTheme}>
+      <TestResultHeader test={test} />
+    </ThemeProvider>
+  );
+}
+
 describe('TestResultHeader', () => {
-  it('shows the verdict, checks, tags and a link to the test on one line', () => {
-    render(
-      <ThemeProvider theme={lightTheme}>
-        <TestResultHeader test={result} />
-      </ThemeProvider>
-    );
-    expect(screen.getByText('0 of 1 check passed')).toBeInTheDocument();
-    expect(screen.getByText('dosage')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /open test/i })).toHaveAttribute(
-      'href',
-      `/tests/${u(2)}`
-    );
-    // The test's text lives on the tabs it explains, not in the header.
-    expect(
-      screen.queryByText('Dosage questions get the redirect reply.')
-    ).not.toBeInTheDocument();
+  it('shows nothing for a scored result: no verdict bar, no tags, no link', () => {
+    const { container } = renderHeader(scored);
+    expect(container).toBeEmptyDOMElement();
   });
 });
