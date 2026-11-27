@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Architect no longer asks the user to approve work they already approved. Approved requirements, metrics and test sets stay approved across messages until they are created, a later confirmation no longer withdraws an earlier one, and linking a requirement to a metric approved in an earlier message is covered. Other approved calls, such as an update, still run only in the reply to the Accept.
+- Architect no longer asks the user to approve work they already approved. Approved requirements, metrics and test sets stay approved across messages until they are created, a later confirmation no longer withdraws an earlier one, and linking a requirement to a metric approved in an earlier message is covered. Other approved calls, such as an update, still run only in the reply to the Accept. A step that mixes approved and new calls runs the approved ones and asks only about the rest.
 - Architect checks a create or update call's arguments and the saved plan before asking for approval, so the user is never asked to approve a call that would be rejected and then asked again about the corrected one.
 - The backend's `[TASK_COMPLETED]` resume message no longer counts as approving an open confirmation, and no longer closes it.
 
