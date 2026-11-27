@@ -465,6 +465,73 @@ class TestLiteLLMProxyAsync:
         assert len(calls) == 1
 
     @pytest.mark.asyncio
+    async def test_reports_token_usage(self):
+        from aiohttp import web
+
+        async def handler(request):
+            return web.json_response(self._completion("hi"))
+
+        emitted = []
+        server = await self._proxy(handler)
+        try:
+            llm = LiteLLMProxy(
+                model_name="gemini", api_base=str(server.make_url("")), on_usage=emitted.append
+            )
+            await llm.a_generate("q")
+        finally:
+            await server.close()
+
+        assert emitted == [{"input_tokens": 2, "output_tokens": 3, "total_tokens": 5}]
+
+    @pytest.mark.asyncio
+    async def test_a_server_error_is_retried(self, monkeypatch):
+        from aiohttp import web
+
+        monkeypatch.setattr("rhesis.sdk.models.utils._backoff", lambda _state: 0)
+        calls = []
+
+        async def handler(request):
+            calls.append(1)
+            if len(calls) == 1:
+                return web.json_response({"error": "down"}, status=503)
+            return web.json_response(self._completion("ok"))
+
+        server = await self._proxy(handler)
+        try:
+            llm = LiteLLMProxy(model_name="gemini", api_base=str(server.make_url("")))
+            result = await llm.a_generate("q")
+        finally:
+            await server.close()
+
+        assert result == "ok"
+        assert len(calls) == 2
+
+    @pytest.mark.asyncio
+    async def test_the_timeout_ends_a_call(self, monkeypatch):
+        import asyncio
+        import time
+
+        from aiohttp import web
+
+        monkeypatch.setattr("rhesis.sdk.models.utils._backoff", lambda _state: 0)
+
+        async def handler(request):
+            await asyncio.sleep(5)
+            return web.json_response(self._completion("late"))
+
+        server = await self._proxy(handler)
+        started = time.monotonic()
+        try:
+            llm = LiteLLMProxy(model_name="gemini", api_base=str(server.make_url("")))
+            with pytest.raises(asyncio.TimeoutError):
+                await llm.a_generate("q", timeout=0.1)
+        finally:
+            await server.close()
+
+        # Four attempts of 0.1 s each, far short of the handler's 5 s.
+        assert time.monotonic() - started < 3
+
+    @pytest.mark.asyncio
     async def test_many_calls_are_in_flight_at_once(self):
         # The thread-pool version held one of at most 32 threads per call, so no more
         # than that many could reach the proxy at the same time.

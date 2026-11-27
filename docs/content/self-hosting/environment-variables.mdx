@@ -329,8 +329,13 @@ See [Telemetry System Documentation](/contribute/telemetry) for what is collecte
 |---|---|---|
 | `LOG_LEVEL` | Log verbosity | `INFO` |
 | `QUICK_START` | Enable Quick Start mode (auto-login; not for production) | `false` |
-| `CELERY_WORKER_CONCURRENCY` | Worker process concurrency | `8` |
-| `CELERY_WORKER_PREFETCH_MULTIPLIER` | Tasks prefetched per worker process | `4` |
+| `WORKER_LAYOUT` | `combined` runs one worker process for all queues; `split` runs one process per kind of job (test runs and long jobs, trace ingest, trace evaluation and short jobs, Architect, CPU-bound) | `combined` |
+| `CELERY_WORKER_CONCURRENCY` | `combined` layout: jobs the main worker process runs at once | `8` (Docker Compose), `2` (Helm) |
+| `CELERY_WORKER_PREFETCH_MULTIPLIER` | `combined` layout: jobs prefetched per thread | `1` |
+| `CELERY_LONG_CONCURRENCY` | `split` layout: test runs and long jobs at once | `24` |
+| `CELERY_INGEST_CONCURRENCY` | `split` layout: trace ingest jobs at once | `16` |
+| `CELERY_FAST_CONCURRENCY` | `split` layout: trace evaluations and short jobs at once | `32` |
+| `CELERY_FAST_PREFETCH_MULTIPLIER` | `split` layout: jobs prefetched per thread for trace ingest, trace evaluation and short jobs | `8` |
 | `WORKER_STOP_GRACE_PERIOD` | Docker Compose only. How long a stopping worker may take to finish running test runs. An idle worker stops at once. On Kubernetes, set `workers[].terminationGracePeriodSeconds` in the Helm values instead | `9000s` |
 
 ## Background job limits

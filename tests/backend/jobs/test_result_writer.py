@@ -183,3 +183,43 @@ class TestResultWriter:
             asyncio.run(run())
 
         assert saved == ["t0", "t1", "t2"]
+
+
+@pytest.mark.integration
+def test_a_failed_save_leaves_the_shared_session_usable(
+    test_db, test_organization, db_user, db_test_run
+):
+    """After one test's save fails and rolls back, the next one saves on the same session."""
+    import uuid
+
+    from sqlalchemy.exc import IntegrityError
+
+    from rhesis.backend.app import models
+    from rhesis.backend.jobs.execution.batch.persist import persist_result
+
+    test = models.Test(user_id=db_user.id, organization_id=test_organization.id)
+    test_db.add(test)
+    test_db.commit()
+    ctx = _ctx()
+    ctx.organization_id, ctx.user_id = str(test_organization.id), str(db_user.id)
+    ctx.project_id = None
+    ctx.test_config.id = db_test_run.test_configuration_id
+    ctx.test_run.id = db_test_run.id
+    ctx.reference_test_run_id = None
+    ctx.celery_task_id = None
+
+    def save(test_id, db):
+        persist_result(ctx, test_id, test, {"output": "hi"}, {}, [], 1.0, False, db=db)
+
+    # test_db stands in for the writer's session; GUC re-application after a rollback
+    # is covered in tests/backend/db/test_session_overhead.py.
+    with pytest.raises(IntegrityError):
+        save(str(uuid.uuid4()), test_db)  # no such test: the INSERT fails
+    save(str(test.id), test_db)
+
+    saved = (
+        test_db.query(models.TestResult.test_id)
+        .filter(models.TestResult.test_run_id == db_test_run.id)
+        .all()
+    )
+    assert [row.test_id for row in saved] == [test.id]

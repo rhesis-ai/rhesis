@@ -7,7 +7,8 @@ Under load those tasks queued behind real work in the same queue. Summing per
 keeps the same write path (the task and its upsert) at a fraction of the volume.
 
 What this trades: tokens summed but not yet flushed are lost if the process is
-killed without a clean shutdown (at most one interval). The hosted spend caps are
+killed without a clean shutdown (at most one interval). A sum that fails to queue is
+kept for the next flush. The hosted spend caps are
 enforced separately (``hosted_spend``), so this only delays the usage counter.
 """
 
@@ -15,6 +16,7 @@ import atexit
 import logging
 import os
 import threading
+import time
 from collections import defaultdict
 
 from rhesis.backend.app.quota import QuotaResource
@@ -24,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 _DEFAULT_FLUSH_SECONDS = 2.0
+_warned: set[str] = set()
 
 
 def flush_seconds() -> float:
@@ -38,7 +41,9 @@ def flush_seconds() -> float:
     try:
         return float(raw)
     except ValueError:
-        logger.warning(f"USAGE_ACCRUAL_FLUSH_SECONDS={raw!r} is not a number; using 2")
+        if raw not in _warned:  # read on every add(), so warn once per value
+            _warned.add(raw)
+            logger.warning(f"USAGE_ACCRUAL_FLUSH_SECONDS={raw!r} is not a number; using 2")
         return _DEFAULT_FLUSH_SECONDS
 
 
@@ -63,8 +68,11 @@ def flush() -> None:
     with _lock:
         batch = dict(_pending)
         _pending.clear()
-    for (organization_id, resource), amount in batch.items():
-        dispatch_accrual(organization_id, resource, amount)
+    failed = {key: amount for key, amount in batch.items() if not dispatch_accrual(*key, amount)}
+    if failed:
+        with _lock:
+            for key, amount in failed.items():
+                _pending[key] += amount
 
 
 def _ensure_flusher() -> None:
@@ -79,8 +87,8 @@ def _ensure_flusher() -> None:
 
 
 def _run() -> None:
-    stop = threading.Event()
-    while not stop.wait(max(flush_seconds(), 0.1)):
+    while True:
+        time.sleep(max(flush_seconds(), 0.1))
         try:
             flush()
         except Exception:

@@ -1,7 +1,7 @@
 """Super simple async stress tester for the worker's trace ingestion path.
 
 Fires `POST /telemetry/traces` requests at a fixed rate to stress the
-telemetry worker (the `post_ingest_link` Celery task). Each second we send
+telemetry worker (the `ingest_spans` Celery task). Each second we send
 `REQUESTS_PER_SECOND` requests, each at `second_start + random(0, 1)` so they
 are spread out within the second instead of bursting all at once.
 

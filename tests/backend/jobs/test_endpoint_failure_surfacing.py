@@ -293,7 +293,7 @@ class TestOurOwnFailuresAreNotBlamedOnTheTarget:
 
         captured: dict = {}
 
-        def _fake_persist(_ctx, _tid, _test, output, *args):
+        def _fake_persist(_ctx, _tid, _test, output, *args, **kwargs):
             captured.update(output)
 
         ctx = MagicMock()
@@ -343,7 +343,7 @@ class TestOurOwnFailuresAreNotBlamedOnTheTarget:
 
         captured: dict = {}
 
-        def _fake_persist(_ctx, _tid, _test, output, *args):
+        def _fake_persist(_ctx, _tid, _test, output, *args, **kwargs):
             captured.update(output)
 
         ctx = MagicMock()

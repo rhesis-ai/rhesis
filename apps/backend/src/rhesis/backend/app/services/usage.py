@@ -73,12 +73,12 @@ def _current_period(today: Optional[date] = None) -> tuple[date, date]:
 
 def dispatch_accrual(
     organization_id: Optional[str], resource: QuotaResource, amount: int = 1
-) -> None:
+) -> bool:
     """Queue an accrual of *amount* against *resource* for *organization_id*.
 
-    **This is the only entry point call sites should use.**
-    :func:`increment_usage` is the database primitive behind it and is
-    called solely by the worker task.
+    Returns False only when queueing failed. Call sites use this, or
+    ``usage_coalescer.add`` on hot paths; :func:`increment_usage` is the
+    database primitive behind it and is called solely by the worker task.
 
     Fire-and-forget, for two reasons:
 
@@ -101,7 +101,7 @@ def dispatch_accrual(
     someone else's transaction never had.
     """
     if amount <= 0 or not organization_id:
-        return
+        return True
 
     # Imported lazily, not at module scope: `jobs/__init__.py` eagerly
     # imports every task module, and `jobs.usage` imports this module back
@@ -112,6 +112,7 @@ def dispatch_accrual(
 
     try:
         accrue_usage.delay(str(organization_id), resource.value, amount)
+        return True
     except Exception:
         logger.warning(
             "Failed to queue %s accrual (amount=%s) for org %s",
@@ -120,6 +121,7 @@ def dispatch_accrual(
             organization_id,
             exc_info=True,
         )
+        return False
 
 
 def increment_usage(

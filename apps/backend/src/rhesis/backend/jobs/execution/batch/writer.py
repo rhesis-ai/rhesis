@@ -86,7 +86,7 @@ class ResultWriter:
                     loop.call_soon_threadsafe(_settle, done, error)
                     settled += 1
         except Exception as e:
-            logger.error(f"[BATCH] Result writer could not open a session: {e}", exc_info=True)
+            logger.error(f"[BATCH] Result writer session failed: {e}", exc_info=True)
             for _, done in group[settled:]:
                 loop.call_soon_threadsafe(_settle, done, e)
 

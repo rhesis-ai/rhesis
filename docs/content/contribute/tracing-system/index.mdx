@@ -27,15 +27,14 @@ The tracing system captures OpenTelemetry-compliant traces from SDK-instrumented
 
     subgraph Backend["Backend (Server)"]
         I["POST /telemetry/traces"]
+        P["ingest_spans<br/>(Celery task)"]
         S["PostgreSQL (trace table)"]
-        P["post_ingest_link<br/>(Celery task)"]
     end
 
     D --> T --> B --> E
     E -->|"OTLP/HTTP"| I
-    I --> S
-    I -->|"delay()"| P
-    P -->|"link + enrich"| S`} />
+    I -->|"queues"| P
+    P -->|"store + enrich + link"| S`} />
 
 ## Key Technologies
 
@@ -77,9 +76,9 @@ The SDK uses **two independent channels**:
 1. **OpenTelemetry Standard** - Industry-standard OTLP protocol for interoperability
 2. **Hybrid Linking** - Two strategic linking points to handle race conditions
 3. **Idempotent Operations** - Safe to call linking multiple times
-4. **Cache Enrichment** - Enrichment is skipped when every span in a trace is already processed
+4. **Cache Enrichment** - Enrichment is computed when spans are stored and read back from `enriched_data` on query
 5. **Async Post-Processing** - Ingestion never blocks on linking, enrichment, or metric evaluation
-6. **Fire-and-Forget Dispatch** - If the Celery broker is unreachable at dispatch time, ingestion still succeeds; post-processing for that batch is skipped and logged as a warning
+6. **Fire-and-Forget Evaluation** - If the Celery broker is unreachable when evaluation is queued, the spans stay stored and enriched; that evaluation is skipped and logged as a warning
 
 ## Performance Characteristics
 
@@ -89,7 +88,7 @@ The SDK uses **two independent channels**:
 | BatchProcessor delay | 5000ms | Fixed by OpenTelemetry design |
 | Span export (OTLP) | ~10ms | Network call |
 | Backend ingestion | ~10-20ms | Spans validated and queued; a worker stores them |
-| Linking + enrichment | ~50-100ms | Background (Celery, `post_ingest_link`) |
+| Storage, enrichment + linking | ~50-100ms | Background (Celery, `ingest_spans`) |
 | Trace query | ~10ms | Cached enrichment |
 | **End-to-end** | **~5 seconds** | Test start to queryable trace |
 
@@ -112,7 +111,7 @@ The SDK uses **two independent channels**:
 | File | Purpose |
 |------|---------|
 | `apps/backend/.../routers/telemetry.py` | Ingestion (`POST /telemetry/traces`) and query endpoints |
-| `apps/backend/.../jobs/telemetry/post_ingest.py` | `post_ingest_link` — linking + enrichment dispatch |
+| `apps/backend/.../jobs/telemetry/ingest.py` | `ingest_spans`: stores, enriches and links spans, queues evaluation |
 | `apps/backend/.../services/telemetry/linking_service.py` | `TraceLinkingService` |
 | `apps/backend/.../services/telemetry/enrichment/` | Cost/anomaly enrichment (`core.py`, `processor.py`) |
 | `apps/backend/.../models/trace.py` | `Trace` SQLAlchemy model |

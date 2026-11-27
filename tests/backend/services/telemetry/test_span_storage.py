@@ -77,6 +77,17 @@ class TestStoreSpans:
         assert again == []
         assert len(_stored(test_db, trace_id)) == 1
 
+    def test_a_span_repeated_in_one_batch_is_stored_once(
+        self, test_db, test_organization, db_project
+    ):
+        trace_id = uuid4().hex
+        span = _span(trace_id, str(db_project.id), "a" * 16)
+
+        stored = store_spans(test_db, [span, span], str(test_organization.id))
+
+        assert len(stored) == 1
+        assert len(_stored(test_db, trace_id)) == 1
+
     def test_spans_are_kept_when_enrichment_fails(self, test_db, test_organization, db_project):
         trace_id = uuid4().hex
         with patch(

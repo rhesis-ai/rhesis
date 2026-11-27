@@ -19,7 +19,7 @@ DEV_WORKER = ROOT / "scripts" / "rh" / "services.sh"
 
 def _core_jobs() -> set[str]:
     app.loader.import_default_modules()
-    return {name for name in app.tasks if name.startswith("rhesis.backend.jobs.")}
+    return {name for name in app.tasks if name.startswith("rhesis.")}
 
 
 def test_every_job_has_a_queue():

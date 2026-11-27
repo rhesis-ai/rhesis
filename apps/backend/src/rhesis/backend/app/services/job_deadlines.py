@@ -4,16 +4,22 @@ Long jobs stop themselves at their limit (see ``app/utils/deadline.py``); the CP
 ones get Celery time limits, which the prefork pool enforces by killing the child.
 A job whose worker died, or whose child was killed, never writes a terminal status,
 so :func:`fail_overdue_jobs` marks its row failed once it is past its limit plus
-:data:`RUNNING_JOB_MARGIN`. Job capacity (``job_capacity.py``) stops counting a row
-at the same point.
+:data:`RUNNING_JOB_MARGIN`, gives back its quota reservation and fails its open test
+run. Job capacity (``job_capacity.py``) stops counting a row at the same point.
+
+Only jobs started through ``launch_job`` have a row; the CPU-bound jobs dispatched with
+``.delay`` still need their limits here for Celery and the broker visibility timeout.
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_job_limit_settings
+
+logger = logging.getLogger(__name__)
 
 # A queued job may wait behind a backlog, so it is given a day, like the test-run
 # quota's in-flight window.
@@ -67,11 +73,53 @@ def fail_overdue_jobs(db: Session, organization_id: str, now: Optional[datetime]
         for job_type, seconds in job_time_limits().items()
     }
     queued_before = now - QUEUED_JOB_WINDOW
-    return sum_over_org_projects(
-        db,
-        organization_id,
-        "",
-        lambda project_id: fail_overdue_jobs_in_scope(
+
+    def fail_in_scope(project_id) -> int:
+        rows = fail_overdue_jobs_in_scope(
             db, organization_id, project_id, started_before, queued_before, now
-        ),
-    )
+        )
+        for celery_task_id, entity_type, entity_id in rows:
+            # Each step in its own savepoint, so one that fails undoes neither the sweep
+            # nor the other step.
+            _in_savepoint(db, celery_task_id, _release_quota, db, celery_task_id)
+            if entity_type == "TestRun" and entity_id is not None:
+                _in_savepoint(db, celery_task_id, _fail_test_run, db, entity_id)
+        return len(rows)
+
+    return sum_over_org_projects(db, organization_id, "", fail_in_scope)
+
+
+def _in_savepoint(db: Session, celery_task_id, step, *args) -> None:
+    try:
+        with db.begin_nested():
+            step(*args)
+    except Exception:
+        logger.exception("Could not close out overdue job %s", celery_task_id)
+
+
+def _release_quota(db: Session, celery_task_id) -> None:
+    """Give back the quota reservation a dead job still holds."""
+    from rhesis.backend.app.crud.job import claim_quota_reservation
+    from rhesis.backend.app.quota.enforcement import QuotaReservation
+
+    if not celery_task_id:
+        return
+    claimed = claim_quota_reservation(db, celery_task_id)
+    if claimed is not None:
+        QuotaReservation.from_wire(claimed).apply(db, 0)
+
+
+def _fail_test_run(db: Session, test_run_id) -> None:
+    """Fail the test run a dead job left queued or in progress."""
+    from rhesis.backend.app import models
+    from rhesis.backend.jobs.enums import RunStatus
+    from rhesis.backend.jobs.execution.run import update_test_run_status
+
+    test_run = db.get(models.TestRun, test_run_id)
+    if test_run is None:
+        return
+    status = db.query(models.Status.name).filter(models.Status.id == test_run.status_id).scalar()
+    if status in (RunStatus.QUEUED.value, RunStatus.PROGRESS.value):
+        update_test_run_status(
+            db, test_run, RunStatus.FAILED.value, "The run did not finish within its time limit."
+        )

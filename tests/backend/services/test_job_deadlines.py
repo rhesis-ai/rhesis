@@ -131,6 +131,100 @@ class TestFailOverdueJobs:
         assert _status(test_db, unlimited)[0] == "running"
 
 
+@pytest.mark.integration
+class TestWhatAFailedJobLeftOpen:
+    def test_gives_back_the_quota_it_reserved_even_if_failing_its_run_raises(
+        self, test_db, test_org_id
+    ):
+        from rhesis.backend.app.quota import OveragePolicy, QuotaPolicy, QuotaRegistry
+        from rhesis.backend.app.quota import QuotaResource as Resource
+        from rhesis.backend.app.quota.enforcement import _read_usage, reserve_quota
+
+        class _Policy:
+            def get_policy(self, org=None):
+                return QuotaPolicy(
+                    limits={Resource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD
+                )
+
+        saved = QuotaRegistry._provider
+        QuotaRegistry.reset()
+        QuotaRegistry.set_quota_provider(_Policy())
+        try:
+            reservation = reserve_quota(test_db, test_org_id, None, Resource.TEST_GENERATION, 10)
+            long_ago = NOW - timedelta(days=2)
+            job_id = _add_job(
+                test_db,
+                test_org_id,
+                job_type="generate_and_save_test_set",
+                started_at=long_ago,
+                quota_reservation=reservation.to_wire(),
+                entity_type="TestRun",
+                entity_id=uuid.uuid4(),
+            )
+            assert _read_usage(test_db, test_org_id, Resource.TEST_GENERATION) == 10
+
+            with patch(
+                "rhesis.backend.app.services.job_deadlines._fail_test_run",
+                side_effect=RuntimeError("boom"),
+            ):
+                fail_overdue_jobs(test_db, test_org_id, now=NOW)
+            test_db.commit()
+
+            assert _read_usage(test_db, test_org_id, Resource.TEST_GENERATION) == 0
+            assert test_db.get(Job, job_id).quota_settled_at is not None
+        finally:
+            QuotaRegistry._provider = saved
+
+    def test_fails_its_open_test_runs_and_leaves_a_cancelled_one(
+        self, test_db, test_org_id, db_user, db_test_configuration
+    ):
+        from rhesis.backend.app.models.status import Status
+        from rhesis.backend.app.models.test_run import TestRun
+        from rhesis.backend.app.utils.crud_utils import get_or_create_status
+
+        def run_with(status_name):
+            status = get_or_create_status(
+                test_db, status_name, "TestRun", organization_id=test_org_id
+            )
+            run = TestRun(
+                user_id=db_user.id,
+                organization_id=test_org_id,
+                status_id=status.id,
+                test_configuration_id=db_test_configuration.id,
+            )
+            test_db.add(run)
+            test_db.flush()
+            long_ago = NOW - timedelta(days=2)
+            _add_job(
+                test_db,
+                test_org_id,
+                started_at=long_ago,
+                entity_type="TestRun",
+                entity_id=run.id,
+            )
+            return run.id
+
+        running = run_with("Progress")
+        queued = run_with("Queued")
+        cancelled = run_with("Cancelled")
+
+        assert fail_overdue_jobs(test_db, test_org_id, now=NOW) == 3
+        test_db.commit()
+        test_db.expire_all()
+
+        def status_of(run_id):
+            return (
+                test_db.query(Status.name)
+                .join(TestRun, TestRun.status_id == Status.id)
+                .filter(TestRun.id == run_id)
+                .scalar()
+            )
+
+        assert status_of(running) == "Failed"
+        assert status_of(queued) == "Failed"
+        assert status_of(cancelled) == "Cancelled"
+
+
 @pytest.mark.unit
 def test_the_sweep_continues_past_an_organization_that_fails():
     def fail_for(organization_id):

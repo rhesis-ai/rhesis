@@ -86,7 +86,8 @@ CELERY_CONFIG = {
     "task_eager_propagates": False,
     # Task annotations
     "task_annotations": {
-        # Inert under --pool threads; kept equal to the in-job limit for other pools.
+        # The time limits on this job and the two trace evaluations are inert under
+        # --pool threads, which every layout uses for them; kept for other pools.
         "rhesis.backend.jobs.execute_test_configuration": {
             "soft_time_limit": job_limits.execution_time_limit,
             "time_limit": EXECUTION_HARD_LIMIT,

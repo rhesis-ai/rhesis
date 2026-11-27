@@ -106,7 +106,7 @@ class TestCreateTestResultRecordOutcome:
         statements = []
 
         def record(conn, cursor, statement, *args):
-            if "set_config" not in statement and "SAVEPOINT" not in statement:
+            if "set_config" not in statement:
                 statements.append(" ".join(statement.split()[:3]))
 
         engine = setup["db"].get_bind()

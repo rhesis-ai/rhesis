@@ -212,6 +212,12 @@ def count_active_jobs(
         ) or 0
 
 
+# A row failed at its time limit, by the sweep or by the job itself, has had its quota
+# reservation given back; a job that still runs later charges it again
+# (reclaim_swept_reservation). JobTimeLimitExceeded's class name, as mark_failed records it.
+OVERDUE_ERROR_TYPE = "JobTimeLimitExceeded"
+
+
 def fail_overdue_jobs_in_scope(
     db: Session,
     organization_id: str,
@@ -219,8 +225,11 @@ def fail_overdue_jobs_in_scope(
     started_before: Dict[str, datetime],
     queued_before: datetime,
     now: datetime,
-) -> int:
-    """Fail one project's jobs that outlived their limit, in one statement. Returns how many.
+) -> List[tuple]:
+    """Fail one project's jobs that outlived their limit, in one statement.
+
+    Returns ``(celery_task_id, entity_type, entity_id)`` of each failed row, so the
+    caller can close out what the job left open.
 
     Running (or cancelling) jobs of the types in *started_before* that started before
     their type's entry, and queued jobs of any type queued before *queued_before*.
@@ -250,12 +259,13 @@ def fail_overdue_jobs_in_scope(
             .values(
                 status=JobStatus.FAILED.value,
                 finished_at=now,
-                error_type="JobTimeLimitExceeded",
+                error_type=OVERDUE_ERROR_TYPE,
                 error_message="The job did not finish within its time limit.",
             )
+            .returning(job.celery_task_id, job.entity_type, job.entity_id)
             .execution_options(synchronize_session=False)
         )
-    return result.rowcount or 0
+    return list(result.all())
 
 
 def claim_quota_reservation(db: Session, celery_task_id: str) -> Optional[dict]:
@@ -273,6 +283,26 @@ def claim_quota_reservation(db: Session, celery_task_id: str) -> Optional[dict]:
             job.quota_settled_at.is_(None),
         )
         .values(quota_settled_at=func.now())
+        .returning(job.quota_reservation)
+    ).scalar()
+
+
+def reclaim_swept_reservation(db: Session, celery_task_id: str) -> Optional[dict]:
+    """Take back a reservation the overdue sweep released, once, for a job that ran anyway.
+
+    Returns the reservation so the caller can charge what the job used, or None. Clears the
+    sweep's error mark in the same guarded update, so it is returned at most once. Does not
+    commit.
+    """
+    job = models.Job
+    return db.execute(
+        update(job)
+        .where(
+            job.celery_task_id == celery_task_id,
+            job.error_type == OVERDUE_ERROR_TYPE,
+            job.quota_reservation.isnot(None),
+        )
+        .values(error_type=None, error_message=None)
         .returning(job.quota_reservation)
     ).scalar()
 

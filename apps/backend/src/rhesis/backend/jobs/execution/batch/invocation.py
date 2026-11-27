@@ -30,8 +30,7 @@ def is_multi_turn_test(test: Optional[Test]) -> bool:
 
 
 async def load_input_files_lazy(ctx: ExecutionContext, test_id: str) -> Optional[List]:
-    """Load input files on demand (inside the semaphore) to avoid holding all
-    base64-encoded attachments in memory for the full batch duration."""
+    """Load a test's input file references on demand, inside the semaphore."""
     if test_id in ctx.input_files:
         return ctx.input_files[test_id] or None
     if ctx.tests_with_files is not None and test_id not in ctx.tests_with_files:

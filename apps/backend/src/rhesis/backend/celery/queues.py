@@ -36,7 +36,8 @@ QUEUES: dict[str, tuple[str, list[str]]] = {
         [_J + "telemetry.ingest.ingest_spans"],
     ),
     "trace-eval": (
-        "Per-trace work after the spans are stored: cost enrichment, linking, metric evaluation.",
+        "Trace metric evaluation after the spans are stored. The enrichment and linking "
+        "jobs here only drain messages queued by the previous release.",
         [
             _J + "telemetry.enrich.enrich_trace_async",
             _J + "telemetry.post_ingest.post_ingest_link",
@@ -67,6 +68,7 @@ QUEUES: dict[str, tuple[str, list[str]]] = {
             _J + "audit_retention.sweep_expired_audit_events",
             _J + "test_run_schedules.dispatch_due_schedules",
             _J + "job_deadlines.sweep_overdue_jobs",
+            "rhesis.backend.ee.audit.streaming.jobs.deliver_audit_streams",
         ],
     ),
 }

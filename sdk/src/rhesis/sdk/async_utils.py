@@ -33,7 +33,12 @@ def _loop_threads() -> int:
     capped a process at 14 model calls in flight. These threads mostly wait on the
     network, so the size follows concurrency, not cores.
     """
-    return int(os.environ.get("RHESIS_SDK_LOOP_THREADS", "64"))
+    raw = os.environ.get("RHESIS_SDK_LOOP_THREADS", "64")
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning(f"RHESIS_SDK_LOOP_THREADS={raw!r} is not a whole number; using 64")
+        return 64
 
 
 def reset_litellm_vertex_async_locks() -> None:

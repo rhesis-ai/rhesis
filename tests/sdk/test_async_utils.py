@@ -452,6 +452,11 @@ class TestBackgroundLoopThreads:
 
         assert self._pool_size() == 128
 
+    def test_a_bad_value_falls_back_to_64(self, monkeypatch):
+        monkeypatch.setenv("RHESIS_SDK_LOOP_THREADS", "many")
+
+        assert self._pool_size() == 64
+
 
 def test_closing_the_loop_shuts_its_thread_pool_down():
     from rhesis.sdk import async_utils

@@ -389,6 +389,8 @@ def evaluate_conversation_trace_metrics(
         }
 
         first_span = root_spans[0]
+        # A turn evaluation may have written its metrics during the judge calls.
+        db.refresh(first_span, ["trace_metrics"])
         status_id, execution, verdict = _derive_combined_outcome(
             db,
             organization_id,

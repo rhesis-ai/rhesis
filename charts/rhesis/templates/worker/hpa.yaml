@@ -29,7 +29,6 @@ spec:
     name: worker-{{ .name }}
   minReplicaCount: {{ .hpa.minReplicas }}
   maxReplicaCount: {{ .hpa.maxReplicas }}
-  pollingInterval: {{ $keda.pollingInterval | default 15 }}
   advanced:
     horizontalPodAutoscalerConfig:
       name: worker-{{ .name }}
@@ -47,7 +46,7 @@ spec:
       name: {{ $queue }}
       metadata:
         address: {{ printf "%s:%v" $broker $.Values.config.redisPort | quote }}
-        databaseIndex: {{ $keda.databaseIndex | default 0 | quote }}
+        databaseIndex: "0"  # BROKER_URL always uses database 0 (worker/deployment.yaml)
         listName: {{ $queue | quote }}
         listLength: {{ $perReplica | quote }}
       {{- if $valkeyAuth.enabled }}
