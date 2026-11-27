@@ -17,7 +17,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
 from .test_annotations import _ensure_pass_fail_statuses, _project_scope
@@ -285,7 +284,7 @@ def _custom_metric(db: Session, org_id, user_id) -> models.Metric:
         name=f"Tone check {uuid.uuid4().hex[:6]}",
         evaluation_prompt="Is the answer polite?",
         score_type="binary",
-        metric_scope=[MetricScope.SINGLE_TURN.value],
+        config={"target": {"on": "turn"}},
         backend_type_id=backend_type.id,
         organization_id=org_id,
         user_id=user_id,
@@ -588,7 +587,7 @@ class TestRequirementListMetrics:
             "name",
             "description",
             "score_type",
-            "metric_scope",
+            "config",
             "backend_type",
             "metric_type",
             "project_id",

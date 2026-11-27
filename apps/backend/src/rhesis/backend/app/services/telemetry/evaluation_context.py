@@ -17,8 +17,8 @@ from rhesis.backend.app.crud.project import find_project
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, enforce_quota
 from rhesis.backend.app.services.telemetry.trace_metrics_config import context_ttl_seconds
-from rhesis.backend.metrics.applicability import metric_target
 from rhesis.backend.app.utils.ttl_cache import TTLCache
+from rhesis.backend.metrics.applicability import metric_target
 from rhesis.backend.metrics.metric_config import MetricConfig, validate_metric_configs
 
 logger = logging.getLogger(__name__)
