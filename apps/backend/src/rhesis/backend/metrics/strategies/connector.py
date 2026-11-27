@@ -22,7 +22,6 @@ from rhesis.sdk.metrics import MetricConfig, MetricResult
 from rhesis.sdk.metrics.targets import (
     PER_UNIT,
     Target,
-    TargetKind,
     Unit,
     a_judge_units,
     check_target,
@@ -218,7 +217,8 @@ def _per_unit_target(config: MetricConfig) -> Optional[Target]:
 def _unit_inputs(
     config: MetricConfig, target: Target, unit: Unit, inputs: EvaluationInputs
 ) -> Dict[str, Any]:
-    """The inputs sent to an SDK metric for one span or turn."""
+    """The inputs sent to an SDK metric for one span or turn: the unit's own trace, the span
+    and everything under it."""
     expectations = unit_expectations(target, inputs.expectations)
     payload: Dict[str, Any] = {
         "input": unit.input,
@@ -226,12 +226,7 @@ def _unit_inputs(
         "expectations": expectations.model_dump(exclude_none=True) if expectations else None,
     }
     if _wants_trace(config):
-        # A span is judged with the whole trace, dumped once; a turn with its own.
-        payload["trace"] = (
-            unit.trace.model_dump(mode="json", exclude_none=True)
-            if target.on is TargetKind.TURN
-            else inputs.trace_json()
-        )
+        payload["trace"] = unit.trace.model_dump(mode="json", exclude_none=True)
     return payload
 
 

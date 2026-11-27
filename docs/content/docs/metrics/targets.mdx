@@ -13,25 +13,33 @@ A metric's **target** says what it judges in a test's trace: each turn, the whol
 
 | `on` | Label | Judges | The metric reads |
 | --- | --- | --- | --- |
-| `turn` | Each turn | Each turn: the test's one response, or every turn of a conversation on its own | the turn's input and output, and its trace |
+| `turn` | Each turn | Each turn: the test's one response, or every turn of a conversation on its own | the turn's input and output, and the turn's trace |
 | `conversation` | The conversation | The whole conversation, once | the conversation's trace |
 | `run` | The whole run | The whole trace, once | the trace |
-| `tool_call` | Each tool call | Each tool call | the arguments as input, the result as output |
-| `retrieval` | Each retrieval | Each retrieval | the query as input, the documents found as output |
-| `model_call` | Each model call | Each model call | the prompt as input, the completion as output |
-| `agent` | Each agent | Each agent run | the task as input, the final answer as output |
-| `guardrail` | Each guardrail check | Each guardrail check | what it checked as input, its decision as output |
+| `tool_call` | Each tool call | Each tool call | the arguments as input, the result as output, and the call's trace |
+| `retrieval` | Each retrieval | Each retrieval | the query as input, the documents found as output, and the retrieval's trace |
+| `model_call` | Each model call | Each model call | the prompt as input, the completion as output, and the call's trace |
+| `agent` | Each agent | Each agent run | the task as input, the final answer as output, and the agent's trace |
+| `guardrail` | Each guardrail check | Each guardrail check | what it checked as input, its decision as output, and the check's trace |
 
-A metric that reads the trace gets the whole trace for a span, and the turn's own trace for a turn.
+Each thing a target picks is judged as a trace of its own: the span and everything under it. A metric that reads the trace gets that, not the whole test's trace. On an agent, it holds the agent's own model and tool calls; on a turn, that turn's spans.
 
 A span or a turn is held to the test's goal, instructions and restrictions. A span is not held to the test's expected response or expected tool calls, which describe the whole response; a turn of a conversation is not held to the conversation's expected tool calls. So a metric that needs a reference answer can't take a per-span target, and the [Tool Call Trajectory](/docs/metrics/tool-calls) metric takes only `conversation` or `run`.
 
-Otherwise a metric can take the targets that fit what it reads. A judge reads input and output, so it can judge turns and any kind of span. A [code metric](/docs/metrics/code-metrics) that declares only `trace` can judge turns, the conversation or the whole run. A conversational metric judges the conversation. A target the metric can't take is refused when it is saved, with the choices it can take. Each metric the API returns lists its `supported_targets`, and `GET /metrics/targets` lists every choice with its label.
+Otherwise a metric can take the targets that fit what it reads. A judge reads input and output, so it can judge turns and any kind of span. A [code metric](/docs/metrics/code-metrics) that declares `trace` can take every target. A conversational metric judges the conversation. A target the metric can't take is refused when it is saved, with the choices it can take. Each metric the API returns lists its `supported_targets`, and `GET /metrics/targets` lists every choice with its label.
 
 The per-span targets take two refinements:
 
 - `name`: only spans with this tool, agent or model name, such as `"issue_refund"`.
 - `within`: only spans inside the agent with this name.
+
+The per-span targets and `turn` also take `where`: the attributes the span must have. A list of values means any of them, and numbers and booleans match their text form, so `200` matches `"200"`. For example, only the turns of email conversations, from a REST endpoint whose response mapping maps `metadata.channel`:
+
+<CodeBlock filename="where.json" language="json">
+{`{"target": {"on": "turn", "where": {"rhesis.reported.metadata.channel": "email"}}}`}
+</CodeBlock>
+
+When `where` leaves nothing to judge, the metric is not applicable, and the reason names the attributes.
 
 ## Default target
 

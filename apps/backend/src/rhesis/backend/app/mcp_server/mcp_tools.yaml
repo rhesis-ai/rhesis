@@ -1398,20 +1398,24 @@ tools:
           trace once), "tool_call" (each tool call: arguments as input,
           result as output), "retrieval" (each retrieval: query as input,
           documents as output), "model_call", "agent" or "guardrail" (each
-          span of that kind). The per-span targets also take "name" (only
-          spans with that tool, agent or model name) and "within" (only
-          spans inside that agent), and "aggregate": "all" (every span
-          passes; the default), "any", or "share" with "min_share" (0 to 1).
-          For example {"target": {"on": "tool_call", "name":
+          span of that kind). Each unit a target picks is judged as its own
+          trace: the span and everything under it. The per-span targets also
+          take "name" (only spans with that tool, agent or model name) and
+          "within" (only spans inside that agent). The per-span targets and
+          "turn" take "where", attributes the unit's root span must have,
+          such as {"rhesis.reported.metadata.channel": "email"}; a list of
+          values means any of them. They also take "aggregate": "all" (every
+          span passes; the default), "any", or "share" with "min_share" (0
+          to 1). For example {"target": {"on": "tool_call", "name":
           "issue_refund"}}. A span is held to the test's goal and
           instructions, not its expected response or expected tool calls, so
           a metric with ground_truth_required takes no per-span target, and
           Tool Call Trajectory takes only "conversation" or "run". A target
           the metric can't take is refused with the choices it can. A metric
           whose target matches nothing in a test's trace is reported as not
-          applicable, with the reason. Only tool calls and retrievals are seen
-          on an endpoint that sends no traces, and only when its response
-          mapping maps tool_calls or context.
+          applicable, with the reason. On an endpoint that sends no traces,
+          only tool calls, retrievals and one model call are seen, and only
+          when its response mapping maps tool_calls, context or usage.
 
   - name: add_requirement_to_metric
     label: Linking requirement to metric
@@ -1527,7 +1531,12 @@ tools:
       response_mapping:
         description: >
           Object mapping the response, using JSONPath to extract the output
-          field. e.g. {"output": "$.response"}.
+          field. e.g. {"output": "$.response"}. Optional fields, each with
+          its place in the call's trace: tool_calls (one tool call span
+          each), context (a retrieval span), usage (token counts, e.g.
+          "$.usage"), metadata (one span attribute per key), and a
+          conversation id for multi-turn. Any other mapped field is kept as
+          a span attribute.
       query_params:
         description: "Optional object of query-string parameters."
       response_format:
@@ -1598,7 +1607,12 @@ tools:
       response_mapping:
         description: >
           Object mapping the response, using JSONPath to extract the output
-          field. e.g. {"output": "$.response"}.
+          field. e.g. {"output": "$.response"}. Optional fields, each with
+          its place in the call's trace: tool_calls (one tool call span
+          each), context (a retrieval span), usage (token counts, e.g.
+          "$.usage"), metadata (one span attribute per key), and a
+          conversation id for multi-turn. Any other mapped field is kept as
+          a span attribute.
       query_params:
         description: "Optional object of query-string parameters."
       response_format:
