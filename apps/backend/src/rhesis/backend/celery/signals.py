@@ -10,6 +10,7 @@ from celery.signals import (
     task_prerun,
     task_revoked,
     worker_process_init,
+    worker_process_shutdown,
     worker_ready,
     worker_shutdown,
 )
@@ -132,6 +133,14 @@ def drop_inherited_db_connections(**kwargs):
     from rhesis.backend.app.database import engine
 
     engine.dispose(close=False)
+
+
+@worker_process_shutdown.connect
+def flush_usage_accruals(**kwargs):
+    """Queue a prefork child's summed tokens before it exits; its os._exit skips atexit."""
+    from rhesis.backend.app.services import usage_coalescer
+
+    usage_coalescer.flush()
 
 
 @celeryd_init.connect

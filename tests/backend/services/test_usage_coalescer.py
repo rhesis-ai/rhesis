@@ -84,3 +84,21 @@ def test_a_bad_interval_falls_back_to_the_default(monkeypatch):
     monkeypatch.setenv("USAGE_ACCRUAL_FLUSH_SECONDS", "two seconds")
 
     assert usage_coalescer.flush_seconds() == 2.0
+
+
+def test_a_sum_that_failed_to_queue_is_sent_with_the_next_flush(monkeypatch, summing):
+    sent = []
+
+    def broker_down_once(*args):
+        if not sent:
+            sent.append(None)
+            raise ConnectionError("broker down")
+        sent.append(args)
+
+    monkeypatch.setattr("rhesis.backend.jobs.usage.accrue_usage.delay", broker_down_once)
+    usage_coalescer.add("org-a", QuotaResource.MODEL_TOKENS, 100)
+    usage_coalescer.flush()
+    usage_coalescer.add("org-a", QuotaResource.MODEL_TOKENS, 5)
+    usage_coalescer.flush()
+
+    assert sent[1:] == [("org-a", QuotaResource.MODEL_TOKENS.value, 105)]
