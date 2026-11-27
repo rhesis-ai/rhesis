@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional
 
-from rhesis.sdk.clients import Endpoints
+from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
-from rhesis.sdk.entities.base_entity import BaseEntity
+from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 
 if TYPE_CHECKING:
     from rhesis.sdk.models.parameters import (
@@ -73,6 +73,20 @@ class Project(BaseEntity):
         from rhesis.sdk.parameters import Parameters
 
         Parameters.put_schema(project_id=self.id, schema=schema)
+
+    @handle_http_errors
+    def trace_attributes(self, kind: Optional[str] = None, days: int = 7) -> Dict[str, Any]:
+        """The attribute keys this project's recent spans carry, by span kind, with how many
+        spans have each, its type and its most common values: what a target's conditions can
+        test. ``kind`` is a span kind (``tool.invoke``) or a target name (``tool_call``)."""
+        from rhesis.sdk.metrics.targets import span_kind_value
+
+        params: Dict[str, Any] = {"project_id": self.id, "days": days}
+        if kind is not None:
+            params["kind"] = span_kind_value(kind)
+        return APIClient().send_request(
+            endpoint=Endpoints.TELEMETRY_ATTRIBUTES, method=Methods.GET, params=params
+        )
 
 
 class Projects(BaseCollection):

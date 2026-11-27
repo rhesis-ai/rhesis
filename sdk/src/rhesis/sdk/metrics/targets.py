@@ -45,6 +45,8 @@ from rhesis.telemetry.constants import ConversationContext
 MAX_JUDGED_SPANS = 25
 #: Spans one metric judges at the same time, so a judge doesn't send 25 model calls at once.
 MAX_CONCURRENT_SPANS = 5
+#: Latest traces ``Target.preview`` tries a target on unless told otherwise.
+PREVIEW_TRACES = 50
 
 
 class JudgedParam(StrEnum):
@@ -219,6 +221,14 @@ class Reader(StrEnum):
 
 
 READERS = tuple(Reader)
+#: Each reader in words. The turn's input and output come from the root span of the turn the
+#: unit belongs to, however deep it sits.
+READER_LABELS = {
+    Reader.INPUT: "Its own input",
+    Reader.OUTPUT: "Its own output",
+    Reader.CONVERSATION_INPUT: "The turn's input",
+    Reader.CONVERSATION_OUTPUT: "The turn's output",
+}
 #: ``read`` naming an event's value: ``event:ai.retrieval.query``.
 EVENT_READER = "event:"
 
@@ -285,10 +295,10 @@ class Read(BaseModel):
         return cls.model_validate(value)
 
 
-def _span_kind_value(value: Any) -> Any:
+def span_kind_value(value: Any) -> Any:
     """A kind written as a target name (``tool_call``) as the span kind it stands for."""
     if isinstance(value, list):
-        return [_span_kind_value(item) for item in value]
+        return [span_kind_value(item) for item in value]
     try:
         preset = TARGETS.get(TargetKind(value))
     except ValueError:
@@ -315,7 +325,7 @@ def _normalised_where(where: Any) -> Any:
     for item in where:
         condition = Condition.coerce(item)
         if condition.field == SpecialField.KIND and condition.value is not None:
-            condition = condition.model_copy(update={"value": _span_kind_value(condition.value)})
+            condition = condition.model_copy(update={"value": span_kind_value(condition.value)})
         conditions.append(condition)
     return conditions
 
@@ -470,6 +480,20 @@ class Target(BaseModel):
     def select(self, trace: Trace) -> List["Unit"]:
         """The units this target picks from ``trace``, as the platform judges them."""
         return matching_units(trace, self)
+
+    def preview(self, project: Any, traces: int = PREVIEW_TRACES) -> Dict[str, Any]:
+        """What this target picks in ``project``'s latest ``traces`` traces, matched on the
+        platform as evaluation matches it: how many traces and units match, and samples.
+        ``project`` is a ``Project`` or its id."""
+        from rhesis.sdk.clients import APIClient, Endpoints, Methods
+
+        project_id = getattr(project, "id", project)
+        if not project_id:
+            raise ValueError("preview needs a project with an id; pull or push it first")
+        body = {"project_id": str(project_id), "target": self.to_config(), "traces": traces}
+        return APIClient().send_request(
+            endpoint=Endpoints.METRIC_TARGET_PREVIEW, method=Methods.POST, data=body
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -791,28 +815,46 @@ def _event_value(span: Span, name: str) -> Any:
     return None
 
 
-def _read_value(span: Span, reader: Optional[str], default: Any) -> Any:
-    """What ``reader`` names on ``span``; ``default`` when the target reads nothing else."""
+#: The turn's attribute each conversation reader names.
+_TURN_KEYS = {
+    Reader.CONVERSATION_INPUT: _CONVERSATION_INPUT,
+    Reader.CONVERSATION_OUTPUT: _CONVERSATION_OUTPUT,
+}
+
+
+def _read_value(span: Span, reader: Optional[str], default: Any, turn: Span) -> Any:
+    """What ``reader`` names on ``span``; ``default`` when the target reads nothing else.
+    The conversation readers read ``turn``, the root span the unit belongs to, falling back
+    to the span itself."""
     if reader is None:
         return default
     if reader == Reader.INPUT:
         return span.input
     if reader == Reader.OUTPUT:
         return span.output
-    if reader == Reader.CONVERSATION_INPUT:
-        return span.attributes.get(_CONVERSATION_INPUT)
-    if reader == Reader.CONVERSATION_OUTPUT:
-        return span.attributes.get(_CONVERSATION_OUTPUT)
+    if reader in _TURN_KEYS:
+        key = _TURN_KEYS[Reader(reader)]
+        value = turn.attributes.get(key)
+        return value if value is not None else span.attributes.get(key)
     if reader.startswith(EVENT_READER):
         return _event_value(span, reader[len(EVENT_READER) :])
     return span.attributes.get(reader)
 
 
-def _unit(span: Span, input: Any, output: Any, target: Target, trace: Trace, **turn: Any) -> Unit:
+def _unit(
+    span: Span,
+    root: Span,
+    input: Any,
+    output: Any,
+    target: Target,
+    trace: Trace,
+    **turn: Any,
+) -> Unit:
+    """One unit from ``span``; ``root`` is the root span of the turn it belongs to."""
     read = target.read
     if read is not None:
-        input = _read_value(span, read.input, input)
-        output = _read_value(span, read.output, output)
+        input = _read_value(span, read.input, input, root)
+        output = _read_value(span, read.output, output, root)
     return Unit(
         span, _text(input), _text(output), _subtree(trace, span), turn.pop(ResultKey.NAME), **turn
     )
@@ -827,7 +869,7 @@ def _turns(trace: Trace, target: Target) -> List[Unit]:
         user = _turn_input(root)
         reply = root.attributes.get(_CONVERSATION_OUTPUT) or root.output
         units.append(
-            _unit(root, user, reply, target, trace, name=None, turn=turn, turns=len(roots))
+            _unit(root, root, user, reply, target, trace, name=None, turn=turn, turns=len(roots))
         )
     return units
 
@@ -854,7 +896,7 @@ def _spans(trace: Trace, target: Target) -> List[Unit]:
             if input in (None, "") and _reported(span):
                 # A response reports the documents, not the query: it is the turn's input.
                 input = _turn_input(root)
-        units.append(_unit(span, input, output, target, trace, name=_name(span)))
+        units.append(_unit(span, root, input, output, target, trace, name=_name(span)))
     return units
 
 

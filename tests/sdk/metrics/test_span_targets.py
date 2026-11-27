@@ -219,9 +219,24 @@ def test_a_portable_pattern_is_kept(pattern):
     Condition(field="x", op="matches", value=pattern)
 
 
-def test_a_field_rule_refuses_the_same_patterns():
+def test_a_field_rule_refuses_the_same_patterns_when_saved():
     with pytest.raises(ValueError, match="word boundary"):
-        FieldRule(field="output", op="matches", value=r"\brefund\b")
+        FieldRule.validate_config({"field": "output", "op": "matches", "value": r"\brefund\b"})
+
+
+def test_a_stored_rule_with_a_non_portable_pattern_still_builds_and_runs():
+    # Saved before the check existed: it keeps Python's meaning of \b.
+    rule = FieldRule(field="output", op="matches", value=r"\brefund\b")
+
+    assert rule.evaluate(output="Your refund is on its way.").details["is_successful"] is True
+    assert rule.evaluate(output="Refunded.").details["is_successful"] is False
+
+
+def test_a_target_condition_with_a_non_portable_pattern_is_refused_at_once():
+    with pytest.raises(ValidationError, match="word boundary"):
+        Condition(field="output", op="matches", value=r"\brefund\b")
+    with pytest.raises(ValidationError, match="word boundary"):
+        Target.spans(kind="tool_call", where=[("ai.tool.name", "matches", r"\brefund")])
 
 
 # ---------------------------------------------------------------------------
@@ -482,8 +497,7 @@ def test_read_of_something_missing_gives_no_text():
                 where=[("duration_ms", ">", 2000), ("ai.retrieval.backend", "exists")],
                 read={"input": "event:ai.retrieval.query"},
             ),
-            "each retrieval where `duration_ms` is over `2000` and `ai.retrieval.backend` is "
-            "set",
+            "each retrieval where `duration_ms` is over `2000` and `ai.retrieval.backend` is set",
             "each retrieval where `duration_ms` is over `2000`, and 1 more condition",
         ),
         (

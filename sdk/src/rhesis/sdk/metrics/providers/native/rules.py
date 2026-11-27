@@ -151,7 +151,8 @@ class FieldRule(TraceRule):
             settings["span_kind"] = span_kind
         if span_name is not None:
             settings["span_name"] = span_name
-        self.validate_config(settings)
+        # Built from storage too: a pattern saved before the portability check still runs.
+        self._checked(settings, portable=False)
         self.field = field
         self.op = op
         self.value = value
@@ -162,6 +163,11 @@ class FieldRule(TraceRule):
 
     @classmethod
     def validate_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
+        """The settings as saved: a ``matches`` pattern must also mean the same in Postgres."""
+        return cls._checked(config, portable=True)
+
+    @classmethod
+    def _checked(cls, config: Dict[str, Any], portable: bool) -> Dict[str, Any]:
         unknown = set(config) - {"field", "op", "value", "negate", "span_kind", "span_name"}
         if unknown:
             raise ValueError(f"Unknown settings: {', '.join(sorted(unknown))}")
@@ -174,7 +180,7 @@ class FieldRule(TraceRule):
             raise ValueError(
                 f"field must be one of {', '.join(FIELDS)}, or attributes.<key>; got {field!r}"
             )
-        check_value(op, config.get("value"), OPS)
+        check_value(op, config.get("value"), OPS, portable=portable)
         if not isinstance(config.get("negate", False), bool):
             raise ValueError("negate must be true or false")
         if field != "span_count" and (

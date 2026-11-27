@@ -201,8 +201,12 @@ def value_type(op: ConditionOp) -> ValueType:
     return ValueType.TEXT
 
 
-def check_value(op: Any, value: Any, ops: Tuple[ConditionOp, ...] = OPS) -> None:
-    """Raise ``ValueError`` when ``op`` is unknown or ``value`` doesn't fit it."""
+def check_value(
+    op: Any, value: Any, ops: Tuple[ConditionOp, ...] = OPS, portable: bool = True
+) -> None:
+    """Raise ``ValueError`` when ``op`` is unknown or ``value`` doesn't fit it. ``portable``
+    also refuses a pattern Postgres would read differently; a stored rule is built without
+    it, so one saved before the check existed still runs."""
     op = known_op(op, ops)
     if op in VALUELESS_OPS:
         if value is not None:
@@ -223,7 +227,8 @@ def check_value(op: Any, value: Any, ops: Tuple[ConditionOp, ...] = OPS) -> None
             re.compile(value)
         except re.error as e:
             raise ValueError(f"Invalid regular expression: {e}") from e
-        check_portable_pattern(value)
+        if portable:
+            check_portable_pattern(value)
 
 
 # What each construct that Python and Postgres read differently is, and what to write instead.
