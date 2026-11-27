@@ -191,6 +191,17 @@ workers:
       targetCPUUtilizationPercentage: 70
       # No memory target (same reasoning as backend above): Python RSS does not
       # come back down after a run, so memory pins the workers at maxReplicas.
+      # Also scale on the jobs waiting in each queue (templates/worker/hpa.yaml).
+      keda:
+        enabled: true
+        # Waiting jobs per replica, by queue. A worker pod already holds as many as it
+        # runs (24 test runs; 256 trace evaluations with prefetch), so these count overflow.
+        queues:
+          test-runs: 2
+          long-jobs: 4
+          trace-ingest: 200
+          trace-eval: 200
+          quick-tasks: 100
     env:
       # One Celery process per kind of job (apps/worker/start.sh): test runs and long jobs,
       # trace ingest, trace evaluation and short jobs, Architect, CPU-bound. Uses about

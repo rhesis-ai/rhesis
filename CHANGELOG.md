@@ -23,6 +23,8 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ### Added
 
+- Helm chart: `externalDatabase.poolerHost` points the API, workers and beat at a PgBouncer in transaction mode, such as a CloudNativePG `Pooler`. Migrations keep connecting to `externalDatabase.host`.
+- Helm chart: with `hpa.keda.enabled` and the KEDA operator installed, a worker also scales on the number of jobs waiting in each Celery queue (`hpa.keda.queues`), not only on CPU. Without KEDA the chart keeps rendering the CPU-only HPA.
 - SSO role mapping: organization and project roles can follow the groups your identity provider sends at sign-in, with a preview of who changes before you save and a JSON editor. The SSO settings are now split into Connection, Sign-in and Role mapping tabs, and the identity provider is recognised from the issuer URL.
 - A failed SSO sign-in now shows a page that explains what went wrong, with a reference the administrator can find in the backend log.
 - Scheduled test runs. Run a test set against an endpoint once at a set time or on a repeating schedule, from the run drawer or the new Schedules tab on Test Runs. Schedules have a week calendar, a page of their own, notifications, and MCP tools. Self-hosted deployments need no change: the existing `beat` service starts the runs. `SCHEDULE_MIN_INTERVAL_MINUTES` and `SCHEDULE_DISPATCH_ENABLED` are optional.
@@ -33,6 +35,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 - A test run loads its tests in one query instead of one per test, and looks up input files only for tests that have some. A run of 200 tests sends about 2,000 fewer queries before its first test starts.
 - Saving a test result sends 2 statements instead of 7: the result status is cached per organization, the new row is not read back, and linking its traces no longer reads them first.
+- Extracting text from an uploaded file no longer keeps a database transaction open while the extractor runs. It reads the file's status, closes the session, extracts, then saves the text in a new short session.
 - A test run saves its finished tests one after another on one database session, instead of one session per test, so a fast run holds fewer database connections.
 - Long background jobs (test runs, generation, tuning) no longer share a queue with short ones. Set `WORKER_LAYOUT=split` on the worker to run one process per kind of job, each sized for it: short jobs are prefetched (`CELERY_FAST_PREFETCH_MULTIPLIER`, default 8) so threads no longer sit idle waiting on the broker between them, and long jobs are taken one at a time. The default, `combined`, keeps one main process and one for the Architect, as before.
 - Each worker process sizes its database pool with `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` (default 10 and 20, as before).

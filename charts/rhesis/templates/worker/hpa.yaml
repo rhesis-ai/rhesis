@@ -1,5 +1,61 @@
 {{- range .Values.workers }}
 {{- if and .enabled .hpa.enabled }}
+{{- $keda := .hpa.keda | default dict }}
+{{- if and $keda.enabled ($.Capabilities.APIVersions.Has "keda.sh/v1alpha1") }}
+{{- $valkeyAuth := $.Values.valkey.auth | default dict }}
+{{- /* KEDA runs in its own namespace, so the in-cluster broker needs its full name. */}}
+{{- $broker := include "rhesis.valkey.host" $ }}
+{{- if $.Values.valkey.enabled }}
+{{- $broker = printf "%s.%s.svc" $broker $.Release.Namespace }}
+{{- end }}
+---
+# Scales on CPU like the plain HPA, and also on the jobs waiting in each queue. KEDA
+# creates and owns the HPA (named worker-<name>, as before).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker-{{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: worker-{{ .name }}
+    {{- include "rhesis.labels" $ | nindent 4 }}
+  annotations:
+    # Adopt the HPA an earlier release created under the same name.
+    scaledobject.keda.sh/transfer-hpa-ownership: "true"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-{{ .name }}
+  minReplicaCount: {{ .hpa.minReplicas }}
+  maxReplicaCount: {{ .hpa.maxReplicas }}
+  pollingInterval: {{ $keda.pollingInterval | default 15 }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      name: worker-{{ .name }}
+      behavior:
+        scaleDown:
+          # A worker pod drains its running jobs before it stops, so scale down slowly.
+          stabilizationWindowSeconds: {{ $keda.scaleDownStabilizationSeconds | default 600 }}
+  triggers:
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: {{ .hpa.targetCPUUtilizationPercentage | quote }}
+    {{- range $queue, $perReplica := $keda.queues }}
+    - type: redis
+      name: {{ $queue }}
+      metadata:
+        address: {{ printf "%s:%v" $broker $.Values.config.redisPort | quote }}
+        databaseIndex: {{ $keda.databaseIndex | default 0 | quote }}
+        listName: {{ $queue | quote }}
+        listLength: {{ $perReplica | quote }}
+      {{- if $valkeyAuth.enabled }}
+      authenticationRef:
+        name: worker-{{ $.Release.Name }}-broker
+      {{- end }}
+    {{- end }}
+{{- else }}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -32,4 +88,27 @@ spec:
           averageUtilization: {{ .hpa.targetMemoryUtilizationPercentage }}
     {{- end }}
 {{- end }}
+{{- end }}
+{{- end }}
+{{- $anyKeda := false }}
+{{- range .Values.workers }}
+{{- if and .enabled .hpa.enabled (.hpa.keda | default dict).enabled }}
+{{- $anyKeda = true }}
+{{- end }}
+{{- end }}
+{{- if and $anyKeda .Values.valkey.auth.enabled (.Capabilities.APIVersions.Has "keda.sh/v1alpha1") }}
+---
+# The broker password, for the ScaledObjects' queue-length triggers.
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: worker-{{ .Release.Name }}-broker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  secretTargetRef:
+    - parameter: password
+      name: {{ .Values.valkey.auth.existingSecret | default .Values.existingSecret }}
+      key: {{ .Values.valkey.auth.existingSecretPasswordKey | default "REDIS_PASSWORD" }}
 {{- end }}

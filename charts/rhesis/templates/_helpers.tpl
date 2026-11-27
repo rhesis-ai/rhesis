@@ -53,6 +53,20 @@ Otherwise fall back to externalDatabase.host.
 {{- end }}
 
 {{/*
+Host the running app connects to: the pooler when one is set, else the database.
+*/}}
+{{- define "rhesis.postgresql.appHost" -}}
+{{- if and (not .Values.postgresql.enabled) .Values.externalDatabase.poolerHost -}}
+{{- if not .Values.backend.migrations.job.enabled -}}
+{{- fail "externalDatabase.poolerHost needs backend.migrations.job.enabled: the API would otherwise run migrations through the pooler" -}}
+{{- end -}}
+{{- .Values.externalDatabase.poolerHost -}}
+{{- else -}}
+{{- include "rhesis.postgresql.host" . -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Resolve the analytics PostgreSQL hostname.
 For dev the subchart runs the analytics database in the same Postgres instance.
 For stg/prd a separate CNPG cluster is used; externalAnalyticsDatabase.host must be set.

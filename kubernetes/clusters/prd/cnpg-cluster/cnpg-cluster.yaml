@@ -38,8 +38,9 @@ spec:
       tcp_keepalives_idle: "60"
       tcp_keepalives_interval: "10"
       tcp_keepalives_count: "6"
-      # A session left open inside a transaction holds locks and a pool slot.
-      idle_in_transaction_session_timeout: "10min"
+      # A session left open inside a transaction holds locks and a pool slot. Matches
+      # the app's own limit (app/database.py), which the pooler cannot pass through.
+      idle_in_transaction_session_timeout: "30min"
   primaryUpdateStrategy: unsupervised
   bootstrap:
     initdb:
