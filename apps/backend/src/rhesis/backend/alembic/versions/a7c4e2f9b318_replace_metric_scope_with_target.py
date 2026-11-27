@@ -16,7 +16,7 @@ empty one before. The MetricScope type lookups go too. The downgrade restores sc
 targets, not the scopes this revision dropped, and not the type lookups.
 
 Revision ID: a7c4e2f9b318
-Revises: f2c8d4e6a913
+Revises: a3c8e1f5b7d2
 Create Date: 2026-10-27
 """
 
@@ -30,7 +30,7 @@ from sqlalchemy.dialects import postgresql
 from rhesis.backend.alembic.utils.tenant_scope import iter_tenant_scopes
 
 revision: str = "a7c4e2f9b318"
-down_revision: Union[str, None] = "f2c8d4e6a913"
+down_revision: Union[str, None] = "a3c8e1f5b7d2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
