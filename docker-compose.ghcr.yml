@@ -7,17 +7,17 @@
 # RHESIS_VERSION overrides it, e.g. to try another release's images.
 services:
   backend:
-    image: ghcr.io/rhesis-ai/backend:${RHESIS_VERSION:-0.22.0}
+    image: ghcr.io/rhesis-ai/backend:${RHESIS_VERSION:-0.23.0}
     build: !reset null
 
   worker:
-    image: ghcr.io/rhesis-ai/worker:${RHESIS_VERSION:-0.22.0}
+    image: ghcr.io/rhesis-ai/worker:${RHESIS_VERSION:-0.23.0}
     build: !reset null
 
   beat:
-    image: ghcr.io/rhesis-ai/worker:${RHESIS_VERSION:-0.22.0}
+    image: ghcr.io/rhesis-ai/worker:${RHESIS_VERSION:-0.23.0}
     build: !reset null
 
   frontend:
-    image: ghcr.io/rhesis-ai/frontend:${RHESIS_VERSION:-0.22.0}
+    image: ghcr.io/rhesis-ai/frontend:${RHESIS_VERSION:-0.23.0}
     build: !reset null

@@ -13,6 +13,15 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-27
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.23.0**
+- **Frontend 0.23.0**
+- **SDK 0.23.0**
+
 ### Upgrading a self-hosted deployment
 
 1. Embeddings are now off by default. To keep generating them, set `EMBEDDINGS_ENABLED=true` on the backend and the worker, or `config.embeddingsEnabled: true` in the Helm chart.
@@ -66,6 +75,31 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 - SDK connectors are no longer disconnected every 5 minutes while idle or waiting on a long function call. The backend now sends an app-level `ping` that the SDK answers, so a call in flight no longer loses its result to an idle-timeout reconnect.
 - Requests from Python's built-in `urllib` with its default User-Agent are no longer rejected with a 403 (error 1010) by the hosted API, telemetry, Polyphemus and demo chatbot hosts.
 - SDK connector calls no longer end in `sdk_timeout` when the connector reconnects while a call is running. The backend accepts a result on the new connection once the old one is gone, on any backend replica, and fails a call with `sdk_connection_lost` 90 seconds after its connector drops without coming back, instead of waiting for the full endpoint timeout. The backend acknowledges each result, and the SDK keeps a result until it is acknowledged, resending it after reconnecting.
+
+### Summary of Changes
+
+**Backend v0.23.0:**
+- Added scheduled test runs powered by cron expressions with automatic background dispatching and status notifications.
+- Introduced OTLP/HTTP OpenTelemetry GenAI trace ingestion, agent-based trace filtering, and optimized asynchronous trace processing.
+- Implemented background job execution time limits, overdue job close-out sweeps, queue separation by job kind, and KEDA autoscaling support.
+- Added SSO group-to-role mappings, mandatory email invitation acceptance for joining organizations, and enhanced WebSocket and API token security checks.
+
+**Frontend v0.23.0:**
+- Introduced test run scheduling with a new calendar week view, alongside foldout sections and tag-based execution controls in the run drawer.
+- Added a personal accessibility mode with high-contrast themes, improved screen reader announcements, full keyboard navigation, and responsive `rem`-based layout scaling.
+- Accelerated navigation performance by caching list revisits, displaying instant loading placeholders, and running server prefetches in parallel.
+- Expanded trace and evaluation insights with agent-based filtering, token-limit skip indicators, and read-only framework metrics.
+
+**SDK v0.23.0:**
+- Added support for filtering and running tagged tests via `tests_tagged` in the SDK and integrated test run scheduling capabilities into the Architect.
+- Improved LiteLLM proxy performance and thread safety using an async `aiohttp` client, configurable background thread pool sizes (`RHESIS_SDK_LOOP_THREADS`), and per-loop log workers.
+- Enhanced SDK connector reliability with automatic socket reconnections, result buffering/acknowledgements during network drops, and synchronized call timeouts across the stack.
+- Shared OpenTelemetry GenAI semantic-convention mappings (`rhesis.telemetry.genai`) with the backend for consistent OTLP trace ingest translation.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
 
 ## [0.22.0] - 2026-11-19
 

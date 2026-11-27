@@ -7,11 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-27
+
 ### Added
 
 - **Run tagged tests**: executing a test set, and a schedule's run settings, take `tests_tagged`, a list of tag names. The run includes only the tests carrying any of them, and its test count, quota check, metric plan and re-scores follow the same tests. A schedule whose tags no longer match any test pauses. Reusing outputs is refused when the earlier run has no output for some of the run's tests.
 - **Group runs**: `POST /test_runs/batches` runs several test sets, or every set carrying a tag, against one endpoint, once per experiment version. The runs share a `batch_id`, and a tag is stored on them as `batch_set_tag`. Every set and the quota for all of their tests are checked before any run starts. The MCP server exposes it as `execute_test_set_group`.
 - **Test tags of a test set**: `GET /test_sets/{id}/test-tags` lists the tags on a set's tests, each with how many tests carry it. The MCP server exposes it as `list_test_set_test_tags`, and `execute_test_set` takes `tests_tagged`.
+- **Scheduled test runs**: added cron-based test run scheduling (`/test_run_schedules`) with time zone support, occurrence previews, configurable notification settings, and a Celery Beat dispatcher that automatically triggers due runs.
+- **OTLP GenAI trace ingest (EE)**: added `POST /telemetry/v1/traces` supporting OpenTelemetry GenAI standards (protobuf/JSON over HTTP), agent filtering via `GET /telemetry/agents`, and specialized queue limit enforcement.
+- **SSO group to role mapping**: automatic mapping of OIDC/SAML SSO group claims to organization and project roles during sign-in, including sign-in error diagnostics and rule preview capabilities.
+- **Consented organization invitations**: adding an existing account without an organization now dispatches an invitation link, requiring token acceptance via `POST /auth/accept-invitation` to confirm control of the email address before granting membership.
+- **Job time limits and automated cleanup**: background execution jobs now enforce hard time deadlines (`JobTimeLimitExceeded`), and a periodic beat task sweeps outlived or stale queued job rows every 15 minutes.
+- **Embedding generation toggle**: added `EMBEDDINGS_ENABLED` setting to toggle background trace/test embedding generation and disable embedding-dependent graph endpoints when unneeded.
+- **Accessibility configurations**: backend support for organization-wide `accessible_colors` branding settings and personal accessibility mode preferences.
+
+### Changed
+
+- **Categorized worker queues**: background tasks are now routed to kind-specific Celery queues (`test-runs`, `long-jobs`, `architect`, `trace-ingest`, `trace-eval`, `quick-tasks`, `cpu-bound`, `maintenance`) supporting multi-process split worker layouts.
+- **Unified call timeouts**: standardized invoker call timeouts across REST and WebSocket execution paths, enforcing deadlines capped by `MAX_ENDPOINT_TIMEOUT`.
+- **Slim response payloads**: excluded unnecessary metadata (such as full `metric_plan` objects from test run lists and prompt/step text from requirements list views) to improve network and serialization efficiency.
 
 ### Fixed
 
@@ -21,6 +36,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Routes survive a late teardown**: closing an old connector socket, or its heartbeat while it lingers, no longer removes or takes back the route of a connection that re-registered the same project and environment, locally or in Redis.
 - **Bounded call bookkeeping**: calls dispatched for Celery workers are forgotten once their timeout passes, instead of piling up.
 - **Dropped connectors fail fast**: when a connector drops and no connection of its scope comes back within 90 seconds, its in-flight calls fail with `sdk_connection_lost` instead of waiting for the endpoint timeout. The error is not retried, since the function may already have run.
+- **Session & credential security**:
+  - Global cookie session invalidation across backend pods upon user logout.
+  - Automatic revocation of long-lived API tokens when resetting a user's password.
+  - Active WebSockets periodically re-verify credentials and role scopes, dropping sockets upon credential revocation or membership changes.
+  - Foreign key references are validated strictly against the caller's organization catalog boundaries (`ForeignReferenceError`).
+  - Restricted `RHESIS_DISABLE_SCOPE_LISTENER` to dev/local environments to prevent accidental tenant-scoping bypasses in staging and production.
+  - Sanitized export CSV outputs against formula injection (`=`, `+`, `-`, `@`) and standardized RFC 6266 `Content-Disposition` download headers.
+  - Masked authentication tokens in recorded error payload logs.
+  - Restricted `PUT /organizations/{id}` payload fields strictly to profile metadata.
+- **Usage & quota enforcement**:
+  - Reserved quota up-front for Garak syncs, OWASP runs, and test set generation.
+  - Enforced organization limits (`SEATS`, `ENDPOINTS`, `PROJECTS`, `MODEL_TOKENS`) on soft-restores, SDK syncs, trace evaluations, and SSO auto-provisioning.
+  - Spans skipped due to token quota exhaustion are explicitly marked with a `Skipped` status.
+- **Performance & database efficiency**:
+  - Consolidated span enrichment into single transactions with multi-row inserts and inline linking during trace ingest.
+  - Coalesced model token accruals into organization-level periodic batch flushes.
+  - Restored missing `created_at` and `updated_at` timestamps on `TestRun` response schemas.
+  - Cached tenant GUC parameters and API token validations to minimize database round trips per request.
 
 ## [0.22.0] - 2026-11-19
 

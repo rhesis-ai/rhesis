@@ -7,18 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-27
+
 ### Added
 
 - **Run Sets With a Tag**: New Test Run can run every test set carrying a tag, each as its own run, and lists the sets the tag covers. Runs of several sets or experiments now start through one server request, which checks every set and the quota before any run starts.
 - **Run Tagged Tests**: The run drawer's What to run section has an Only tests tagged field. Pick tags from the set's tests, with how many tests carry each, to run only those tests. Schedules keep the choice, re-runs start with it, and a run's Configuration tab and a schedule's run settings show it.
+- **Scheduled Test Runs**: Added a dedicated Schedules tab under Test Runs featuring week calendar and list views, schedule management drawers, notification preferences, and test set schedule filtering.
+- **Agent Trace Filtering**: Added support for viewing and filtering OpenTelemetry GenAI traces by agent name.
+- **Personal Accessibility Mode**: Introduced a personal accessibility setting that elevates UI color contrast above WCAG 2.1 AA headroom standards and prompts confirmation for destructive actions.
+- **Organization Invitation Page**: Added a dedicated landing page for accepting organization invitation links and joining organizations seamlessly.
+- **SSO Group Mapping UI**: Added a preview and JSON editor for SSO group-to-role mappings, along with explicit sign-in refusal landing pages.
+- **Session Expiry Warning**: Displays a dialog two minutes prior to session expiration offering to extend the current session or sign out.
+- **Skipped Evaluation Status for Traces**: Highlights traces skipped due to organization token limits with a clear `Skipped` status badge and explanation on the evaluation view.
 
 ### Changed
 
 - **Run Drawer Sections**: The run drawer groups its fields into What to run, Run against, Scoring, When and More options. A folded section shows its settings on one line. Reuse Outputs is now disabled wherever there is no earlier run to reuse; before, it could be picked and the run called the endpoint anyway. Scheduling moved from the save button's menu into the When section, and the footer says how many runs and tests a click starts.
+- **Page Loading Experience**: Replaced full-page skeletons with immediate page headers, mirrored tabs/toolbars, and component-level loading placeholders.
+- **Read-Only Framework Metrics**: Rendered framework metrics in a read-only state on metric detail pages with linked tab panels.
+- **Feature-Gated Embedding Controls**: Automatically hides embedding model selections, creation tabs, and test set cluster views when backend embedding generation is disabled.
+- **Typography and Layout Scaling**: Converted font sizes to `rem` units to cleanly honor browser text size preferences and scale layout components dynamically.
+
+### Performance
+
+- **Instant Cached Views**: Retains and displays cached rows, metrics, requirements, and trace lists when revisiting pages while fresh data loads in the background.
+- **Parallelized Layout Prefetch**: Parallelized organization fetching and server prefetching alongside route permission checks.
+- **On-Demand Tab Loading**: Deferred loading content for test set tabs until the tab is explicitly opened.
+- **Slimmer List Requests**: Optimized payload sizes on requirements list views by fetching slim metric references without unused prompt definitions.
+
+### Accessibility
+
+- **Screen Reader Live Regions**: Added screen reader announcements for toast notifications, modal dialogs, real-time test run status updates, and Architect responses.
+- **Keyboard Focus & Controls**: Added visible focus rings, keyboard selection for trace trees and data grid rows, and keyboard exit controls for code editors.
+- **Responsive High-Zoom Reflow**: Improved high-zoom scaling and narrow-viewport layouts using a collapsible overlay navigation drawer and auto-wrapping action headers.
+- **Accessible Charts & Verdict Strips**: Provided tabular data alternatives for rendered charts and distinct bar heights for verdict status indicators in accessible color mode.
 
 ### Fixed
 
 - **API Tokens for Members**: Members can open the API page to manage their own tokens; it no longer requires an admin role.
+- **Production Detail Error Views**: Rendered proper error pages for production server errors and access-denied conditions on detail pages.
+- **CSV Export Safety**: Neutralized spreadsheet formula injection characters across exported CSV files.
+- **Form Error Linking**: Connected form validation errors directly to input fields using `aria-invalid` and `aria-describedby` attributes, focusing the first invalid field on submission.
 
 ## [0.22.0] - 2026-11-19
 

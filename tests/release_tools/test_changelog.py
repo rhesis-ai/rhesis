@@ -225,6 +225,23 @@ def test_component_release_moves_unreleased_entries_into_the_new_version(tmp_pat
     assert "### Removed\n\n- Gone" in new
 
 
+def test_merge_drops_generated_bullets_that_repeat_hand_written_ones():
+    from release_tools.changelog import merge_entries
+
+    handwritten = "### Added\n\n- Run tagged tests\n\n### Fixed\n\n- Keepalive"
+    generated = (
+        "### Added\n\n- Run tagged tests\n- Schedules\n\n"
+        "### Changed\n\n- Keepalive\n\n### Fixed\n\n- Keepalive\n- Invites"
+    )
+
+    merged = merge_entries(handwritten, generated)
+
+    assert merged.count("- Run tagged tests") == 1
+    assert merged.count("- Keepalive") == 1
+    assert "- Schedules" in merged and "- Invites" in merged
+    assert "### Changed" not in merged
+
+
 def test_platform_release_that_fails_leaves_unreleased_intact(tmp_path, monkeypatch):
     from release_tools import changelog as changelog_mod
 

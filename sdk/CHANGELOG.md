@@ -13,9 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-27
+
 ### Added
 
 - `TestSet.execute()` takes `tests_tagged`, a list of tag names. Only the set's tests carrying any of them run.
+- Enabled test run scheduling capabilities for the Architect agent.
 
 ### Changed
 
@@ -27,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GenAI-convention spans (Agent Framework, Pydantic AI) no longer count cache reads and writes in `ai.llm.tokens.input`; they are reported in `ai.llm.tokens.cache_read` and `ai.llm.tokens.cache_write`. Agent id, description and version, tool description and call id, and handoff targets are mapped too.
 - `ai.llm.finish_reason` from GenAI-convention spans (Google ADK, Agent Framework, Pydantic AI) is one string, the reasons joined with ", ", as the LangChain integration records it; it was the raw array.
 - The GenAI-convention mapping moved to the shared `rhesis` package (`rhesis.telemetry.genai`), where the backend's OTLP ingest uses it as well.
+- Raised minimum `jupyter-server` dependency requirement to `>=2.21.0`.
 
 ### Fixed
 
@@ -35,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - After a connection that had stayed up drops, the connector reconnects at once instead of waiting out a backoff that grew with every earlier drop (up to 60 seconds), and sends during the reconnect go straight to the outbox.
 - The backend's keepalive `ping` is logged at debug level instead of info.
 - The SDK requires the `rhesis` core package at its own version or newer, instead of `0.17.1`, so it no longer installs next to an older core.
+- `close_background_loop()` now explicitly shuts down the background loop's thread pool on close.
+- Log warning messages when backend endpoint registration reports failures or errors.
 
 ## [0.22.0] - 2026-11-19
 

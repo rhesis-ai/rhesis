@@ -48,6 +48,24 @@ describe('useDocumentTitle', () => {
     expect(document.title).toBe('Original Title');
   });
 
+  it('lets a drawer title win over the list title under it, then hands back', async () => {
+    const wrapper = wrapperFor('Acme Testing');
+    const list = renderHook(() => useDocumentTitle('Traces'), { wrapper });
+    const drawer = renderHook(() => useDocumentTitle('Span A · Traces'), {
+      wrapper,
+    });
+
+    // Both observers see every title change; they must not keep overwriting
+    // each other (that loop froze the tab). Observer callbacks are microtasks,
+    // so a timer only fires once they settle; with the loop it never fires.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(document.title).toBe('Span A · Traces | Acme Testing');
+
+    drawer.unmount();
+    expect(document.title).toBe('Traces | Acme Testing');
+    list.unmount();
+  });
+
   it('restores the product name on unmount', () => {
     const { unmount } = renderHook(() => useDocumentTitle('Settings'), {
       wrapper: wrapperFor('Acme Testing'),

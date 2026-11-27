@@ -4,8 +4,8 @@ description: Rhesis AI Platform — Frontend, Backend, Workers, Chatbot, Polyphe
 type: application
 # Both are set to the platform version by the release tool, so the chart a release
 # tag ships defaults its image tags to that release (see rhesis.image).
-version: 0.22.0
-appVersion: "0.22.0"
+version: 0.23.0
+appVersion: "0.23.0"
 maintainers:
   - name: Rhesis Team
 

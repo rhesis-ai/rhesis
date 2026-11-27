@@ -8,6 +8,86 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.23.0] - 2026-11-27
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.23.0**
+- **Frontend 0.23.0**
+- **SDK 0.23.0**
+
+### Summary
+
+Test runs can run on a **schedule**. A run can include only **tagged tests**, and one click runs **every test set with a tag**. Enterprise deployments accept traces over **OTLP**, and traces filter by **agent**. SSO can **map identity provider groups to roles**. **Accessibility mode** raises contrast and turns off animations. Endpoint timeouts go up to **2 hours**. Self-hosted deployments have **upgrade steps** for this release.
+
+### Featured Capabilities
+
+**Scheduled test runs**
+
+- **Schedules**: run a test set against an endpoint once at a set time or on a repeating schedule, from the run drawer or the new Schedules tab on Test Runs
+- **Calendar and notifications**: a week calendar shows upcoming runs, and each schedule has its own page and notification settings
+- **Architect and MCP**: create and manage schedules from the Architect or any MCP client
+
+See [Scheduling Test Runs](/docs/test-runs/scheduling).
+
+**Tagged tests and tagged sets**
+
+- **Only tests tagged**: the run drawer's What to run section picks tags from the set's tests, with how many tests carry each, and runs only those tests. Schedules and re-runs keep the choice
+- **Every set with a tag**: New Test Run starts one run per test set carrying a tag. Every set and the quota for all of their tests are checked before any run starts
+- **Run drawer sections**: fields are grouped into What to run, Run against, Scoring, When and More options
+
+See [Test Run Execution](/docs/test-runs/execution).
+
+**OTLP trace ingest (Enterprise)**
+
+- **Any OpenTelemetry exporter**: `POST /telemetry/v1/traces` accepts traces from a Collector, Grafana Alloy or an SDK's `OTLPSpanExporter`, in protobuf or JSON, and translates the OpenTelemetry GenAI conventions into Rhesis traces
+- **Agents**: the trace list shows each trace's agent and filters by agent name
+
+See [Send Traces over OTLP](/docs/tracing/otlp).
+
+**SSO role mapping**
+
+- **Groups to roles**: organization and project roles follow the groups your identity provider sends at sign-in, with a preview of who changes before you save
+- **Sign-in errors**: a failed SSO sign-in shows a page that explains what went wrong, with a reference the administrator can find in the backend log
+
+See [Single Sign-On](/docs/organizations/sso#map-groups-to-roles).
+
+**Accessibility mode**
+
+- **Three levels**: turn it on for a deployment, an organization or yourself
+- **What it changes**: higher contrast in light and dark mode, no animations, full text instead of cut-off labels, and Tab leaves code editors instead of indenting
+- **For everyone**: a visible focus ring on every control, keyboard access to every function, and a data table for each chart
+
+See [Accessibility](/docs/organizations/accessibility).
+
+### Backend Highlights
+- Endpoint timeouts can be up to 7200 seconds, and a test run's per-test limit follows the endpoint's timeout
+- A call that reaches its timeout is no longer retried, because the endpoint may already have done the work
+- Generation, metric tuning and Garak syncs stop at a time limit, and jobs whose worker died are marked failed
+- Adding an existing account to an organization sends an invitation it must accept
+- Trace ingest queues spans instead of writing them during the request, and enforces size, rate and queue limits
+- SDK connector calls survive a reconnect while the call is running
+
+### Frontend Highlights
+- Pages show their header at once and load their content in place, and revisited lists show cached rows while fresh data loads
+- A dialog two minutes before the session expires offers to extend it
+- Traces skipped because the organization reached its token limit show a Skipped status
+
+### SDK Highlights
+- `TestSet.execute()` takes `tests_tagged`
+- `LiteLLMProxy.a_generate()` uses an async HTTP client, and blocking model calls run on a pool of `RHESIS_SDK_LOOP_THREADS` threads (default 64)
+- The connector keeps each result until the backend acknowledges it, and resends it after reconnecting
+- `Endpoint.invoke()` waits as long as the backend waits for the endpoint
+
+### Self-Hosting
+- Embeddings are off by default. Set `EMBEDDINGS_ENABLED=true` to keep generating them
+- Background jobs run on named queues by kind. A worker started with its own `--queues` list must add the new ones, including `trace-ingest`
+- `WORKER_LAYOUT=split` runs one worker process per kind of job
+- Helm chart: `externalDatabase.poolerHost` for a PgBouncer pooler, and KEDA queue-length scaling with `hpa.keda.enabled`
+
+Read the upgrade steps in the [0.23.0 release notes](https://github.com/rhesis-ai/rhesis/blob/main/CHANGELOG.md) before upgrading. See [Upgrading](/self-hosting/upgrading).
+
 ## [0.22.0] - 2026-11-19
 
 ### Platform Release

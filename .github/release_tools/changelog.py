@@ -144,12 +144,20 @@ def merge_entries(handwritten: str, generated: str) -> str:
 
     Hand-written entries go first under a shared heading; headings only they use follow.
     """
+    handwritten_sections = _sections(handwritten)
+    # The LLM is told to leave these out but still copies some back verbatim (0.23.0).
+    handwritten_bullets = {
+        line.strip() for _, lines in handwritten_sections for line in lines if line.startswith("- ")
+    }
     remaining = {
-        (heading or "").lower(): (heading, lines) for heading, lines in _sections(handwritten)
+        (heading or "").lower(): (heading, lines) for heading, lines in handwritten_sections
     }
     merged = []
     for heading, lines in _sections(generated):
+        lines = [line for line in lines if line.strip() not in handwritten_bullets]
         _, own = remaining.pop((heading or "").lower(), (heading, []))
+        if not own and not any(line.strip() for line in lines):
+            continue
         merged.append((heading, own + lines))
     merged.extend(remaining.values())
 

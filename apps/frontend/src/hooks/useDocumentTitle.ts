@@ -3,6 +3,18 @@ import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { DEFAULT_PRODUCT_NAME } from '@/config/branding';
 
 /**
+ * Titles of the mounted `useDocumentTitle` callers, most recent last. Only the
+ * last one may re-apply its title: two callers on one page (a list and the
+ * drawer over it) would otherwise keep overwriting each other's title from
+ * their observers, freezing the tab.
+ */
+const titleStack: { token: symbol; title: string }[] = [];
+
+function topTitle(): { token: symbol; title: string } | undefined {
+  return titleStack[titleStack.length - 1];
+}
+
+/**
  * Sets the document title for client components, which cannot use
  * `generateMetadata`.
  *
@@ -22,12 +34,15 @@ export function useDocumentTitle(title: string | null) {
     const fullTitle = `${title} | ${productName}`;
     const pathname = window.location.pathname;
     const previousTitle = document.title;
+    const entry = { token: Symbol(title), title: fullTitle };
+    titleStack.push(entry);
     document.title = fullTitle;
 
     // Streamed route metadata can insert its <title> after this effect and
     // win; re-apply ours, but not once a navigation has moved off this page.
     const observer = new MutationObserver(() => {
       if (
+        topTitle()?.token === entry.token &&
         window.location.pathname === pathname &&
         document.title !== fullTitle
       ) {
@@ -43,10 +58,13 @@ export function useDocumentTitle(title: string | null) {
 
     return () => {
       observer.disconnect();
-      // Restore what was there (e.g. a list page under a drawer), but leave a
-      // title the next page has already set alone.
-      if (document.title === fullTitle) {
-        document.title = previousTitle || productName;
+      const wasTop = topTitle()?.token === entry.token;
+      const index = titleStack.indexOf(entry);
+      if (index !== -1) titleStack.splice(index, 1);
+      // Hand the tab back to the title underneath (e.g. a list page under a
+      // drawer), but leave a title the next page has already set alone.
+      if (wasTop && document.title === fullTitle) {
+        document.title = topTitle()?.title ?? (previousTitle || productName);
       }
     };
   }, [title, productName]);
