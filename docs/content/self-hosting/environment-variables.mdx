@@ -274,6 +274,9 @@ Without OAuth credentials, only email/password authentication is available.
 |---|---|---|
 | `AUTH_EMAIL_PASSWORD_ENABLED` | Allow email/password sign-in | `true` |
 | `AUTH_REGISTRATION_ENABLED` | Allow self-sign-up. `false` makes the instance invite-only: password registration, magic-link sign-up and first sign-in with Google or GitHub no longer create accounts. Invited and existing users still sign in, including through invitation links. SSO auto-provisioning is set per organization and is not affected | `true` |
+| `AUTH_BLOCK_DISPOSABLE_EMAILS` | Checks self-serve sign-ups against a public list of disposable email domains. `off` skips the check, `log` logs a match and lets the sign-up through, `enforce` rejects it with HTTP 400. Invited users are not checked | `log` |
+| `AUTH_DISPOSABLE_EMAIL_EXTRA_DOMAINS` | More domains to block, comma-separated. A domain also blocks its subdomains | *(unset)* |
+| `AUTH_DEFAULT_SSO_ORGANIZATION` | Enterprise only. Slug or ID of the organization whose SSO sign-in the login page offers when its URL has no `?org=` | *(unset)* |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Enable Google sign-in (set both) | *(unset)* |
 | `GH_CLIENT_ID`, `GH_CLIENT_SECRET` | Enable GitHub sign-in (set both) | *(unset)* |
 
@@ -292,6 +295,7 @@ Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
 | `SMTP_USER` | SMTP username | *(unset)* |
 | `SMTP_PASSWORD` | SMTP password | *(unset)* |
 | `FROM_EMAIL` | Default From address | `noreply@example.com` |
+| `EMAIL_ASSET_BASE_URL` | Where emails load their logo, header image and font from. Mail clients fetch these directly, so it must be publicly reachable. `docker-compose.yml` and the Helm chart do not pass it; add it to the backend and worker environment | `https://rhesis.ai` |
 
 ## Object storage
 
@@ -334,14 +338,32 @@ See [Telemetry System Documentation](/contribute/telemetry) for what is collecte
 |---|---|---|
 | `LOG_LEVEL` | Log verbosity | `INFO` |
 | `QUICK_START` | Enable Quick Start mode (auto-login; not for production) | `false` |
-| `WORKER_LAYOUT` | `combined` runs one worker process for all queues; `split` runs one process per kind of job (test runs and long jobs, trace ingest, trace evaluation and short jobs, Architect, CPU-bound) | `combined` |
-| `CELERY_WORKER_CONCURRENCY` | `combined` layout: jobs the main worker process runs at once | `8` (Docker Compose), `2` (Helm) |
+| `WORKER_LAYOUT` | `combined` runs two worker processes, one for Architect jobs and one for every other queue; `split` runs one process per kind of job (test runs and long jobs, trace ingest, trace evaluation and short jobs, Architect, CPU-bound) | `combined` |
+| `CELERY_WORKER_CONCURRENCY` | `combined` layout: jobs the main worker process runs at once. Helm: `config.celeryWorkerConcurrency` | `8` |
+| `CELERY_ARCHITECT_CONCURRENCY` | Architect jobs the Architect worker process runs at once, in both layouts. Helm: `config.celeryArchitectConcurrency` | `2` |
 | `CELERY_WORKER_PREFETCH_MULTIPLIER` | `combined` layout: jobs prefetched per thread | `1` |
 | `CELERY_LONG_CONCURRENCY` | `split` layout: test runs and long jobs at once | `24` |
 | `CELERY_INGEST_CONCURRENCY` | `split` layout: trace ingest jobs at once | `16` |
 | `CELERY_FAST_CONCURRENCY` | `split` layout: trace evaluations and short jobs at once | `32` |
 | `CELERY_FAST_PREFETCH_MULTIPLIER` | `split` layout: jobs prefetched per thread for trace ingest, trace evaluation and short jobs | `8` |
+| `CELERY_WORKER_LOGLEVEL` | Log level of Celery's own task messages (task received, succeeded, failed). Helm: `config.celeryWorkerLogLevel` | `LOG_LEVEL` |
 | `WORKER_STOP_GRACE_PERIOD` | Docker Compose only. How long a stopping worker may take to finish running test runs. An idle worker stops at once. On Kubernetes, set `workers[].terminationGracePeriodSeconds` in the Helm values instead | `9000s` |
+| `DB_POOL_SIZE` | Postgres connections each API process keeps open | `10` |
+| `DB_MAX_OVERFLOW` | Extra connections each API process may open above `DB_POOL_SIZE` under load | `20` |
+| `TRACE_EVAL_CONTEXT_TTL_SECONDS` | How long a project's trace metrics and judge model are cached. A change to a project's trace metrics reaches new traces within this time | `60` |
+| `USAGE_ACCRUAL_FLUSH_SECONDS` | How often each process writes the model tokens it has counted to the usage counter. Tokens not yet written are lost if the process is killed. `0` writes each call at once | `2` |
+
+Worker processes ignore `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` and use fixed values from
+`apps/worker/start.sh`. In the `combined` layout a worker pod opens at most 40 connections (30 for
+the main process, 10 for Architect); in `split` each of the five processes has its own. Postgres
+`max_connections` has to cover every API process and worker pod together, unless a pooler sits in
+between.
+
+`docker-compose.yml` does not pass `CELERY_ARCHITECT_CONCURRENCY`, `DB_POOL_SIZE`,
+`DB_MAX_OVERFLOW`, `TRACE_EVAL_CONTEXT_TTL_SECONDS` or `USAGE_ACCRUAL_FLUSH_SECONDS` to the
+containers; add them to the service's `environment` to change them. On Helm, set `DB_POOL_SIZE` and
+`DB_MAX_OVERFLOW` in `backend.env`, and `TRACE_EVAL_CONTEXT_TTL_SECONDS` and
+`USAGE_ACCRUAL_FLUSH_SECONDS` in `backend.env` and each `workers[].env`.
 
 ## Background job limits
 
