@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `TestSet.execute()` takes `tests_tagged`, a list of tag names. Only the set's tests carrying any of them run.
+- Rules: `FieldRule` checks a field of the trace (duration, status, errors, span counts, tokens, cost, input, output, length, attributes) and `ResponseRule` compares the output with the expected response (exact, contains, regex, or ROUGE-L or edit-distance similarity). Neither needs a model, and both have the new `MetricType.RULE`. `ToolCallTrajectory` is a rule too, and is not applicable instead of raising on a test without expected tool calls. Missing data makes a rule not applicable, and a per-unit target leaves those units out of its verdict. Rules are also not applicable on missing or empty input or output, a blank expected response, a non-number under a numeric comparison, and `status` or `error_count` on reported spans. A call both recorded and reported counts once.
+- `Expectations.tool_calls_per_turn` and `Test(expected_tool_calls_per_turn=...)`: a turn unit is held to its own expected tool calls, and metrics comparing tool calls can take `turn`.
+- The Architect plans a rule, not a judge, for a requirement that is a limit (`MetricSpec.rule`, `rule_settings`), and checks a planned rule is created with that class.
+- `metric.evaluate()` without `target=` uses the metric's own target, so a pulled metric judges a trace locally the way the platform does.
 
 ### Changed
 - **BREAKING:** `MetricScope` and `MetricConfig.metric_scope` are removed. A metric's
@@ -33,8 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Span.duration_ms` is `None` when timing is unknown, for reported spans and for traces built with `Trace.from_response` or `Trace.from_conversation`, instead of 0.
 - Built and reported invocation spans have the kind `endpoint.invoke`, and each `metadata` key is its own attribute (`rhesis.reported.metadata.<key>`). A reported `usage` becomes an `llm.invoke` span with the token counts.
 - Rules: `FieldRule` checks a field of the trace (duration, status, errors, span counts, tokens, cost, input, output, length, attributes) and `ResponseRule` compares the output with the expected response (exact, contains, regex, or ROUGE-L or edit-distance similarity). Neither needs a model, and both have the new `MetricType.RULE`. `ToolCallTrajectory` is a rule too, and is not applicable instead of raising on a test without expected tool calls. Missing data makes a rule not applicable, and a per-unit target leaves those units out of its verdict.
-- `Expectations.tool_calls_per_turn` and `Test(expected_tool_calls_per_turn=...)`: a turn unit is held to its own expected tool calls, and metrics comparing tool calls can take `turn`.
-- The Architect plans a rule, not a judge, for a requirement that is a limit (`MetricSpec.rule`, `rule_settings`), and checks a planned rule is created with that class.
 - `LiteLLMProxy.a_generate()` calls the proxy on an async HTTP client instead of running the blocking call in a thread, so many evaluations can wait on the proxy at once.
 - Blocking model calls made from the SDK's background event loop run on a pool of `RHESIS_SDK_LOOP_THREADS` threads (default 64). Before, a process made at most `os.cpu_count() + 4` such calls at once, and in a container that is the host's core count.
 - Creating a metric imports only its own provider. A Rhesis metric no longer imports deepeval and garak, which took seconds of CPU on a process's first evaluation.

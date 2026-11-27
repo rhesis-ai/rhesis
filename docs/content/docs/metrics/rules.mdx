@@ -71,8 +71,7 @@ A test without an expected response, and every production trace, makes an expect
 | | The whole run | `cost_usd <= 0.05` | traced model calls with a priced model |
 | | Each agent named `planner` | `span_count <= 6` with `span_kind: model_call` | traced agents |
 | Reliability | The whole run | `error_count == 0` | any endpoint |
-| | Each tool call, all must pass | `status == ok` | tool calls |
-| | Each turn | `attributes.endpoint.response.status == 200` | REST endpoints |
+| | Each tool call, all must pass | `status == ok` | traced tool calls; reported ones are not applicable |
 | Agent behaviour | The whole run | `span_count == 0` with `span_kind: tool_call`, `span_name: delete_account` | tool calls |
 | | Each model call | `attributes.ai.model.name in [...]` | traced model calls |
 | Output | Each turn | `output is_json` | any endpoint |
@@ -86,7 +85,7 @@ Field rules need no expectations, so they run on [production traces](/docs/metri
 
 Rules can't judge meaning ("was the answer helpful"): use a judge for that, and a rule in front of it to catch the cheap failures. They compare one run with fixed values, not with earlier runs, and give no statistics over many runs, such as p95 latency; those are in Insights.
 
-Every organization has these rules built in: **Response Time** (each turn, `duration_ms <= 5000`), **No Failed Tool Calls** (each tool call, `status == ok`), **Token Budget** (the whole run, `tokens.total <= 20000`), **Exact Match** (`ResponseRule`, `exact`) and **Tool Call Trajectory**.
+Every organization has these rules built in: **Response Time** (each turn, `duration_ms <= 5000`), **No Failed Tool Calls** (each tool call, `error_count == 0`), **Token Budget** (the whole run, `tokens.total <= 20000`), **Exact Match** (`ResponseRule`, `exact`) and **Tool Call Trajectory**.
 
 ## Creating a rule
 
@@ -122,7 +121,7 @@ A rule's settings and its target live in the metric's `config`:
 {`from rhesis.sdk.metrics import FieldRule, ResponseRule
 
 fast = FieldRule(field="duration_ms", op="<=", value=5000)
-result = fast.evaluate(trace=trace)  # a Trace, for example Trace.pull(trace_id)
+result = fast.evaluate(trace=trace)  # a Trace, for example Traces.pull(trace_id)
 print(result.score, result.details["reason"])
 
 every_tool_call = FieldRule(field="status", op="==", value="ok")
@@ -137,4 +136,4 @@ print(close_enough.evaluate(
 ).score)`}
 </CodeBlock>
 
-A rule's result has `measured` and `expected` in its `details`, next to the `reason`.
+A rule's result has `measured` and `expected` in its `details`, next to the `reason`. `evaluate()` judges the units the rule's own `target` picks, as the platform does, unless the call names another `target=`.
