@@ -10,7 +10,7 @@ expected tool calls).
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from sqlalchemy import inspect as sa_inspect
 
@@ -143,6 +143,41 @@ def applies(metric: Any, expectations: Optional[Expectations], conversation: boo
     if not all(getattr(expectations, field, None) is not None for field in required):
         return False
     return fits(metric, conversation)
+
+
+_NO_TEXT_REASON = (
+    "The trace recorded no input or output, so there is nothing to judge. Call the endpoint "
+    "through Rhesis, or record its input and output on the root span "
+    "(rhesis.conversation.input and rhesis.conversation.output)."
+)
+# Targets whose text is the turn's or the whole trace's, not a span's own.
+_WHOLE_TURN_TARGETS = (None, "turn", "run", "conversation")
+
+
+def without_text(metrics: List[Any]) -> tuple[List[Any], Dict[str, Dict[str, Any]]]:
+    """For a trace with no input or output: the metrics that can still judge it, and a
+    not-applicable result for each model metric that would read the missing text. Rules and
+    metrics on a span (each tool call, each retrieval) read their own values and still run."""
+    from rhesis.backend.metrics.result_builder import MetricResultBuilder
+
+    kept: List[Any] = []
+    results: Dict[str, Dict[str, Any]] = {}
+    for metric in metrics:
+        if not (needs_model(metric) and metric_target(metric) in _WHOLE_TURN_TARGETS):
+            kept.append(metric)
+            continue
+        name = getattr(metric, "name", None) or getattr(metric, "class_name", None) or "metric"
+        backend = getattr(metric, "backend", None)
+        results[name] = MetricResultBuilder.success(
+            score=None,
+            reason=_NO_TEXT_REASON,
+            is_successful=None,
+            backend=str(getattr(backend, "value", backend) or "rhesis"),
+            name=name,
+            class_name=getattr(metric, "class_name", None) or "",
+            extra={"not_applicable": True},
+        )
+    return kept, results
 
 
 def applicable(

@@ -39,8 +39,10 @@ from rhesis.backend.app.services.telemetry.trace_metrics_config import (
 from rhesis.backend.app.services.test_result_status import test_result_status_id
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.celery.core import app
+from rhesis.backend.metrics.applicability import without_text
 from rhesis.backend.metrics.inputs import ResponseTrace, TraceLoader
 from rhesis.sdk.entities.trace import Trace
+from rhesis.sdk.metrics.arguments import judged_input_output
 
 logger = logging.getLogger(__name__)
 
@@ -257,9 +259,8 @@ def evaluate_turn_trace_metrics(
             return {"status": "no_root_span", "trace_id": trace_id}
 
         # Skip if turn metrics were already evaluated for this specific span.
-        # We use trace_metrics_processed_at as the guard (only set after a real
-        # evaluation, not after a no_io/skipped result) so that spans whose
-        # input/output attributes hadn't arrived yet still get a second chance.
+        # trace_metrics_processed_at is only set after a real evaluation, not after a
+        # skipped one, so a skipped span still gets a second chance.
         if root_span.trace_metrics_processed_at and (root_span.trace_metrics or {}).get(
             "turn_metrics"
         ):
@@ -271,9 +272,6 @@ def evaluate_turn_trace_metrics(
 
         input_text = (root_span.attributes or {}).get(CONVERSATION_INPUT_KEY, "")
         output_text = (root_span.attributes or {}).get(CONVERSATION_OUTPUT_KEY, "")
-        if not input_text and not output_text:
-            logger.info(f"No input/output attributes on root span for trace {trace_id}")
-            return {"status": "no_io", "trace_id": trace_id}
 
         has_conversation = bool(root_span.conversation_id)
         metric_configs, invalid_metrics = project_metric_configs(
@@ -299,16 +297,21 @@ def evaluate_turn_trace_metrics(
                 _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
             return {"status": "quota_exceeded", "trace_id": trace_id}
 
-        trace = ResponseTrace(
-            input=input_text,
-            output=output_text,
-            loader=_turn_trace_loader(
-                trace_id, str(root_span.span_id), organization_id, project_id
-            ),
-        )
-        # End the read transaction so the connection goes back to the pool for the
-        # judge calls; the writes below open a new one (GUCs re-applied on begin).
+        # End the read transaction so the connection goes back to the pool for the trace
+        # read and the judge calls; the writes below open a new one (GUCs re-applied on begin).
         db.commit()
+        loader = _turn_trace_loader(trace_id, str(root_span.span_id), organization_id, project_id)
+        if input_text or output_text:
+            trace = ResponseTrace(input=input_text, output=output_text, loader=loader)
+        else:
+            # Not called through Rhesis: the turn is what the trace itself recorded.
+            trace = loader()
+            if trace is None or not trace.root_spans:
+                logger.warning(f"No stored spans to evaluate for trace {trace_id}")
+                return {"status": "no_root_span", "trace_id": trace_id}
+            if not any(judged_input_output(trace)):
+                metric_configs, untextual = without_text(metric_configs)
+                invalid_metrics = {**invalid_metrics, **untextual}
         turn_metrics = _judge(evaluator, metric_configs, invalid_metrics, trace)
 
         status_id, execution, verdict = _derive_outcome(db, organization_id, turn_metrics)

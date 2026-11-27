@@ -97,13 +97,14 @@ class TestSkippedAtTheTokenLimit:
         assert out["status"] == "no_metrics"
         assert span.trace_metrics_status_id is None
 
-    def test_span_without_input_or_output_is_not_marked(self, at_the_limit):
+    def test_span_without_input_or_output_is_marked_too(self, at_the_limit):
+        # A turn called without Rhesis is still judged on its trace, so the limit skips it.
         span = _span()
         span.attributes = {}
         out = _run_turn(span)
 
-        assert out["status"] == "no_io"
-        assert span.trace_metrics_status_id is None
+        assert out["status"] == "quota_exceeded"
+        assert span.trace_metrics_status_id is not None
 
     def test_conversation_evaluation_marks_unmarked_root_spans(self, at_the_limit):
         fresh, reviewed = _span(), _span(status_id="reviewer-fail")
