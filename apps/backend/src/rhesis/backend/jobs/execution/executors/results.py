@@ -270,7 +270,7 @@ def create_test_result_record(
                 }
 
     Returns:
-        UUID of the created test result, or None if creation failed
+        UUID of the created test result
     """
     # A failed invocation, or a conversation Penelope stopped early, must never become
     # Pass/Fail from metric scores.
@@ -352,7 +352,7 @@ def create_test_result_record(
         )
 
         # Store output files on the test result
-        if result_id and output_files_data:
+        if output_files_data:
             try:
                 _store_output_files(db, result_id, output_files_data, organization_id, user_id)
             except Exception as file_error:
@@ -363,37 +363,29 @@ def create_test_result_record(
                 )
 
         # Link traces to this test result
-        if result_id:
-            logger.debug(f"[TEST_RESULT] Attempting to link traces to test_result_id={result_id}")
-            try:
-                from rhesis.backend.app.services.telemetry.linking_service import (
-                    TraceLinkingService,
-                )
+        try:
+            from rhesis.backend.app.services.telemetry.linking_service import (
+                TraceLinkingService,
+            )
 
-                linking_service = TraceLinkingService(db)
-                updated_count = linking_service.link_traces_for_test_result(
-                    test_run_id=test_run_id,
-                    test_id=test_id,
-                    test_configuration_id=test_config_id,
-                    test_result_id=str(result_id),
-                    organization_id=organization_id,
-                )
-                # The one INFO line per stored result.
-                logger.info(
-                    f"[TEST_RESULT] Stored test result {result_id} for test_id={test_id}, "
-                    f"test_run_id={test_run_id}; {updated_count} traces linked"
-                )
-            except Exception as trace_error:
-                # Don't fail test result creation if trace linking fails
-                logger.error(
-                    f"[TEST_RESULT] Failed to link traces to test result "
-                    f"{result_id}: {trace_error}",
-                    exc_info=True,
-                )
-        else:
-            logger.warning(
-                "[TEST_RESULT] No result_id returned from create_test_result, "
-                "skipping trace linking"
+            linking_service = TraceLinkingService(db)
+            updated_count = linking_service.link_traces_for_test_result(
+                test_run_id=test_run_id,
+                test_id=test_id,
+                test_configuration_id=test_config_id,
+                test_result_id=str(result_id),
+                organization_id=organization_id,
+            )
+            # The one INFO line per stored result.
+            logger.info(
+                f"[TEST_RESULT] Stored test result {result_id} for test_id={test_id}, "
+                f"test_run_id={test_run_id}; {updated_count} traces linked"
+            )
+        except Exception as trace_error:
+            # Don't fail test result creation if trace linking fails
+            logger.error(
+                f"[TEST_RESULT] Failed to link traces to test result {result_id}: {trace_error}",
+                exc_info=True,
             )
 
         return result_id

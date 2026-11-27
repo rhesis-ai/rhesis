@@ -30,7 +30,6 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.models.entity_counts import batch_counts
 from rhesis.backend.app.utils.crud_utils import (
-    _flush_with_fk_guard,
     _prepare_item_data,
     create_item,
     delete_item,
@@ -159,7 +158,7 @@ def insert_run_test_result(
     data = _prepare_item_data(models.TestResult, test_result, organization_id, user_id)
     row = models.TestResult(**data)
     db.add(row)
-    _flush_with_fk_guard(db, models.TestResult)
+    db.flush()
     return row.id
 
 

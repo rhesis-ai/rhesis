@@ -1,13 +1,13 @@
 """
 Synchronous DB persistence for batch test results.
 
-Runs inside ``asyncio.to_thread()`` — opens a short-lived session,
-writes deferred traces, creates the test-result record, ticks the job's
-progress counter in the same transaction, and signals conversation
-completion for multi-turn tests.
+Writes deferred traces, creates the test-result record, ticks the job's progress
+counter in the same transaction, and signals conversation completion for
+multi-turn tests. Runs on the result writer's shared session, or a session of its own.
 """
 
 import logging
+from contextlib import nullcontext
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
@@ -42,33 +42,25 @@ def persist_result(
     """
     from rhesis.backend.app.database import get_db_with_tenant_variables
 
-    if db is None:
-        with get_db_with_tenant_variables(
+    session = (
+        nullcontext(db)
+        if db is not None
+        else get_db_with_tenant_variables(
             ctx.organization_id, ctx.user_id or "", ctx.project_id or ""
-        ) as own:
-            _write(
-                own,
-                ctx,
-                test_id,
-                test,
-                output,
-                metrics_results,
-                deferred_traces,
-                execution_time,
-                is_multi_turn,
-            )
-        return
-    _write(
-        db,
-        ctx,
-        test_id,
-        test,
-        output,
-        metrics_results,
-        deferred_traces,
-        execution_time,
-        is_multi_turn,
+        )
     )
+    with session as s:
+        _write(
+            s,
+            ctx,
+            test_id,
+            test,
+            output,
+            metrics_results,
+            deferred_traces,
+            execution_time,
+            is_multi_turn,
+        )
 
 
 def _write(

@@ -72,6 +72,16 @@ class TestTenantSessionOverhead:
 
         assert current == str(test_org_id)
 
+    def test_guc_is_set_again_after_a_rollback(self, test_org_id):
+        """The batch result writer keeps saving on one session after a failed save."""
+        with get_db_with_tenant_variables(str(test_org_id), str(test_org_id)) as db:
+            db.rollback()
+            current = db.execute(
+                text("SELECT current_setting('app.current_organization', true)")
+            ).scalar()
+
+        assert current == str(test_org_id)
+
     def test_guc_does_not_survive_into_the_next_session_on_the_same_connection(self, test_org_id):
         """What the reset was guarding against, checked directly.
 
