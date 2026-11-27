@@ -19,6 +19,62 @@ function span(overrides: Partial<SpanNode>): SpanNode {
   } as SpanNode;
 }
 
+describe('extractSpanIO for a turn and a retrieval', () => {
+  it('reads a REST invocation’s request and answer as the turn’s input and output', () => {
+    const ios = extractSpanIO(
+      span({
+        span_name: 'endpoint.invoke',
+        attributes: {
+          'rhesis.conversation.input': 'Where is my order?',
+          'rhesis.conversation.output': 'It ships today.',
+        },
+      })
+    );
+
+    expect(ios).toEqual([
+      {
+        kind: 'turn',
+        input: [{ value: 'Where is my order?' }],
+        messages: null,
+        output: 'It ships today.',
+      },
+    ]);
+  });
+
+  it('keeps the turn’s attributes out of the attribute lists', () => {
+    const groups = groupAttributes({
+      'rhesis.conversation.input': 'hi',
+      'rhesis.conversation.output': 'hello',
+    });
+
+    expect(groups.other).toEqual({});
+  });
+
+  it('reads a retrieval’s query and documents', () => {
+    const [io] = extractSpanIO(
+      span({
+        span_name: 'ai.retrieval',
+        events: [
+          {
+            name: 'ai.retrieval.query',
+            timestamp: '2026-01-01T00:00:00Z',
+            attributes: { 'ai.prompt.content': 'refund policy' },
+          },
+          {
+            name: 'ai.retrieval.results',
+            timestamp: '2026-01-01T00:00:01Z',
+            attributes: { 'ai.completion.content': '["Refunds take 5 days."]' },
+          },
+        ],
+      } as Partial<SpanNode>)
+    );
+
+    expect(io.kind).toBe('retrieval');
+    expect(io.input).toEqual([{ value: 'refund policy' }]);
+    expect(io.output).toEqual(['Refunds take 5 days.']);
+  });
+});
+
 describe('extractSpanIO', () => {
   it('drops empty positional args and parses keyword args', () => {
     const [io] = extractSpanIO(

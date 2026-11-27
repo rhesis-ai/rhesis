@@ -1,4 +1,21 @@
-import { formatDuration } from '../format-duration';
+import { formatDuration, formatSpanDuration } from '../format-duration';
+
+describe('formatSpanDuration', () => {
+  it('shows no timing for a reported span instead of a zero duration', () => {
+    expect(
+      formatSpanDuration({
+        duration_ms: 0,
+        attributes: { 'rhesis.span.source': 'reported' },
+      })
+    ).toBe('No timing');
+  });
+
+  it('shows a recorded span’s duration', () => {
+    expect(formatSpanDuration({ duration_ms: 250, attributes: {} })).toBe(
+      '250ms'
+    );
+  });
+});
 
 describe('formatDuration', () => {
   it('formats sub-millisecond values as microseconds', () => {

@@ -16,7 +16,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { SearchIcon } from '@/components/icons';
 import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import { getSpanIcon, getSpanColor } from '@/utils/span-icon-mapper';
-import { formatDuration } from '@/utils/format-duration';
+import { formatDuration, formatSpanDuration } from '@/utils/format-duration';
 import { formatTokenCount, spanUsage } from '@/utils/trace-utils';
 
 interface SpanTreeViewProps {
@@ -428,7 +428,7 @@ function SpanTreeNode({
             color: 'text.primary',
           })}
         >
-          {formatDuration(span.duration_ms)}
+          {formatSpanDuration(span)}
         </Typography>
       </Box>
 

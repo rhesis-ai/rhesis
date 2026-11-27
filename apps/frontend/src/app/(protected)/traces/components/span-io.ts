@@ -36,7 +36,7 @@ export interface LlmMessage {
 }
 
 export interface SpanIO {
-  kind: 'function' | 'llm' | 'tool' | 'agent';
+  kind: 'turn' | 'function' | 'llm' | 'tool' | 'retrieval' | 'agent';
   /** Function spans split positional and keyword arguments. */
   input: { label?: string; value: unknown }[];
   /** Set for LLM spans, whose input is a list of prompt messages. */
@@ -52,8 +52,14 @@ export interface SpanAttributeGroups {
   versionInfo: Record<string, unknown> | null;
 }
 
+/** A turn's input and output as the endpoint was called: the request and the mapped answer. */
+export const CONVERSATION_INPUT_ATTRIBUTE = 'rhesis.conversation.input';
+export const CONVERSATION_OUTPUT_ATTRIBUTE = 'rhesis.conversation.output';
+
 // Shown in the I/O panes or the span header, so left out of the attribute lists.
 const IO_ATTRIBUTE_KEYS = new Set([
+  CONVERSATION_INPUT_ATTRIBUTE,
+  CONVERSATION_OUTPUT_ATTRIBUTE,
   'function.args',
   'function.kwargs',
   'function.result',
@@ -112,6 +118,18 @@ export function extractSpanIO(span: SpanNode): SpanIO[] {
   const attrs = span.attributes ?? {};
   const result: SpanIO[] = [];
 
+  // A REST invocation carries nothing else: its request and answer are the turn's.
+  const turnIn = attrs[CONVERSATION_INPUT_ATTRIBUTE];
+  const turnOut = attrs[CONVERSATION_OUTPUT_ATTRIBUTE];
+  if (present(turnIn) || present(turnOut)) {
+    result.push({
+      kind: 'turn',
+      input: present(turnIn) ? [{ value: parseIfJSON(turnIn) }] : [],
+      messages: null,
+      output: present(turnOut) ? parseIfJSON(turnOut) : null,
+    });
+  }
+
   const args = parseIfJSON(attrs['function.args']);
   const kwargs = parseIfJSON(attrs['function.kwargs']);
   const fnOutput = attrs['function.result'] || attrs['function.result_preview'];
@@ -153,6 +171,21 @@ export function extractSpanIO(span: SpanNode): SpanIO[] {
       input: present(toolIn) ? [{ value: parseIfJSON(String(toolIn)) }] : [],
       messages: null,
       output: present(toolOut) ? parseIfJSON(String(toolOut)) : null,
+    });
+  }
+
+  const query = eventAttr(span, 'ai.retrieval.query', 'ai.prompt.content');
+  const documents = eventAttr(
+    span,
+    'ai.retrieval.results',
+    'ai.completion.content'
+  );
+  if (present(query) || present(documents)) {
+    result.push({
+      kind: 'retrieval',
+      input: present(query) ? [{ value: String(query) }] : [],
+      messages: null,
+      output: present(documents) ? parseIfJSON(String(documents)) : null,
     });
   }
 

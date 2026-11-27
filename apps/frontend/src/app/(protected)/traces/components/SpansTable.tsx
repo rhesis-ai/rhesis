@@ -17,7 +17,7 @@ import { getSpanTypeInfo } from '@/constants/span-types';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import type { SpanSummary } from '@/utils/api-client/interfaces/telemetry';
 import { formatDate } from '@/utils/date';
-import { formatDuration } from '@/utils/format-duration';
+import { formatSpanDuration } from '@/utils/format-duration';
 import { formatTokenCount, tokenSplitLabel } from '@/utils/trace-utils';
 import TracesToolbar from './TracesToolbar';
 
@@ -158,7 +158,7 @@ export default function SpansTable({
         align: 'right',
         renderCell: params => (
           <Typography variant="body2">
-            {formatDuration(params.row.duration_ms)}
+            {formatSpanDuration(params.row)}
           </Typography>
         ),
       },
