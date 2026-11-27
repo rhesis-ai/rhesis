@@ -68,7 +68,12 @@ from rhesis.backend.jobs.execution.constants import (
     PENELOPE_GOAL_METRIC_KEY,
 )
 from rhesis.backend.jobs.execution.executors.data import get_test_metrics
-from rhesis.backend.metrics.applicability import applicable, expected_tool_calls, metric_class
+from rhesis.backend.metrics.applicability import (
+    applicable,
+    expected_tool_calls,
+    expected_tool_calls_per_turn,
+    metric_class,
+)
 from rhesis.sdk.metrics import Expectations
 
 _EMPTY_PLAN: Dict[str, Any] = {
@@ -158,7 +163,10 @@ def _expectations_by_test(
         models.Test.id.in_([uuid.UUID(t) for t in test_ids])
     )
     return {
-        str(test_id): Expectations(tool_calls=expected_tool_calls(config))
+        str(test_id): Expectations(
+            tool_calls=expected_tool_calls(config),
+            tool_calls_per_turn=expected_tool_calls_per_turn(config),
+        )
         for test_id, config in rows
     }
 

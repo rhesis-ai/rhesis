@@ -19,6 +19,22 @@ def test_a_multi_turn_test_keeps_its_goal_beside_them():
     assert config["expected_tool_calls"] == CALLS
 
 
+def test_a_multi_turn_test_sends_its_calls_per_turn():
+    per_turn = [CALLS[:1], None, CALLS[1:]]
+    test = Test(goal="Get a refund", expected_tool_calls_per_turn=per_turn)
+
+    config = test.model_dump()["test_configuration"]
+    assert config["expected_tool_calls_per_turn"] == per_turn
+    loaded = Test(test_configuration=config).test_configuration
+    assert [
+        turn and [call.name for call in turn] for turn in loaded.expected_tool_calls_per_turn
+    ] == [
+        ["lookup_order"],
+        None,
+        ["issue_refund"],
+    ]
+
+
 def test_a_single_turn_test_with_expected_calls_loads_from_the_api():
     test = Test(test_configuration={"expected_tool_calls": [{"name": "lookup_order"}]})
 

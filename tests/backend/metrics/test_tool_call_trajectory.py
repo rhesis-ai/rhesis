@@ -12,6 +12,7 @@ from rhesis.backend.jobs.execution.metric_plan import _cell_keys_for_test
 from rhesis.backend.metrics.applicability import applicable, applies, needs_model
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.metrics.inputs import ResponseTrace
+from rhesis.sdk.entities.trace import Trace
 from rhesis.sdk.metrics import Expectations, MetricConfig
 
 EXPECTED = [{"name": "lookup_order"}, {"name": "issue_refund", "arguments": {"order": 42}}]
@@ -97,6 +98,28 @@ class TestEvaluation:
 
         assert results["Tool Call Trajectory"]["is_successful"] is False
 
+    def test_each_turn_of_a_conversation_is_held_to_its_own_calls(self):
+        messages = []
+        for index, calls in enumerate([[{"name": "lookup_order"}], [{"name": "cancel_order"}], []]):
+            messages += [
+                {"role": "user", "content": f"message {index + 1}"},
+                {"role": "assistant", "content": "ok", "tool_calls": calls},
+            ]
+        metric = trajectory(match="exact")
+        metric.target = {"on": "turn"}
+
+        results = MetricEvaluator().evaluate(
+            [metric],
+            Trace.from_conversation(messages),
+            Expectations(
+                tool_calls_per_turn=[[{"name": "lookup_order"}], [{"name": "issue_refund"}], []]
+            ),
+        )
+
+        result = results["Tool Call Trajectory"]
+        assert result["is_successful"] is False
+        assert [row["is_successful"] for row in result["spans"]] == [True, False, True]
+
     def test_a_test_without_expected_calls_leaves_it_out(self):
         results = MetricEvaluator().evaluate(
             [trajectory()], response(), Expectations(response="Done.")
@@ -113,6 +136,16 @@ class TestEvaluation:
         )
 
         assert [call.name for call in expectations.tool_calls] == ["lookup_order", "issue_refund"]
+
+    def test_a_conversation_carries_its_calls_per_turn(self):
+        expectations = conversation_expectations(
+            {"goal": "Refund the order", "expected_tool_calls_per_turn": [EXPECTED[:1], None]}
+        )
+
+        assert [call.name for call in expectations.turn_tool_calls(0)] == ["lookup_order"]
+        assert expectations.turn_tool_calls(1) is None
+        # The whole conversation is held to its turns' calls, so the metric applies.
+        assert applies(trajectory(), expectations, conversation=True)
 
 
 @pytest.mark.unit
@@ -158,6 +191,33 @@ class TestStoringExpectedCalls:
         )
 
         assert test.test_configuration["expected_tool_calls"] == EXPECTED
+
+    def test_a_multi_turn_test_keeps_its_calls_per_turn(self):
+        per_turn = [EXPECTED[:1], None, []]
+        test = TestCreate(
+            test_configuration={
+                "goal": "Refund the order",
+                "expected_tool_calls_per_turn": per_turn,
+            }
+        )
+
+        assert test.test_configuration["expected_tool_calls_per_turn"] == per_turn
+
+    def test_malformed_calls_per_turn_are_refused(self):
+        with pytest.raises(ValidationError, match=r"expected_tool_calls_per_turn -> 1 -> 0"):
+            TestCreate(
+                test_configuration={
+                    "goal": "Refund the order",
+                    "expected_tool_calls_per_turn": [EXPECTED, [{"arguments": {}}]],
+                }
+            )
+
+    def test_a_single_turn_test_cant_have_calls_per_turn(self):
+        with pytest.raises(ValidationError, match="is for multi-turn tests"):
+            TestCreate(
+                prompt={"content": "Refund order 42"},
+                test_configuration={"expected_tool_calls_per_turn": [EXPECTED]},
+            )
 
     @pytest.mark.parametrize(
         "calls",

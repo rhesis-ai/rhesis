@@ -6,6 +6,7 @@ from pydantic import BeforeValidator, TypeAdapter, ValidationError
 from rhesis.backend.app.constants import TestSetType, TestType
 from rhesis.backend.app.schemas.multi_turn_test_config import (
     EXPECTED_TOOL_CALLS_KEY,
+    EXPECTED_TOOL_CALLS_PER_TURN_KEY,
     ExpectedToolCall,
     validate_multi_turn_config,
 )
@@ -98,6 +99,11 @@ def validate_test_config_content(v: Optional[Dict[str, Any]]) -> Optional[Dict[s
             # Re-raise with more context
             raise ValueError(f"Invalid multi-turn test configuration: {_described_errors(e)}")
 
+    if v.get(EXPECTED_TOOL_CALLS_PER_TURN_KEY) is not None:
+        raise ValueError(
+            f"{EXPECTED_TOOL_CALLS_PER_TURN_KEY} is for multi-turn tests; a single-turn test "
+            f"lists its calls in {EXPECTED_TOOL_CALLS_KEY}"
+        )
     # Other keys are free-form, but expected tool calls are read by metrics.
     if v.get(EXPECTED_TOOL_CALLS_KEY) is not None:
         try:

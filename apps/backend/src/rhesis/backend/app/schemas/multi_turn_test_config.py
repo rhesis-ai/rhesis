@@ -11,6 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 #: Where a test's expected tool calls live in ``test_configuration``, for either test type.
 EXPECTED_TOOL_CALLS_KEY = "expected_tool_calls"
+#: A multi-turn test's expected tool calls turn by turn: item i is turn i+1's, null where the
+#: test doesn't say.
+EXPECTED_TOOL_CALLS_PER_TURN_KEY = "expected_tool_calls_per_turn"
 
 
 class ExpectedToolCall(BaseModel):
@@ -68,6 +71,14 @@ class MultiTurnTestConfig(BaseModel):
     expected_tool_calls: Optional[List[ExpectedToolCall]] = Field(
         None,
         description="Tools the target should call over the conversation, in order (optional)",
+    )
+    expected_tool_calls_per_turn: Optional[List[Optional[List[ExpectedToolCall]]]] = Field(
+        None,
+        max_length=50,
+        description=(
+            "Tools the target should call in each turn: item i is turn i+1's calls, in "
+            "order, null where the test doesn't say (optional)"
+        ),
     )
 
     @field_validator("goal", "instructions", "restrictions", "scenario")

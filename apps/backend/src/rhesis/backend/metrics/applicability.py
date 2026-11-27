@@ -15,7 +15,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from sqlalchemy import inspect as sa_inspect
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
-from rhesis.backend.app.schemas.multi_turn_test_config import EXPECTED_TOOL_CALLS_KEY
+from rhesis.backend.app.schemas.multi_turn_test_config import (
+    EXPECTED_TOOL_CALLS_KEY,
+    EXPECTED_TOOL_CALLS_PER_TURN_KEY,
+)
 
 # Imported by run_models, which core installs load without the SDK.
 if TYPE_CHECKING:
@@ -31,6 +34,13 @@ def expected_tool_calls(test_configuration: Any) -> Optional[List[dict]]:
     if not isinstance(test_configuration, dict):
         return None
     return test_configuration.get(EXPECTED_TOOL_CALLS_KEY)
+
+
+def expected_tool_calls_per_turn(test_configuration: Any) -> Optional[List[Optional[List[dict]]]]:
+    """A multi-turn test's expected tool calls turn by turn, or None when it doesn't say."""
+    if not isinstance(test_configuration, dict):
+        return None
+    return test_configuration.get(EXPECTED_TOOL_CALLS_PER_TURN_KEY)
 
 
 def _backend_and_class(metric: Any) -> tuple:
