@@ -1114,6 +1114,25 @@ class TestArchitectWriteGuard:
         assert agent._blocked_calls == []
 
     @pytest.mark.asyncio
+    async def test_a_step_runs_its_approved_calls_and_holds_only_the_new_ones(self, mock_model):
+        """Holding the approved create along with the new one would ask about it again."""
+        tools = [self._tool("create_requirement"), self._tool("create_metric")]
+        agent = _make_agent(mock_model, tools=tools)
+        agent._mutating_tools = frozenset({"create_requirement", "create_metric"})
+        await self._hold(agent, mock_model, "create_requirement", "Refund policy")
+
+        step = _tool_dict("create_requirement", {"name": "Refund policy"})
+        step["tool_calls"].append(
+            {"tool_name": "create_metric", "arguments": json.dumps({"name": "Refund accuracy"})}
+        )
+        await self._accept(agent, mock_model, step)
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["create_metric"]
+        ran = [r.tool_name for s in agent._execution_history for r in s.tool_results if r.success]
+        assert "create_requirement" in ran
+        assert agent._pending_scope == frozenset({("metric", "refund accuracy")})
+
+    @pytest.mark.asyncio
     async def test_change_keeps_what_was_approved_before(self, mock_model):
         tools = [self._tool("create_metric"), self._tool("create_requirement")]
         agent = _make_agent(mock_model, tools=tools)

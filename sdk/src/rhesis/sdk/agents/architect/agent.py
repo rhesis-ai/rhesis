@@ -719,8 +719,9 @@ class ArchitectAgent(BaseAgent):
         if invalid:
             return await self._return_invalid_calls(action, iteration, invalid)
 
-        if mutating and not self._is_approved(mutating):
-            blocked_names = [tc.tool_name for tc in mutating]
+        held = [tc for tc in mutating if not self._is_approved([tc])]
+        if held:
+            blocked_names = [tc.tool_name for tc in held]
             logger.info(
                 "[Architect] Blocked tools pending confirmation: %s",
                 blocked_names,
@@ -734,26 +735,28 @@ class ArchitectAgent(BaseAgent):
             # not claim nothing was created.
             approved_turn = self._creation_approved
             self._blocked_this_turn = True
-            self._blocked_calls.extend(mutating)
+            self._blocked_calls.extend(held)
 
             # An Accept approves what the user is about to be shown: these
             # calls and the plan as saved now, not every creating tool.
             self._confirming_tools = frozenset(blocked_names)
-            self._pending_scope = self._scope_shown(mutating)
+            self._pending_scope = self._scope_shown(held)
 
-            # Still allow read-only tools to execute
-            read_only = [tc for tc in action.tool_calls if not self._is_mutating(tc.tool_name)]
-            if read_only:
-                read_results = await self._execute_tools(read_only)
+            # The step's read-only calls and its already-approved ones still run:
+            # holding an approved call with the new ones would ask about it again.
+            runnable = [tc for tc in action.tool_calls if not any(tc is h for h in held)]
+            if runnable:
+                results = await self._execute_tools(runnable, reasoning=action.reasoning)
                 self._execution_history.append(
                     ExecutionStep(
                         iteration=iteration,
                         reasoning=action.reasoning,
                         action=Action.CALL_TOOL,
-                        tool_calls=read_only,
-                        tool_results=read_results,
+                        tool_calls=runnable,
+                        tool_results=results,
                     )
                 )
+            ran_approved = any(self._is_mutating(tc.tool_name) for tc in runnable)
 
             # ``_confirming_tools`` was populated above; the
             # downstream ``_handle_finish_action`` derives
@@ -769,7 +772,9 @@ class ArchitectAgent(BaseAgent):
                 action=Action.FINISH,
                 # The model wrote its answer expecting the calls to run ("I have
                 # created..."), so it can't be the seed for a turn that held them.
-                final_answer=HELD_BACK_NEXT_SEED if approved_turn else HELD_BACK_SEED,
+                final_answer=(
+                    HELD_BACK_NEXT_SEED if approved_turn or ran_approved else HELD_BACK_SEED
+                ),
             )
             return await self._handle_finish_action(finish_action, iteration)
 
