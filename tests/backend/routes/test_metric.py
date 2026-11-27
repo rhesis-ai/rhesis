@@ -558,7 +558,7 @@ class TestMetricPerformance(MetricTestMixin, BaseEntityTests):
         response = metric_factory.client.get(f"{self.endpoints.list}targets")
 
         assert response.status_code == status.HTTP_200_OK
-        choices = response.json()
+        choices = response.json()["targets"]
         assert [c["on"] for c in choices] == [kind.value for kind in TARGETS]
         assert choices[0] == {
             "on": "turn",
@@ -570,6 +570,101 @@ class TestMetricPerformance(MetricTestMixin, BaseEntityTests):
         tool_call = next(c for c in choices if c["on"] == "tool_call")
         assert tool_call["per_span"] is True
         assert tool_call["span_kind"] == "tool.invoke"
+
+    def test_metric_targets_lists_the_parts_of_a_condition(self, metric_factory):
+        from rhesis.sdk.metrics.conditions import CONDITION_OPS, SPECIAL_FIELDS
+
+        response = metric_factory.client.get(f"{self.endpoints.list}targets")
+
+        body = response.json()
+        operators = {o["op"]: o for o in body["operators"]}
+        assert list(operators) == [op.value for op in CONDITION_OPS]
+        assert operators["exists"] == {"op": "exists", "takes_value": False, "value_type": "none"}
+        assert operators["<="]["value_type"] == "number"
+        assert operators["not_in"]["value_type"] == "list"
+        assert operators["matches"]["value_type"] == "pattern"
+        assert operators["contains"] == {
+            "op": "contains",
+            "takes_value": True,
+            "value_type": "text",
+        }
+        assert body["special_fields"] == [
+            {"field": field.value, "label": label} for field, label in SPECIAL_FIELDS.items()
+        ]
+        assert body["special_fields"][3] == {"field": "duration_ms", "label": "Duration (ms)"}
+
+    def test_a_metric_says_what_it_judges_in_words(self, metric_factory):
+        data = self.get_sample_data()
+        data["config"] = {
+            "target": {"on": "tool_call", "name": "issue_refund", "within": "billing_agent"}
+        }
+
+        created = metric_factory.create(data)
+        fetched = metric_factory.client.get(f"{self.endpoints.list}{created['id']}").json()
+        listed = metric_factory.client.get(f"{self.endpoints.list}?limit=100").json()
+
+        long = "each tool call named `issue_refund` inside `billing_agent`"
+        for metric in (created, fetched, next(m for m in listed if m["id"] == created["id"])):
+            assert metric["target_summary"] == long
+            assert metric["target_summary_short"] == long
+
+    def test_a_long_target_has_a_short_summary(self, metric_factory):
+        data = self.get_sample_data()
+        where = [
+            {"field": "kind", "op": "==", "value": "tool.invoke"},
+            {"field": "app.tier", "op": "==", "value": "gold"},
+            {"field": "duration_ms", "op": ">", "value": 500},
+        ]
+        data["config"] = {"target": {"on": "span", "where": where}}
+
+        metric = metric_factory.create(data)
+
+        assert metric["target_summary"] == (
+            "each tool call where `app.tier` is `gold` and `duration_ms` is over `500`"
+        )
+        assert metric["target_summary_short"] == (
+            "each tool call where `app.tier` is `gold`, and 1 more condition"
+        )
+
+    def test_a_metric_without_a_target_is_summarised_by_its_default(self, metric_factory):
+        metric = metric_factory.create(self.get_sample_data())
+
+        assert metric["target_summary"] == "each turn"
+
+
+@pytest.mark.unit
+class TestTargetSummaries:
+    """The summary never fails a response, whatever is stored."""
+
+    def test_a_broken_stored_target_gives_no_summary(self):
+        from rhesis.backend.app.schemas.metric import target_summaries
+
+        broken = {"target": {"on": "tool_call", "where": [{"field": "x", "op": "~"}]}}
+
+        assert target_summaries(broken, None) == (None, None)
+        assert target_summaries({"target": {"on": "trajectory"}}, None) == (None, None)
+        assert target_summaries({"target": "nonsense"}, None) == (None, None)
+
+    def test_no_target_and_no_default_gives_no_summary(self):
+        from rhesis.backend.app.schemas.metric import target_summaries
+
+        assert target_summaries(None, None) == (None, None)
+
+    def test_a_response_with_a_broken_stored_target_still_serialises(self):
+        import uuid
+
+        from rhesis.backend.app.schemas.metric import Metric
+
+        metric = Metric(
+            id=uuid.uuid4(),
+            name="m",
+            evaluation_prompt="p",
+            score_type="numeric",
+            config={"target": {"on": "trajectory"}},
+        )
+
+        assert metric.target_summary is None
+        assert metric.target_summary_short is None
 
 
 # === METRIC GENERATE ENDPOINT TESTS ===

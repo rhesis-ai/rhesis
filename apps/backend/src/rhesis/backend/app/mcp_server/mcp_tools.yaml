@@ -1106,7 +1106,7 @@ tools:
     method: GET
     path: /metrics/
     default_query:
-      $select: "id,name,description,score_type,threshold,class_name,config"
+      $select: "id,name,description,score_type,threshold,class_name,config,target_summary"
     page_size: 20
     description: >
       List available metrics for evaluating test results. ENTITY: Metric.

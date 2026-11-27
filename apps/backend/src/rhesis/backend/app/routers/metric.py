@@ -315,25 +315,46 @@ def improve_metric(
         raise internal_error(e, context=f"improving metric {metric_id}") from e
 
 
-@router.get("/targets", response_model=list[schemas.TargetChoice])
+@router.get("/targets", response_model=schemas.TargetChoices)
 def read_metric_targets(current_user: User = Depends(require_current_user_or_token)):
-    """Every target a metric can have, in the order an editor offers them. Which of them a
-    given metric can take is its ``supported_targets``."""
+    """Every target a metric can have, in the order an editor offers them, and the operators
+    and special fields a condition takes. Which targets a given metric can take is its
+    ``supported_targets``."""
     try:
+        from rhesis.sdk.metrics.conditions import (
+            CONDITION_OPS,
+            SPECIAL_FIELDS,
+            ValueType,
+            value_type,
+        )
         from rhesis.sdk.metrics.targets import TARGETS
     except ImportError:  # a core install, which runs no metric
-        return []
+        return schemas.TargetChoices()
 
-    return [
-        schemas.TargetChoice(
-            on=kind.value,
-            label=preset.label,
-            description=preset.description,
-            per_span=preset.span_kind is not None,
-            span_kind=preset.span_kind,
-        )
-        for kind, preset in TARGETS.items()
-    ]
+    return schemas.TargetChoices(
+        targets=[
+            schemas.TargetChoice(
+                on=kind.value,
+                label=preset.label,
+                description=preset.description,
+                per_span=preset.span_kind is not None,
+                span_kind=preset.span_kind,
+            )
+            for kind, preset in TARGETS.items()
+        ],
+        operators=[
+            schemas.ConditionOperatorChoice(
+                op=op.value,
+                takes_value=value_type(op) is not ValueType.NONE,
+                value_type=value_type(op).value,
+            )
+            for op in CONDITION_OPS
+        ],
+        special_fields=[
+            schemas.SpecialFieldChoice(field=field.value, label=label)
+            for field, label in SPECIAL_FIELDS.items()
+        ],
+    )
 
 
 @router.get("/", response_model=list[schemas.MetricDetail])

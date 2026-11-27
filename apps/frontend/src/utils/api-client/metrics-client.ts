@@ -46,7 +46,10 @@ export class MetricsClient extends BaseApiClient {
 
   /** The target registry: what a metric can judge, in display order. */
   async getMetricTargets(): Promise<MetricTargetChoice[]> {
-    return this.fetch<MetricTargetChoice[]>(`${API_ENDPOINTS.metrics}/targets`);
+    const choices = await this.fetch<{ targets: MetricTargetChoice[] }>(
+      `${API_ENDPOINTS.metrics}/targets`
+    );
+    return choices.targets;
   }
 
   async getMetric(id: UUID): Promise<MetricDetail> {

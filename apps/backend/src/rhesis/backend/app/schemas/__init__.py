@@ -44,6 +44,7 @@ from .file import FileCreate, FileEntityType, FileResponse, FileUpdate
 from .insights import InsightsIdsResponse, InsightsQuery, InsightsResponse
 from .job import ActivityLogEntry, Job, JobActivity
 from .metric import (
+    ConditionOperatorChoice,
     GenerateMetricRequest,
     ImproveMetricRequest,
     Metric,
@@ -52,7 +53,9 @@ from .metric import (
     MetricDetail,
     MetricUpdate,
     ScoreType,
+    SpecialFieldChoice,
     TargetChoice,
+    TargetChoices,
 )
 from .model import Model, ModelBase, ModelCreate, ModelDetail, ModelRead, ModelUpdate
 from .notification import (
@@ -496,4 +499,7 @@ __all__ = [
     "ImproveMetricRequest",
     "ScoreType",
     "TargetChoice",
+    "TargetChoices",
+    "ConditionOperatorChoice",
+    "SpecialFieldChoice",
 ]
