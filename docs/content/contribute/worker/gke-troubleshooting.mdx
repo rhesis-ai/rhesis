@@ -83,13 +83,12 @@ works as usual.
 **Expected Output:**
 <CodeBlock language="text" isTerminal={false}>
 {`NAME                             READY   STATUS    RESTARTS   AGE
-worker-default-6d9bcd9c6f-6bxk8  2/2     Running   0          5m
-worker-default-6d9bcd9c6f-9kqwz  2/2     Running   0          3m`}
+worker-default-6d9bcd9c6f-6bxk8  1/1     Running   0          5m
+worker-default-6d9bcd9c6f-9kqwz  1/1     Running   0          3m`}
 </CodeBlock>
 
 **Problem Indicators:**
-- `1/2 Ready`: Worker container failing, cloudsql-proxy working
-- `0/2 Ready`: Both containers failing
+- `0/1 Ready`: The worker container runs but fails its readiness check
 - `CrashLoopBackOff`: Container repeatedly failing
 - High restart count: Ongoing issues
 
@@ -141,12 +140,12 @@ kubectl exec -it <pod-name> -n <namespace> -- curl -m 15 http://localhost:8080/d
 
 ## Common Issues and Solutions
 
-### 1. Pods Stuck at 1/2 Ready
+### 1. Pods Stuck at 0/1 Ready
 
 **Symptoms:**
 <CodeBlock language="text" isTerminal={false}>
 {`NAME                             READY   STATUS    RESTARTS   AGE
-worker-default-586659994f-lldfn  1/2     Running   167        13h`}
+worker-default-586659994f-lldfn  0/1     Running   167        13h`}
 </CodeBlock>
 
 **Diagnosis:**
