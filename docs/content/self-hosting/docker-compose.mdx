@@ -306,6 +306,7 @@ docker compose down
 # Backup volumes
 docker run --rm -v rhesis_postgres_data:/data -v $(pwd):/backup alpine tar czf /backup/postgres_backup.tar.gz -C /data .
 docker run --rm -v rhesis_redis_data:/data -v $(pwd):/backup alpine tar czf /backup/redis_backup.tar.gz -C /data .
+docker run --rm -v rhesis_rhesis-storage:/data -v $(pwd):/backup alpine tar czf /backup/storage_backup.tar.gz -C /data .
 
 # Restart services
 docker compose --env-file .env.docker up -d`}
