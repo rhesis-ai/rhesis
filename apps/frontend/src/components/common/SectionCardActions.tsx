@@ -21,10 +21,11 @@ export const sectionEditButtonSx = {
     marginRight: '4px',
     '& > *:nth-of-type(1)': { fontSize: rem(20) },
   },
+  // The theme's outlined hover fills the button and turns the label light;
+  // a background set here would keep that light label on a pale fill.
   '&:hover': {
     borderWidth: 2,
     borderColor: 'primary.main',
-    bgcolor: 'action.hover',
   },
 } as const;
 
