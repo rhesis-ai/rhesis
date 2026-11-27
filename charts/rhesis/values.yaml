@@ -360,9 +360,9 @@ workers:
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 80
-      # Also scale on the jobs waiting in each queue, through KEDA. Needs the KEDA
+      # Scale on the jobs waiting in each queue instead, through KEDA. Needs the KEDA
       # operator in the cluster; without it the chart renders the CPU-only HPA above.
-      # With KEDA on, only CPU and queue length scale: the memory target is not used.
+      # With KEDA on and queues set, CPU and memory targets are not used.
       keda:
         enabled: false
         scaleDownStabilizationSeconds: 600
