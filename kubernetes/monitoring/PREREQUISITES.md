@@ -62,7 +62,7 @@ library, which Grafana's from_address field rejects.
 
 ## Grafana TLS (cert-manager / Let’s Encrypt)
 
-The Grafana `Ingress` uses `cert-manager.io/cluster-issuer: letsencrypt-prod` and the **internal** NGINX class for user traffic. cert-manager still completes **HTTP-01** using the solver in `ClusterIssuer` (typically a separate **external**-class `Ingress` in the same namespace). While issuance is in progress, the `Certificate` condition often reads **Issuing certificate as Secret does not exist**—that only means the final `grafana-tls` secret is not ready yet.
+The Grafana `Ingress` uses `cert-manager.io/cluster-issuer: letsencrypt-prod-dns01` and the **internal** NGINX class. cert-manager completes **DNS-01** by writing a TXT record in Cloudflare (`cluster-issuer-dns01.yaml` in `kubernetes/base/cert-manager`), so Let's Encrypt never needs to reach Grafana, which is only reachable on the VPN. While issuance is in progress, the `Certificate` condition often reads **Issuing certificate as Secret does not exist**. That only means the final `grafana-tls` secret is not ready yet.
 
 The Grafana ingress sets **`cert-manager.io/issue-temporary-certificate: "true"`** so a temporary cert is written to `grafana-tls` immediately; Argo CD Ingress health improves while Let’s Encrypt finishes.
 
@@ -74,4 +74,4 @@ kubectl -n monitoring get challenges.acme.cert-manager.io -o wide
 kubectl -n monitoring get ingress
 ```
 
-Confirm **external-dns** (Cloudflare) creates a public record for `grafana.<env>.rhesis.ai` from the **solver** ingress, and that HTTP-01 can complete from the internet. If the hostname is only resolvable on the VPN, switch the issuer to **DNS-01** (for example Cloudflare) instead of HTTP-01.
+Check the `Challenge` events for Cloudflare API errors, for example a missing or expired `cloudflare-cert-api-token`. The `grafana.<env>.rhesis.ai` record itself comes from **internal-dns**, which publishes `internal`-class ingresses into the VPN's BIND9 server. **external-dns** only publishes `external`-class ingresses, so it creates no Cloudflare record for Grafana.
