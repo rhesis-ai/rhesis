@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.database import scope_project_id
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.models.enums import EndpointConnectionType
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
@@ -110,6 +111,9 @@ def _load_endpoint_for_probe(
     endpoint = _load_endpoint(db, endpoint_id, organization_id)
     if endpoint is not None:
         AuthenticationManager.prefetch_token(db, endpoint)
+        if endpoint.connection_type == EndpointConnectionType.SDK.value:
+            # The SDK check reads it; loading it lazily there would hit the DB on the loop.
+            _ = endpoint.status
     return endpoint
 
 

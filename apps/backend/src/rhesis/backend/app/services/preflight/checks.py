@@ -13,6 +13,7 @@ from rhesis.backend.app.crud.requirement import (
 )
 from rhesis.backend.app.crud.test_run import get_ordered_tests_for_test_set
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.models.enums import EndpointConnectionType
 from rhesis.backend.app.models.metric import Metric, requirement_metric_association
 from rhesis.backend.app.models.prompt import Prompt
 from rhesis.backend.app.models.test import Test
@@ -307,12 +308,61 @@ async def check_test_set_not_empty(
     return result
 
 
+async def _sdk_connection_result(endpoint: Endpoint) -> PreflightCheckResult:
+    """Check an SDK endpoint without calling its function.
+
+    Calling it runs the user's code with its own tracing, so the probe would land in
+    the project's Traces as a real turn (and spend its LLM calls). Registration
+    already marks an endpoint Inactive once its function is no longer registered, so
+    a live connection plus that status answers the same question.
+    """
+    from rhesis.backend.app.services.connector.manager import connection_manager
+
+    check_id = CHECK_ENDPOINT_CONNECTIVITY
+    sdk_connection = (endpoint.endpoint_metadata or {}).get("sdk_connection", {})
+    function_name = sdk_connection.get("function_name") or endpoint.name
+    try:
+        connected = await connection_manager.is_connected(
+            str(endpoint.project_id), endpoint.environment
+        )
+    except Exception as e:
+        return _make_result(
+            check_id,
+            PreflightCheckStatus.FAILED,
+            "Unexpected error during connectivity check",
+            str(e),
+        )
+
+    if not connected:
+        return _make_result(
+            check_id,
+            PreflightCheckStatus.FAILED,
+            "SDK connector is not connected",
+            f"Start the app that registers {function_name} "
+            f"for the {endpoint.environment} environment.",
+        )
+    status_name = endpoint.status.name if endpoint.status else None
+    if status_name == "Inactive":
+        return _make_result(
+            check_id,
+            PreflightCheckStatus.FAILED,
+            "Function is no longer registered",
+            f"The connected app does not register {function_name}.",
+        )
+    return _make_result(
+        check_id,
+        PreflightCheckStatus.PASSED,
+        "SDK connector is connected",
+        f"{function_name} is registered.",
+    )
+
+
 async def check_endpoint_connectivity(
     endpoint: Endpoint,
     correlation_id: Optional[str] = None,
     publish: bool = True,
 ) -> PreflightCheckResult:
-    """Probe the endpoint once, without a session.
+    """Probe the endpoint once, without a session. SDK endpoints are not called.
 
     The probe is awaited on the event loop, so the invoker gets ``db=None``: every
     psycopg call it would otherwise make there -- the auth-token refresh, a trace
@@ -332,6 +382,12 @@ async def check_endpoint_connectivity(
             check_id,
             PreflightCheckStatus.RUNNING,
         )
+
+    if endpoint.connection_type == EndpointConnectionType.SDK.value:
+        result = await _sdk_connection_result(endpoint)
+        _apply_test_set_fields(result)
+        await _publish_result(result, correlation_id, publish)
+        return result
 
     try:
         from rhesis.backend.app.services.invokers import create_invoker
