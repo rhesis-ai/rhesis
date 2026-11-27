@@ -471,9 +471,15 @@ then sync them into the cluster with an `ExternalSecret`.
     ["customer-session-secret-key", "SESSION_SECRET_KEY", "Random string, 32+ chars"],
     ["customer-redis-password", "REDIS_PASSWORD", "Random string"],
     ["customer-rhesis-api-key", "RHESIS_API_KEY", "From https://app.rhesis.ai/tokens (or configure your own AI provider instead)"],
+    ["customer-storage-service-uri", "STORAGE_SERVICE_URI", "gs://your-bucket or s3://your-bucket"],
   ]}
   align={["left", "left", "left"]}
 />
+
+`STORAGE_SERVICE_URI` is required because the backend and worker pods share no volume, so files
+uploaded to one are missing on the other. A `gs://` bucket also needs
+`STORAGE_SERVICE_ACCOUNT_KEY`, and an `s3://` bucket its own keys unless the pods have an IAM role;
+see [Object storage](/self-hosting/environment-variables#object-storage).
 
 <CodeBlock filename="Terminal" language="bash">
 {`echo -n "rhesis-user" | gcloud secrets create customer-app-db-user --data-file=-
@@ -483,7 +489,7 @@ echo -n "$(openssl rand -base64 24)" | gcloud secrets create customer-app-db-pas
 # Grant the ESO service account access to every secret you created:
 for key in customer-app-db-user customer-app-db-pass customer-db-encryption-key \\
   customer-jwt-secret-key customer-nextauth-secret customer-session-secret-key \\
-  customer-redis-password customer-rhesis-api-key; do
+  customer-redis-password customer-rhesis-api-key customer-storage-service-uri; do
   gcloud secrets add-iam-policy-binding "$key" \\
     --member="serviceAccount:eso-customer@your-gcp-project-id.iam.gserviceaccount.com" \\
     --role="roles/secretmanager.secretAccessor"
@@ -523,7 +529,9 @@ spec:
     - secretKey: REDIS_PASSWORD
       remoteRef: { key: customer-redis-password }
     - secretKey: RHESIS_API_KEY
-      remoteRef: { key: customer-rhesis-api-key }`}
+      remoteRef: { key: customer-rhesis-api-key }
+    - secretKey: STORAGE_SERVICE_URI
+      remoteRef: { key: customer-storage-service-uri }`}
 </CodeBlock>
 
 ESO watches this `ExternalSecret`, reads the referenced keys from Secret Manager, and keeps the
@@ -802,7 +810,8 @@ already holds the jobs it is running (with `WORKER_LAYOUT=split`, 24 test runs, 
 evaluations and one CPU-bound job), so the queue only holds overflow. These numbers assume the
 split layout, which uses about 2 GiB per pod under load, so set the worker's
 `resources.limits.memory` to at least 3Gi (the default is 1Gi). The default `combined` layout
-runs 2 jobs at a time per pod, so give its queues lower numbers.
+runs 8 jobs at a time per pod (`config.celeryWorkerConcurrency`) plus 2 Architect jobs, so give its
+queues lower numbers.
 
 The worker runs at the highest replica count any queue asks for, between
 `minReplicas` and `maxReplicas`, and scales down after 10 minutes of lower demand
@@ -820,10 +829,13 @@ Check it after the sync: `kubectl get scaledobject -n rhesis` shows `READY True`
 ### Pool database connections
 
 Every worker and API process keeps its own pool of Postgres connections, so connections grow with
-pods. PgBouncer in transaction mode lets them share a fixed number of server connections. It needs
-an external Postgres (`postgresql.enabled: false`) and the migration Job (the default,
-`backend.migrations.job.enabled: true`), because migrations hold a session-level lock and must
-connect directly. The chart refuses to render otherwise.
+pods. [Logging and tuning](/self-hosting/environment-variables#logging-and-tuning) gives how many
+each process opens, for sizing Postgres `max_connections`. PgBouncer in transaction
+mode lets them share a fixed number of server connections. It needs an external Postgres
+(`postgresql.enabled: false`); with the bundled one, `poolerHost` is ignored. It also needs the
+migration Job (the default, `backend.migrations.job.enabled: true`), because migrations hold a
+session-level lock and must connect directly. The chart refuses to render a `poolerHost` with the
+Job turned off.
 
 PgBouncer needs three settings for Rhesis:
 
