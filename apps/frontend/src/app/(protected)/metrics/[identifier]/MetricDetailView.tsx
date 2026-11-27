@@ -16,6 +16,7 @@ import {
   IconButton,
   Chip,
   Alert,
+  Skeleton,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
@@ -234,7 +235,8 @@ export function MetricDetailView({
     !!judgeModel &&
     isDecisionModel(judgeModel) &&
     (editData.score_type || metric?.score_type) !== SCORE_TYPES.CATEGORICAL;
-  const { data: allTargets = NO_TARGETS } = useMetricTargets();
+  const { data: allTargets = NO_TARGETS, isPending: targetsPending } =
+    useMetricTargets();
   const supportedTargets = metric?.supported_targets;
   const targetChoices = React.useMemo(
     () => offeredTargets(allTargets, { supported: supportedTargets }),
@@ -1634,6 +1636,13 @@ export function MetricDetailView({
                   choices={targetChoices}
                   value={draft}
                   onChange={setDraft}
+                />
+              ) : storedTarget && targetsPending ? (
+                // The label comes with the targets; the raw value would flash first.
+                <Skeleton
+                  variant="rounded"
+                  sx={{ width: theme => theme.spacing(15) }}
+                  aria-label="Loading target"
                 />
               ) : storedTarget ? (
                 <Chip

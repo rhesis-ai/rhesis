@@ -8,16 +8,23 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 import {
   countChecks,
+  noVerdictLabel,
   turnScopeLabel,
   type ResultCheck,
   type ResultCheckGroup,
 } from '@/utils/result-checks';
 
-function VerdictIcon({ passed }: { passed: boolean | null }) {
+function VerdictIcon({
+  passed,
+  noVerdict,
+}: {
+  passed: boolean | null;
+  noVerdict: string;
+}) {
   const theme = useTheme();
   const sx = { fontSize: theme.spacing(2.5), mt: 0.25, flexShrink: 0 };
   if (passed === null) {
-    return <RemoveIcon aria-label="Not scored" color="disabled" sx={sx} />;
+    return <RemoveIcon aria-label={noVerdict} color="disabled" sx={sx} />;
   }
   return passed ? (
     <CheckIcon aria-label="Passed" color="success" sx={sx} />
@@ -49,7 +56,7 @@ function CheckRow({
   const score = scoreText(check);
   return (
     <Box sx={{ display: 'flex', gap: 1.5, px: 2.25, py: 1.5 }}>
-      <VerdictIcon passed={check.passed} />
+      <VerdictIcon passed={check.passed} noVerdict={noVerdictLabel(check)} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box
           sx={{
@@ -64,7 +71,11 @@ function CheckRow({
           </Typography>
           {scope && <Chip label={scope} size="small" variant="outlined" />}
           {check.passed === null && (
-            <Chip label="Not scored" size="small" variant="outlined" />
+            <Chip
+              label={noVerdictLabel(check)}
+              size="small"
+              variant="outlined"
+            />
           )}
           {score && (
             <Typography variant="caption" color="text.secondary">

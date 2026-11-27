@@ -53,34 +53,39 @@ jest.mock('@/components/common/Can', () => ({
   Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+let mockTargetsPending = false;
+
 jest.mock('@/hooks/useLookups', () => ({
   useMetricTargets: () => ({
-    data: [
-      {
-        on: 'turn',
-        label: 'Each turn',
-        description: 'Each exchange.',
-        per_span: false,
-      },
-      {
-        on: 'conversation',
-        label: 'The conversation',
-        description: 'The whole conversation.',
-        per_span: false,
-      },
-      {
-        on: 'tool_call',
-        label: 'Each tool call',
-        description: 'Each tool call.',
-        per_span: true,
-      },
-      {
-        on: 'retrieval',
-        label: 'Each retrieval',
-        description: 'Each retrieval.',
-        per_span: true,
-      },
-    ],
+    isPending: mockTargetsPending,
+    data: mockTargetsPending
+      ? undefined
+      : [
+          {
+            on: 'turn',
+            label: 'Each turn',
+            description: 'Each exchange.',
+            per_span: false,
+          },
+          {
+            on: 'conversation',
+            label: 'The conversation',
+            description: 'The whole conversation.',
+            per_span: false,
+          },
+          {
+            on: 'tool_call',
+            label: 'Each tool call',
+            description: 'Each tool call.',
+            per_span: true,
+          },
+          {
+            on: 'retrieval',
+            label: 'Each retrieval',
+            description: 'Each retrieval.',
+            per_span: true,
+          },
+        ],
   }),
 }));
 
@@ -461,6 +466,22 @@ describe('MetricDetailView — target', () => {
     await renderAndViewMetric();
 
     expect(screen.getByText('Each tool call (search)')).toBeInTheDocument();
+  });
+
+  it('never shows the raw target value while the labels load', async () => {
+    mockTargetsPending = true;
+    try {
+      mockGetMetric.mockResolvedValue({
+        ...mockMetric,
+        config: { target: { on: 'tool_call' } },
+      });
+      await renderAndViewMetric();
+
+      expect(screen.getByLabelText('Loading target')).toBeInTheDocument();
+      expect(screen.queryByText('tool_call')).not.toBeInTheDocument();
+    } finally {
+      mockTargetsPending = false;
+    }
   });
 
   it('offers only the supported targets and keeps other config keys on save', async () => {
