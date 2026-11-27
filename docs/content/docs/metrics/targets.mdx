@@ -92,6 +92,8 @@ A framework metric (DeepEval, Garak, Ragas) is read-only except its target. To p
 
 To list metrics by target, pass `target` with one or more choices: `GET /metrics/?target=turn,conversation`.
 
+On the metrics page, each card says what its metric judges under its name, such as "on each tool call named `issue_refund`". The target is a link to the Traces page filtered to those spans: a per-span target opens the spans of its kind and name, each turn opens the root spans, the conversation opens multi-turn traces, and the whole run opens every trace. A chip above the list names the target and its metric; removing it clears those filters. `GET /metrics/targets` gives each target's `span_kind` (`tool.invoke`, `retrieval`, `llm.invoke`, `agent.invoke`, `guardrail`), or `null` for a target judged as a turn, the conversation or the run.
+
 In the SDK, a judge takes `target` in its constructor, and `push()` and `pull()` carry it in the metric's `config`:
 
 <CodeBlock filename="target.py" language="python">

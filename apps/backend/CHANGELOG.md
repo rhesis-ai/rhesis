@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Run tagged tests**: executing a test set, and a schedule's run settings, take `tests_tagged`, a list of tag names. The run includes only the tests carrying any of them, and its test count, quota check, metric plan and re-scores follow the same tests. A schedule whose tags no longer match any test pauses. Reusing outputs is refused when the earlier run has no output for some of the run's tests.
 - **Group runs**: `POST /test_runs/batches` runs several test sets, or every set carrying a tag, against one endpoint, once per experiment version. The runs share a `batch_id`, and a tag is stored on them as `batch_set_tag`. Every set and the quota for all of their tests are checked before any run starts. The MCP server exposes it as `execute_test_set_group`.
+- **Spans by tool**: `GET /telemetry/spans` and its facets take `tool`, a tool name (`ai.tool.name`), repeatable.
+- **Target span kinds**: each choice from `GET /metrics/targets` carries `span_kind`, the span type a per-span target judges (`tool.invoke`, `retrieval`, `llm.invoke`, `agent.invoke`, `guardrail`), or `null`.
 - **Test tags of a test set**: `GET /test_sets/{id}/test-tags` lists the tags on a set's tests, each with how many tests carry it. The MCP server exposes it as `list_test_set_test_tags`, and `execute_test_set` takes `tests_tagged`.
 
 ### Changed
