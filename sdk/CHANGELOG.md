@@ -18,19 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `TestSet.execute()` takes `tests_tagged`, a list of tag names. Only the set's tests carrying any of them run.
-- `TestSet.execute()` takes `tests_tagged`, a list of tag names. Only the set's tests carrying any of them run.
 - Enabled test run scheduling capabilities for the Architect agent.
 
 ### Changed
 
-- `LiteLLMProxy.a_generate()` calls the proxy on an async HTTP client instead of running the blocking call in a thread, so many evaluations can wait on the proxy at once.
-- Blocking model calls made from the SDK's background event loop run on a pool of `RHESIS_SDK_LOOP_THREADS` threads (default 64, also used when the value is not a whole number). Before, a process made at most `os.cpu_count() + 4` such calls at once, and in a container that is the host's core count.
-- Creating a metric imports only its own provider. A Rhesis metric no longer imports deepeval and garak, which took seconds of CPU on a process's first evaluation.
-- `Endpoint.invoke()` waits as long as the backend waits for the endpoint, its `timeout_seconds` plus 30 seconds, instead of giving up after 30 seconds. An `Endpoint` built from just an id waits up to 7230 seconds, since its timeout isn't known.
-- Microsoft Agent Framework and Pydantic AI `create_agent` spans are now `ai.agent.create` with `ai.operation.type` `agent.create` (were `ai.agent.invoke`).
-- GenAI-convention spans (Agent Framework, Pydantic AI) no longer count cache reads and writes in `ai.llm.tokens.input`; they are reported in `ai.llm.tokens.cache_read` and `ai.llm.tokens.cache_write`. Agent id, description and version, tool description and call id, and handoff targets are mapped too.
-- `ai.llm.finish_reason` from GenAI-convention spans (Google ADK, Agent Framework, Pydantic AI) is one string, the reasons joined with ", ", as the LangChain integration records it; it was the raw array.
-- The GenAI-convention mapping moved to the shared `rhesis` package (`rhesis.telemetry.genai`), where the backend's OTLP ingest uses it as well.
 - `LiteLLMProxy.a_generate()` calls the proxy on an async HTTP client instead of running the blocking call in a thread, so many evaluations can wait on the proxy at once.
 - Blocking model calls made from the SDK's background event loop run on a pool of `RHESIS_SDK_LOOP_THREADS` threads (default 64, also used when the value is not a whole number). Before, a process made at most `os.cpu_count() + 4` such calls at once, and in a container that is the host's core count.
 - Creating a metric imports only its own provider. A Rhesis metric no longer imports deepeval and garak, which took seconds of CPU on a process's first evaluation.
@@ -48,14 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - After a connection that had stayed up drops, the connector reconnects at once instead of waiting out a backoff that grew with every earlier drop (up to 60 seconds), and sends during the reconnect go straight to the outbox.
 - The backend's keepalive `ping` is logged at debug level instead of info.
 - The SDK requires the `rhesis` core package at its own version or newer, instead of `0.17.1`, so it no longer installs next to an older core.
-- LiteLLM calls made from more than one event loop (one per worker thread, or `asyncio.run()` per call) no longer log "Task was destroyed but it is pending!" and LiteLLM `LoggingWorker` errors. Each event loop now gets its own LiteLLM logging worker.
-- The connector keeps each test and metric result until the backend acknowledges it, and resends unacknowledged results after reconnecting, and otherwise after 30 seconds, backing off to 5 minutes, paced at 200 per second. Against a backend without acknowledgements it keeps a result only while it cannot be sent. It keeps at most 1000 results for at most 10 minutes, logging each one it drops, and drops a result that cannot be serialized instead of retrying it.
-- After a connection that had stayed up drops, the connector reconnects at once instead of waiting out a backoff that grew with every earlier drop (up to 60 seconds), and sends during the reconnect go straight to the outbox.
-- The backend's keepalive `ping` is logged at debug level instead of info.
-- The SDK requires the `rhesis` core package at its own version or newer, instead of `0.17.1`, so it no longer installs next to an older core.
 - `close_background_loop()` now explicitly shuts down the background loop's thread pool on close.
 - Log warning messages when backend endpoint registration reports failures or errors.
-
 
 ## [0.22.0] - 2026-11-19
 

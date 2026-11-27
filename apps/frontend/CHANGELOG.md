@@ -13,8 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Run Sets With a Tag**: New Test Run can run every test set carrying a tag, each as its own run, and lists the sets the tag covers. Runs of several sets or experiments now start through one server request, which checks every set and the quota before any run starts.
 - **Run Tagged Tests**: The run drawer's What to run section has an Only tests tagged field. Pick tags from the set's tests, with how many tests carry each, to run only those tests. Schedules keep the choice, re-runs start with it, and a run's Configuration tab and a schedule's run settings show it.
-- **Run Sets With a Tag**: New Test Run can run every test set carrying a tag, each as its own run, and lists the sets the tag covers. Runs of several sets or experiments now start through one server request, which checks every set and the quota before any run starts.
-- **Run Tagged Tests**: The run drawer's What to run section has an Only tests tagged field. Pick tags from the set's tests, with how many tests carry each, to run only those tests. Schedules keep the choice, re-runs start with it, and a run's Configuration tab and a schedule's run settings show it.
 - **Scheduled Test Runs**: Added a dedicated Schedules tab under Test Runs featuring week calendar and list views, schedule management drawers, notification preferences, and test set schedule filtering.
 - **Agent Trace Filtering**: Added support for viewing and filtering OpenTelemetry GenAI traces by agent name.
 - **Personal Accessibility Mode**: Introduced a personal accessibility setting that elevates UI color contrast above WCAG 2.1 AA headroom standards and prompts confirmation for destructive actions.
@@ -25,7 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Run Drawer Sections**: The run drawer groups its fields into What to run, Run against, Scoring, When and More options. A folded section shows its settings on one line. Reuse Outputs is now disabled wherever there is no earlier run to reuse; before, it could be picked and the run called the endpoint anyway. Scheduling moved from the save button's menu into the When section, and the footer says how many runs and tests a click starts.
 - **Run Drawer Sections**: The run drawer groups its fields into What to run, Run against, Scoring, When and More options. A folded section shows its settings on one line. Reuse Outputs is now disabled wherever there is no earlier run to reuse; before, it could be picked and the run called the endpoint anyway. Scheduling moved from the save button's menu into the When section, and the footer says how many runs and tests a click starts.
 - **Page Loading Experience**: Replaced full-page skeletons with immediate page headers, mirrored tabs/toolbars, and component-level loading placeholders.
 - **Read-Only Framework Metrics**: Rendered framework metrics in a read-only state on metric detail pages with linked tab panels.
@@ -48,7 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **API Tokens for Members**: Members can open the API page to manage their own tokens; it no longer requires an admin role.
 - **API Tokens for Members**: Members can open the API page to manage their own tokens; it no longer requires an admin role.
 - **Production Detail Error Views**: Rendered proper error pages for production server errors and access-denied conditions on detail pages.
 - **CSV Export Safety**: Neutralized spreadsheet formula injection characters across exported CSV files.

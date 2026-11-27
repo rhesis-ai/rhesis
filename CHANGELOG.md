@@ -101,8 +101,6 @@ See individual component changelogs for detailed changes:
 - [Frontend Changelog](apps/frontend/CHANGELOG.md)
 - [SDK Changelog](sdk/CHANGELOG.md)
 
-
-
 ## [0.22.0] - 2026-11-19
 
 ### Platform Release

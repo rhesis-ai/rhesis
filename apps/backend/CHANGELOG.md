@@ -14,9 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Run tagged tests**: executing a test set, and a schedule's run settings, take `tests_tagged`, a list of tag names. The run includes only the tests carrying any of them, and its test count, quota check, metric plan and re-scores follow the same tests. A schedule whose tags no longer match any test pauses. Reusing outputs is refused when the earlier run has no output for some of the run's tests.
 - **Group runs**: `POST /test_runs/batches` runs several test sets, or every set carrying a tag, against one endpoint, once per experiment version. The runs share a `batch_id`, and a tag is stored on them as `batch_set_tag`. Every set and the quota for all of their tests are checked before any run starts. The MCP server exposes it as `execute_test_set_group`.
 - **Test tags of a test set**: `GET /test_sets/{id}/test-tags` lists the tags on a set's tests, each with how many tests carry it. The MCP server exposes it as `list_test_set_test_tags`, and `execute_test_set` takes `tests_tagged`.
-- **Run tagged tests**: executing a test set, and a schedule's run settings, take `tests_tagged`, a list of tag names. The run includes only the tests carrying any of them, and its test count, quota check, metric plan and re-scores follow the same tests. A schedule whose tags no longer match any test pauses. Reusing outputs is refused when the earlier run has no output for some of the run's tests.
-- **Group runs**: `POST /test_runs/batches` runs several test sets, or every set carrying a tag, against one endpoint, once per experiment version. The runs share a `batch_id`, and a tag is stored on them as `batch_set_tag`. Every set and the quota for all of their tests are checked before any run starts. The MCP server exposes it as `execute_test_set_group`.
-- **Test tags of a test set**: `GET /test_sets/{id}/test-tags` lists the tags on a set's tests, each with how many tests carry it. The MCP server exposes it as `list_test_set_test_tags`, and `execute_test_set` takes `tests_tagged`.
 - **Scheduled test runs**: added cron-based test run scheduling (`/test_run_schedules`) with time zone support, occurrence previews, configurable notification settings, and a Celery Beat dispatcher that automatically triggers due runs.
 - **OTLP GenAI trace ingest (EE)**: added `POST /telemetry/v1/traces` supporting OpenTelemetry GenAI standards (protobuf/JSON over HTTP), agent filtering via `GET /telemetry/agents`, and specialized queue limit enforcement.
 - **SSO group to role mapping**: automatic mapping of OIDC/SAML SSO group claims to organization and project roles during sign-in, including sign-in error diagnostics and rule preview capabilities.
@@ -33,12 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Connector keepalive**: the connector WebSocket sends an app-level `ping` every third of `WS_IDLE_TIMEOUT`, so quiet SDK connectors are no longer closed by the idle timeout. A client that stops answering is still closed.
-- **Connector reconnects mid-call**: each dispatched call is recorded in Redis with its scope, and once its dispatching connection is gone, a result sent on a new connection of the same organization and project:environment (or, for metric-only calls, the same metric and user) is accepted on any replica instead of being rejected as a connection mismatch. While the dispatching connection is up, only it may answer.
-- **Result acknowledgements**: SDKs that ask for it in their `register` message get a `result_ack` once their result is handled, and `registered` replies advertise `result_ack: true`.
-- **Routes survive a late teardown**: closing an old connector socket, or its heartbeat while it lingers, no longer removes or takes back the route of a connection that re-registered the same project and environment, locally or in Redis.
-- **Bounded call bookkeeping**: calls dispatched for Celery workers are forgotten once their timeout passes, instead of piling up.
-- **Dropped connectors fail fast**: when a connector drops and no connection of its scope comes back within 90 seconds, its in-flight calls fail with `sdk_connection_lost` instead of waiting for the endpoint timeout. The error is not retried, since the function may already have run.
 - **Connector keepalive**: the connector WebSocket sends an app-level `ping` every third of `WS_IDLE_TIMEOUT`, so quiet SDK connectors are no longer closed by the idle timeout. A client that stops answering is still closed.
 - **Connector reconnects mid-call**: each dispatched call is recorded in Redis with its scope, and once its dispatching connection is gone, a result sent on a new connection of the same organization and project:environment (or, for metric-only calls, the same metric and user) is accepted on any replica instead of being rejected as a connection mismatch. While the dispatching connection is up, only it may answer.
 - **Result acknowledgements**: SDKs that ask for it in their `register` message get a `result_ack` once their result is handled, and `registered` replies advertise `result_ack: true`.
@@ -63,7 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Coalesced model token accruals into organization-level periodic batch flushes.
   - Restored missing `created_at` and `updated_at` timestamps on `TestRun` response schemas.
   - Cached tenant GUC parameters and API token validations to minimize database round trips per request.
-
 
 ## [0.22.0] - 2026-11-19
 

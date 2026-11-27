@@ -8,6 +8,11 @@ build:
 python:
   install:
     - requirements: docs/sphinx/requirements.txt
+    # The SDK pins core to its own version, which isn't on PyPI until the release publishes
+    - method: pip
+      path: packages/rhesis
+      extra_requirements:
+        - telemetry
     # autodoc imports every SDK package, so it needs the [all] extra
     - method: pip
       path: sdk
