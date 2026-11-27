@@ -284,7 +284,7 @@ class TestMetricRequirementNestedM2MLoads:
             db=test_db, skip=0, limit=100, organization_id=test_org_id
         )
         listed_metric = _nested_metric(next(b for b in listed if b.id == requirement.id))
-        for column in ("name", "description", "score_type", "metric_scope", "class_name"):
+        for column in ("name", "description", "score_type", "config", "class_name"):
             assert _is_loaded(listed_metric, column)
         assert not _is_loaded(listed_metric, "evaluation_prompt")
         assert not _is_loaded(listed_metric, "evaluation_steps")

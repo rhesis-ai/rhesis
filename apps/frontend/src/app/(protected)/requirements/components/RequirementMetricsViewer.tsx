@@ -17,6 +17,8 @@ import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
+import { useMetricTargets } from '@/hooks/useLookups';
+import { formatMetricTarget, getMetricTarget } from '@/utils/metric-targets';
 
 interface RequirementMetricsViewerProps {
   open: boolean;
@@ -46,6 +48,7 @@ export default function RequirementMetricsViewer({
   const router = useRouter();
   const notifications = useNotifications();
   const theme = useTheme();
+  const { data: targetChoices } = useMetricTargets(open);
 
   const [isRemoving, setIsRemoving] = React.useState<string | null>(null);
   const accessibilityMode = useAccessibilityMode();
@@ -243,7 +246,15 @@ export default function RequirementMetricsViewer({
                       backend={metric.backend_type?.type_value}
                       metricType={metric.metric_type?.type_value}
                       scoreType={metric.score_type ?? undefined}
-                      metricScope={metric.metric_scope ?? undefined}
+                      target={(() => {
+                        const target = getMetricTarget(metric);
+                        return target
+                          ? {
+                              on: target.on,
+                              label: formatMetricTarget(target, targetChoices),
+                            }
+                          : undefined;
+                      })()}
                       usedIn={[requirement.name]}
                       showUsage={false}
                     />

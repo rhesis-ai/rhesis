@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.schemas.metric import metric_targets
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     get_or_create_status,
@@ -188,6 +189,14 @@ def _with_sdk_connection(
     return json.dumps(data)
 
 
+def _default_config(accepted_params: List[str]) -> Dict[str, Any]:
+    """A new SDK metric's settings: the default target of a function reading these."""
+    _, default = metric_targets(
+        None, ground_truth_required="expectations" in accepted_params, accepted=accepted_params
+    )
+    return {"target": {"on": default.value}} if default is not None else {}
+
+
 def _update_existing_metric(
     metric: models.Metric,
     metric_data: Dict[str, Any],
@@ -256,7 +265,7 @@ def _create_new_metric(
             status_id=active_status.id if active_status else None,
             ground_truth_required="expectations" in accepted_params,
             context_required=False,
-            metric_scope=["Single-Turn"],
+            config=_default_config(accepted_params),
             evaluation_examples=_with_sdk_connection(None, metric_name, accepted_params),
         ),
         organization_id=organization_id,

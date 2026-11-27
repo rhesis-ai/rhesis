@@ -21,10 +21,10 @@ function factoryReturning(
 }
 
 describe('fetchProjectTraceMetrics', () => {
-  it('returns every assigned metric, whatever its scope', async () => {
+  it('returns every assigned metric, whatever its target', async () => {
     const factory = factoryReturning({
-      [SINGLE]: { id: SINGLE, metric_scope: ['Single-Turn'] },
-      [MULTI]: { id: MULTI, metric_scope: ['Multi-Turn'] },
+      [SINGLE]: { id: SINGLE, config: { target: { on: 'turn' } } },
+      [MULTI]: { id: MULTI, config: { target: { on: 'conversation' } } },
     });
 
     const metrics = await fetchProjectTraceMetrics(factory, [SINGLE, MULTI]);
@@ -34,7 +34,7 @@ describe('fetchProjectTraceMetrics', () => {
 
   it('drops metrics that no longer load', async () => {
     const factory = factoryReturning({
-      [SINGLE]: { id: SINGLE, metric_scope: ['Single-Turn'] },
+      [SINGLE]: { id: SINGLE, config: { target: { on: 'turn' } } },
       [GONE]: new Error('404'),
     });
 

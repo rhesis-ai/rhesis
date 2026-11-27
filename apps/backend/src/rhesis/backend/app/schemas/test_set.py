@@ -304,7 +304,6 @@ class ExecutionMetric(BaseModel):
 
     id: UUID4
     name: str
-    scope: Optional[List[str]] = None  # e.g., ["Single-Turn"], ["Multi-Turn"], or both
 
 
 #: How many tags a run can filter its tests by.

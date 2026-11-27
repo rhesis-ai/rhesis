@@ -24,7 +24,7 @@ from fastapi import status
 
 from .base import BaseEntityRouteTests, BaseEntityTests
 from .endpoints import APIEndpoints
-from .fixtures.data_factories import RequirementDataFactory, MetricDataFactory
+from .fixtures.data_factories import MetricDataFactory, RequirementDataFactory
 
 # Initialize Faker
 fake = Faker()
@@ -244,6 +244,43 @@ class TestMetricDetailAccessRestriction(MetricTestMixin, BaseEntityTests):
         assert get_resp.json()["threshold"] == metric["threshold"]
 
     @pytest.mark.parametrize("backend", ["deepeval", "garak", "ragas"])
+    def test_framework_metric_target_can_change(self, backend, metric_factory):
+        """The target says where a framework metric is applied, so it stays editable."""
+        data = self.get_sample_data()
+        data["backend_type"] = backend
+        metric = metric_factory.create(data)
+        current = metric["config"]["target"]["on"]
+        other = next(t for t in metric["supported_targets"] if t != current)
+
+        put_resp = metric_factory.client.put(
+            self.endpoints.put(metric["id"]), json={"config": {"target": {"on": other}}}
+        )
+
+        assert put_resp.status_code == status.HTTP_200_OK, put_resp.text
+        assert put_resp.json()["config"]["target"]["on"] == other
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"config": {"target": {"on": "run"}}, "threshold": 0.9},
+            {"config": {"target": {"on": "run"}, "strict_mode": True}},
+        ],
+        ids=["with another field", "with another setting"],
+    )
+    def test_framework_metric_target_change_cant_carry_more(self, body, metric_factory):
+        """Only the target changes: anything else in the same update is refused."""
+        data = self.get_sample_data()
+        data["backend_type"] = "deepeval"
+        metric = metric_factory.create(data)
+
+        put_resp = metric_factory.client.put(self.endpoints.put(metric["id"]), json=body)
+
+        assert put_resp.status_code == status.HTTP_403_FORBIDDEN
+        assert "except their target" in put_resp.json()["detail"]
+        get_resp = metric_factory.client.get(self.endpoints.get(metric["id"]))
+        assert get_resp.json()["config"] == metric["config"]
+
+    @pytest.mark.parametrize("backend", ["deepeval", "garak", "ragas"])
     def test_improve_framework_metric_returns_403(self, backend, metric_factory):
         """POST /metrics/{id}/improve refuses a framework metric before any generation."""
         data = self.get_sample_data()
@@ -318,7 +355,6 @@ class TestMetricValidation(MetricTestMixin, BaseEntityTests):
                 "name": fake.word().title() + f" {score_type.title()} Metric",
                 "evaluation_prompt": fake.sentence(nb_words=8),
                 "score_type": score_type,
-                "metric_scope": ["Single-Turn"],
             }
 
             # Add required fields per score type
@@ -344,13 +380,24 @@ class TestMetricValidation(MetricTestMixin, BaseEntityTests):
         response = metric_factory.client.post(self.endpoints.create, json=data)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_create_metric_rejects_trace_scope(self, metric_factory):
-        """Trace is no longer a scope: a project picks its trace metrics in its settings."""
+    def test_create_metric_stores_and_returns_its_default_target(self, metric_factory):
+        response = metric_factory.client.post(self.endpoints.create, json=self.get_minimal_data())
+
+        assert response.status_code == status.HTTP_200_OK
+        created = response.json()
+        assert created["config"]["target"] == {"on": "turn"}
+        assert "metric_scope" not in created
+        assert "conversation" in created["supported_targets"]
+
+    def test_create_metric_refuses_a_scope(self, metric_factory):
+        """metric_scope is gone; an old client sending one is told what replaced it."""
         data = self.get_minimal_data()
-        data["metric_scope"] = ["Single-Turn", "Trace"]
+        data["metric_scope"] = ["Multi-Turn"]
 
         response = metric_factory.client.post(self.endpoints.create, json=data)
+
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "replaced by the target" in response.text
 
     def test_create_metric_threshold_validation(self, metric_factory):
         """📊 Test metric creation with threshold operators"""
@@ -490,14 +537,39 @@ class TestMetricPerformance(MetricTestMixin, BaseEntityTests):
         page_2 = response.json()
         # page_2 might be empty if there aren't enough metrics, which is fine
 
-    def test_metric_list_with_metric_scope_filter(self, metric_factory):
-        """metric_scope must not break the X-Total-Count override in the router."""
-        metric_factory.create(self.get_sample_data())
+    def test_metric_list_with_target_filter(self, metric_factory):
+        """The target filter keeps matching metrics and the X-Total-Count override."""
+        whole = self.get_sample_data()
+        whole["config"] = {"target": {"on": "conversation"}}
+        conversation_id = metric_factory.create(whole)["id"]
+        turn_id = metric_factory.create(self.get_sample_data())["id"]
 
-        response = metric_factory.client.get(f"{self.endpoints.list}?metric_scope=Single-Turn")
+        response = metric_factory.client.get(f"{self.endpoints.list}?target=conversation&limit=100")
 
         assert response.status_code == status.HTTP_200_OK
-        assert int(response.headers["X-Total-Count"]) >= len(response.json())
+        ids = {m["id"] for m in response.json()}
+        assert conversation_id in ids and turn_id not in ids
+        assert all(m["config"]["target"]["on"] == "conversation" for m in response.json())
+        assert int(response.headers["X-Total-Count"]) == len(response.json())
+
+    def test_metric_targets_lists_the_registry(self, metric_factory):
+        from rhesis.sdk.metrics.targets import TARGETS
+
+        response = metric_factory.client.get(f"{self.endpoints.list}targets")
+
+        assert response.status_code == status.HTTP_200_OK
+        choices = response.json()
+        assert [c["on"] for c in choices] == [kind.value for kind in TARGETS]
+        assert choices[0] == {
+            "on": "turn",
+            "label": "Each turn",
+            "description": TARGETS["turn"].description,
+            "per_span": False,
+            "span_kind": None,
+        }
+        tool_call = next(c for c in choices if c["on"] == "tool_call")
+        assert tool_call["per_span"] is True
+        assert tool_call["span_kind"] == "tool.invoke"
 
 
 # === METRIC GENERATE ENDPOINT TESTS ===
@@ -515,7 +587,6 @@ _NUMERIC_SYNTHESIZED = {
     "threshold_operator": ">=",
     "categories": None,
     "passing_categories": None,
-    "metric_scope": ["Single-Turn", "Multi-Turn"],
 }
 
 _CATEGORICAL_SYNTHESIZED = {
@@ -530,7 +601,6 @@ _CATEGORICAL_SYNTHESIZED = {
     "threshold_operator": None,
     "categories": ["appropriate", "inappropriate"],
     "passing_categories": ["appropriate"],
-    "metric_scope": ["Single-Turn"],
 }
 
 
@@ -653,7 +723,6 @@ _IMPROVED_NUMERIC = {
     "threshold_operator": ">=",
     "categories": None,
     "passing_categories": None,
-    "metric_scope": ["Single-Turn", "Multi-Turn"],
 }
 
 
@@ -733,7 +802,7 @@ class TestMetricConfig(MetricTestMixin):
     def test_valid_settings_are_stored(self, metric_factory):
         metric = self._trajectory(metric_factory)
 
-        assert metric["config"] == {"match": "superset"}
+        assert metric["config"] == {"match": "superset", "target": {"on": "run"}}
 
     def test_an_update_without_class_name_is_checked_against_the_stored_class(self, metric_factory):
         metric = self._trajectory(metric_factory)
@@ -753,7 +822,7 @@ class TestMetricConfig(MetricTestMixin):
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["config"] == {"match": "exact"}
+        assert response.json()["config"] == {"match": "exact", "target": {"on": "run"}}
 
     def test_an_update_without_config_keeps_the_stored_one(self, metric_factory):
         metric = self._trajectory(metric_factory)
@@ -763,7 +832,7 @@ class TestMetricConfig(MetricTestMixin):
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["config"] == {"match": "superset"}
+        assert response.json()["config"] == {"match": "superset", "target": {"on": "run"}}
 
     def test_a_target_the_stored_class_cannot_take_is_refused(self, metric_factory):
         metric = self._trajectory(metric_factory)

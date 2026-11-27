@@ -43,8 +43,11 @@ def make_span(
     conversation_id=None,
     test_run_id=None,
     span_id=None,
+    tool=None,
 ):
     attributes = {}
+    if tool:
+        attributes[AIAttributes.TOOL_NAME] = tool
     if operation:
         attributes[AIAttributes.OPERATION_TYPE] = operation
     if model:
@@ -135,6 +138,7 @@ def agent_trace(test_db, db_project, test_org_id):
                 span_id=tool,
                 offset_s=2,
                 error=True,
+                tool="issue_refund",
             ),
             make_span(
                 trace_id,
@@ -285,6 +289,8 @@ class TestRowFilters:
             (SpanFilters(start_time_before=BASE_TIME), {"root"}),
             (SpanFilters(models=["gpt-4"]), {"llm"}),
             (SpanFilters(providers=["openai"]), {"llm"}),
+            (SpanFilters(tools=["issue_refund"]), {"tool"}),
+            (SpanFilters(tools=["cancel_order"]), set()),
             (SpanFilters(environment="production"), set()),
         ],
     )

@@ -274,6 +274,8 @@ export interface SpanFilterParams {
   provider?: string[];
   /** Matches spans whose own `ai.agent.name` is one of these. */
   agent?: string[];
+  /** Matches spans whose own `ai.tool.name` is one of these. */
+  tool?: string[];
 }
 
 export interface SpanQueryParams extends SpanFilterParams {

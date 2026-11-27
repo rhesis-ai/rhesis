@@ -38,14 +38,10 @@ def _prefetched(session, tests, organization_id):
 def _make_metric_config(
     name: str,
     class_name: str,
-    metric_scope: list | None = None,
 ) -> MagicMock:
     mc = MagicMock()
     mc.name = name
     mc.class_name = class_name
-    # Batch evaluation drops configs that declare no scope, so default to both
-    # turn types: these tests are about which configs are selected, not scope.
-    mc.metric_scope = metric_scope if metric_scope is not None else ["Single-Turn", "Multi-Turn"]
     return mc
 
 
@@ -144,7 +140,6 @@ class TestPrefetchMetricResolution:
         metric.name = metric_name
         metric.class_name = metric_class
         metric.id = uuid4()
-        metric.metric_scope = ["Single-Turn"]
 
         requirement = MagicMock()
         requirement.name = requirement_name
@@ -338,7 +333,6 @@ class TestPrefetchFallthroughToPerTest:
         metric.name = metric_name
         metric.class_name = metric_class
         metric.id = uuid4()
-        metric.metric_scope = ["Single-Turn"]
 
         requirement = MagicMock()
         requirement.name = requirement_name

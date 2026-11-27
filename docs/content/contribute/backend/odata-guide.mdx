@@ -83,7 +83,7 @@ after the query runs. `id` is always included so entities stay addressable. It r
 size but does not change which rows match `$filter`.
 
 <CodeBlock filename="select.sh" language="bash">
-{`GET /metrics?$select=name,metric_scope
+{`GET /metrics?$select=name,config
 GET /test_results?$filter=test_run_id eq 'run-uuid'&$select=status,prompt,metric_scores`}
 </CodeBlock>
 

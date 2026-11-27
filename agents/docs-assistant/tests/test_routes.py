@@ -10,7 +10,7 @@ from docs_assistant.schemas import Route
 from docs_assistant.terminals import SUPPORT_STEPS
 from tests.mocks import ScriptedModel, fetch, models, submit, text, triage, triage_part
 
-SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
+SCOPE = "https://docs.rhesis.ai/docs/metrics/targets"
 NOT_DOCUMENTED = {
     "route": "not_documented",
     "claims": [],
@@ -63,7 +63,7 @@ async def test_non_docs_kinds_read_no_docs(kind, route, phrase, cache, settings)
 
 
 async def test_unsafe_wins_over_a_docs_part(cache, settings):
-    decision = triage(triage_part("what is metric scope?"), triage_part("x", "unsafe"))
+    decision = triage(triage_part("what is a metric target?"), triage_part("x", "unsafe"))
     response, answer_model = await turn(
         "m", cache, settings, triage_model=ScriptedModel([[decision]])
     )
@@ -120,21 +120,21 @@ async def test_uncertain_scope_goes_to_the_answer_agent(cache, settings):
 async def test_a_failed_triage_still_answers(cache, settings):
     answer_model = ScriptedModel([[fetch(SCOPE)], [submit()]])
     response, _ = await turn(
-        "what is metric scope?",
+        "what is a metric target?",
         cache,
         settings,
         triage_model=ScriptedModel([[text("not json")]]),
         answer_model=answer_model,
     )
     assert response.route is Route.ANSWERED
-    assert "what is metric scope?" in model_input(answer_model)
+    assert "what is a metric target?" in model_input(answer_model)
 
 
 async def test_german_answers_use_german_labels(cache, settings):
-    decision = triage(triage_part("Was ist Metric Scope?", surface="ui"), language="de")
+    decision = triage(triage_part("Was ist ein Metric Target?", surface="ui"), language="de")
     answer_model = ScriptedModel([[fetch(SCOPE)], [submit(answer_md="Antwort [c1].")]])
     response, _ = await turn(
-        "Was ist Metric Scope?",
+        "Was ist ein Metric Target?",
         cache,
         settings,
         triage_model=ScriptedModel([[decision]]),
@@ -163,7 +163,7 @@ async def test_parts_past_the_cap_are_dropped_with_a_note(cache, settings):
 async def test_long_input_is_clipped_with_a_note(cache, settings):
     answer_model = ScriptedModel([[fetch(SCOPE)], [submit()]])
     response, _ = await turn(
-        "what is metric scope? " + "x" * 50,
+        "what is a metric target? " + "x" * 50,
         cache,
         replace(settings, max_input_chars=30),
         answer_model=answer_model,
@@ -176,18 +176,18 @@ async def test_long_input_is_clipped_with_a_note(cache, settings):
 async def test_a_reply_that_leaks_the_prompt_is_replaced(cache, settings):
     leaked = INSTRUCTIONS[200:900] + " [c1]"
     answer_model = ScriptedModel([[fetch(SCOPE)], [submit(answer_md=leaked)]])
-    response, _ = await turn("what is metric scope?", cache, settings, answer_model=answer_model)
+    response, _ = await turn("what is a metric target?", cache, settings, answer_model=answer_model)
     assert response.route is Route.UNSAFE_OR_INJECTION
     assert response.citations == []
     assert "Only pages you read" not in response.response
 
 
 async def test_status_words_never_reach_the_user(cache, settings):
-    answer_md = "Metric scope sets the turns [c1].\nACCEPTED"
+    answer_md = "A metric target sets what is judged [c1].\nACCEPTED"
     answer_model = ScriptedModel([[fetch(SCOPE)], [submit(answer_md=answer_md)]])
-    response, _ = await turn("what is metric scope?", cache, settings, answer_model=answer_model)
+    response, _ = await turn("what is a metric target?", cache, settings, answer_model=answer_model)
     assert "ACCEPTED" not in response.response
-    assert response.answer_md == "Metric scope sets the turns [c1]."
+    assert response.answer_md == "A metric target sets what is judged [c1]."
 
 
 def model_input(model: ScriptedModel) -> str:
@@ -200,7 +200,7 @@ async def test_stale_docs_still_answer_with_the_stale_footer(cache, site, clock,
     site.down = True
     await cache.refresh()
     answer_model = ScriptedModel([[fetch(SCOPE)], [submit()]])
-    response, _ = await turn("what is metric scope?", cache, settings, answer_model=answer_model)
+    response, _ = await turn("what is a metric target?", cache, settings, answer_model=answer_model)
     assert response.route is Route.ANSWERED
     assert response.docs_stale is True
     assert "the live site didn't respond" in response.response
@@ -211,15 +211,15 @@ async def test_answers_carry_conflicts(cache, settings):
         {
             "id": "c1",
             "url": SCOPE,
-            "quote": "Full transcript required — context retention, multi-step threads",
+            "quote": "Every other target runs on single-turn and multi-turn tests alike",
         },
-        {"id": "c2", "url": SCOPE, "quote": "One `test_type` per test set."},
+        {"id": "c2", "url": SCOPE, "quote": "The target is optional."},
     ]
     conflicts = [{"summary": "Old and new limits differ.", "citation_ids": ["c1", "c2"]}]
     answer_model = ScriptedModel(
         [[fetch(SCOPE)], [submit(citations=citations, conflicts=conflicts)]]
     )
-    response, _ = await turn("what is metric scope?", cache, settings, answer_model=answer_model)
+    response, _ = await turn("what is a metric target?", cache, settings, answer_model=answer_model)
     assert [(c.summary, len(c.urls)) for c in response.conflicts] == [
         ("Old and new limits differ.", 2)
     ]

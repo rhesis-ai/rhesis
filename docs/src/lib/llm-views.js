@@ -79,10 +79,10 @@ export function renderLlmsTxt() {
     '- [Agent reference](https://docs.rhesis.ai/docs/agent-skill/for-agents.md): routing, confusions, plan tables'
   )
   lines.push(
-    '- [Glossary](https://docs.rhesis.ai/glossary.md): platform terms (e.g. `glossary/requirement.md`, `glossary/test-result.md`, `glossary/metric-scope.md`, `glossary/tag.md`)'
+    '- [Glossary](https://docs.rhesis.ai/glossary.md): platform terms (e.g. `glossary/requirement.md`, `glossary/test-result.md`, `glossary/metric-target.md`, `glossary/tag.md`)'
   )
   lines.push(
-    '- [Metric scope](https://docs.rhesis.ai/docs/metrics/metric-scope.md): Single-Turn vs Multi-Turn alignment (critical)'
+    '- [Metric targets](https://docs.rhesis.ai/docs/metrics/targets.md): what a metric judges and which tests it runs on (critical)'
   )
   lines.push(
     '- [Spec workflow](https://docs.rhesis.ai/docs/agent-skill/spec.md): spec → test foundation'

@@ -113,7 +113,7 @@ flowchart TB
 
 1. `list_metrics` → resolve by name
 2. `get_metric` (read `evaluation_prompt` and thresholds)
-3. `update_metric` for precise field edits, OR `improve_metric` for NL instructions. Framework metrics (backend type `deepeval`, `garak`, `ragas`) are read-only and both tools refuse them; create a custom metric with `create_metric` instead
+3. `update_metric` for precise field edits, OR `improve_metric` for NL instructions. Framework metrics (backend type `deepeval`, `garak`, `ragas`) are read-only except their target: `update_metric` accepts `config` with a new target alone, and refuses anything else. For any other change, create a custom metric with `create_metric`
 4. `get_metric_requirements` to confirm requirement links
 
 ### Undo a requirement–metric link

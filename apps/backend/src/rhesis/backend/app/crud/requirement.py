@@ -44,7 +44,7 @@ _REQUIREMENT_LIST_METRIC_COLUMNS = [
     models.Metric.name,
     models.Metric.description,
     models.Metric.score_type,
-    models.Metric.metric_scope,
+    models.Metric.config,
     models.Metric.project_id,
     models.Metric.class_name,
     models.Metric.metric_type_id,

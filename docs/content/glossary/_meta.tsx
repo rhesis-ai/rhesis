@@ -93,7 +93,7 @@ export default {
   "reasoning-instructions": {
     display: "hidden",
   },
-  "metric-scope": {
+  "metric-target": {
     display: "hidden",
   },
   "regression-testing": {

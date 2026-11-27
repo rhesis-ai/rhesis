@@ -3,7 +3,7 @@
 Before proposing a plan:
 
 1. `list_requirements` with `$select=name,id,description` — once.
-2. `list_metrics` with `$select=name,id,score_type,description,metric_scope` — once.
+2. `list_metrics` with `$select=name,id,score_type,description,config` — once.
 3. Reuse matches when intent aligns — mark **(reuse)**, **(improve)**, or **(new)**.
 
 ## Plan structure
@@ -11,11 +11,11 @@ Before proposing a plan:
 - **Project** (optional — large new suites only)
 - **Requirements** with descriptions for new items
 - **Test sets** — name, description, `num_tests`, `test_type`, requirements, `generation_prompt`
-- **Metrics** — criteria, thresholds, **`metric_scope`**, and the wording you will send for
+- **Metrics** — criteria, thresholds, **target**, and the wording you will send for
   `description`, `evaluation_steps`, `reasoning`, `explanation` (see `metric-authoring.md`). Design
   the metric here, at plan time — creation copies the plan, it does not improve it
 - **Mappings** — every requirement ≥1 metric
-- **Scope coverage matrix** — see `metric-scope.md`
+- **Coverage matrix** — see `metric-targets.md`
 
 Spec plans: follow section list in `spec-workflow.md` and shape in `use-case-bracketfeld.md`.
 
@@ -42,7 +42,7 @@ A suite can mix both — split them into separate test sets, never one set with 
 
 When the request is genuinely ambiguous, ask one question instead of guessing.
 
-State the type for each test set when you present the plan, and check that the mapped metrics' `metric_scope` covers it — `save_plan` rejects a Multi-Turn set whose requirements only have Single-Turn metrics.
+State the type for each test set when you present the plan, and check that the mapped metrics run on it. `save_plan` rejects a Single-Turn set whose requirement is linked only to metrics that target `conversation`.
 
 ## Reuse
 

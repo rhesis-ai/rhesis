@@ -13,10 +13,10 @@ import pytest
 import requests as _requests
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
-from rhesis.sdk.errors import RhesisAPIError
 from rhesis.sdk.entities.endpoint import Endpoint
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
+from rhesis.sdk.errors import RhesisAPIError
 
 # Keep reference to the real ``requests.request`` so that setup
 # calls (test-set / endpoint / metric creation) still hit the
@@ -60,7 +60,6 @@ def _create_metric(name: str) -> dict:
             "min_score": 0,
             "max_score": 1,
             "threshold": 0.5,
-            "metric_scope": ["Single-Turn"],
         },
     )
 

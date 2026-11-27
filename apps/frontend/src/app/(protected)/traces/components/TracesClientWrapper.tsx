@@ -21,6 +21,7 @@ import {
   filtersFromSearchParams,
   viewFromSearchParams,
 } from './trace-url-state';
+import { FROM_METRIC_PARAM } from './target-filters';
 import { PAGE_HEADERS } from '@/constants/page-headers';
 import {
   CachedContent,
@@ -50,6 +51,7 @@ export default function TracesClientWrapper({
   const initialTraceId = searchParams.get('open_trace');
   const initialProjectId = searchParams.get('project_id');
   const initialSpanId = searchParams.get('open_span');
+  const initialFromMetric = searchParams.get(FROM_METRIC_PARAM);
   // Read once: TracesClient owns this state after mount and writes it back.
   const [initialView] = useState(() =>
     viewFromSearchParams(new URLSearchParams(searchParams.toString()))
@@ -149,6 +151,7 @@ export default function TracesClientWrapper({
             initialSpanId={skeleton ? null : initialSpanId}
             initialView={initialView}
             initialFilters={initialFilters}
+            initialFromMetric={skeleton ? null : initialFromMetric}
             onUnfilteredEmpty={handleUnfilteredEmpty}
             refreshTrigger={refreshTrigger}
             initialData={initialData}

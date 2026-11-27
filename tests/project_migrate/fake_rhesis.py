@@ -22,7 +22,7 @@ REQUIREMENT_METRIC_REF_FIELDS = (
     "name",
     "description",
     "score_type",
-    "metric_scope",
+    "config",
     "backend_type",
     "metric_type",
     "project_id",
@@ -55,7 +55,7 @@ SCHEMAS = {
         "project_id", "name", "description", "evaluation_prompt", "evaluation_steps",
         "score_type", "categories", "passing_categories", "threshold", "threshold_operator",
         "metric_type", "backend_type", "metric_type_id", "backend_type_id", "class_name",
-        "metric_scope", "model_id", "config",
+        "model_id", "config",
     ],
     "SourceCreate": [
         "project_id", "title", "description", "source_type_id", "source_metadata", "content",

@@ -4,8 +4,12 @@ import EntityCard, {
   type EntityCardFact,
   type EntityCardRelation,
 } from '@/components/common/EntityCard';
-import { TEST_TYPES } from '@/constants/test-types';
 import { RequirementsIcon, TuneIcon } from '@/components/icons';
+import type {
+  MetricTarget,
+  MetricTargetChoice,
+} from '@/utils/api-client/interfaces/metric';
+import MetricTargetLine from './MetricTargetLine';
 
 interface MetricCardProps {
   type?: 'custom-prompt' | 'api-call' | 'custom-code' | 'grading';
@@ -14,7 +18,11 @@ interface MetricCardProps {
   backend?: string;
   metricType?: string;
   scoreType?: string;
-  metricScope?: string[];
+  /** What the metric judges, shown under its name and linked to its spans. */
+  target?: MetricTarget;
+  /** `GET /metrics/targets`, for the target's label and icon. */
+  targetChoices?: MetricTargetChoice[];
+  metricId?: string;
   usedIn?: string[];
   /** Custom metrics only; omitted for metrics that can't be tuned. */
   tuningCases?: number;
@@ -55,7 +63,9 @@ export default function MetricCard({
   description,
   backend,
   scoreType,
-  metricScope,
+  target,
+  targetChoices,
+  metricId,
   usedIn,
   tuningCases,
   showUsage = false,
@@ -70,13 +80,19 @@ export default function MetricCard({
       label: capitalize(scoreType),
     });
   }
-  (metricScope ?? []).forEach(scope => {
-    facts.push({ key: `scope-${scope}`, kind: 'plain', label: scope });
-  });
 
   return (
     <EntityCard
       title={title}
+      subtitle={
+        target && (
+          <MetricTargetLine
+            target={target}
+            choices={targetChoices}
+            metricId={metricId}
+          />
+        )
+      }
       description={description}
       context={backend ? capitalize(backend) : undefined}
       facts={facts}
@@ -96,6 +112,10 @@ export default function MetricCard({
   );
 }
 
+const PLACEHOLDER_TARGET_CHOICES: MetricTargetChoice[] = [
+  { on: 'turn', label: 'Each turn', description: '', per_span: false },
+];
+
 /** A loading view's cards: the real card in skeleton mode, with typical values. */
 export function MetricCardPlaceholders() {
   return (
@@ -107,7 +127,8 @@ export function MetricCardPlaceholders() {
           description=""
           backend="rhesis"
           scoreType="numeric"
-          metricScope={[TEST_TYPES.SINGLE_TURN]}
+          target={{ on: 'turn' }}
+          targetChoices={PLACEHOLDER_TARGET_CHOICES}
           usedIn={[]}
           showUsage
         />

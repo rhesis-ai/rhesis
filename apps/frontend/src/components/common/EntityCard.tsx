@@ -60,6 +60,8 @@ export interface EntityCardRelation {
 export interface EntityCardProps {
   icon?: React.ReactNode;
   title: string;
+  /** One muted line under the title, such as what a metric judges. May hold a link. */
+  subtitle?: React.ReactNode;
   description?: string | null;
   onClick?: () => void;
   onDelete?: () => void;
@@ -87,6 +89,7 @@ export interface EntityCardProps {
 
 const DESCRIPTION_LINE_HEIGHT = 22;
 const DESCRIPTION_MAX_LINES = 2;
+const SUBTITLE_MAX_LINES = 2;
 /** Line heights the optional slots reserve, so cards in a grid row line up. */
 const CONTEXT_LINE_HEIGHT = 20;
 const FACTS_LINE_HEIGHT = 24;
@@ -259,6 +262,7 @@ function Relation({ relation }: { relation: EntityCardRelation }) {
 export default function EntityCard({
   icon,
   title,
+  subtitle,
   description,
   onClick,
   onDelete,
@@ -499,6 +503,30 @@ export default function EntityCard({
           )}
         </Typography>
       </Box>
+
+      {subtitle && (
+        <Typography
+          component="div"
+          data-testid="entity-card-subtitle"
+          sx={{
+            fontSize: rem(14),
+            lineHeight: `${CONTEXT_LINE_HEIGHT}px`,
+            color: 'text.secondary',
+            // Close to the title it completes.
+            mt: -0.75,
+            pr: hasTopRightContent ? '36px' : 0,
+            wordBreak: 'break-word',
+            ...(!theme.palette.accessibilityMode && {
+              display: '-webkit-box',
+              WebkitLineClamp: SUBTITLE_MAX_LINES,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }),
+          }}
+        >
+          {slot(subtitle)}
+        </Typography>
+      )}
 
       {/* 3 Facts */}
       <Box

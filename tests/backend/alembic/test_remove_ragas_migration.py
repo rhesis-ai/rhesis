@@ -112,9 +112,9 @@ def make_metric(conn, test_org_id, authenticated_user_id):
         return _scalar(
             conn,
             """
-            INSERT INTO metric (name, evaluation_prompt, score_type, metric_scope,
+            INSERT INTO metric (name, evaluation_prompt, score_type,
                                 backend_type_id, organization_id, user_id)
-            VALUES (:name, 'prompt', 'numeric', CAST('["Single-Turn"]' AS jsonb),
+            VALUES (:name, 'prompt', 'numeric',
                     CAST(:backend AS uuid), CAST(:org AS uuid), CAST(:usr AS uuid))
             RETURNING id
             """,

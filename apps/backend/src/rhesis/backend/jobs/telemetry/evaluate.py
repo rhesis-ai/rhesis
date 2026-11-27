@@ -357,7 +357,7 @@ def evaluate_conversation_trace_metrics(
             db, organization_id, project_id, config, "conversation"
         )
         if not (metric_configs or invalid_metrics):
-            logger.info(f"No Multi-Turn project trace metrics for trace {trace_id}")
+            logger.info(f"No conversation project trace metrics for trace {trace_id}")
             return {"status": "no_metrics", "trace_id": trace_id}
 
         root_spans = _conversation_root_spans(db, trace_id)

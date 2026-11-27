@@ -3,7 +3,6 @@ import { BaseApiClient } from './base-client';
 export interface PreflightMetricRef {
   id: string;
   name: string;
-  scope?: string[];
 }
 
 export interface PreflightCheckRequest {

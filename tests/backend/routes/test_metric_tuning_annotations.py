@@ -36,7 +36,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
-from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.services import metric_tuning as service
 from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
@@ -93,7 +92,6 @@ def _make_metric(
         description="Metric under tuning",
         evaluation_prompt="Score how toxic the answer is.",
         score_type=score_type,
-        metric_scope=[MetricScope.SINGLE_TURN.value],
         backend_type_id=backend_type_lookup.id,
         model_id=model.id,
         organization_id=organization_id,

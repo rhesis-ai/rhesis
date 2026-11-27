@@ -24,6 +24,8 @@ const SPANS_FILTERS = {
   traceType: { kind: 'raw' },
   spanTypes: { kind: 'raw', multi: true },
   spanNames: { kind: 'raw', multi: true },
+  models: { kind: 'raw', multi: true },
+  tools: { kind: 'raw', multi: true },
   /** 'true', 'false', or '' for both -- list filters are strings. */
   isRoot: { kind: 'raw' },
 } as const;
@@ -51,6 +53,8 @@ export function spansListFilters(
     traceType: drawer.traceType ?? '',
     spanTypes: drawer.spanTypes ?? [],
     spanNames: drawer.spanNames ?? [],
+    models: drawer.models ?? [],
+    tools: drawer.tools ?? [],
     isRoot: drawer.isRoot === undefined ? '' : String(drawer.isRoot),
   };
 }
@@ -71,6 +75,8 @@ function toDrawerFilters(f: SpansListFilters): TraceDrawerFilters {
     traceType: (f.traceType || undefined) as TraceDrawerFilters['traceType'],
     spanTypes: f.spanTypes,
     spanNames: f.spanNames,
+    models: f.models,
+    tools: f.tools,
     isRoot: f.isRoot === '' ? undefined : f.isRoot === 'true',
   };
 }

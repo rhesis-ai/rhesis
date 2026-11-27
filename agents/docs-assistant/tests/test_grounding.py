@@ -4,7 +4,7 @@ from docs_assistant.grounding import salvage, validate
 from docs_assistant.schemas import AnswerDraft
 from tests.mocks import draft
 
-SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
+SCOPE = "https://docs.rhesis.ai/docs/metrics/targets"
 
 
 @pytest.fixture
@@ -24,8 +24,8 @@ def test_a_grounded_answer_passes(ledger):
 
 
 def test_anchor_and_md_forms_of_a_read_page_pass(ledger):
-    quote = "metric_scope on every metric (copy from list_metrics when reusing)"
-    citations = [{"id": "c1", "url": f"{SCOPE}.md#planning-checklist", "quote": quote}]
+    quote = "Send it when you create the metric, or change it later through the API"
+    citations = [{"id": "c1", "url": f"{SCOPE}.md#setting-a-target", "quote": quote}]
     assert check(ledger, citations=citations) == []
 
 
@@ -121,7 +121,7 @@ def test_brackets_that_are_not_markers_are_ignored(ledger):
 # ── rules 2, 3, 6, 7, 8 ──────────────────────────────────────────────────────────────────
 
 METRICS = "https://docs.rhesis.ai/sdk/metrics"
-QUOTE = "Scopes are additive: including more values makes the metric eligible in more contexts."
+QUOTE = "It also decides which tests the metric runs on."
 
 
 def cite(url=METRICS, quote=QUOTE, id="c1"):
@@ -137,11 +137,11 @@ def test_a_bad_anchor_is_rejected(ledger):
 
 
 def test_a_real_anchor_passes(ledger):
-    assert check(ledger, citations=[cite(f"{METRICS}#metric-scopes")]) == []
+    assert check(ledger, citations=[cite(f"{METRICS}#targets")]) == []
 
 
 def test_a_quote_not_on_the_page_is_rejected(ledger):
-    problems = check(ledger, citations=[cite(quote="Scopes are multiplied across every context.")])
+    problems = check(ledger, citations=[cite(quote="Targets are multiplied across every context.")])
     assert problems == [
         f"citation c1: the quote is not on {METRICS} word for word; copy the exact sentence "
         "from the page"
@@ -149,19 +149,19 @@ def test_a_quote_not_on_the_page_is_rejected(ledger):
 
 
 def test_quotes_match_across_markdown_case_and_whitespace(ledger):
-    quote = "every METRIC has a metric_scope   that controls\nwhere and when it runs"
+    quote = "a METRIC's target   says what it\njudges in a trace"
     assert check(ledger, citations=[cite(quote=quote)]) == []
 
 
 def test_a_short_quote_is_rejected(ledger):
-    problems = check(ledger, citations=[cite(quote="Scopes are")])
+    problems = check(ledger, citations=[cite(quote="Targets are")])
     assert problems == [
         "citation c1: the quote must be at least 20 characters copied from the page"
     ]
 
 
 def test_code_copied_from_a_page_passes(ledger):
-    answer_md = "Restrict it [c1]:\n\n```python\nmetric_scope=[MetricScope.SINGLE_TURN],\n```"
+    answer_md = 'Judge the conversation [c1]:\n\n```python\n    target="conversation",\n```'
     assert check(ledger, answer_md=answer_md, citations=[cite()]) == []
 
 
@@ -182,12 +182,9 @@ def test_adapted_code_must_name_a_page_that_was_read(ledger):
 
 
 def test_links_must_be_known_pages_or_on_a_read_page(ledger):
-    answer_md = (
-        "See [scope](/docs/metrics/metric-scope) "
-        "and [trace metrics](/docs/metrics/trace-metrics) [c1]."
-    )
+    answer_md = "See [targets](/docs/metrics/targets) and [DeepEval](/docs/metrics/deepeval) [c1]."
     assert check(ledger, answer_md=answer_md, citations=[cite()]) == [
-        "link /docs/metrics/trace-metrics is not a docs page; link only pages that exist"
+        "link /docs/metrics/deepeval is not a docs page; link only pages that exist"
     ]
 
 

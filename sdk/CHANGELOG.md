@@ -21,7 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enabled test run scheduling capabilities for the Architect agent.
 
 ### Changed
-
+- **BREAKING:** `MetricScope` and `MetricConfig.metric_scope` are removed. A metric's
+  `target` says what it judges and so which tests it runs on: judges take `target=` (such as
+  `"conversation"` or `{"on": "tool_call", "name": "issue_refund"}`), `MetricConfig.target`
+  holds it, and `push()` and `pull()` carry it in the metric's `config`. A metric pushed without
+  one is stored with its default: each turn for a judge, the conversation for a conversational
+  metric. Earlier SDK releases send `metric_scope`, which the platform now refuses.
+- **BREAKING:** The Architect's plan gives each metric a `target` (default `"turn"`) instead of
+  `metric_scope`. `save_plan` refuses a Single-Turn test set whose requirement is linked only to
+  metrics judging the conversation, and a `create_metric` call whose target differs from the
+  planned one.
+- `MetricSynthesizer` proposes a `target` (`"turn"` or `"conversation"`) instead of a scope.
 - `LiteLLMProxy.a_generate()` calls the proxy on an async HTTP client instead of running the blocking call in a thread, so many evaluations can wait on the proxy at once.
 - Blocking model calls made from the SDK's background event loop run on a pool of `RHESIS_SDK_LOOP_THREADS` threads (default 64, also used when the value is not a whole number). Before, a process made at most `os.cpu_count() + 4` such calls at once, and in a container that is the host's core count.
 - Creating a metric imports only its own provider. A Rhesis metric no longer imports deepeval and garak, which took seconds of CPU on a process's first evaluation.

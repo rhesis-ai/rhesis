@@ -38,7 +38,6 @@ def _plan(**overrides) -> ArchitectPlan:
             MetricSpec(
                 name="Safety Compliance",
                 description="Scores refusal quality",
-                metric_scope=["Single-Turn"],
             )
         ],
         "test_sets": [
@@ -223,7 +222,6 @@ class TestThingsGetBuiltInTheShapeThatWasPlanned:
                 MetricSpec(
                     name="Safety Compliance",
                     description="Scores refusal quality",
-                    metric_scope=["Single-Turn"],
                     completed=True,
                 )
             ],
@@ -242,13 +240,63 @@ class TestThingsGetBuiltInTheShapeThatWasPlanned:
 
         assert error is None
 
-    def test_a_metric_scope_that_differs_is_refused(self):
+    def test_a_target_that_differs_is_refused(self):
         error = _agent()._check_plan_constraints(
-            _call("create_metric", name="Safety Compliance", metric_scope=["Multi-Turn"])
+            _call(
+                "create_metric",
+                name="Safety Compliance",
+                config={"target": {"on": "conversation"}},
+            )
         )
 
         assert error is not None
-        assert "metric_scope" in error
+        assert "'turn'" in error and "'conversation'" in error
+
+    def test_no_target_is_the_default_one(self):
+        error = _agent()._check_plan_constraints(_call("create_metric", name="Safety Compliance"))
+
+        assert error is None
+
+    def test_a_planned_target_must_be_sent(self):
+        plan = _plan(
+            metrics=[
+                MetricSpec(
+                    name="Safety Compliance",
+                    description="Scores refusal quality",
+                    target="conversation",
+                )
+            ],
+            test_sets=[],
+        )
+
+        missing = _agent(plan)._check_plan_constraints(
+            _call("create_metric", name="Safety Compliance")
+        )
+        sent = _agent(plan)._check_plan_constraints(
+            _call(
+                "create_metric",
+                name="Safety Compliance",
+                config={"target": {"on": "conversation"}},
+            )
+        )
+
+        assert missing is not None and "sends no target" in missing
+        assert sent is None
+
+    @pytest.mark.parametrize(
+        "config, refused",
+        [
+            ({"target": "conversation"}, True),
+            ({"match": "exact"}, False),
+            ({"target": "turn"}, False),
+        ],
+    )
+    def test_every_form_of_target_is_checked(self, config, refused):
+        error = _agent()._check_plan_constraints(
+            _call("create_metric", name="Safety Compliance", config=config)
+        )
+
+        assert (error is not None) is refused
 
     def test_a_threshold_that_differs_is_refused(self):
         error = _agent()._check_plan_constraints(

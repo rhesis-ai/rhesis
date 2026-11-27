@@ -480,6 +480,9 @@ def span_filter_params(
     agent: Optional[List[str]] = Query(
         None, description="Agent name (`ai.agent.name`), repeatable; matches the agent's spans"
     ),
+    tool: Optional[List[str]] = Query(
+        None, description="Tool name (`ai.tool.name`), repeatable; matches the tool's calls"
+    ),
 ) -> SpanFilters:
     """Filters shared by the spans list and its facets."""
     for value, name in (
@@ -507,6 +510,7 @@ def span_filter_params(
         models=model,
         providers=provider,
         agents=agent,
+        tools=tool,
     )
 
 

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Spans a Metric Judges**: A metric card says what the metric judges under its name, such as "on each tool call named `issue_refund`", with the target's icon. The target links to the Traces page filtered to those spans, where a chip names the target and its metric and removing it clears those filters. Each target judged span by span has the icon the trace view gives that kind of span, so each tool call shows a wrench and each retrieval a magnifier. The spans list's filters include models and tools, kept in the URL.
 - **Run Sets With a Tag**: New Test Run can run every test set carrying a tag, each as its own run, and lists the sets the tag covers. Runs of several sets or experiments now start through one server request, which checks every set and the quota before any run starts.
 - **Run Tagged Tests**: The run drawer's What to run section has an Only tests tagged field. Pick tags from the set's tests, with how many tests carry each, to run only those tests. Schedules keep the choice, re-runs start with it, and a run's Configuration tab and a schedule's run settings show it.
 - **Scheduled Test Runs**: Added a dedicated Schedules tab under Test Runs featuring week calendar and list views, schedule management drawers, notification preferences, and test set schedule filtering.
@@ -22,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Skipped Evaluation Status for Traces**: Highlights traces skipped due to organization token limits with a clear `Skipped` status badge and explanation on the evaluation view.
 
 ### Changed
+
+- **Metric Targets Replace Metric Scope**: The metric form, detail view, cards and filters show and set a metric's target, the part of the trace it looks at ("Target: Each turn", "The conversation", "Each tool call" and the rest, fetched from `GET /metrics/targets`), instead of its Single-Turn or Multi-Turn scope. A per-span target can be narrowed by name. The detail page shows the target in its own card, which stays editable on framework metrics, since the target says where a metric is applied rather than what it is. Editing offers only the targets the metric supports and keeps its other settings. Picking metrics for a single-turn test set leaves out those judging the conversation. The metrics list filter and its URL parameter are now `target`.
 
 - **Run Drawer Sections**: The run drawer groups its fields into What to run, Run against, Scoring, When and More options. A folded section shows its settings on one line. Reuse Outputs is now disabled wherever there is no earlier run to reuse; before, it could be picked and the run called the endpoint anyway. Scheduling moved from the save button's menu into the When section, and the footer says how many runs and tests a click starts.
 - **Page Loading Experience**: Replaced full-page skeletons with immediate page headers, mirrored tabs/toolbars, and component-level loading placeholders.

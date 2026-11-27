@@ -5,10 +5,13 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from rhesis.sdk.agents.constants import InternalTool, ToolMeta
+from rhesis.sdk.metrics.targets import TARGETS, TargetKind
 
 ReuseStatus = Literal["reuse", "improve", "new"]
-MetricScope = Literal["Single-Turn", "Multi-Turn"]
-_VALID_METRIC_SCOPES = frozenset({"Single-Turn", "Multi-Turn"})
+
+_TARGET_CHOICES = "; ".join(
+    f'"{kind.value}" ({preset.label}): {preset.description}' for kind, preset in TARGETS.items()
+)
 
 # Fields that track execution progress and must never be written by the LLM.
 # Referenced by _strip_internal_fields (JSON schema builder) and by
@@ -160,28 +163,27 @@ class MetricSpec(BaseModel):
         default=">=",
         description="Comparison operator for threshold",
     )
-    metric_scope: List[MetricScope] = Field(
-        default_factory=lambda: ["Single-Turn"],
+    target: TargetKind = Field(
+        default=TargetKind.TURN,
         description=(
-            "Which test types this metric can evaluate. Each entry must be "
-            'exactly "Single-Turn" or "Multi-Turn". Use ["Single-Turn"] for '
-            'one-shot prompts; ["Multi-Turn"] for conversational goals; '
-            "both only when the same rubric applies to either shape."
+            "What the metric judges, sent to create_metric as config.target.on. "
+            '"turn" is the default and judges every turn of a conversation too; '
+            '"conversation" judges a whole conversation and never runs on '
+            f"Single-Turn tests. Choices: {_TARGET_CHOICES}."
         ),
-        min_length=1,
     )
     completed: bool = Field(
         default=False, description="Whether this metric has been created/resolved"
     )
 
-    @field_validator("metric_scope")
+    @model_validator(mode="before")
     @classmethod
-    def _validate_metric_scope_values(cls, value: List[str]) -> List[str]:
-        invalid = [entry for entry in value if entry not in _VALID_METRIC_SCOPES]
-        if invalid:
-            allowed = ", ".join(sorted(_VALID_METRIC_SCOPES))
-            raise ValueError(f"metric_scope entries must be {allowed}; got invalid: {invalid}")
-        return value
+    def _read_legacy_scope(cls, data: Any) -> Any:
+        # Plans saved before targets carry metric_scope; Multi-Turn alone judged conversations.
+        if isinstance(data, dict) and "target" not in data:
+            if data.get("metric_scope") == ["Multi-Turn"]:
+                return {**data, "target": TargetKind.CONVERSATION}
+        return data
 
 
 class MappingSpec(BaseModel):
@@ -240,8 +242,8 @@ class ArchitectPlan(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def _validate_metric_scope_coverage(self) -> "ArchitectPlan":
-        """Ensure every test-set requirement has a compatible linked metric."""
+    def _validate_metric_coverage(self) -> "ArchitectPlan":
+        """Ensure every test-set requirement has a linked metric that can judge its tests."""
         if not self.test_sets:
             return self
 
@@ -250,9 +252,14 @@ class ArchitectPlan(BaseModel):
             key = mapping.requirement.lower()
             requirement_to_metrics.setdefault(key, []).extend(mapping.metrics)
 
-        metric_scopes: Dict[str, List[str]] = {
-            metric.name.lower(): list(metric.metric_scope) for metric in self.metrics
+        targets: Dict[str, TargetKind] = {
+            metric.name.lower(): metric.target for metric in self.metrics
         }
+
+        def judges(test_type: str, metric_name: str) -> bool:
+            # A metric judging the conversation is never run on a single-turn test.
+            target = targets.get(metric_name.lower(), TargetKind.TURN)
+            return test_type == "Multi-Turn" or target is not TargetKind.CONVERSATION
 
         errors: List[str] = []
         for test_set in self.test_sets:
@@ -268,28 +275,19 @@ class ArchitectPlan(BaseModel):
                     )
                     continue
 
-                compatible = [
-                    metric_name
-                    for metric_name in linked_metrics
-                    if test_set.test_type in metric_scopes.get(metric_name.lower(), [])
-                ]
-                if not compatible:
-                    scope_details = ", ".join(
-                        f"{name} ({metric_scopes.get(name.lower(), [])})" for name in linked_metrics
-                    )
+                if not any(judges(test_set.test_type, name) for name in linked_metrics):
                     errors.append(
                         f"Test set '{test_set.name}' ({test_set.test_type}): "
-                        f"requirement '{requirement}' is linked only to metrics whose "
-                        f"metric_scope does not include '{test_set.test_type}' "
-                        f"— linked: {scope_details}"
+                        f"requirement '{requirement}' is linked only to metrics that judge "
+                        f"the conversation — linked: {', '.join(linked_metrics)}"
                     )
 
         if errors:
             bullet_list = "\n".join(f"- {err}" for err in errors)
             raise ValueError(
-                "Metric scope coverage failed. Every requirement in a test set "
-                "must have at least one linked metric whose metric_scope "
-                f"includes that test set's test_type:\n{bullet_list}"
+                "Metric coverage failed. Every requirement in a test set must have at "
+                "least one linked metric that can judge its tests; a metric whose target "
+                f'is "conversation" never runs on Single-Turn tests:\n{bullet_list}'
             )
         return self
 
@@ -337,8 +335,8 @@ class ArchitectPlan(BaseModel):
             for m in self.metrics:
                 box = "[x]" if m.completed else "[ ]"
                 tag = f" *({m.reuse_status})*" if m.reuse_status != "new" else ""
-                scope = ", ".join(m.metric_scope) if m.metric_scope else "unset"
-                lines.append(f"- {box} **{m.name}**{tag} — scope: {scope}")
+                target = TARGETS[m.target].label
+                lines.append(f"- {box} **{m.name}**{tag} — judges: {target}")
                 if m.description:
                     lines.append(f"  {m.description}")
             lines.append("")

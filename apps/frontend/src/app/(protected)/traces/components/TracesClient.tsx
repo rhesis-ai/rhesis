@@ -29,6 +29,8 @@ import {
   type TraceView,
 } from './trace-filter-params';
 import { withTraceUrlState } from './trace-url-state';
+import { FROM_METRIC_PARAM, withoutTargetFilters } from './target-filters';
+import TargetFilterChip from './TargetFilterChip';
 import type { CostScope } from '@/utils/trace-utils';
 import {
   CachedContent,
@@ -47,6 +49,8 @@ interface TracesClientProps {
   initialView?: TraceView;
   /** Read from the URL on the traces page; includes the project filter. */
   initialFilters?: TraceDrawerFilters;
+  /** The metric whose target link opened the page, named above the list. */
+  initialFromMetric?: string | null;
   fixedTestRunId?: string;
   onUnfilteredEmpty?: (empty: boolean) => void;
   /** Bumped by the wrapper's refresh FAB, to trigger a re-fetch. */
@@ -83,6 +87,7 @@ export default function TracesClient({
   initialSpanId = null,
   initialView = 'traces',
   initialFilters,
+  initialFromMetric = null,
   fixedTestRunId,
   onUnfilteredEmpty,
   refreshTrigger,
@@ -116,6 +121,9 @@ export default function TracesClient({
   const [drawerFilters, setDrawerFilters] = useState<TraceDrawerFilters>(() =>
     initialDrawerFilters(fixedTestRunId, initialFilters, initialProjectId)
   );
+  const [fromMetricId, setFromMetricId] = useState<string | null>(
+    fixedTestRunId ? null : initialFromMetric
+  );
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [errorDismissed, setErrorDismissed] = useState(false);
 
@@ -125,12 +133,30 @@ export default function TracesClient({
     if (fixedTestRunId || skeleton) return;
     const current = new URLSearchParams(window.location.search);
     const next = withTraceUrlState(current, view, drawerFilters);
+    if (fromMetricId) next.set(FROM_METRIC_PARAM, fromMetricId);
+    else next.delete(FROM_METRIC_PARAM);
     if (next.toString() === current.toString()) return;
     const query = next.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
     });
-  }, [view, drawerFilters, fixedTestRunId, skeleton, pathname, router]);
+  }, [
+    view,
+    drawerFilters,
+    fromMetricId,
+    fixedTestRunId,
+    skeleton,
+    pathname,
+    router,
+  ]);
+
+  const removeTargetFilter = useCallback(
+    (applied: Partial<TraceDrawerFilters>) => {
+      setDrawerFilters(prev => withoutTargetFilters(prev, applied));
+      setFromMetricId(null);
+    },
+    []
+  );
 
   const tracesDescriptor = useMemo(
     () => tracesList(scopedProjectId),
@@ -326,6 +352,8 @@ export default function TracesClient({
     view === 'spans'
       ? drawerFilters.spanTypes?.length ||
         drawerFilters.spanNames?.length ||
+        drawerFilters.models?.length ||
+        drawerFilters.tools?.length ||
         drawerFilters.isRoot !== undefined
       : drawerFilters.endpointId || drawerFilters.traceMetricsStatus;
   const hasUnsupportedRollupFilters = Boolean(
@@ -359,6 +387,13 @@ export default function TracesClient({
         refreshTrigger={refreshTrigger}
         costScope={costScope}
       />
+
+      {fromMetricId && !skeleton && (
+        <TargetFilterChip
+          metricId={fromMetricId}
+          onRemove={removeTargetFilter}
+        />
+      )}
 
       <CachedContent active={cachedView}>
         <Paper sx={GRID_PAPER_SX}>

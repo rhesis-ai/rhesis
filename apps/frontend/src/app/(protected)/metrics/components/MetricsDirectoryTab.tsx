@@ -29,19 +29,23 @@ import {
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import {
+  MetricDetail,
+  type MetricTargetChoice,
+} from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { OWASP_METRIC_FILTER_VALUE, OWASP_METRIC_TAG_NAME } from './list';
 import { PAGE_HEADERS } from '@/constants/page-headers';
+import { getMetricTarget } from '@/utils/metric-targets';
 export interface FilterState {
   search: string;
   backend: string[];
   type: string[];
   scoreType: string[];
-  metricScope: string[];
+  target: string[];
   requirement: string;
 }
 
@@ -49,7 +53,8 @@ export interface FilterOptions {
   backend: { type_value: string }[];
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
-  metricScope: { value: string; label: string }[];
+  /** Target `on` values with their registry labels. */
+  target: { value: string; label: string }[];
   requirement: { id: string; name: string }[];
 }
 
@@ -64,6 +69,8 @@ interface MetricsDirectoryTabProps {
   onRefresh: () => void;
   filters: FilterState;
   filterOptions: FilterOptions;
+  /** `GET /metrics/targets`, for each card's target line. */
+  targetChoices?: MetricTargetChoice[];
   isLoading: boolean;
   error: string | null;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
@@ -105,6 +112,7 @@ export default function MetricsDirectoryTab({
   onRefresh,
   filters,
   filterOptions,
+  targetChoices,
   isLoading,
   error,
   setFilters,
@@ -157,7 +165,7 @@ export default function MetricsDirectoryTab({
   const activeAdvancedFilterCount =
     filters.type.length +
     filters.scoreType.length +
-    filters.metricScope.length +
+    filters.target.length +
     (requirementStr.trim() !== '' ? 1 : 0);
 
   // True empty = server returned zero results and no filters are active
@@ -176,7 +184,7 @@ export default function MetricsDirectoryTab({
       backend: [],
       type: [],
       scoreType: [],
-      metricScope: [],
+      target: [],
       requirement: '',
     });
   };
@@ -414,7 +422,7 @@ export default function MetricsDirectoryTab({
               filters={{
                 type: filters.type,
                 scoreType: filters.scoreType,
-                metricScope: filters.metricScope,
+                target: filters.target,
                 requirement:
                   typeof filters.requirement === 'string'
                     ? filters.requirement
@@ -423,7 +431,7 @@ export default function MetricsDirectoryTab({
               filterOptions={{
                 type: filterOptions.type,
                 scoreType: filterOptions.scoreType,
-                metricScope: filterOptions.metricScope,
+                target: filterOptions.target,
                 requirement: filterOptions.requirement,
               }}
               onApply={drawerFilters => {
@@ -431,7 +439,7 @@ export default function MetricsDirectoryTab({
                   ...prev,
                   type: drawerFilters.type,
                   scoreType: drawerFilters.scoreType,
-                  metricScope: drawerFilters.metricScope,
+                  target: drawerFilters.target,
                   requirement: drawerFilters.requirement,
                 }));
               }}
@@ -493,7 +501,9 @@ export default function MetricsDirectoryTab({
                       backend={metric.backend_type?.type_value}
                       metricType={metric.metric_type?.type_value}
                       scoreType={metric.score_type}
-                      metricScope={metric.metric_scope}
+                      target={getMetricTarget(metric) ?? undefined}
+                      targetChoices={targetChoices}
+                      metricId={metric.id}
                       usedIn={requirementNames}
                       tuningCases={
                         backendType === 'custom'

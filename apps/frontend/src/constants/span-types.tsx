@@ -1,4 +1,4 @@
-import type React from 'react';
+import type { SvgIconComponent } from '@mui/icons-material';
 import SortIcon from '@mui/icons-material/Sort';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import ShieldIcon from '@mui/icons-material/Shield';
@@ -10,7 +10,7 @@ import {
 
 export interface SpanTypeInfo {
   label: string;
-  icon: React.ComponentType;
+  icon: SvgIconComponent;
   /** Theme colour path, e.g. 'success.main'. */
   color: string;
 }

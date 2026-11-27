@@ -2,7 +2,7 @@
 
 Turn a Product Requirements Document (PRD), product spec, or guardrails doc into requirements, metrics, tags, mappings, and test sets on Rhesis.
 
-**Read:** `use-case-bracketfeld.md` for the full deliverable shape. **Read:** `metric-scope.md` before presenting any plan.
+**Read:** `use-case-bracketfeld.md` for the full deliverable shape. **Read:** `metric-targets.md` before presenting any plan.
 
 ---
 
@@ -21,8 +21,8 @@ Turn a Product Requirements Document (PRD), product spec, or guardrails doc into
 ## Pipeline
 
 ```text
-Intake → Extract requirements → Design metrics from AC (+ metric_scope) → Plan tags & test sets
-→ Scope matrix → Assumptions & gaps → User approval → Create → assign_tag → generate_test_set → Verify
+Intake → Extract requirements → Design metrics from AC (+ target) → Plan tags & test sets
+→ Coverage matrix → Assumptions & gaps → User approval → Create → assign_tag → generate_test_set → Verify
 ```
 
 ---
@@ -51,11 +51,11 @@ One requirement = one testable expectation. **Never** use section titles or pers
 
 Metrics come from **acceptance criteria / FR text**, not requirement titles.
 
-Each metric needs: `score_type`, **`metric_scope`**, `evaluation_prompt` quoting the source FR/AC.
+Each metric needs: `score_type`, a **target**, `evaluation_prompt` quoting the source FR/AC.
 
 Reuse an existing metric only when it checks the acceptance criteria (`phases/reuse.md`). Otherwise plan a new one.
 
-When the acceptance criteria describe later turns or the whole conversation ("stays active in later turns", "no further history questions follow"), the metric's `metric_scope` includes `Multi-Turn` and its test set is Multi-Turn.
+When the acceptance criteria describe later turns or the whole conversation ("stays active in later turns", "no further history questions follow"), the metric's target is `conversation` and its test set is Multi-Turn.
 
 Use `create_metric` during execution (not `generate_metric`).
 
@@ -63,7 +63,7 @@ Use `create_metric` during execution (not `generate_metric`).
 
 ## 4. Test sets
 
-Split by theme and **`metric_scope`**. One `test_type` per set. Run scope coverage check (`metric-scope.md`) before approval.
+Split by theme and test type. One `test_type` per set. Run the coverage check (`metric-targets.md`) before approval.
 
 The generator receives each requirement's name and description, so the acceptance criteria belong in the requirement. `generation_prompt` carries what the spec adds on top, quoted as written:
 
@@ -80,10 +80,10 @@ Don't add scenarios, triggers or expectations the spec doesn't name.
 
 1. Spec summary (2–3 sentences)
 2. Requirements table (reuse/new)
-3. Metrics table (AC source, scope, score type, pass rule)
+3. Metrics table (AC source, target, score type, pass rule)
 4. Mappings table
 5. Test sets table (`test_type`, requirements, generation_prompt summary)
-6. **Scope coverage matrix**
+6. **Coverage matrix**
 7. Tags (if any)
 8. **Assumptions & gaps** / TBD items
 9. Approval question
@@ -92,14 +92,14 @@ Don't add scenarios, triggers or expectations the spec doesn't name.
 
 ## 6. Create
 
-Follow `phases/creation.md`. Set `metric_scope` on every new metric. `assign_tag` after metrics, before `generate_test_set`.
+Follow `phases/creation.md`. Send each new metric's target in `config.target`. `assign_tag` after metrics, before `generate_test_set`.
 
 ---
 
 ## Checklist before approval
 
 - [ ] No umbrella requirement names
-- [ ] Every metric has AC traceability and `metric_scope`
-- [ ] Scope matrix: all rows OK
+- [ ] Every metric has AC traceability and a target
+- [ ] Coverage matrix: all rows OK
 - [ ] TBD items flagged, not invented rubrics
 - [ ] Guardrail sets include adversarial generation prompts

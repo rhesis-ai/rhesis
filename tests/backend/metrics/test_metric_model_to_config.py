@@ -26,7 +26,6 @@ def _make_metric(**overrides):
     m.score_type = "numeric"
     m.ground_truth_required = False
     m.context_required = False
-    m.metric_scope = None
     m.backend_type = None
     m.threshold = 0.5
     m.threshold_operator = ">="
@@ -39,46 +38,15 @@ def _make_metric(**overrides):
     return m
 
 
-class TestMetricScopePreservation:
-    """metric_scope must survive the ORM → MetricConfig conversion."""
+class TestTargetPreservation:
+    """The target, kept in metric.config, must survive the ORM → MetricConfig conversion."""
 
-    def test_single_turn_scope_is_preserved(self):
-        metric = _make_metric(metric_scope=["Single-Turn"])
-        config = metric_model_to_config(metric)
-        assert config.metric_scope is not None
-        assert len(config.metric_scope) == 1
-        assert "Single-Turn" in [
-            s.value if hasattr(s, "value") else s for s in config.metric_scope
-        ]
+    def test_the_target_is_preserved(self):
+        metric = _make_metric(config={"target": {"on": "conversation"}})
+        assert metric_model_to_config(metric).target == {"on": "conversation"}
 
-    def test_multi_turn_scope_is_preserved(self):
-        metric = _make_metric(metric_scope=["Multi-Turn"])
-        config = metric_model_to_config(metric)
-        assert config.metric_scope is not None
-        assert len(config.metric_scope) == 1
-        assert "Multi-Turn" in [
-            s.value if hasattr(s, "value") else s for s in config.metric_scope
-        ]
-
-    def test_multi_scope_values_are_preserved(self):
-        metric = _make_metric(metric_scope=["Single-Turn", "Multi-Turn"])
-        config = metric_model_to_config(metric)
-        assert config.metric_scope is not None
-        scope_values = [s.value if hasattr(s, "value") else s for s in config.metric_scope]
-        assert "Single-Turn" in scope_values
-        assert "Multi-Turn" in scope_values
-
-    def test_none_scope_is_preserved(self):
-        metric = _make_metric(metric_scope=None)
-        config = metric_model_to_config(metric)
-        assert config.metric_scope is None
-
-    def test_missing_scope_attribute_does_not_raise(self):
-        """getattr fallback must not raise when the column is absent."""
-        metric = _make_metric()
-        del metric.metric_scope  # simulate column not present
-        config = metric_model_to_config(metric)
-        assert config.metric_scope is None
+    def test_no_config_is_no_target(self):
+        assert metric_model_to_config(_make_metric(config=None)).target is None
 
 
 class TestOtherFieldsPreservation:

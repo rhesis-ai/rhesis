@@ -69,20 +69,21 @@ def seed_source(src: FakeRhesis) -> dict:
     grounded = src.insert(
         "metrics", project_id=pid, name="Grounded", evaluation_prompt="Is it grounded?",
         score_type="categorical", categories=["OK", "BAD"], passing_categories=["OK"],
-        class_name="CategoricalJudge", metric_scope=["Single-Turn"], backend_type_id=custom,
+        class_name="CategoricalJudge", config={"target": {"on": "turn"}}, backend_type_id=custom,
     )  # fmt: skip
     tone = src.insert(
         "metrics", project_id=pid, name="Tone", evaluation_prompt="Rate the tone",
         score_type="numeric", threshold=3.0, class_name="NumericJudge",
-        metric_scope=["Single-Turn"],
+        config={"target": {"on": "turn"}},
     )  # fmt: skip
     builtin = src.insert("metrics", project_id=None, name="Answer Relevancy",
                          class_name="DeepEvalAnswerRelevancy", evaluation_prompt="[deepeval]",
-                         score_type="numeric", metric_scope=["Single-Turn"])  # fmt: skip
+                         score_type="numeric", config={"target": {"on": "turn"}})  # fmt: skip
     org_custom = src.insert("metrics", project_id=None, name="Org policy",
                             class_name="CategoricalJudge", evaluation_prompt="Follows policy?",
                             score_type="categorical", categories=["YES", "NO"],
-                            passing_categories=["YES"], metric_scope=["Single-Turn"])  # fmt: skip
+                            passing_categories=["YES"],
+                            config={"target": {"on": "turn"}})  # fmt: skip
     src.req_metric |= {(parent["id"], grounded["id"]), (child["id"], grounded["id"]),
                        (child["id"], tone["id"]), (parent["id"], org_custom["id"])}  # fmt: skip
 
@@ -130,10 +131,10 @@ def seed_target(dst: FakeRhesis) -> str:
     pid = dst.insert("projects", name="Target project")["id"]
     dst.insert("metrics", project_id=None, name="Answer Relevancy",
                class_name="DeepEvalAnswerRelevancy", evaluation_prompt="[deepeval]",
-               score_type="numeric", metric_scope=["Single-Turn"])  # fmt: skip
+               score_type="numeric", config={"target": {"on": "turn"}})  # fmt: skip
     dst.insert("metrics", project_id=None, name="Toxicity", class_name="DeepEvalToxicity",
                evaluation_prompt="[deepeval]", score_type="numeric",
-               metric_scope=["Single-Turn"])  # fmt: skip
+               config={"target": {"on": "turn"}})  # fmt: skip
     return pid
 
 

@@ -4,7 +4,7 @@
     uv run python examples/run_evals.py --only sdk-install,helm --no-save
 
 Each row names an expected route and the pages a good answer cites. An entry like
-"docs/metrics/metric-scope|sdk/metrics" means either page counts. Results are saved to
+"docs/metrics/targets|sdk/metrics" means either page counts. Results are saved to
 evals/last_run.json and the next run is compared against it.
 """
 

@@ -52,6 +52,7 @@ from .metric import (
     MetricDetail,
     MetricUpdate,
     ScoreType,
+    TargetChoice,
 )
 from .model import Model, ModelBase, ModelCreate, ModelDetail, ModelRead, ModelUpdate
 from .notification import (
@@ -494,4 +495,5 @@ __all__ = [
     "GenerateMetricRequest",
     "ImproveMetricRequest",
     "ScoreType",
+    "TargetChoice",
 ]

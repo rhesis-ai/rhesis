@@ -205,7 +205,8 @@ def targets_for(
     judges a turn's trace, the conversation or the whole run. A conversational metric judges
     conversations. ``compares`` lists the expectations the metric compares with: one that
     describes the whole test (``response``, ``tool_calls``) can't be held against a span, and
-    expected tool calls can't be held against one turn of a conversation either.
+    expected tool calls can't be held against one turn of a conversation either. A
+    conversation has no expected response, so a metric comparing with one can't judge it.
     """
     if conversational:
         return [TargetKind.CONVERSATION, TargetKind.RUN]
@@ -221,12 +222,15 @@ def targets_for(
         kinds = [kind for kind in kinds if not TARGETS[kind].span_kind]
     if "tool_calls" in compares:
         kinds = [kind for kind in kinds if kind is not TargetKind.TURN]
+    if "response" in compares:
+        kinds = [kind for kind in kinds if kind is not TargetKind.CONVERSATION]
     return kinds
 
 
 def _compares(metric: Any) -> List[str]:
     compares = list(getattr(metric, "REQUIRED_EXPECTATIONS", ()))
-    if not inspect.isclass(metric) and getattr(metric, "requires_ground_truth", False):
+    # An instance's setting, or a class that always compares with one (DeepEval's recall).
+    if getattr(metric, "requires_ground_truth", False) is True:
         compares.append("response")
     return compares
 

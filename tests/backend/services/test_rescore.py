@@ -43,14 +43,12 @@ class TestTestRunRescoreRequestSchema:
                 ExecutionMetric(
                     id=metric_id,
                     name="accuracy",
-                    scope=["Single-Turn"],
                 )
             ]
         )
         assert len(req.metrics) == 1
         assert req.metrics[0].name == "accuracy"
         assert req.metrics[0].id == metric_id
-        assert req.metrics[0].scope == ["Single-Turn"]
 
     def test_with_execution_options(self):
         """Request with execution_options dict is valid."""
@@ -66,7 +64,6 @@ class TestTestRunRescoreRequestSchema:
                 ExecutionMetric(
                     id=uuid4(),
                     name="goal_achievement",
-                    scope=["Multi-Turn"],
                 ),
             ]
         )
@@ -262,7 +259,7 @@ class TestRescoreTestRunService:
         mock_user.organization_id = uuid4()
         mock_user.id = uuid4()
 
-        metrics = [{"id": metric_id, "name": "custom_metric", "scope": None}]
+        metrics = [{"id": metric_id, "name": "custom_metric"}]
 
         with (
             patch(
@@ -331,7 +328,6 @@ class TestRescoreEndpoint:
                 ExecutionMetric(
                     id=metric_id,
                     name="accuracy",
-                    scope=["Single-Turn"],
                 )
             ]
         )
@@ -343,7 +339,6 @@ class TestRescoreEndpoint:
                 {
                     "id": str(m.id),
                     "name": m.name,
-                    "scope": m.scope,
                 }
                 for m in request.metrics
             ]
@@ -352,12 +347,11 @@ class TestRescoreEndpoint:
         assert len(metrics) == 1
         assert metrics[0]["id"] == str(metric_id)
         assert metrics[0]["name"] == "accuracy"
-        assert metrics[0]["scope"] == ["Single-Turn"]
 
     def test_none_request_yields_no_metrics(self):
         """When request is None, no metrics are passed to service."""
         request = None
         metrics = None
         if request and request.metrics:
-            metrics = [{"id": str(m.id), "name": m.name, "scope": m.scope} for m in request.metrics]
+            metrics = [{"id": str(m.id), "name": m.name} for m in request.metrics]
         assert metrics is None

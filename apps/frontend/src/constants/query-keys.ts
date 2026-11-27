@@ -31,6 +31,7 @@ export const endpointKeys = {
   setupStatus: (userScope: string, projectId: string) =>
     ['endpoints', 'setup-status', userScope, projectId] as const,
 };
+export const metricKeys = createEntityKeys('metrics');
 export const sourceKeys = createEntityKeys('sources');
 export const taskKeys = createEntityKeys('tasks');
 export const jobKeys = {
@@ -177,4 +178,10 @@ export const exchangeRateKeys = {
 // every user, and it only changes on release.
 export const toolProviderKeys = {
   all: () => ['tool-providers'] as const,
+};
+
+// Deployment-wide: the metric target registry (what a metric can judge). The
+// same for every user, and it only changes on release.
+export const metricTargetKeys = {
+  all: () => ['metric-targets'] as const,
 };

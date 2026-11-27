@@ -12,7 +12,7 @@ from docs_assistant.compose import (
 from docs_assistant.schemas import AnswerDraft, Clarification, RelatedPage, Route
 from tests.mocks import draft
 
-SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
+SCOPE = "https://docs.rhesis.ai/docs/metrics/targets"
 METRICS = "https://docs.rhesis.ai/sdk/metrics"
 
 
@@ -22,13 +22,13 @@ def _draft(answer_md, citations):
 
 def test_citations_are_unique_and_titled_from_the_page(snapshot):
     cites = [
-        {"id": "c1", "url": f"{SCOPE}#planning-checklist", "quote": "q" * 20},
-        {"id": "c2", "url": f"{SCOPE}.md#planning-checklist", "quote": "q" * 20},
+        {"id": "c1", "url": f"{SCOPE}#setting-a-target", "quote": "q" * 20},
+        {"id": "c2", "url": f"{SCOPE}.md#setting-a-target", "quote": "q" * 20},
         {"id": "c3", "url": METRICS, "quote": "q" * 20},
     ]
     result = citations_for(_draft("a", cites), snapshot, {})
     assert [(c.title, c.url, c.heading) for c in result] == [
-        ("Metric scope", f"{SCOPE}#planning-checklist", "Planning checklist"),
+        ("Metric Targets", f"{SCOPE}#setting-a-target", "Setting a target"),
         ("Overview", METRICS, None),
     ]
 
@@ -58,14 +58,14 @@ def test_render_lists_gaps_sources_and_related(snapshot):
     outcome = PartOutcome("q", Route.PARTIALLY_ANSWERED, draft=d)
     text = render([outcome], citations_for(d, snapshot, {}), related_pages_for(d, snapshot))
     assert "**Not covered in the docs:**\n- pricing" in text
-    assert "**Sources**\n- [Metric scope › When to use" in text
+    assert "**Sources**\n- [Metric Targets › Which tests" in text
     assert f"**Related pages**\n- [Overview]({METRICS})" in text
 
 
 # ── trust signals ────────────────────────────────────────────────────────────────────────
 
 AS_OF = datetime(2026, 10, 1, 9, 30, tzinfo=timezone.utc)
-GOOD_QUOTE = "Full transcript required — context retention, multi-step threads"
+GOOD_QUOTE = "Every other target runs on single-turn and multi-turn tests alike"
 
 
 def _rendered(snapshot, language="en", **overrides):
@@ -90,7 +90,7 @@ def test_stale_docs_say_so():
 def test_conflicts_become_a_heads_up_with_both_sources(snapshot):
     citations = [
         {"id": "c1", "url": SCOPE, "quote": GOOD_QUOTE},
-        {"id": "c2", "url": METRICS, "quote": "Scopes are additive"},
+        {"id": "c2", "url": METRICS, "quote": "It also decides which tests"},
     ]
     conflicts = [
         {"summary": "The two pages list different defaults.", "citation_ids": ["c1", "c2"]}

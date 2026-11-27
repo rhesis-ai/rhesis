@@ -101,7 +101,7 @@ SCENARIOS = [
     Scenario(
         "answered",
         ["what's the difference between single-turn and multi-turn metrics?"],
-        lambda r: route(r[0], "answered") + cites(r[0], "docs/metrics/metric-scope|sdk/metrics"),
+        lambda r: route(r[0], "answered") + cites(r[0], "docs/metrics/targets|sdk/metrics"),
     ),
     Scenario(
         "partial",

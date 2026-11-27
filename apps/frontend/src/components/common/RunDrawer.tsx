@@ -18,7 +18,6 @@ import {
 import ModelSelector from '@/components/common/ModelSelector';
 import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDrawer from '@/components/common/SelectExperimentsDrawer';
-import type { MetricScope } from '@/utils/api-client/interfaces/metric';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { useEndpoints } from '@/hooks/useEndpoints';
@@ -114,7 +113,6 @@ import { scheduleKeys } from '@/constants/query-keys';
 interface OriginalMetric {
   id: string;
   name: string;
-  scope?: string[];
 }
 
 export interface RerunConfig {
@@ -635,7 +633,6 @@ export default function RunDrawer(props: RunDrawerProps) {
         origMetrics.map(m => ({
           id: m.id as UUID,
           name: m.name,
-          scope: m.scope,
         }))
       );
     }
@@ -756,18 +753,11 @@ export default function RunDrawer(props: RunDrawerProps) {
     if (next !== METRIC_MODE.CUSTOM) setSelectedMetrics([]);
   };
 
-  const handleAddMetric = (metric: {
-    id: UUID;
-    name: string;
-    metric_scope?: MetricScope[];
-  }) => {
+  const handleAddMetric = (metric: { id: UUID; name: string }) => {
     setSelectedMetrics(prev =>
       prev.some(m => m.id === metric.id)
         ? prev
-        : [
-            ...prev,
-            { id: metric.id, name: metric.name, scope: metric.metric_scope },
-          ]
+        : [...prev, { id: metric.id, name: metric.name }]
     );
   };
 
@@ -979,7 +969,6 @@ export default function RunDrawer(props: RunDrawerProps) {
             ? selectedMetrics.map(m => ({
                 id: m.id,
                 name: m.name,
-                scope: m.scope,
               }))
             : undefined,
         execution_model_id: selectedExecutionModelId || undefined,
@@ -1299,6 +1288,9 @@ export default function RunDrawer(props: RunDrawerProps) {
     return null;
   }, [testSetType, mode, selectedTestSet, rerunConfig]);
 
+  // Single-turn test sets leave out conversation metrics in the picker.
+  const metricTestType = effectiveTestSetType ?? undefined;
+
   // -----------------------------------------------------------------------
   // Section summaries (shown while a section is folded)
   // -----------------------------------------------------------------------
@@ -1558,7 +1550,7 @@ export default function RunDrawer(props: RunDrawerProps) {
               selectedMetrics={selectedMetrics}
               onAddMetric={handleAddMetric}
               onRemoveMetric={handleRemoveMetric}
-              scopeFilter={effectiveTestSetType ?? undefined}
+              testType={metricTestType}
             />
             <ModelSelector
               value={selectedEvaluationModelId}
