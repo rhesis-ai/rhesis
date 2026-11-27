@@ -63,6 +63,26 @@ export function targetTraceFilters(
   return { view: 'traces', filters: {} };
 }
 
+/**
+ * What a target narrows to that the Traces filters can't apply: the agent its
+ * spans run inside, and attributes their root span must have. Read as phrases
+ * ("inside billing_agent", "channel is web"), empty when everything applies.
+ */
+export function unappliedRefinements(
+  target: Pick<MetricTarget, 'within' | 'where'>
+): string[] {
+  const phrases: string[] = [];
+  if (target.within) phrases.push(`inside ${target.within}`);
+  for (const [key, value] of Object.entries(target.where ?? {})) {
+    phrases.push(
+      Array.isArray(value)
+        ? `${key} is one of ${value.map(String).join(', ')}`
+        : `${key} is ${String(value)}`
+    );
+  }
+  return phrases;
+}
+
 /** A link to the Traces page filtered to what a metric's target judges. */
 export function tracesHrefForTarget(
   target: Pick<MetricTarget, 'on' | 'name'>,

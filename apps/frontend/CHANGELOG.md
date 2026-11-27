@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Spans a Metric Judges**: A metric card says what the metric judges under its name, such as "on each tool call named `issue_refund`", with the target's icon. The target links to the Traces page filtered to those spans, where a chip names the target and its metric and removing it clears those filters. Each target judged span by span has the icon the trace view gives that kind of span, so each tool call shows a wrench and each retrieval a magnifier. The spans list's filters include models and tools, kept in the URL.
+- **Target Parts the Traces List Skips**: When a target is narrowed to an agent (`within`) or to attributes (`where`), the Traces chip opened from it says which of those the list doesn't apply, such as "Not applied here: inside billing_agent".
 - **Run Sets With a Tag**: New Test Run can run every test set carrying a tag, each as its own run, and lists the sets the tag covers. Runs of several sets or experiments now start through one server request, which checks every set and the quota before any run starts.
 - **Endpoint Call Spans**: The trace view labels REST and WebSocket invocation spans (`endpoint.invoke`) as Endpoint call.
 - **Run Tagged Tests**: The run drawer's What to run section has an Only tests tagged field. Pick tags from the set's tests, with how many tests carry each, to run only those tests. Schedules keep the choice, re-runs start with it, and a run's Configuration tab and a schedule's run settings show it.

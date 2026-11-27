@@ -68,6 +68,29 @@ describe('TargetFilterChip', () => {
     });
   });
 
+  it('says which parts of the target the list does not apply', async () => {
+    mockGetMetric.mockResolvedValue({
+      id: 'metric-1',
+      name: 'Refund matches the order',
+      config: {
+        target: {
+          on: 'tool_call',
+          name: 'issue_refund',
+          within: 'billing_agent',
+          where: { 'rhesis.reported.metadata.channel': 'web' },
+        },
+      },
+    });
+
+    render(<TargetFilterChip metricId="metric-1" onRemove={jest.fn()} />);
+
+    expect(
+      await screen.findByTestId('target-filter-unapplied')
+    ).toHaveTextContent(
+      'Not applied here: inside billing_agent, rhesis.reported.metadata.channel is web'
+    );
+  });
+
   it('shows nothing when the metric cannot be read', async () => {
     mockGetMetric.mockRejectedValue(new Error('not found'));
 
