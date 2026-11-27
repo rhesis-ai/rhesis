@@ -177,26 +177,6 @@ def test_naive_timestamps_are_enriched_with_stored_spans(test_db, test_organizat
     assert {row.enriched_data["metrics"]["span_count"] for row in _stored(test_db, trace_id)} == {2}
 
 
-@pytest.mark.integration
-def test_spans_stored_unenriched_are_enriched_for_legacy_messages(
-    test_db, test_organization, db_project
-):
-    from rhesis.backend.app.crud.telemetry import create_trace_spans
-    from rhesis.backend.app.services.telemetry.post_ingest import enrich_unprocessed_traces
-
-    trace_id = uuid4().hex
-    rows = create_trace_spans(
-        test_db, [_span(trace_id, str(db_project.id), "a" * 16)], str(test_organization.id)
-    )
-
-    enriched = enrich_unprocessed_traces(
-        test_db, rows, str(test_organization.id), str(db_project.id)
-    )
-
-    assert enriched == 1
-    assert all(row.processed_at is not None for row in _stored(test_db, trace_id))
-
-
 @pytest.mark.unit
 def test_a_failed_linking_step_still_queues_evaluations_and_meters():
     from unittest.mock import MagicMock

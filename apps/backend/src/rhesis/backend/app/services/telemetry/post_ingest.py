@@ -2,9 +2,7 @@
 
 Linking to test results, applying pending conversation links and files, queueing
 turn evaluations, and metering the spans. ``ingest_spans`` runs it inline on the
-rows it just stored; it used to be a separate task (``post_ingest_link``) that read
-those rows back, which cost a broker round trip, a worker slot, a session and a
-query per batch.
+rows it just stored.
 """
 
 import logging
@@ -96,24 +94,3 @@ def _step(db: Session, what: str, trace_ids: List[str], run: Callable[[], int]) 
         db.rollback()
         logger.warning(f"Failed to {what} (traces={trace_ids})", exc_info=True)
         return 0
-
-
-def enrich_unprocessed_traces(
-    db: Session, stored_spans: List[models.Trace], organization_id: str, project_id: str
-) -> int:
-    """Enrich the traces of *stored_spans* that were stored without enrichment.
-
-    Only spans stored by the previous release need it (they were enriched by a
-    follow-up job). Returns the number of traces enriched.
-    """
-    from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
-
-    trace_ids = sorted({span.trace_id for span in stored_spans if span.processed_at is None})
-    enricher = TraceEnricher(db)
-    for trace_id in trace_ids:
-        try:
-            enricher.enrich_trace(trace_id, project_id, organization_id)
-        except Exception:
-            db.rollback()
-            logger.warning(f"Enrichment failed for trace {trace_id}", exc_info=True)
-    return len(trace_ids)

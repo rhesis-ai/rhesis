@@ -85,10 +85,7 @@ def dispatch_accrual(
     - *It must not be able to break the thing it is measuring.* Accrual is
       bookkeeping attached to some primary operation (a test run, a span
       batch, an LLM call). Writing inline made a failed counter write fail
-      that operation -- in ``post_ingest_link`` a raised ``increment_usage``
-      was caught by the task's blanket ``except`` and retried the entire
-      body, re-dispatching enrichment for spans that had already been
-      linked. Here, a dispatch failure is logged and swallowed; the caller
+      that operation. Here, a dispatch failure is logged and swallowed; the caller
       never sees it.
     - *It must not add latency to interactive requests.* The callback wired
       into hosted models (see

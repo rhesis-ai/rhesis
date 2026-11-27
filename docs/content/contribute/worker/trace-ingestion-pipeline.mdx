@@ -54,7 +54,7 @@ After the commit, the same task runs `process_stored_spans` (`services/telemetry
 
 3. **Input file linking**: Attaches pending file records (images, documents) to their corresponding trace spans.
 
-Each step commits on its own. A failed step is logged and rolled back, the later steps still run, and the ingest task is not retried, since the spans are already stored. The old `post_ingest_link` and `enrich_trace_async` tasks remain only to drain messages queued by the previous release.
+Each step commits on its own. A failed step is logged and rolled back, the later steps still run, and the ingest task is not retried, since the spans are already stored.
 
 ## Phase 4: Trace Metrics Evaluation
 

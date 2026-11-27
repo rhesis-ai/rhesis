@@ -9,8 +9,10 @@
 {{- $broker = printf "%s.%s.svc" $broker $.Release.Namespace }}
 {{- end }}
 ---
-# Scales on CPU like the plain HPA, and also on the jobs waiting in each queue. KEDA
-# creates and owns the HPA (named worker-<name>, as before).
+# Scales on the jobs waiting in each queue, or on CPU when no queues are set. Not on
+# both: a starting worker pod runs at its CPU limit for minutes, which a CPU trigger
+# reads as load and answers with more pods. KEDA creates and owns the HPA (named
+# worker-<name>, as before).
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -37,10 +39,12 @@ spec:
           # A worker pod drains its running jobs before it stops, so scale down slowly.
           stabilizationWindowSeconds: {{ $keda.scaleDownStabilizationSeconds | default 600 }}
   triggers:
+    {{- if not $keda.queues }}
     - type: cpu
       metricType: Utilization
       metadata:
         value: {{ .hpa.targetCPUUtilizationPercentage | quote }}
+    {{- end }}
     {{- range $queue, $perReplica := $keda.queues }}
     - type: redis
       name: {{ $queue }}

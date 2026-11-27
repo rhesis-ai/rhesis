@@ -191,7 +191,8 @@ workers:
       targetCPUUtilizationPercentage: 70
       # No memory target (same reasoning as backend above): Python RSS does not
       # come back down after a run, so memory pins the workers at maxReplicas.
-      # Also scale on the jobs waiting in each queue (templates/worker/hpa.yaml).
+      # Scale on the jobs waiting in each queue (templates/worker/hpa.yaml). The CPU
+      # target above only applies without KEDA.
       keda:
         enabled: true
         # Waiting jobs per replica, by queue. A worker pod already holds as many as it
@@ -319,6 +320,8 @@ externalDatabase:
   # Must match the CNPG read-write Service for your Cluster (metadata.name = rhesis-prd)
   host: "rhesis-prd-rw.rhesis.svc.cluster.local"
   port: "5432"
+  # PgBouncer for the app (kubernetes/clusters/prd/cnpg-cluster/pooler.yaml).
+  poolerHost: "rhesis-prd-pooler-rw.rhesis.svc.cluster.local"
 
 # Analytics DB — lives in the same CNPG cluster as the main DB (rhesis-prd).
 # Created by postInitSQL in kubernetes/clusters/prd/cnpg-cluster/cnpg-cluster.yaml.
