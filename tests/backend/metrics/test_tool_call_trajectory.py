@@ -120,12 +120,37 @@ class TestEvaluation:
         assert result["is_successful"] is False
         assert [row["is_successful"] for row in result["spans"]] == [True, False, True]
 
-    def test_a_test_without_expected_calls_leaves_it_out(self):
+    def test_a_test_without_expected_calls_is_not_applicable(self):
         results = MetricEvaluator().evaluate(
             [trajectory()], response(), Expectations(response="Done.")
         )
 
-        assert results == {}
+        result = results["Tool Call Trajectory"]
+        assert result["not_applicable"] is True
+        assert result["is_successful"] is None and result["score"] is None
+        assert "no expected tool calls" in result["reason"]
+
+    def test_a_test_without_an_expected_response_is_not_applicable_to_a_response_rule(self):
+        exact = MetricConfig(
+            class_name="ResponseRule",
+            backend="rhesis",
+            name="Exact Match",
+            score_type="numeric",
+            parameters={"match": "exact"},
+        )
+
+        results = MetricEvaluator().evaluate([exact], response(), Expectations(tool_calls=[]))
+
+        assert results["Exact Match"]["not_applicable"] is True
+        assert "no expected response" in results["Exact Match"]["reason"]
+
+    @pytest.mark.asyncio
+    async def test_a_test_without_expected_calls_is_not_applicable_async(self):
+        results = await MetricEvaluator().a_evaluate(
+            [trajectory()], response(), Expectations(response="Done.")
+        )
+
+        assert results["Tool Call Trajectory"]["not_applicable"] is True
 
     def test_production_traces_leave_it_out(self):
         assert MetricEvaluator().evaluate([trajectory()], response(), None) == {}
@@ -173,6 +198,50 @@ class TestTheVerdictGrid:
 
         assert list(without.values()) == ["helpfulness"]
         assert sorted(with_calls.values()) == ["Tool Call Trajectory", "helpfulness"]
+
+
+class TestTheGridReadsExpectedResponses:
+    """A response rule's cell needs the test's expected response, read like the evaluation."""
+
+    def _test(self, db, org_id, user_id, expected_response):
+        from rhesis.backend.app import models
+
+        prompt = models.Prompt(
+            content="What is 2+2?",
+            expected_response=expected_response,
+            language_code="en",
+            organization_id=org_id,
+            user_id=user_id,
+        )
+        db.add(prompt)
+        db.flush()
+        test = models.Test(prompt_id=prompt.id, organization_id=org_id, user_id=user_id)
+        db.add(test)
+        db.commit()
+        return str(test.id)
+
+    def test_only_a_test_with_an_expected_response_keeps_the_cell(
+        self, test_db, test_org_id, authenticated_user_id
+    ):
+        from rhesis.backend.jobs.execution.metric_plan import _expectations_by_test
+
+        with_answer = self._test(test_db, test_org_id, authenticated_user_id, "4")
+        empty = self._test(test_db, test_org_id, authenticated_user_id, "")
+        row = SimpleNamespace(
+            id=None,
+            name="Exact Match",
+            class_name="ResponseRule",
+            backend_type=SimpleNamespace(type_value="rhesis"),
+        )
+        keyed = [("Exact Match", row, False)]
+
+        expectations = _expectations_by_test(test_db, keyed, [with_answer, empty])
+
+        assert expectations[with_answer].response == "4"
+        assert expectations[empty].response is None
+        kept = _cell_keys_for_test(keyed, False, with_answer, expectations[with_answer])
+        assert list(kept.values()) == ["Exact Match"]
+        assert _cell_keys_for_test(keyed, False, empty, expectations[empty]) == {}
 
 
 @pytest.mark.unit

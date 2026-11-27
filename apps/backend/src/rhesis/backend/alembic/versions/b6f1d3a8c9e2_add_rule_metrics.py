@@ -101,6 +101,8 @@ PRESETS: List[Dict[str, Any]] = [
     ),
 ]
 PRESET_NAMES = [preset["name"] for preset in PRESETS]
+# A downgrade removes only these classes, so an organization's own metric named like a preset stays.
+RULE_CLASSES = sorted({preset["class_name"] for preset in PRESETS})
 
 _FIND_TYPE = sa.text("""
     SELECT id FROM type_lookup
@@ -183,7 +185,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     _sync(
         lambda session: remove_metrics_from_organizations(
-            session=session, metric_names=PRESET_NAMES
+            session=session, metric_names=PRESET_NAMES, class_names=RULE_CLASSES
         )
     )
 

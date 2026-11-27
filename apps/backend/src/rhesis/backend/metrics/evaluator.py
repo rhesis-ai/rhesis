@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
-from rhesis.backend.metrics.applicability import applicable
+from rhesis.backend.metrics.applicability import applicable, not_applicable_results
 from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
 from rhesis.backend.metrics.metric_config import validate_metric_configs
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
@@ -154,9 +154,11 @@ class MetricEvaluator:
 
         if conversation is None:
             conversation = _is_conversation(trace)
-        metric_configs = applicable(metric_configs, expectations, conversation)
+        metric_configs, not_applicable = _split_applicable(
+            metric_configs, expectations, conversation
+        )
         if not metric_configs:
-            return invalid_metric_results
+            return _with_not_applicable(dict(invalid_metric_results), not_applicable)
 
         # Step 2: group configs by backend
         configs_by_backend = self._group_by_backend(metric_configs)
@@ -172,7 +174,7 @@ class MetricEvaluator:
         # Step 4: merge invalid metric results
         results.update(invalid_metric_results)
 
-        return results
+        return _with_not_applicable(results, not_applicable)
 
     async def a_evaluate(
         self,
@@ -196,9 +198,11 @@ class MetricEvaluator:
 
         if conversation is None:
             conversation = _is_conversation(trace)
-        metric_configs = applicable(metric_configs, expectations, conversation)
+        metric_configs, not_applicable = _split_applicable(
+            metric_configs, expectations, conversation
+        )
         if not metric_configs:
-            return invalid_metric_results
+            return _with_not_applicable(dict(invalid_metric_results), not_applicable)
 
         configs_by_backend = self._group_by_backend(metric_configs)
         inputs = EvaluationInputs(trace=trace, expectations=expectations)
@@ -222,4 +226,25 @@ class MetricEvaluator:
             results.update(br)
 
         results.update(invalid_metric_results)
-        return results
+        return _with_not_applicable(results, not_applicable)
+
+
+def _split_applicable(
+    metric_configs: List[MetricConfig], expectations: Optional[Expectations], conversation: bool
+) -> tuple[List[MetricConfig], Dict[str, Any]]:
+    """The metrics to run, and not-applicable results for those a test's missing expectation
+    rules out."""
+    kept = applicable(metric_configs, expectations, conversation)
+    kept_ids = {id(config) for config in kept}
+    skipped = [config for config in metric_configs if id(config) not in kept_ids]
+    return kept, not_applicable_results(skipped, expectations, conversation)
+
+
+def _with_not_applicable(results: Dict[str, Any], not_applicable: Dict[str, Any]) -> Dict[str, Any]:
+    # A metric that ran keeps its key; a not-applicable one sharing its name gets a suffix.
+    for name, result in not_applicable.items():
+        key, counter = name, 1
+        while key in results:
+            key, counter = f"{name}_{counter}", counter + 1
+        results[key] = result
+    return results

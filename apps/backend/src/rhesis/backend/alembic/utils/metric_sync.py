@@ -20,7 +20,7 @@ import json
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import sqlalchemy as sa
 from sqlalchemy import inspect as sa_inspect
@@ -453,7 +453,11 @@ def sync_metrics_to_organizations(
 
 
 def remove_metrics_from_organizations(
-    session: Session, metric_names: List[str], verbose: bool = True, commit: bool = False
+    session: Session,
+    metric_names: List[str],
+    verbose: bool = True,
+    commit: bool = False,
+    class_names: Optional[List[str]] = None,
 ) -> int:
     """
     Remove specific metrics from all organizations.
@@ -465,6 +469,8 @@ def remove_metrics_from_organizations(
         metric_names: List of metric names to remove
         verbose: If True, print progress messages
         commit: If True, commit the session after removal. If False, caller is responsible.
+        class_names: When given, only metrics of these classes go, so an organization's own
+            metric that shares a seeded name is kept.
 
     Returns:
         Number of metrics deleted
@@ -474,12 +480,14 @@ def remove_metrics_from_organizations(
             print(f"\n🗑 Removing metrics: {', '.join(metric_names)}...")
 
         # Find metrics to delete
-        metrics_to_delete = (
+        query = (
             session.query(models.Metric)
             .options(load_only(models.Metric.id))
             .filter(models.Metric.name.in_(metric_names))
-            .all()
         )
+        if class_names is not None:
+            query = query.filter(models.Metric.class_name.in_(class_names))
+        metrics_to_delete = query.all()
 
         deleted_count = len(metrics_to_delete)
 

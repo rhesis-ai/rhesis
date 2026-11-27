@@ -216,7 +216,8 @@ def evaluate_single_turn_metrics(
         metrics_results = metrics_evaluator.evaluate(
             metrics,
             response_trace(prompt_content, result, context, trace_loader),
-            Expectations(response=expected_response, tool_calls=expected_tool_calls),
+            # A test with no expected response has none to compare with, not an empty one.
+            Expectations(response=expected_response or None, tool_calls=expected_tool_calls),
         )
     except Exception as e:
         logger.warning(f"Error evaluating metrics: {str(e)}")

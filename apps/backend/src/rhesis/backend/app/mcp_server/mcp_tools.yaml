@@ -1211,11 +1211,13 @@ tools:
         | "similar"}; with "similar" also "min_similarity" (0 to 1) and
         optionally "similarity" ("rouge_l", the default, or
         "edit_distance"). Set ground_truth_required true. It judges each
-        turn or the whole run, not spans or a conversation.
+        turn only (target "turn"), not spans, a conversation or the whole run.
       - "ToolCallTrajectory": compares the trace's tool calls with the
         test's expected_tool_calls; config {"match": "exact" | "in_order" |
         "any_order" | "subset" | "superset", "arguments": "exact" |
-        "partial" | "ignore"}.
+        "partial" | "ignore"}. Default target "run"; it can also take
+        "conversation", or "turn" to hold each turn to its entry in
+        expected_tool_calls_per_turn.
       When the data a rule reads is missing (no timing on a span, no token
       counts, an attribute that isn't set, no expected response or tool
       calls on the test), its result is not applicable, never a pass or a

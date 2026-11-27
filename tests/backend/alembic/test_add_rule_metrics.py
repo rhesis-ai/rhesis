@@ -168,3 +168,25 @@ class TestAddRuleMetrics:
 
         assert _metric_type(conn, trajectory) == "custom-code"
         assert _metric_types_by_name(conn, test_org_id, _migration.PRESET_NAMES) == {}
+
+    def test_the_downgrade_keeps_an_organizations_own_metric_named_like_a_preset(
+        self, conn, test_org_id, authenticated_user_id, migration_ops
+    ):
+        own = conn.execute(
+            sa.text(
+                """
+                INSERT INTO metric (name, evaluation_prompt, score_type, class_name,
+                                    organization_id, user_id)
+                VALUES ('Response Time', 'Was it quick?', 'numeric', 'NumericJudge',
+                        CAST(:org AS uuid), CAST(:usr AS uuid))
+                RETURNING id
+                """
+            ),
+            {"org": test_org_id, "usr": authenticated_user_id},
+        ).scalar()
+
+        _migration.upgrade()
+        _migration.downgrade()
+
+        kept = conn.execute(sa.text("SELECT count(*) FROM metric WHERE id = :id"), {"id": own})
+        assert kept.scalar() == 1
