@@ -407,6 +407,11 @@ async def lifespan(app: FastAPI):
 
     warn_on_unbuildable_default_models()
 
+    # Email to members carries the operator's imprint only when they set one.
+    from rhesis.backend.notifications.email.brand import warn_if_imprint_missing
+
+    warn_if_imprint_missing()
+
     # Build the storage backend once so a broken STORAGE_SERVICE_URI stops startup
     # instead of failing the first upload.
     from rhesis.backend.app.services.storage_service import StorageService

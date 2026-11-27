@@ -402,6 +402,9 @@ class SMTPSettings(BaseSettings):
     # Where email templates load their logo, header wash, and web fonts from.
     # Must be publicly reachable — mail clients fetch these directly.
     asset_base_url: str = Field(default="https://rhesis.ai", alias="EMAIL_ASSET_BASE_URL")
+    # The sending company's legal details at the foot of every email, one per line.
+    # Unset, emails carry none: only the deployment's operator knows who sends them.
+    imprint: str | None = Field(default=None, alias="EMAIL_IMPRINT")
 
 
 class ModelSettings(BaseSettings):
