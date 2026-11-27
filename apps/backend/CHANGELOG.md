@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Preflight no longer calls SDK endpoints**: the connectivity check used to call the function with `[place your input here]`, which added a trace to the project and ran the agent's LLM calls. It now checks that the connector is connected and the function is still registered.
+- **`FROM_EMAIL` default**: unset, it now falls back to `noreply@example.com`, the same as docker-compose, instead of a Rhesis address. Helm installs that never set it now send from that placeholder, so set `FROM_EMAIL` to an address your SMTP server accepts.
 
 ## [0.23.0] - 2026-11-27
 

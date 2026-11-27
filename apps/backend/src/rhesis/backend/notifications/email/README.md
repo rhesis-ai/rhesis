@@ -94,7 +94,7 @@ Email service requires these environment variables:
 - `SMTP_PORT`: SMTP server port (465 for SSL, 587 for TLS)
 - `SMTP_USER`: SMTP username
 - `SMTP_PASSWORD`: SMTP password
-- `FROM_EMAIL`: Sender email address (defaults to `"Harry from Rhesis AI" <engineering@rhesis.ai>`)
+- `FROM_EMAIL`: Sender email address (defaults to `"Harry from Rhesis AI" <noreply@example.com>`)
 - `WELCOME_FROM_EMAIL`: Optional sender for the onboarding emails (e.g., `"Nicolai from Rhesis AI" <hello@rhesis.ai>`)
 
 **Note**: When including a sender name with spaces, wrap it in quotes: `"Sender Name" <email@domain.com>`

@@ -615,7 +615,7 @@ def test_smtp_settings_uses_defaults(clean_smtp_env):
     assert settings.port == 587
     assert settings.user is None
     assert settings.password is None
-    assert settings.from_email == "engineering@rhesis.ai"
+    assert settings.from_email == "noreply@example.com"
 
 
 @pytest.mark.unit
@@ -653,7 +653,7 @@ def test_smtp_service_uses_settings_defaults(clean_smtp_env):
     assert service.smtp_port == 587
     assert service.smtp_user is None
     assert service.smtp_password is None
-    assert service.from_email == '"Harry from Rhesis AI" <engineering@rhesis.ai>'
+    assert service.from_email == '"Harry from Rhesis AI" <noreply@example.com>'
     assert service.is_configured is False
 
 
