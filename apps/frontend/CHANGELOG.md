@@ -16,8 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Metric Targets Replace Metric Scope**: The metric form, detail view, cards and filters show and set a metric's target, the part of the trace it looks at ("Target: Each turn", "The conversation", "Each tool call" and the rest, fetched from `GET /metrics/targets`), instead of its Single-Turn or Multi-Turn scope. A per-span target can be narrowed by name. The detail page shows the target in its own card, which stays editable on framework metrics, since the target says where a metric is applied rather than what it is. Editing offers only the targets the metric supports and keeps its other settings. Picking metrics for a single-turn test set leaves out those judging the conversation. The metrics list filter and its URL parameter are now `target`.
 
-- **Branding Resolution**: Branding now resolves per field as organization setting > `BRAND_*` env var > Rhesis default, so clearing a field in the settings form reveals the deployment default rather than resetting everything. The root layout resolves the organization once per request and shares it with `generateMetadata`.
-
 - **Run Drawer Sections**: The run drawer groups its fields into What to run, Run against, Scoring, When and More options. A folded section shows its settings on one line. Reuse Outputs is now disabled wherever there is no earlier run to reuse; before, it could be picked and the run called the endpoint anyway. Scheduling moved from the save button's menu into the When section, and the footer says how many runs and tests a click starts.
 
 ### Fixed

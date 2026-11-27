@@ -18,7 +18,6 @@ import {
 import ModelSelector from '@/components/common/ModelSelector';
 import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDrawer from '@/components/common/SelectExperimentsDrawer';
-import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { useEndpoints } from '@/hooks/useEndpoints';
