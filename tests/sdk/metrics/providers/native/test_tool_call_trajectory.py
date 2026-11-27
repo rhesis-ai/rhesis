@@ -154,9 +154,13 @@ def test_a_long_trace_is_judged_in_one_pass():
     assert result.details["reason"] == "Expected `tool_0`; it was never called."
 
 
-def test_a_test_without_expected_calls_is_refused():
-    with pytest.raises(ValueError, match="no expected tool calls"):
-        ToolCallTrajectory().evaluate(tool_calls=calls("x"), expectations=Expectations())
+def test_a_test_without_expected_calls_is_not_applicable():
+    result = ToolCallTrajectory().evaluate(tool_calls=calls("x"), expectations=Expectations())
+
+    assert result.score is None
+    assert result.details["not_applicable"] is True
+    assert result.details["is_successful"] is None
+    assert "no expected tool calls" in result.details["reason"]
 
 
 def test_it_needs_no_model():
@@ -165,6 +169,16 @@ def test_it_needs_no_model():
     assert metric.model is None
     assert not metric.REQUIRES_MODEL
     assert metric.REQUIRED_EXPECTATIONS == ("tool_calls",)
+
+
+def test_it_is_a_rule():
+    from rhesis.sdk.metrics import TraceRule
+    from rhesis.sdk.metrics.base import MetricType
+
+    metric = ToolCallTrajectory()
+
+    assert isinstance(metric, TraceRule)
+    assert metric.metric_type is MetricType.RULE
 
 
 def test_the_factory_builds_it_from_stored_settings():

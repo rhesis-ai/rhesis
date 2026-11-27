@@ -5,6 +5,7 @@ from rhesis.sdk.metrics.providers.native.categorical_judge import CategoricalJud
 from rhesis.sdk.metrics.providers.native.conversational_judge import ConversationalJudge
 from rhesis.sdk.metrics.providers.native.goal_achievement_judge import GoalAchievementJudge
 from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
+from rhesis.sdk.metrics.providers.native.rules import FieldRule, ResponseRule
 from rhesis.sdk.metrics.providers.native.tool_call_trajectory import ToolCallTrajectory
 
 
@@ -17,6 +18,8 @@ class RhesisMetricFactory(BaseMetricFactory):
         "NumericJudge": NumericJudge,
         "GoalAchievementJudge": GoalAchievementJudge,
         "ToolCallTrajectory": ToolCallTrajectory,
+        "FieldRule": FieldRule,
+        "ResponseRule": ResponseRule,
     }
 
     # Common parameters supported by all metrics
@@ -73,6 +76,18 @@ class RhesisMetricFactory(BaseMetricFactory):
         "NumericJudge": _base_metric_params | _base_judge_params | _numeric_params,
         "GoalAchievementJudge": _base_metric_params | _base_judge_params | _numeric_params,
         "ToolCallTrajectory": {"name", "description", "target", "match", "arguments"},
+        "FieldRule": {
+            "name",
+            "description",
+            "target",
+            "field",
+            "op",
+            "value",
+            "negate",
+            "span_kind",
+            "span_name",
+        },
+        "ResponseRule": {"name", "description", "target", "match", "similarity", "min_similarity"},
     }
 
     # Define required parameters for each metric class
@@ -82,6 +97,8 @@ class RhesisMetricFactory(BaseMetricFactory):
         "NumericJudge": {"evaluation_prompt"},
         "GoalAchievementJudge": set(),  # All params are optional with defaults
         "ToolCallTrajectory": set(),
+        "FieldRule": {"field", "op"},
+        "ResponseRule": set(),
     }
 
     def metric_class(self, class_name: str) -> type[BaseMetric]:

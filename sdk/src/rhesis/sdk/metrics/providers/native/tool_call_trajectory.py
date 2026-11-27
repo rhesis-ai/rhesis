@@ -5,14 +5,9 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 from rhesis.sdk.entities.trace import Trace
 from rhesis.sdk.metrics.arguments import evaluation_arguments
-from rhesis.sdk.metrics.base import (
-    BaseMetric,
-    MetricConfig,
-    MetricResult,
-    MetricType,
-    ScoreType,
-)
+from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.metrics.expectations import ExpectationsLike, ExpectedToolCall
+from rhesis.sdk.metrics.providers.native.rules import TraceRule, rule_not_applicable
 
 
 class TrajectoryMatch(str, Enum):
@@ -41,16 +36,15 @@ class ArgumentMatch(str, Enum):
     """Only the tool's name is compared."""
 
 
-class ToolCallTrajectory(BaseMetric):
-    """Pass when the trace's tool calls match the test's expected tool calls.
+class ToolCallTrajectory(TraceRule):
+    """Pass when the trace's tool calls match the test's expected tool calls: the rule for
+    expected tool calls.
 
     The actual calls are ``trace.tool_calls``; the expected ones are
-    ``expectations.tool_calls``. A test without expected tool calls can't be judged by
-    this metric, and ``evaluate`` refuses it.
+    ``expectations.tool_calls``. On a test without expected tool calls it is not applicable.
     """
 
     REQUIRED_EXPECTATIONS = ("tool_calls",)
-    REQUIRES_MODEL = False
 
     def __init__(
         self,
@@ -64,22 +58,7 @@ class ToolCallTrajectory(BaseMetric):
     ):
         self.match = TrajectoryMatch(match)
         self.arguments = ArgumentMatch(arguments)
-        super().__init__(
-            MetricConfig(
-                class_name=self.__class__.__name__,
-                backend="rhesis",
-                name=name or "Tool Call Trajectory",
-                description=description,
-                score_type=ScoreType.NUMERIC,
-                min_score=0.0,
-                max_score=1.0,
-                threshold=1.0,
-                threshold_operator=">=",
-                metric_type=MetricType.CUSTOM_CODE,
-                target=target,
-                id=id,
-            )
-        )
+        super().__init__(self._rule_config(name or "Tool Call Trajectory", description, target, id))
 
     @classmethod
     def validate_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -92,18 +71,15 @@ class ToolCallTrajectory(BaseMetric):
             ArgumentMatch(config["arguments"])
         return config
 
-    def set_model(self, model: Any) -> Any:
-        """No model is used, so none is built."""
-        return None
-
     @evaluation_arguments
     def evaluate(
         self, trace: Optional[Trace] = None, expectations: ExpectationsLike = None
     ) -> MetricResult:
         expected = expectations.tool_calls if expectations is not None else None
         if expected is None:
-            raise ValueError(
-                "The test has no expected tool calls; pass expectations={'tool_calls': [...]}."
+            return rule_not_applicable(
+                "The test has no expected tool calls. Add them to the test to compare its "
+                "tool calls with them."
             )
         return compare_trajectories(
             expected, trace.tool_calls if trace else [], self.match, self.arguments

@@ -43,6 +43,7 @@ if TYPE_CHECKING:
         GoalAchievementScoreResponse,
     )
     from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
+    from rhesis.sdk.metrics.providers.native.rules import FieldRule, ResponseRule, TraceRule
     from rhesis.sdk.metrics.providers.native.tool_call_trajectory import (
         ArgumentMatch,
         ToolCallTrajectory,
@@ -74,6 +75,9 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
         "rhesis.sdk.metrics.providers.native.goal_achievement_judge",
         "GoalAchievementScoreResponse",
     ),
+    "TraceRule": ("rhesis.sdk.metrics.providers.native.rules", "TraceRule"),
+    "FieldRule": ("rhesis.sdk.metrics.providers.native.rules", "FieldRule"),
+    "ResponseRule": ("rhesis.sdk.metrics.providers.native.rules", "ResponseRule"),
     "ToolCallTrajectory": (
         "rhesis.sdk.metrics.providers.native.tool_call_trajectory",
         "ToolCallTrajectory",
@@ -200,6 +204,9 @@ __all__ = [
     "GoalAchievementJudge",
     "CriterionEvaluation",
     "GoalAchievementScoreResponse",
+    "TraceRule",
+    "FieldRule",
+    "ResponseRule",
     "ToolCallTrajectory",
     "TrajectoryMatch",
     "ArgumentMatch",
