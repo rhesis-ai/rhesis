@@ -39,3 +39,5 @@ class ArchitectAgentStateSnapshot(BaseModel):
     # test_set_id → planned name, so a later add_tests_bulk batch can still be
     # credited to the set it is filling after a turn boundary.
     test_set_names_by_id: Dict[str, str] = Field(default_factory=dict)
+    # Tools whose full parameters the agent loaded, so it keeps them across turns.
+    loaded_tools: List[str] = Field(default_factory=list)

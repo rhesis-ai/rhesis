@@ -25,10 +25,15 @@ from rhesis.sdk.agents.architect.prompt_loader import (
     render_phase_knowledge,
 )
 from rhesis.sdk.agents.architect.state import ArchitectAgentStateSnapshot
-from rhesis.sdk.agents.architect.tool_registry import PlanCategory, mode_for, plan_category_for
+from rhesis.sdk.agents.architect.tool_registry import (
+    PlanCategory,
+    mode_for,
+    plan_category_for,
+    tools_for_mode,
+)
 from rhesis.sdk.agents.architect.workflow import WorkflowPath, resolve_workflow_path_update
 from rhesis.sdk.agents.arg_validation import find_missing_arguments, find_placeholder_ids
-from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
+from rhesis.sdk.agents.base import _SERVER_MANAGED_FIELDS, BaseAgent, BaseTool, MCPTool
 from rhesis.sdk.agents.chart_tool import dropped_filters, flatten_query
 from rhesis.sdk.agents.constants import (
     Action,
@@ -51,6 +56,30 @@ logger = logging.getLogger(__name__)
 
 # Pseudo-tools that stand for agent control flow, not fetched data.
 _INTERNAL_TOOL_NAMES: FrozenSet[str] = frozenset(t.value for t in InternalTool)
+
+
+def _first_sentence(text: str, limit: int) -> str:
+    """A description's first sentence, on one line and at most ``limit`` characters.
+
+    A sentence ends at punctuation followed by a capitalised word or the end, so an
+    abbreviation like "e.g." or a version like "1.2" doesn't cut it short.
+    """
+    flat = " ".join((text or "").split())
+    if not flat:
+        return "No description"
+    end = re.search(r"[.!?](?=\s+[A-Z]|$)", flat)
+    sentence = flat[: end.end()] if end else flat
+    return sentence if len(sentence) <= limit else sentence[: limit - 1].rstrip() + "…"
+
+
+# Starts the error of a call that was not sent: to load its tool, be fixed, or wait.
+_NOT_RUN_PREFIX = "Not run: "
+
+
+def _sent_back(result: ToolResult) -> bool:
+    """Whether this result is a call that was not sent: loaded, fixed or waiting."""
+    return not result.success and (result.error or "").startswith(_NOT_RUN_PREFIX)
+
 
 # Floor on an unnamed record's share of the summary budget. Below this a
 # record is too clipped to be worth showing as a record at all.
@@ -260,6 +289,11 @@ class ArchitectAgent(BaseAgent):
         # which makes the pre-dispatch check a no-op rather than a false
         # rejection.
         self._tool_schemas: Dict[str, Any] = {}
+        # Tools whose full parameters the agent loaded (load_tools, or a call that
+        # was sent back for it). Kept across turns in the snapshot.
+        self._loaded_tools: Set[str] = set()
+        # Tools the current phase guidance names; set when the prompt is built.
+        self._guidance_tools: FrozenSet[str] = frozenset()
         # The project's trace environment names, looked up once a trace query needs them.
         self._environment_names: Optional[List[str]] = None
         self._auto_approve_all: bool = False
@@ -577,6 +611,7 @@ class ArchitectAgent(BaseAgent):
         self._carried_tool_results.clear()
         self._turn_start_step = 0
         self._requirement_id_names.clear()
+        self._loaded_tools.clear()
         self._metric_id_names.clear()
         self._linked_pairs.clear()
         self._linked_id_pairs.clear()
@@ -638,6 +673,27 @@ class ArchitectAgent(BaseAgent):
         ToolMeta.READONLY_HINT: True,
     }
 
+    _LOAD_TOOLS_TOOL: ClassVar[Dict[str, Any]] = {
+        "name": InternalTool.LOAD_TOOLS,
+        "description": (
+            "Show the full parameters of tools listed under 'More tools'. Pass every "
+            "tool you expect to need; their parameters are listed under Available "
+            "Tools from the next step on."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Tool names exactly as listed.",
+                },
+            },
+            "required": ["names"],
+        },
+        ToolMeta.READONLY_HINT: True,
+    }
+
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """Override to inject internal tools and discover mutating ones.
 
@@ -650,6 +706,7 @@ class ArchitectAgent(BaseAgent):
         tools = await super().get_available_tools()
         tools.append(self._SAVE_PLAN_TOOL)
         tools.append(self._AWAIT_TASK_TOOL)
+        tools.append(self._LOAD_TOOLS_TOOL)
         if self._earlier_documents():
             tools.append(self._READ_FILE_TOOL)
 
@@ -665,6 +722,73 @@ class ArchitectAgent(BaseAgent):
                 sorted(self._mutating_tools),
             )
         return tools
+
+    def _shown_in_full(self) -> FrozenSet[str]:
+        """Tools listed with their full parameters this step.
+
+        Besides the always-loaded and loaded ones: the current mode's tools (planning
+        leads straight into creating, so it gets those), and the tools the phase
+        guidance tells the model to call.
+        """
+        mode = AgentMode.CREATING if self._mode == AgentMode.PLANNING else self._mode
+        return frozenset(
+            self._cfg.always_loaded_tools
+            | _INTERNAL_TOOL_NAMES
+            | tools_for_mode(mode)
+            | self._guidance_tools
+            | self._loaded_tools
+        )
+
+    def _tool_loaded(self, name: str) -> bool:
+        # An unknown name isn't sent back to be loaded: running it reports it unknown.
+        return name in self._shown_in_full() or name not in self._tool_schemas
+
+    def _format_tools(self, tools: List[Dict[str, Any]]) -> str:
+        """Full parameters for loaded tools; one line each for the rest.
+
+        Every tool is named every step, so none is out of sight, but the full
+        parameter lists, most of the prompt, are only paid for once needed.
+        """
+        shown = self._shown_in_full()
+        loaded = [t for t in tools if t["name"] in shown]
+        rest = [t for t in tools if t["name"] not in shown]
+        text = super()._format_tools(loaded)
+        if not rest:
+            return text
+        lines = []
+        for t in rest:
+            required = [
+                r
+                for r in (t.get("inputSchema") or {}).get("required", [])
+                if r not in _SERVER_MANAGED_FIELDS
+            ]
+            summary = _first_sentence(t.get("description", ""), self._cfg.tool_summary_max_chars)
+            lines.append(f"- {t['name']}({', '.join(required)}): {summary}")
+        return (
+            f"{text}\n\nMore tools (required arguments in brackets). Call load_tools "
+            "with the ones you need to see their parameters, then call them:\n" + "\n".join(lines)
+        )
+
+    def _execute_load_tools(self, tool_call: ToolCall) -> ToolResult:
+        names = (tool_call.arguments or {}).get("names") or []
+        if isinstance(names, str):
+            names = [names]
+        known = [str(n) for n in names if n in self._tool_schemas]
+        unknown = [str(n) for n in names if n not in self._tool_schemas]
+        self._loaded_tools.update(known)
+        message = (
+            f"Loaded {', '.join(known)}: their parameters are listed under Available Tools now."
+            if known
+            else "Loaded nothing."
+        )
+        if unknown:
+            message += f" Not tools: {', '.join(unknown)}."
+        return ToolResult(
+            tool_name=tool_call.tool_name,
+            success=bool(known),
+            content=message,
+            error=None if known else message,
+        )
 
     def _classify_mutating(self, tools: List[Dict[str, Any]]) -> FrozenSet[str]:
         """Build the set of tools that require user confirmation."""
@@ -704,6 +828,29 @@ class ArchitectAgent(BaseAgent):
         When ``auto_approve_all`` is set, all tools are allowed
         without confirmation (session-level override).
         """
+        # A call to a tool whose parameters the agent hasn't seen is a guess: it is
+        # loaded and sent back rather than run, or shown to the user for approval.
+        unloaded = {
+            id(tc): (
+                f"Not run: {tc.tool_name}'s parameters weren't loaded. They are listed "
+                "under Available Tools now; call it again using them."
+            )
+            for tc in action.tool_calls
+            if not self._tool_loaded(tc.tool_name)
+        }
+        if unloaded:
+            self._loaded_tools.update(
+                str(tc.tool_name) for tc in action.tool_calls if id(tc) in unloaded
+            )
+            return await self._return_invalid_calls(
+                action,
+                iteration,
+                unloaded,
+                failed=False,
+                others="Not run: send it again together with the calls whose parameters "
+                "were just loaded.",
+            )
+
         if self._auto_approve_all:
             return await super()._handle_tool_calls(action, iteration)
 
@@ -798,27 +945,41 @@ class ArchitectAgent(BaseAgent):
         )
 
     async def _return_invalid_calls(
-        self, action: AgentAction, iteration: int, errors: Dict[int, str]
+        self,
+        action: AgentAction,
+        iteration: int,
+        errors: Dict[int, str],
+        failed: bool = True,
+        others: str = "Not run: another call in this step needs fixing. Send it again.",
     ) -> Tuple[ExecutionStep, bool]:
-        """Run the step's read-only calls; send none of its mutating ones.
+        """Run the step's valid read-only calls; send none of its mutating ones.
 
-        The invalid calls come back with their error, reported like any failed
+        The calls in ``errors`` come back with their error, reported like any failed
         call. The valid mutating ones wait, so the step's writes go out together.
         """
-        read_only = [tc for tc in action.tool_calls if not self._is_mutating(tc.tool_name)]
-        ran = iter(await self._execute_tools(read_only, reasoning=action.reasoning))
+
+        def runs(tc: ToolCall) -> bool:
+            return id(tc) not in errors and not self._is_mutating(tc.tool_name)
+
+        ran = iter(
+            await self._execute_tools(
+                [tc for tc in action.tool_calls if runs(tc)], reasoning=action.reasoning
+            )
+        )
         results: List[ToolResult] = []
         for tc in action.tool_calls:
-            if not self._is_mutating(tc.tool_name):
+            if runs(tc):
                 results.append(next(ran))
             elif id(tc) in errors:
-                results.append(await self._report_unsent(tc, errors[id(tc)], action.reasoning))
+                results.append(
+                    await self._report_unsent(tc, errors[id(tc)], action.reasoning, failed)
+                )
             else:
                 results.append(
                     ToolResult(
                         tool_name=tc.tool_name,
                         success=False,
-                        error="Not run: another call in this step needs fixing. Send it again.",
+                        error=others,
                     )
                 )
         step = ExecutionStep(
@@ -1101,6 +1262,9 @@ class ArchitectAgent(BaseAgent):
 
         if tool_call.tool_name == InternalTool.READ_ATTACHED_FILE:
             return self._execute_read_attached_file(tool_call)
+
+        if tool_call.tool_name == InternalTool.LOAD_TOOLS:
+            return self._execute_load_tools(tool_call)
 
         scoped = await self._scope_to_named_environments(tool_call)
         filled = self._fill_chart_filters(tool_call)
@@ -1833,6 +1997,7 @@ class ArchitectAgent(BaseAgent):
             carried_tool_results=self._build_carried_tool_results(),
             test_set_counts=dict(self._test_set_counts),
             test_set_names_by_id=dict(self._test_set_names_by_id),
+            loaded_tools=sorted(self._loaded_tools),
         )
 
     def restore_state(self, snapshot: ArchitectAgentStateSnapshot) -> None:
@@ -1873,6 +2038,7 @@ class ArchitectAgent(BaseAgent):
             self._test_set_counts = dict(snapshot.test_set_counts)
         if snapshot.test_set_names_by_id:
             self._test_set_names_by_id = dict(snapshot.test_set_names_by_id)
+        self._loaded_tools = set(snapshot.loaded_tools)
 
         if snapshot.plan_data:
             try:
@@ -1973,6 +2139,14 @@ class ArchitectAgent(BaseAgent):
         user_query: str,
         available_tools: List[Dict[str, Any]],
     ) -> str:
+        phase_knowledge_text = render_phase_knowledge(
+            self._jinja_env, self._mode, self._workflow_path, self._tool_schemas.keys()
+        )
+        self._guidance_tools = frozenset(
+            name
+            for name in self._tool_schemas
+            if re.search(rf"\b{re.escape(str(name))}\b", phase_knowledge_text)
+        )
         tools_text = self._format_tools(available_tools)
         history_text = self._format_history()
         plan_text = self._plan.to_markdown() if self._plan else ""
@@ -1981,9 +2155,6 @@ class ArchitectAgent(BaseAgent):
         attachments_text = self._format_attachments()
 
         template = self._jinja_env.get_template("iteration_prompt.j2")
-        phase_knowledge_text = render_phase_knowledge(
-            self._jinja_env, self._mode, self._workflow_path, self._tool_schemas.keys()
-        )
         return template.render(
             mode=self._mode,
             workflow_path=self._workflow_path.value,
@@ -2261,7 +2432,8 @@ class ArchitectAgent(BaseAgent):
 
     def _should_nudge_chart(self) -> bool:
         """Whether a finish that read insights rows but drew no chart goes back once."""
-        if "show_chart" not in self._tool_schemas or self._turn_calls("show_chart"):
+        drawn = [tr for _, tr in self._turn_calls("show_chart") if not _sent_back(tr)]
+        if "show_chart" not in self._tool_schemas or drawn:
             return False
         if not any(tr.success for _, tr in self._turn_calls("get_insights")):
             return False

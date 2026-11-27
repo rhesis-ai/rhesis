@@ -1,7 +1,7 @@
 """Tests for ArchitectAgent class."""
 
 import json
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -9,6 +9,7 @@ from rhesis.sdk.agents.architect.agent import CHART_NUDGE, HELD_BACK_SEED, Archi
 from rhesis.sdk.agents.architect.config import ArchitectConfig
 from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec, RequirementSpec
 from rhesis.sdk.agents.base import BaseAgent, BaseTool
+from rhesis.sdk.agents.constants import AgentMode
 from rhesis.sdk.agents.schemas import AgentAction, ExecutionStep, ToolCall, ToolResult
 from rhesis.sdk.models.base import BaseLLM
 
@@ -41,6 +42,7 @@ def _make_agent(
     max_tool_executions=None,
     timeout_seconds=None,
     history_window=None,
+    tools_loaded=True,
 ):
     """Create an ArchitectAgent with a mock model."""
     agent = ArchitectAgent(
@@ -56,6 +58,10 @@ def _make_agent(
     # aren't specifically testing it.  Write-guard tests set this
     # explicitly.
     agent._mutating_tools = frozenset()
+    # Likewise every given tool starts loaded, so a call isn't sent back to load
+    # its parameters first. Tool-loading tests pass tools_loaded=False.
+    if tools_loaded:
+        agent._loaded_tools = {t.name for t in tools or [] if isinstance(t, BaseTool)}
     return agent
 
 
@@ -1378,6 +1384,219 @@ class TestArchitectWriteGuard:
 
 
 # ── auto-approve and guard_state tests ────────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectToolLoading:
+    """Most tools are listed by name; their parameters are loaded when needed."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    @staticmethod
+    def _tool(name, required=(), description="Does the thing. Then more detail."):
+        tool = TestArchitectWriteGuard._tool(name, required)
+        type(tool).description = property(lambda self: description)
+        return tool
+
+    async def _prompt(self, agent) -> str:
+        return agent._build_prompt("hi", await agent.get_available_tools())
+
+    async def _turn(self, agent, mock_model, *steps):
+        async def fake_stream(**kw):
+            yield "Reply"
+
+        mock_model.a_generate = AsyncMock(side_effect=[*steps, _finish_dict("Reply")])
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("go")
+
+    @pytest.mark.asyncio
+    async def test_a_tool_not_loaded_is_one_line_with_its_required_arguments(self, mock_model):
+        tool = self._tool("update_metric", required=("metric_id",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+
+        prompt = await self._prompt(agent)
+
+        assert "- update_metric(metric_id): Does the thing." in prompt
+        assert "Then more detail" not in prompt
+
+    @pytest.mark.asyncio
+    async def test_an_always_loaded_tool_shows_its_parameters(self, mock_model):
+        tool = self._tool("list_metrics", required=("filter",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+
+        prompt = await self._prompt(agent)
+
+        assert "filter: string (required)" in prompt
+
+    @pytest.mark.asyncio
+    async def test_the_current_modes_tools_show_their_parameters(self, mock_model):
+        tool = self._tool("create_metric", required=("score_type",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        agent._mode = AgentMode.CREATING
+
+        prompt = await self._prompt(agent)
+
+        assert "score_type: string (required)" in prompt
+
+    @pytest.mark.asyncio
+    async def test_load_tools_shows_a_tools_parameters(self, mock_model):
+        tool = self._tool("update_metric", required=("metric_id",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        await self._turn(agent, mock_model, _tool_dict("load_tools", {"names": ["update_metric"]}))
+
+        prompt = await self._prompt(agent)
+
+        assert "metric_id: string (required)" in prompt
+
+    @pytest.mark.asyncio
+    async def test_a_call_to_a_tool_not_loaded_is_sent_back_and_loads_it(self, mock_model):
+        tool = self._tool("get_trace", required=("trace_id",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        await self._turn(agent, mock_model, _tool_dict("get_trace", {"trace_id": "t1"}))
+
+        results = [r for step in agent._execution_history for r in step.tool_results]
+        assert "parameters weren't loaded" in results[0].error
+        assert "get_trace" in agent._loaded_tools
+
+    @pytest.mark.asyncio
+    async def test_a_guessed_create_is_never_shown_for_approval(self, mock_model):
+        """Approved as guessed, the corrected call would be asked about again."""
+        tool = self._tool("create_metric", required=("score_type",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        agent._mutating_tools = frozenset({"create_metric"})
+        await self._turn(agent, mock_model, _tool_dict("create_metric", {"name": "Language"}))
+
+        assert agent._blocked_calls == []
+        assert agent._needs_confirmation is False
+
+    @pytest.mark.asyncio
+    async def test_loaded_read_only_calls_in_the_same_step_still_run(self, mock_model):
+        tools = [self._tool("list_metrics"), self._tool("get_trace", required=("trace_id",))]
+        agent = _make_agent(mock_model, tools=tools, tools_loaded=False)
+        step = _tool_dict("list_metrics", {})
+        step["tool_calls"].append(
+            {"tool_name": "get_trace", "arguments": json.dumps({"trace_id": "t1"})}
+        )
+        await self._turn(agent, mock_model, step)
+
+        results = {r.tool_name: r for s in agent._execution_history for r in s.tool_results}
+        assert results["list_metrics"].success is True
+        assert results["get_trace"].success is False
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_tool_is_not_sent_back_to_load(self, mock_model):
+        agent = _make_agent(mock_model, tools=[], tools_loaded=False)
+        await self._turn(agent, mock_model, _tool_dict("no_such_tool", {}))
+
+        assert "no_such_tool" not in agent._loaded_tools
+
+    @pytest.mark.asyncio
+    async def test_loaded_tools_survive_the_turn_boundary(self, mock_model):
+        """The backend builds a fresh agent for every message."""
+        tool = self._tool("update_metric", required=("metric_id",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        await self._turn(agent, mock_model, _tool_dict("load_tools", {"names": ["update_metric"]}))
+
+        restored = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        restored.restore_state(agent.dump_state())
+
+        assert "metric_id: string (required)" in await self._prompt(restored)
+
+    @pytest.mark.asyncio
+    async def test_the_same_call_sent_again_after_loading_runs(self, mock_model):
+        """The model did as told; the repeat guard must not refuse it as a failure."""
+        tool = self._tool("get_trace", required=("trace_id",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        call = _tool_dict("get_trace", {"trace_id": "t1"})
+        await self._turn(agent, mock_model, call, call)
+
+        results = [r for step in agent._execution_history for r in step.tool_results]
+        assert results[-1].success is True
+
+    @pytest.mark.asyncio
+    async def test_auto_approve_still_loads_before_running(self, mock_model):
+        tool = self._tool("create_metric", required=("score_type",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        agent.auto_approve_all = True
+        call = _tool_dict("create_metric", {"name": "Language", "score_type": "numeric"})
+        await self._turn(agent, mock_model, call, call)
+
+        results = [r for step in agent._execution_history for r in step.tool_results]
+        assert "parameters weren't loaded" in results[0].error
+        assert results[-1].success is True
+
+    @pytest.mark.asyncio
+    async def test_planning_shows_the_creating_tools(self, mock_model):
+        """A plan leads straight into creating; loading each create first wastes a step."""
+        tool = self._tool("create_requirement", required=("name",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        agent._mode = AgentMode.PLANNING
+
+        assert "name: string (required)" in await self._prompt(agent)
+
+    @pytest.mark.asyncio
+    async def test_a_tool_the_phase_guidance_names_shows_its_parameters(self, mock_model):
+        tool = self._tool("get_insights", required=("metric",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        with patch(
+            "rhesis.sdk.agents.architect.agent.render_phase_knowledge",
+            return_value="Call get_insights to break results down.",
+        ):
+            prompt = await self._prompt(agent)
+
+        assert "metric: string (required)" in prompt
+
+    @pytest.mark.asyncio
+    async def test_a_chart_sent_back_to_load_does_not_count_as_drawn(self, mock_model):
+        tools = [self._tool("get_insights"), self._tool("show_chart")]
+        agent = _make_agent(mock_model, tools=tools, tools_loaded=False)
+        agent._loaded_tools = {"get_insights"}
+        await agent.get_available_tools()
+        agent._turn_start_step = 0
+        agent._execution_history = [
+            ExecutionStep(
+                iteration=1,
+                reasoning="r",
+                action="call_tool",
+                tool_calls=[ToolCall(tool_name="get_insights", arguments={})],
+                tool_results=[ToolResult(tool_name="get_insights", success=True, content="[]")],
+            ),
+            ExecutionStep(
+                iteration=2,
+                reasoning="r",
+                action="call_tool",
+                tool_calls=[ToolCall(tool_name="show_chart", arguments={})],
+                tool_results=[
+                    ToolResult(
+                        tool_name="show_chart",
+                        success=False,
+                        error="Not run: show_chart's parameters weren't loaded.",
+                    )
+                ],
+            ),
+        ]
+
+        assert agent._should_nudge_chart() is True
+
+    @pytest.mark.parametrize(
+        "description, expected",
+        [
+            ("Lists metrics. Use filters to narrow.", "Lists metrics."),
+            (
+                "Uses e.g. the API version 1.2 to read. More.",
+                "Uses e.g. the API version 1.2 to read.",
+            ),
+            ("No punctuation at all", "No punctuation at all"),
+            ("", "No description"),
+            (None, "No description"),
+        ],
+    )
+    def test_the_one_line_description(self, description, expected):
+        from rhesis.sdk.agents.architect.agent import _first_sentence
+
+        assert _first_sentence(description, 160) == expected
 
 
 @pytest.mark.unit

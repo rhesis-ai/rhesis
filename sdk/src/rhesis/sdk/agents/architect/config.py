@@ -64,6 +64,25 @@ class ArchitectConfig:
     carried_result_max_entries: int = 12
     carried_result_max_chars: int = 12_000
 
+    # ── tool loading ──────────────────────────────────────────────
+    # Shown with full parameters every step. Every other tool is listed by name and
+    # loaded with load_tools when needed (the current mode's tools are always loaded).
+    always_loaded_tools: frozenset = field(
+        default_factory=lambda: frozenset(
+            {
+                "list_projects",
+                "list_endpoints",
+                "list_test_sets",
+                "list_metrics",
+                "list_requirements",
+                "list_sources",
+                "get_job_status",
+            }
+        )
+    )
+    # Length of a not-loaded tool's one-line description.
+    tool_summary_max_chars: int = 160
+
     # ── HTTP methods treated as read-only ─────────────────────────
     readonly_http_methods: frozenset = field(
         default_factory=lambda: frozenset({"GET", "HEAD", "OPTIONS"})

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Architect lists most tools by name with their required arguments instead of their full parameters, which cuts the tools in each prompt from about 27k tokens to 3k-7k. The full parameters of a core set of lookup tools, the tools of the current mode, and any tool the agent loads with the new `load_tools` are always shown. A call to a tool whose parameters were not loaded is sent back to the agent with them instead of being run or shown for approval. Loaded tools are kept across turns in the saved session state.
+
 ### Fixed
 
 - Architect no longer asks the user to approve work they already approved. Approved requirements, metrics and test sets stay approved across messages until they are created, a later confirmation no longer withdraws an earlier one, and linking a requirement to a metric approved in an earlier message is covered. Other approved calls, such as an update, still run only in the reply to the Accept. A step that mixes approved and new calls runs the approved ones and asks only about the rest.
