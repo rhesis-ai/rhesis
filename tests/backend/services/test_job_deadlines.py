@@ -133,7 +133,9 @@ class TestFailOverdueJobs:
 
 @pytest.mark.integration
 class TestWhatAFailedJobLeftOpen:
-    def test_gives_back_the_quota_it_reserved(self, test_db, test_org_id):
+    def test_gives_back_the_quota_it_reserved_even_if_failing_its_run_raises(
+        self, test_db, test_org_id
+    ):
         from rhesis.backend.app.quota import OveragePolicy, QuotaPolicy, QuotaRegistry
         from rhesis.backend.app.quota import QuotaResource as Resource
         from rhesis.backend.app.quota.enforcement import _read_usage, reserve_quota
@@ -156,10 +158,16 @@ class TestWhatAFailedJobLeftOpen:
                 job_type="generate_and_save_test_set",
                 started_at=long_ago,
                 quota_reservation=reservation.to_wire(),
+                entity_type="TestRun",
+                entity_id=uuid.uuid4(),
             )
             assert _read_usage(test_db, test_org_id, Resource.TEST_GENERATION) == 10
 
-            fail_overdue_jobs(test_db, test_org_id, now=NOW)
+            with patch(
+                "rhesis.backend.app.services.job_deadlines._fail_test_run",
+                side_effect=RuntimeError("boom"),
+            ):
+                fail_overdue_jobs(test_db, test_org_id, now=NOW)
             test_db.commit()
 
             assert _read_usage(test_db, test_org_id, Resource.TEST_GENERATION) == 0

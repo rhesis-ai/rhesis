@@ -33,7 +33,7 @@ def settle_job_reservation(
     )
     from rhesis.backend.app.database import get_db_with_tenant_variables
     from rhesis.backend.app.quota.enforcement import QuotaReservation
-    from rhesis.backend.app.services.usage import dispatch_accrual
+    from rhesis.backend.app.services import usage_coalescer
 
     if not celery_task_id:
         return Settled.NO_ROW
@@ -44,10 +44,12 @@ def settle_job_reservation(
             db.rollback()
             swept = reclaim_swept_reservation(db, celery_task_id)
             if swept is not None:
-                # The sweep gave the whole reservation back, so charge all of it now.
+                # The sweep gave the whole reservation back, so charge all of it now. Through
+                # the coalescer, which keeps a sum it could not queue for the next flush.
                 db.commit()
                 reservation = QuotaReservation.from_wire(swept)
-                dispatch_accrual(reservation.org_id, reservation.resource, consumed)
+                if consumed > 0:
+                    usage_coalescer.add(reservation.org_id, reservation.resource, consumed)
                 return Settled.NOW
             if has_quota_reservation(db, celery_task_id):
                 return Settled.ALREADY

@@ -79,33 +79,43 @@ def fail_overdue_jobs(db: Session, organization_id: str, now: Optional[datetime]
             db, organization_id, project_id, started_before, queued_before, now
         )
         for celery_task_id, entity_type, entity_id in rows:
-            try:
-                # One savepoint per job, so a row that fails here doesn't undo the sweep.
-                with db.begin_nested():
-                    _close_out(db, celery_task_id, entity_type, entity_id)
-            except Exception:
-                logger.exception("Could not close out overdue job %s", celery_task_id)
+            # Each step in its own savepoint, so one that fails undoes neither the sweep
+            # nor the other step.
+            _in_savepoint(db, celery_task_id, _release_quota, db, celery_task_id)
+            if entity_type == "TestRun" and entity_id is not None:
+                _in_savepoint(db, celery_task_id, _fail_test_run, db, entity_id)
         return len(rows)
 
     return sum_over_org_projects(db, organization_id, "", fail_in_scope)
 
 
-def _close_out(db: Session, celery_task_id, entity_type, entity_id) -> None:
-    """Settle the quota and fail the test run a dead job left open, in the sweep's transaction."""
-    from rhesis.backend.app import models
+def _in_savepoint(db: Session, celery_task_id, step, *args) -> None:
+    try:
+        with db.begin_nested():
+            step(*args)
+    except Exception:
+        logger.exception("Could not close out overdue job %s", celery_task_id)
+
+
+def _release_quota(db: Session, celery_task_id) -> None:
+    """Give back the quota reservation a dead job still holds."""
     from rhesis.backend.app.crud.job import claim_quota_reservation
     from rhesis.backend.app.quota.enforcement import QuotaReservation
+
+    if not celery_task_id:
+        return
+    claimed = claim_quota_reservation(db, celery_task_id)
+    if claimed is not None:
+        QuotaReservation.from_wire(claimed).apply(db, 0)
+
+
+def _fail_test_run(db: Session, test_run_id) -> None:
+    """Fail the test run a dead job left queued or in progress."""
+    from rhesis.backend.app import models
     from rhesis.backend.jobs.enums import RunStatus
     from rhesis.backend.jobs.execution.run import update_test_run_status
 
-    if celery_task_id:
-        claimed = claim_quota_reservation(db, celery_task_id)
-        if claimed is not None:
-            QuotaReservation.from_wire(claimed).apply(db, 0)
-
-    if entity_type != "TestRun" or entity_id is None:
-        return
-    test_run = db.get(models.TestRun, entity_id)
+    test_run = db.get(models.TestRun, test_run_id)
     if test_run is None:
         return
     status = db.query(models.Status.name).filter(models.Status.id == test_run.status_id).scalar()

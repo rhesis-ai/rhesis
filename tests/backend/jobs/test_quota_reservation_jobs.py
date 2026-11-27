@@ -259,7 +259,7 @@ class TestSettleAgainstTheDatabase:
         assert _used(test_db, test_org_id) == 0
 
         # The message was still in the broker, so the job ran after all.
-        with patch("rhesis.backend.app.services.usage.dispatch_accrual") as accrue:
+        with patch("rhesis.backend.app.services.usage_coalescer.add") as accrue:
             assert settle_job_reservation(task_id, tenant, 4) is Settled.NOW
             assert settle_job_reservation(task_id, tenant, 4) is Settled.ALREADY
 
