@@ -51,6 +51,18 @@ def test_emergency_escalates():
     assert "911" in result["response"] or "emergency" in result["response"].lower()
 
 
+def test_turn_reports_its_tool_calls():
+    """Multi-turn metrics see a turn's tool calls only through what the endpoint returns."""
+    result = run_turn(
+        "chest pain and can't breathe",
+        VisitPrepState(),
+        pipeline=make_pipeline(emergency_script()),
+    )
+    names = [call["name"] for call in result["tool_calls"]]
+    assert "escalate" in names
+    assert all(call["output"] is not None for call in result["tool_calls"])
+
+
 def test_out_of_scope_redirects():
     result = run_turn(
         "What do I have?", VisitPrepState(), pipeline=make_pipeline(out_of_scope_script())

@@ -121,6 +121,25 @@ def _apply_result_to_state(
     return updated
 
 
+def _turn_tool_calls(result: dict[str, Any]) -> list[dict[str, Any]]:
+    """The coordinator's tool calls this turn, in order, as ``{"name", "arguments", "output"}``.
+
+    Replayed history carries text only, so every tool call in the run's messages is this turn's.
+    """
+    messages = [m for m in result.get("messages") or [] if isinstance(m, ChatMessage)]
+    outputs = {
+        res.origin.id: res.result
+        for message in messages
+        for res in message.tool_call_results or []
+        if res.origin.id
+    }
+    return [
+        {"name": call.tool_name, "arguments": call.arguments, "output": outputs.get(call.id)}
+        for message in messages
+        for call in message.tool_calls or []
+    ]
+
+
 def _finish_turn(state: VisitPrepState, raw: dict[str, Any], message: str) -> dict[str, Any]:
     result = raw[COORDINATOR]
     reply = _extract_reply(result)
@@ -131,6 +150,7 @@ def _finish_turn(state: VisitPrepState, raw: dict[str, Any], message: str) -> di
     return {
         "response": reply,
         "state": _apply_result_to_state(state, result, reply, message),
+        "tool_calls": _turn_tool_calls(result),
         "raw": result,
     }
 
