@@ -1222,6 +1222,93 @@ tools:
       counts, an attribute that isn't set, no expected response or tool
       calls on the test), its result is not applicable, never a pass or a
       fail.
+
+      TARGETS. config.target says what the metric judges in a trace, and so
+      which tests it runs on. Omit it for the default, "turn". "on" is one
+      of:
+      - "turn": each turn; on a conversation, every turn on its own.
+      - "conversation": the whole conversation once; not run on single-turn
+        tests.
+      - "run": the whole trace once.
+      - "tool_call" (arguments as input, result as output), "retrieval"
+        (query as input, documents as output), "model_call", "agent",
+        "guardrail": each span of that kind. These presets also take "name",
+        only the tool, agent or model with that name.
+      - "span": each span its "where" conditions pick, of any kind. It needs
+        at least one condition and takes no "name". The presets are short
+        forms of it.
+      Each unit a target picks is judged as its own trace: the span and
+      everything under it.
+
+      A preset is enough when the units are one kind of span, with at most
+      one name, inside at most one agent: {"on": "tool_call", "name":
+      "issue_refund"}. Add "where", or write "span", when the choice also
+      depends on an attribute, a duration, a status, or several kinds.
+
+      Every target but "conversation" and "run" also takes:
+      - "where": a list of conditions the unit's root span must all meet,
+        [{"field": ..., "op": ..., "value": ...}]. field is a special field
+        or a span attribute key. The special fields are "kind" (a span kind
+        such as "tool.invoke", or a preset's name such as "tool_call"),
+        "name" (the tool, agent or model name, else the span's name),
+        "span_name", "duration_ms" and "status" ("ok" or "error"). For an
+        attribute named like a special field, write "attributes.<key>". op
+        is one of "==", "!=", "<", "<=", ">", ">=" (a number), "in" and
+        "not_in" (a list), "contains", "matches" (a regular expression),
+        "exists" and "not_exists" (no value).
+      - "read": {"input": ..., "output": ...} to change what a unit hands
+        the metric: an attribute key, "input", "output",
+        "conversation.input", "conversation.output" or "event:<name>". Leave
+        one out to keep the kind's own.
+      - "aggregate": "all" (every unit passes; the default), "any", or
+        "share" with "min_share" (0 to 1).
+      The per-span targets (the presets and "span") also take "within", only
+      spans inside the agent with that name.
+
+      MISSING ATTRIBUTES. A span without the field meets only "!=",
+      "not_in" and "not_exists", and fails every other op. So "channel !=
+      internal" keeps spans that carry no channel; add {"field":
+      "app.channel", "op": "exists"} to leave those out.
+
+      Two examples:
+      - A tool-call policy, refunds inside billing_agent unless the channel
+        is internal: {"target": {"on": "tool_call", "name": "issue_refund",
+        "within": "billing_agent", "where": [{"field": "app.channel", "op":
+        "!=", "value": "internal"}]}}
+      - An attribute filter, every model call for gold customers: {"target":
+        {"on": "span", "where": [{"field": "kind", "op": "==", "value":
+        "model_call"}, {"field": "app.customer_tier", "op": "==", "value":
+        "gold"}]}}
+
+      BEFORE A SPAN TARGET, or any "where" on an attribute: call
+      list_trace_attributes for the project to see which keys each span kind
+      carries and their common values, and take keys from there rather than
+      guessing. Then call preview_target with the target to see how many
+      traces and units it picks; one that picks nothing makes the metric not
+      applicable on every test.
+
+      A span is held to the test's goal and instructions, not its expected
+      response or expected tool calls, so a metric with
+      ground_truth_required takes no per-span target, and Tool Call
+      Trajectory takes "turn" (each turn against its entry in
+      expected_tool_calls_per_turn), "conversation" or "run". A target the
+      metric can't take is refused with the choices it can. A malformed one
+      is refused with "Invalid target: ..." naming the part that is wrong
+      and the valid choices: fix that part and send again. A metric whose
+      target matches nothing in a test's trace is reported as not
+      applicable, with the reason. On an endpoint that sends no traces, only
+      tool calls, retrievals and one model call are seen, and only when its
+      response mapping maps tool_calls, context or usage.
+
+      THE RESPONSE carries target_summary, the target in words ("each tool
+      call named `issue_refund` inside `billing_agent`"). Tell the user what
+      it says, so they can confirm the metric judges what they meant. It
+      also carries warnings, a list, empty when nothing was noticed. A
+      warning such as "No recent span carries app.tier; app.customer_tier is
+      set on 92% of tool.invoke spans" means no span of the project's last
+      seven days carries that "where" key. The metric was saved; report the
+      warning, and if the suggested key is the one meant, fix it with
+      update_metric. A key can also be right before the first trace arrives.
     parameters:
       name:
         description: "Metric name, unique within the organization (required, string)"
@@ -1302,16 +1389,15 @@ tools:
           "ToolCallTrajectory" (see RULES in this tool's description).
       config:
         description: >
-          What the metric judges, as {"target": {"on": ...}}, and for a rule
-          its settings next to the target (see RULES in this tool's
-          description). Omit the target for
-          the default, which is stored and returned in the response's
-          config: "turn" (each request and its response, and every turn of
-          a conversation on its own). Send {"target": {"on":
-          "conversation"}} for a metric that judges a whole conversation at
-          once; it does not run on single-turn tests. To judge one part of
-          a trace, such as each tool call, see update_metric's config for
-          every choice.
+          What the metric judges, as {"target": {...}}, and for a rule its
+          settings next to the target (see RULES in this tool's
+          description). Omit the target for the default, which is stored and
+          returned in the response's config: "turn" (each request and its
+          response, and every turn of a conversation on its own). Send
+          {"target": {"on": "conversation"}} for a metric that judges a whole
+          conversation at once. To judge one part of a trace, such as each
+          tool call or the spans with some attribute, see TARGETS in this
+          tool's description.
       ground_truth_required:
         description: >
           Set true only when the metric cannot be scored without the
@@ -1417,7 +1503,10 @@ tools:
       created_at, updated_at, owner_id, assignee_id, status_id, model_id,
       backend_type_id, metric_type_id). A framework metric (backend type
       deepeval, garak or ragas) accepts only a new target: send config with
-      the target alone and nothing else; any other change is refused.
+      the target alone and nothing else; any other change is refused. A new
+      target follows TARGETS in create_metric's description, including the
+      list_trace_attributes and preview_target calls before a span target.
+      The response carries target_summary and warnings; report both.
     parameters:
       metric_id:
         description: "REQUIRED. UUID of the metric to update."
@@ -1452,42 +1541,12 @@ tools:
           The whole object is replaced, so send the settings to keep with a
           change.
 
-          Every metric's config holds "target", what it judges in a trace,
-          and so which tests it runs on. "on" is one of: "turn" (each turn; on a conversation, every turn on its own),
-          "conversation" (the whole conversation once; not run on
-          single-turn tests), "run" (the whole
-          trace once), "tool_call" (each tool call: arguments as input,
-          result as output), "retrieval" (each retrieval: query as input,
-          documents as output), "model_call", "agent" or "guardrail" (each
-          span of that kind). Each unit a target picks is judged as its own
-          trace: the span and everything under it. The per-span targets also
-          take "name" (only spans with that tool, agent or model name) and
-          "within" (only spans inside that agent). The per-span targets and
-          "turn" take "where", attributes the unit's root span must have,
-          such as {"rhesis.reported.metadata.channel": "email"}; a list of
-          values means any of them. "where" also takes a list of conditions,
-          [{"field": ..., "op": ..., "value": ...}]: field is "kind", "name",
-          "span_name", "duration_ms", "status" or any attribute key; op is one
-          of "==", "!=", "<", "<=", ">", ">=", "in", "not_in", "contains",
-          "matches", "exists" or "not_exists". A span without the field
-          meets only "!=", "not_in" and "not_exists". "span" picks every span
-          its "where" conditions pick, of any kind, and needs at least one;
-          the per-span targets are short forms of it. Per-unit targets also
-          take "read": {"input": ..., "output": ...}, an attribute key,
-          "input", "output" or "event:<name>", to change what a unit hands the
-          metric. They also take "aggregate": "all" (every
-          span passes; the default), "any", or "share" with "min_share" (0
-          to 1). For example {"target": {"on": "tool_call", "name":
-          "issue_refund"}}. A span is held to the test's goal and
-          instructions, not its expected response or expected tool calls, so
-          a metric with ground_truth_required takes no per-span target, and
-          Tool Call Trajectory takes "turn" (each turn against its entry in
-          expected_tool_calls_per_turn), "conversation" or "run". A target
-          the metric can't take is refused with the choices it can. A metric
-          whose target matches nothing in a test's trace is reported as not
-          applicable, with the reason. On an endpoint that sends no traces,
-          only tool calls, retrievals and one model call are seen, and only
-          when its response mapping maps tool_calls, context or usage.
+          Every metric's config holds "target", what it judges in a trace.
+          Its choices, the span form with "where" conditions, and the calls
+          to make before writing one (list_trace_attributes, then
+          preview_target) are under TARGETS in create_metric's description;
+          they apply here the same way. The response carries target_summary
+          and warnings, as create_metric's does: report both.
 
   - name: add_requirement_to_metric
     label: Linking requirement to metric
@@ -2563,6 +2622,138 @@ tools:
         description: >
           REQUIRED. UUID of the span row, from an annotation's
           context.trace_db_id or entity_id.
+
+  - name: list_spans
+    label: Listing spans
+    method: GET
+    path: /telemetry/spans
+    # No page_size: like list_traces, this route pages by offset and answers
+    # with {spans, total, limit, offset}.
+    default_query:
+      limit: 20
+    description: >
+      List spans, one compact row per span, newest first: id (the row id),
+      span_id, trace_id, parent_span_id, is_root, project_id, span_name,
+      span_type, trace_name, start_time, duration_ms, status_code,
+      environment, conversation_id, the test links, model, provider, token
+      counts and cost_usd. No attributes and no events, so it stays small;
+      get_trace has those.
+
+      Pass target, a metric target as JSON text, to list exactly the spans
+      that target picks, matched as a metric's evaluation matches them: for a
+      per-span target, each matching span; for "turn", each turn's root span;
+      for "run", each trace's first root. This is how you show which spans a
+      metric judges, or check a target against more than preview_target's
+      latest traces. It applies together with every other filter. A target
+      that isn't JSON or isn't valid is refused with "Invalid target: ..."
+      naming the problem.
+
+      The envelope carries total, limit and offset. Page by passing offset;
+      this route does not take skip. cost_usd is null when the span was not
+      priced, which is not zero.
+
+      Scoping: project_id defaults to the caller's project scope, as for
+      list_traces.
+
+      ENTITY: Trace (spans). CHAIN: list_trace_attributes to write a target,
+      preview_target to count what it picks, list_spans with target to page
+      through those spans, get_trace with a row's trace_id and project_id to
+      read one. NEVER: open every trace a target picks; read the rows here
+      first.
+    parameters:
+      project_id:
+        description: >
+          UUID of the project. Omit and the caller's project scope applies.
+      target:
+        description: >
+          A metric target as JSON text, the same object a metric's
+          config.target holds, such as '{"on": "tool_call", "name":
+          "issue_refund"}' or '{"on": "span", "where": [{"field":
+          "app.customer_tier", "op": "==", "value": "gold"}]}'. See TARGETS
+          in create_metric's description.
+      span_type:
+        description: >
+          Span kind, repeatable: "llm.invoke", "tool.invoke", "retrieval",
+          "agent.invoke" and so on.
+      limit:
+        description: "Rows per page, up to 1000. Defaults to 20 here."
+      offset:
+        description: "Rows to skip, for paging. Compare with total in the response."
+
+  - name: list_trace_attributes
+    label: Listing span attributes
+    method: GET
+    path: /telemetry/attributes
+    description: >
+      List the attribute keys each kind of span carries in a project's recent
+      traces, for writing a metric target's "where" conditions. Per span kind
+      (tool.invoke, llm.invoke, ...): how many spans were read, and for each
+      key its coverage (the share of those spans that carry it), its type,
+      its most common values with counts, and how many distinct values it
+      has. A key marked unique has nearly one value per span (an id), so it
+      makes a poor condition.
+
+      It reads a sample of the most recent spans of each kind, at most 2000
+      per kind, from the last days (7 by default). A key that is missing here
+      may still be right if the application has not sent traces with it yet;
+      an empty result means no spans in that window, not that no key works.
+
+      ENTITY: Trace (attributes). CHAIN: call before create_metric or
+      update_metric with a span target or any "where" on an attribute, and
+      take the keys and values from here rather than guessing them; then
+      preview_target. NEVER: invent an attribute key the user did not name
+      and this did not list.
+    parameters:
+      project_id:
+        description: >
+          UUID of the project whose traces to read. Omit and the caller's
+          project scope applies.
+      kind:
+        description: >
+          One span kind, such as "tool.invoke", to read only those spans.
+          Omit for every kind.
+      days:
+        description: "Read spans started in the last N days, 1 to 90. Defaults to 7."
+      limit:
+        description: "Most attribute keys per kind, the most common first. Defaults to 100."
+
+  - name: preview_target
+    label: Previewing metric target
+    method: POST
+    path: /metrics/targets/preview
+    read_only: true
+    description: >
+      Try a metric target on a project's latest traces before saving it,
+      matched exactly as evaluation matches it. Returns traces (how many
+      were read), matching_traces, units (what the metric would run on in
+      all of them), not_applicable_traces (traces where it picks nothing,
+      which a metric reports as not applicable) and a few samples with their
+      trace_id, span_id, name, input, output, duration_ms and status. It
+      changes nothing.
+
+      A target that picks no units, or far more than the user expects, is
+      almost always a wrong key, value or operator: check the conditions
+      against list_trace_attributes and try again before writing the metric.
+      A target that isn't valid is refused with "Invalid target: ..." naming
+      the part that is wrong and the valid choices.
+
+      ENTITY: Metric (target). CHAIN: list_trace_attributes -> preview_target
+      -> create_metric or update_metric with the same target. Report the
+      counts and one or two samples so the user can confirm the target picks
+      what they meant.
+    parameters:
+      project_id:
+        description: >
+          REQUIRED. UUID of the project whose traces to read. Take it from
+          list_projects or a list_traces row; never ask the user for it.
+      target:
+        description: >
+          REQUIRED. The target to try, as an object, the same one a metric's
+          config.target holds, such as {"on": "tool_call", "name":
+          "issue_refund"}; or a preset's name such as "tool_call". See TARGETS
+          in create_metric's description.
+      traces:
+        description: "How many of the latest traces to read, 1 to 200. Defaults to 50."
 
   # ── Knowledge Sources ────────────────────────────────────
   - name: list_sources

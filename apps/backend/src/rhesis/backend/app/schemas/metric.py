@@ -299,6 +299,13 @@ class Metric(MetricBase, ServerIdentity):
         return self
 
 
+class MetricSaved(Metric):
+    """A created or updated metric, with what the write noticed but didn't refuse."""
+
+    # Such as a target condition on an attribute key no recent span carries.
+    warnings: List[str] = []
+
+
 class TargetChoice(BaseModel):
     """One target from the SDK's registry, as an editor offers it."""
 

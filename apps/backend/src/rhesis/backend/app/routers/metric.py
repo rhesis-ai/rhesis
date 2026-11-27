@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import MetricBackendType
@@ -25,6 +26,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.metric import check_updated_config, read_target
 from rhesis.backend.app.services.metric_tuning import attach_tuning_case_counts
+from rhesis.backend.app.services.telemetry.span_attributes import target_key_warnings
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
@@ -57,7 +59,13 @@ def _refuse_decision_model_on_metric(db: Session, model_id, organization_id, sco
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
-@router.post("/", response_model=schemas.Metric)
+def _saved(metric: models.Metric, warnings: List[str]) -> schemas.MetricSaved:
+    saved = schemas.MetricSaved.model_validate(metric)
+    saved.warnings = warnings
+    return saved
+
+
+@router.post("/", response_model=schemas.MetricSaved)
 @handle_database_exceptions(
     entity_name="metric", custom_unique_message="Metric with this name already exists"
 )
@@ -72,6 +80,8 @@ def create_metric(
     organization_id, user_id = tenant_context
 
     _refuse_decision_model_on_metric(db, metric.model_id, organization_id, metric.score_type)
+    # Checked before the write, which stamps the metric with the request's project.
+    warnings = target_key_warnings(db, organization_id, project_id_from_scope(db), metric.config)
 
     try:
         # Set the current user as the owner if not specified
@@ -81,7 +91,7 @@ def create_metric(
         result = metric_crud.create_metric(
             db=db, metric=metric, organization_id=organization_id, user_id=user_id
         )
-        return result
+        return _saved(result, warnings)
 
     except Exception as e:
         logger.error(f"Error creating metric '{metric.name}': {e}", exc_info=True)
@@ -463,7 +473,7 @@ def read_metric(
     return db_metric
 
 
-@router.put("/{metric_id}", response_model=schemas.Metric)
+@router.put("/{metric_id}", response_model=schemas.MetricSaved)
 @handle_database_exceptions(
     entity_name="metric", custom_unique_message="Metric with this name already exists"
 )
@@ -494,10 +504,12 @@ def update_metric(
             metric.config = check_updated_config(metric, db_metric)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=f"Invalid config: {e}") from e
+    warnings = target_key_warnings(db, organization_id, db_metric.project_id, metric.config)
 
-    return metric_crud.update_metric(
+    result = metric_crud.update_metric(
         db=db, metric_id=metric_id, metric=metric, organization_id=organization_id, user_id=user_id
     )
+    return _saved(result, warnings)
 
 
 @router.delete("/{metric_id}", response_model=schemas.Metric)

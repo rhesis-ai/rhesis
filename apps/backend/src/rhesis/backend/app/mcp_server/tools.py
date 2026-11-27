@@ -107,7 +107,8 @@ def build_tools_and_operations(
 
         _readonly_methods = frozenset(("GET", "HEAD", "OPTIONS"))
         annotations = ToolAnnotations(
-            readOnlyHint=(method in _readonly_methods),
+            # A POST that only reads (a preview) says so with read_only in the yaml.
+            readOnlyHint=tc.get("read_only", method in _readonly_methods),
             destructiveHint=(method in ("DELETE", "PUT")),
             idempotentHint=(method in (*_readonly_methods, "PUT", "DELETE")),
         )

@@ -1050,3 +1050,282 @@ class TestRuleMetrics(MetricTestMixin):
         created = response.json()
         assert created["config"]["target"] == {"on": "run"}
         assert "tool_call" not in created["supported_targets"]
+
+
+TIER = "app.customer_tier"
+
+
+def _condition(field: str, op: str, value: Any = None) -> Dict[str, Any]:
+    return {"field": field, "op": op, "value": value}
+
+
+def _span_target(*conditions: Dict[str, Any]) -> Dict[str, Any]:
+    from rhesis.sdk.metrics.targets import TargetKind
+
+    return {"target": {"on": TargetKind.SPAN.value, "where": list(conditions)}}
+
+
+@pytest.fixture
+def catalogue_calls(monkeypatch):
+    """Counts the catalogue queries a metric write makes."""
+    from rhesis.backend.app.services.telemetry import span_attributes
+
+    calls = []
+    real = span_attributes.get_attribute_catalogue
+
+    def counting(*args, **kwargs):
+        calls.append(args)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(span_attributes, "get_attribute_catalogue", counting)
+    return calls
+
+
+@pytest.fixture
+def tool_spans(authenticated_client, db_project):
+    """Four recent tool spans in the project, two of them with a customer tier."""
+    from datetime import datetime, timedelta, timezone
+
+    from rhesis.telemetry import AIAttributes
+
+    from .fixtures.data_factories import TraceDataFactory
+
+    project_id = str(db_project.id)
+    spans = []
+    for i in range(4):
+        span = TraceDataFactory.minimal_data(project_id=project_id)
+        start = datetime.now(timezone.utc) - timedelta(minutes=i)
+        attributes = {
+            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_TOOL_INVOKE,
+            AIAttributes.TOOL_NAME: "issue_refund",
+        }
+        if i < 2:
+            attributes[TIER] = "gold"
+        span.update(
+            attributes=attributes,
+            start_time=start.isoformat(),
+            end_time=(start + timedelta(seconds=1)).isoformat(),
+        )
+        spans.append(span)
+    response = authenticated_client.post("/telemetry/traces", json={"spans": spans})
+    assert response.status_code == status.HTTP_200_OK, response.text
+    return project_id
+
+
+@pytest.fixture
+def in_project(test_db, test_org_id, authenticated_user_id, tool_spans, monkeypatch):
+    """Requests run scoped to the project with the tool spans, so metrics are stamped with it.
+
+    Route tests bypass the dependency that reads X-Project-Id; the request session copies
+    its scope from ``test_db.info`` instead.
+    """
+    from rhesis.backend.app.scope import RequestScope
+
+    scope = RequestScope(
+        organization_id=str(test_org_id), user_id=str(authenticated_user_id), project_id=tool_spans
+    )
+    monkeypatch.setitem(test_db.info, "_scope", scope)
+    return tool_spans
+
+
+@pytest.mark.integration
+class TestWhereKeyWarnings(MetricTestMixin):
+    """A where key no recent span carries is saved with a warning, never refused."""
+
+    def _create(self, client, config):
+        data = {**MetricDataFactory.sample_data(), "config": config}
+        response = client.post(self.endpoints.create, json=data)
+        assert response.status_code == status.HTTP_200_OK, response.text
+        return response.json()
+
+    def test_an_unknown_key_is_warned_about_with_the_nearest_one(
+        self, authenticated_client, in_project
+    ):
+        metric = self._create(
+            authenticated_client, _span_target(_condition("app.tier", "==", "gold"))
+        )
+
+        assert metric["warnings"] == [
+            f"No recent span carries app.tier; {TIER} is set on 50% of tool.invoke spans"
+        ]
+        assert metric["config"]["target"]["where"][0]["field"] == "app.tier"
+
+    def test_an_unknown_key_with_nothing_near_it_is_named_alone(
+        self, authenticated_client, in_project
+    ):
+        metric = self._create(authenticated_client, _span_target(_condition("zzz", "exists")))
+
+        assert metric["warnings"] == ["No recent span carries zzz"]
+
+    def test_a_known_key_gives_no_warning(self, authenticated_client, in_project):
+        metric = self._create(authenticated_client, _span_target(_condition(TIER, "==", "gold")))
+
+        assert metric["warnings"] == []
+
+    def test_a_known_key_read_as_an_attribute_gives_no_warning(
+        self, authenticated_client, in_project
+    ):
+        from rhesis.sdk.metrics.conditions import ATTRIBUTE_PREFIX
+
+        target = _span_target(_condition(f"{ATTRIBUTE_PREFIX}{TIER}", "exists"))
+
+        assert self._create(authenticated_client, target)["warnings"] == []
+
+    def test_special_fields_are_not_checked(
+        self, authenticated_client, in_project, catalogue_calls
+    ):
+        from rhesis.sdk.metrics.conditions import SpecialField
+
+        target = _span_target(
+            _condition(SpecialField.KIND.value, "==", "tool_call"),
+            _condition(SpecialField.DURATION_MS.value, ">", 10),
+            _condition(SpecialField.STATUS.value, "==", "ok"),
+        )
+
+        assert self._create(authenticated_client, target)["warnings"] == []
+        assert catalogue_calls == []
+
+    def test_a_target_without_attribute_conditions_reads_no_catalogue(
+        self, authenticated_client, in_project, catalogue_calls
+    ):
+        config = {"target": {"on": "tool_call", "name": "issue_refund"}}
+
+        assert self._create(authenticated_client, config)["warnings"] == []
+        assert catalogue_calls == []
+
+    def test_a_metric_without_a_project_is_not_checked(
+        self, authenticated_client, tool_spans, catalogue_calls
+    ):
+        metric = self._create(authenticated_client, _span_target(_condition("app.tier", "exists")))
+
+        assert metric["warnings"] == []
+        assert catalogue_calls == []
+
+    def test_one_catalogue_query_for_several_keys(
+        self, authenticated_client, in_project, catalogue_calls
+    ):
+        target = _span_target(_condition("app.tier", "exists"), _condition("zzz", "exists"))
+
+        metric = self._create(authenticated_client, target)
+
+        assert len(metric["warnings"]) == 2
+        assert len(catalogue_calls) == 1
+
+    def test_an_update_is_warned_about_too(self, authenticated_client, in_project):
+        metric = self._create(authenticated_client, _span_target(_condition(TIER, "exists")))
+
+        response = authenticated_client.put(
+            self.endpoints.put(metric["id"]),
+            json={"config": _span_target(_condition("app.customer_teir", "exists"))},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["warnings"] == [
+            f"No recent span carries app.customer_teir; {TIER} is set on 50% of tool.invoke spans"
+        ]
+
+    def test_an_update_without_a_config_is_not_checked(
+        self, authenticated_client, in_project, catalogue_calls
+    ):
+        metric = self._create(authenticated_client, _span_target(_condition("app.tier", "exists")))
+        catalogue_calls.clear()
+
+        response = authenticated_client.put(
+            self.endpoints.put(metric["id"]),
+            json={"description": "Checks gold customers."},
+        )
+
+        assert response.json()["warnings"] == []
+        assert catalogue_calls == []
+
+    def test_an_invalid_target_reaches_mcp_with_the_message_intact(
+        self, authenticated_client, in_project
+    ):
+        import json
+
+        from rhesis.backend.app.mcp_server.server import format_error
+        from rhesis.sdk.metrics.conditions import CONDITION_OPS
+
+        metric = self._create(authenticated_client, _span_target(_condition(TIER, "exists")))
+        response = authenticated_client.put(
+            self.endpoints.put(metric["id"]),
+            json={"config": _span_target(_condition(TIER, "~", "gold"))},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        detail = json.loads(format_error(response))["detail"]
+        message = detail if isinstance(detail, str) else json.dumps(detail)
+        assert "Invalid target:" in message
+        assert ", ".join(op.value for op in CONDITION_OPS) in message
+
+
+@pytest.mark.unit
+class TestUnknownKeyWarnings:
+    """The warning text, from a catalogue alone."""
+
+    def _catalogue(self, kinds):
+        from datetime import datetime, timezone
+
+        from rhesis.backend.app.schemas.telemetry import (
+            AttributeValueType,
+            SpanAttributeCatalogue,
+            SpanAttributeSummary,
+            SpanKindAttributes,
+        )
+
+        return SpanAttributeCatalogue(
+            kinds={
+                kind: SpanKindAttributes(
+                    spans=10,
+                    attributes=[
+                        SpanAttributeSummary(
+                            key=key,
+                            coverage=coverage,
+                            type=AttributeValueType.STRING,
+                            top_values=[],
+                            distinct=1,
+                            unique=False,
+                        )
+                        for key, coverage in keys.items()
+                    ],
+                )
+                for kind, keys in kinds.items()
+            },
+            sampled_spans=10 * len(kinds),
+            since=datetime.now(timezone.utc),
+        )
+
+    def test_the_suggestion_names_the_kind_that_carries_it_most(self):
+        from rhesis.backend.app.services.telemetry.span_attributes import unknown_key_warnings
+
+        catalogue = self._catalogue({"llm.invoke": {TIER: 0.1}, "tool.invoke": {TIER: 0.92}})
+
+        assert unknown_key_warnings(["app.tier", TIER], catalogue) == [
+            f"No recent span carries app.tier; {TIER} is set on 92% of tool.invoke spans"
+        ]
+
+    def test_an_empty_catalogue_warns_without_a_suggestion(self):
+        from rhesis.backend.app.services.telemetry.span_attributes import unknown_key_warnings
+
+        assert unknown_key_warnings(["app.tier"], self._catalogue({})) == [
+            "No recent span carries app.tier"
+        ]
+
+    def test_only_attribute_keys_are_checked(self):
+        from rhesis.backend.app.services.telemetry.span_attributes import where_attribute_keys
+        from rhesis.sdk.metrics.conditions import ATTRIBUTE_PREFIX, SpecialField
+        from rhesis.sdk.metrics.targets import Target
+
+        target = Target.coerce(
+            {
+                "on": "tool_call",
+                "where": [
+                    _condition(SpecialField.NAME.value, "==", "x"),
+                    _condition(f"{ATTRIBUTE_PREFIX}status", "exists"),
+                    _condition(TIER, "exists"),
+                    _condition(TIER, "!=", "free"),
+                ],
+            }
+        )
+
+        assert where_attribute_keys(target) == ["status", TIER]
