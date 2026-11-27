@@ -55,6 +55,28 @@ class TestListSpans:
         assert response.status_code == status.HTTP_200_OK, response.text
         assert {s["span_id"] for s in response.json()["spans"]} == {a["span_id"], b["span_id"]}
 
+    def test_tool_param(self, authenticated_client: TestClient, db_project):
+        project_id = str(db_project.id)
+        refund = ingest(
+            authenticated_client,
+            project_id,
+            span_name="ai.tool.invoke",
+            attributes={"ai.operation.type": "tool.invoke", "ai.tool.name": "issue_refund"},
+        )
+        ingest(
+            authenticated_client,
+            project_id,
+            span_name="ai.tool.invoke",
+            attributes={"ai.operation.type": "tool.invoke", "ai.tool.name": "lookup_order"},
+        )
+
+        response = authenticated_client.get(
+            "/telemetry/spans", params={"project_id": project_id, "tool": ["issue_refund"]}
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert [s["span_id"] for s in response.json()["spans"]] == [refund["span_id"]]
+
     def test_sort_and_page(self, authenticated_client: TestClient, db_project):
         project_id = str(db_project.id)
         for _ in range(3):

@@ -220,6 +220,11 @@ def span_agent_expr() -> Any:
     return models.Trace.attributes[AISpanAttributes.AGENT_NAME].astext
 
 
+def span_tool_expr() -> Any:
+    """The tool a span called, for tool spans (``ai.tool.name``)."""
+    return models.Trace.attributes[AISpanAttributes.TOOL_NAME].astext
+
+
 def span_filter_clauses(
     org_uuid,
     project_id: Optional[str],
@@ -238,6 +243,8 @@ def span_filter_clauses(
         clauses.append(span_model_expr(span_breakdown_entry()).in_(filters.models))
     if filters.agents and SKIP_AGENT not in skip:
         clauses.append(span_agent_expr().in_(filters.agents))
+    if filters.tools:
+        clauses.append(span_tool_expr().in_(filters.tools))
     return clauses
 
 

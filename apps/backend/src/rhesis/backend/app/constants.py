@@ -271,6 +271,7 @@ class AISpanAttributes:
     MODEL_NAME = "ai.model.name"
     MODEL_PROVIDER = "ai.model.provider"
     AGENT_NAME = "ai.agent.name"
+    TOOL_NAME = "ai.tool.name"
     # The trace id a conversation turn arrived under over OTLP, before it was
     # joined onto its conversation's trace.
     SOURCE_TRACE_ID = "rhesis.otlp.source_trace_id"

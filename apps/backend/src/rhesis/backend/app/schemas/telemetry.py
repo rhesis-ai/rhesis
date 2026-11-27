@@ -228,6 +228,7 @@ class SpanFilters:
     models: Optional[List[str]] = None
     providers: Optional[List[str]] = None
     agents: Optional[List[str]] = None
+    tools: Optional[List[str]] = None
 
 
 class SpanSummary(BaseModel):
