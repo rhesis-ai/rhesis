@@ -28,8 +28,8 @@ from pydantic import ValidationError
 
 from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec, class_default_target
 from rhesis.sdk.agents.architect.tool_registry import PlanCategory
-from rhesis.sdk.metrics.conditions import ConditionOp
-from rhesis.sdk.metrics.targets import Refinement, Target, TargetKind, UnsupportedTarget
+from rhesis.sdk.metrics.conditions import Condition, ConditionOp, SpecialField, number, text
+from rhesis.sdk.metrics.targets import ON, Refinement, Target, TargetKind, UnsupportedTarget
 
 # Which argument carries the Single-Turn/Multi-Turn shape. The two test-set
 # writers spell it differently.
@@ -148,14 +148,26 @@ def _sorted_by_text(values: List[Any]) -> List[Any]:
     return sorted(values, key=lambda value: json.dumps(value, sort_keys=True, default=str))
 
 
-def _canonical_condition(condition: Dict[str, Any]) -> Dict[str, Any]:
-    op, value = ConditionOp(condition["op"]), condition.get("value")
+def _canonical_value(value: Any, field: str) -> Any:
+    """A value as matching compares it: 200 and "200" are one number, and a status is the
+    same in any case."""
+    as_number = number(value)
+    if as_number is not None:
+        return as_number
+    as_text = text(value)
+    return as_text.lower() if field == SpecialField.STATUS else as_text
+
+
+def _canonical_condition(condition: Condition) -> Dict[str, Any]:
+    op, value = condition.op, condition.value
     if isinstance(value, list):
+        values = {json.dumps(_canonical_value(v, condition.field)): v for v in value}
+        value = _sorted_by_text([json.loads(key) for key in values])
         if op in _ONE_OF and len(value) == 1:
             op, value = _ONE_OF[op], value[0]
-        else:
-            value = _sorted_by_text(value)
-    return {**condition, "op": op.value, "value": value}
+    elif value is not None and op not in (ConditionOp.CONTAINS, ConditionOp.MATCHES):
+        value = _canonical_value(value, condition.field)
+    return {"field": condition.field, "op": op.value, "value": value}
 
 
 def _canonical(target: Target) -> Dict[str, Any]:
@@ -164,7 +176,8 @@ def _canonical(target: Target) -> Dict[str, Any]:
     config = target.expand().to_config()
     where = config.get(Refinement.WHERE)
     if where:
-        config[Refinement.WHERE] = _sorted_by_text([_canonical_condition(c) for c in where])
+        conditions = [_canonical_condition(c) for c in target.expand().where]
+        config[Refinement.WHERE] = _sorted_by_text(conditions)
     return config
 
 
@@ -188,7 +201,7 @@ def _sent_target(arguments: Dict[str, Any]) -> Optional[Target]:
 
 
 # The parts of a target describe() puts in words; the rest is read and the pass rule.
-_DESCRIBED = frozenset({"on", Refinement.NAME, Refinement.WITHIN, Refinement.WHERE})
+_DESCRIBED = frozenset({ON, Refinement.NAME, Refinement.WITHIN, Refinement.WHERE})
 
 
 def _target_differences(planned: Dict[str, Any], sent: Dict[str, Any]) -> List[str]:

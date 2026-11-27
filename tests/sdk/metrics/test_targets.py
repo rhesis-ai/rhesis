@@ -131,7 +131,7 @@ def test_every_target_has_a_label_and_a_description():
         {"on": "run", "aggregate": "any"},
         {"on": "conversation", "aggregate": "share", "min_share": 0.5},
         {"on": "run", "where": {"channel": "email"}},
-        {"on": "turn", "where": {}},
+        {"on": "span", "where": []},
         {"on": "turn", "where": {"channel": []}},
         {"on": "turn", "where": {"channel": {"nested": "x"}}},
     ],

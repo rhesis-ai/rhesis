@@ -178,7 +178,7 @@ def test_a_malformed_condition_names_the_problem(condition, message):
 @pytest.mark.parametrize(
     ("pattern", "named", "instead"),
     [
-        (r"\brefund\b", r"\b", r"(^|\W)"),
+        (r"\brefund\b", r"\b", r"(^|[^A-Za-z0-9_])"),
         (r"\Bfund", r"\B", None),
         (r"\Arefund", r"\A", "^"),
         (r"refund\Z", r"\Z", "$"),
@@ -205,7 +205,7 @@ def test_a_pattern_that_differs_between_engines_is_refused(pattern, named, inste
     [
         r"^ORD-[0-9]{6}$",
         r"[\b]",
-        r"\d+\.\d{2}",
+        r"[0-9]+\.[0-9]{2}",
         r"(refund|cancel)_order",
         r"(?:refund|cancel)",
         r"(?=x)y",

@@ -81,6 +81,8 @@ class Project(BaseEntity):
         test. ``kind`` is a span kind (``tool.invoke``) or a target name (``tool_call``)."""
         from rhesis.sdk.metrics.targets import span_kind_value
 
+        if not self.id:
+            raise ValueError("trace_attributes needs a project with an id; pull or push it first")
         params: Dict[str, Any] = {"project_id": self.id, "days": days}
         if kind is not None:
             params["kind"] = span_kind_value(kind)

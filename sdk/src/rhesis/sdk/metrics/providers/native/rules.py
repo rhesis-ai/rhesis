@@ -8,6 +8,7 @@ When the thing it reads wasn't recorded, a rule is not applicable: never a pass 
 """
 
 import re
+from enum import StrEnum
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 from rhesis.sdk.entities.trace import _REPORTED, _SPAN_SOURCE, Span, Trace
@@ -20,6 +21,7 @@ from rhesis.sdk.metrics.base import (
     ScoreType,
 )
 from rhesis.sdk.metrics.conditions import (
+    ATTRIBUTE_PREFIX,
     NUMERIC_OPS,
     OPS,
     PATTERN_LIMIT,
@@ -27,7 +29,6 @@ from rhesis.sdk.metrics.conditions import (
     VALUELESS_OPS,
     ConditionOp,
     SpanStatus,
-    SpecialField,
     check_value,
     compare,
     span_status,
@@ -38,22 +39,28 @@ from rhesis.sdk.metrics.expectations import ExpectationsLike
 from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext
 
-#: Fields a ``FieldRule`` reads, besides ``attributes.<key>``.
-FIELDS = (
-    "duration_ms",
-    "status",
-    "error_count",
-    "span_count",
-    "tokens.input",
-    "tokens.output",
-    "tokens.total",
-    "cost_usd",
-    "input",
-    "output",
-    "length.input",
-    "length.output",
-)
-ATTRIBUTE_PREFIX = "attributes."
+
+class RuleField(StrEnum):
+    """Fields a ``FieldRule`` reads, besides ``attributes.<key>``."""
+
+    DURATION_MS = "duration_ms"
+    STATUS = "status"
+    ERROR_COUNT = "error_count"
+    SPAN_COUNT = "span_count"
+    TOKENS_INPUT = "tokens.input"
+    TOKENS_OUTPUT = "tokens.output"
+    TOKENS_TOTAL = "tokens.total"
+    COST_USD = "cost_usd"
+    INPUT = "input"
+    OUTPUT = "output"
+    LENGTH_INPUT = "length.input"
+    LENGTH_OUTPUT = "length.output"
+
+
+FIELDS = tuple(RuleField)
+#: The prefixes of the token and length fields; what follows names which one.
+TOKENS_PREFIX = "tokens."
+LENGTH_PREFIX = "length."
 RESPONSE_MATCHES = ("exact", "contains", "matches", "similar")
 SIMILARITIES = ("edit_distance", "rouge_l")
 
@@ -152,7 +159,7 @@ class FieldRule(TraceRule):
         if span_name is not None:
             settings["span_name"] = span_name
         # Built from storage too: a pattern saved before the portability check still runs.
-        self._checked(settings, portable=False)
+        self._checked(settings, strict=False)
         self.field = field
         self.op = op
         self.value = value
@@ -164,10 +171,10 @@ class FieldRule(TraceRule):
     @classmethod
     def validate_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
         """The settings as saved: a ``matches`` pattern must also mean the same in Postgres."""
-        return cls._checked(config, portable=True)
+        return cls._checked(config, strict=True)
 
     @classmethod
-    def _checked(cls, config: Dict[str, Any], portable: bool) -> Dict[str, Any]:
+    def _checked(cls, config: Dict[str, Any], strict: bool) -> Dict[str, Any]:
         unknown = set(config) - {"field", "op", "value", "negate", "span_kind", "span_name"}
         if unknown:
             raise ValueError(f"Unknown settings: {', '.join(sorted(unknown))}")
@@ -180,10 +187,10 @@ class FieldRule(TraceRule):
             raise ValueError(
                 f"field must be one of {', '.join(FIELDS)}, or attributes.<key>; got {field!r}"
             )
-        check_value(op, config.get("value"), OPS, portable=portable)
+        check_value(op, config.get("value"), OPS, strict=strict)
         if not isinstance(config.get("negate", False), bool):
             raise ValueError("negate must be true or false")
-        if field != "span_count" and (
+        if field != RuleField.SPAN_COUNT and (
             config.get("span_kind") is not None or config.get("span_name") is not None
         ):
             raise ValueError("span_kind and span_name only narrow span_count")
@@ -226,15 +233,15 @@ class FieldRule(TraceRule):
         # A call the endpoint both recorded and reported counts once, as in trace.tool_calls.
         spans = _deduplicated(trace.spans()) if roots else []
         field = self.field
-        if field == "duration_ms":
+        if field == RuleField.DURATION_MS:
             value = _duration(roots)
             return value, None if value is not None else (
                 "No timing was recorded here. Reported spans and traces built from a bare "
                 "response have none; send traces to judge timing."
             )
-        if field in ("status", "error_count"):
+        if field in (RuleField.STATUS, RuleField.ERROR_COUNT):
             # A reported span carries no status, so it can neither pass nor fail one.
-            status = field == SpecialField.STATUS
+            status = field == RuleField.STATUS
             read = [span for span in (roots if status else spans) if not _reported(span)]
             if not read:
                 return None, (
@@ -245,27 +252,27 @@ class FieldRule(TraceRule):
             if status:
                 return (SpanStatus.ERROR if errors else SpanStatus.OK).value, None
             return errors, None
-        if field == "span_count":
+        if field == RuleField.SPAN_COUNT:
             return sum(1 for span in spans if self._counted(span)), None
-        if field.startswith("tokens."):
-            value = _tokens(spans, field.split(".", 1)[1])
+        if field.startswith(TOKENS_PREFIX):
+            value = _tokens(spans, field.removeprefix(TOKENS_PREFIX))
             return value, None if value is not None else (
                 "No model call here reported token counts. Map usage in the endpoint's "
                 "response, or send traces."
             )
-        if field == "cost_usd":
+        if field == RuleField.COST_USD:
             costs = [span.cost_usd for span in spans if span.cost_usd is not None]
             return (sum(costs), None) if costs else (None, "No cost was recorded here.")
         if field.startswith(ATTRIBUTE_PREFIX):
             key = field[len(ATTRIBUTE_PREFIX) :]
             value = next((s.attributes[key] for s in roots if key in s.attributes), None)
             return value, None if value is not None else f"The attribute `{key}` isn't set."
-        which = field.split(".", 1)[1] if field.startswith("length.") else field
-        text = _turn_value(trace, which, input if which == "input" else output)
+        which = field.removeprefix(LENGTH_PREFIX)
+        text = _turn_value(trace, which, input if which == RuleField.INPUT else output)
         # An empty value reads as one never recorded: traces don't keep the difference.
         if text is None or text == "":
             return None, f"No {which} was recorded here."
-        if field.startswith("length."):
+        if field.startswith(LENGTH_PREFIX):
             return len(_text(text)), None
         return text, None
 
@@ -549,7 +556,7 @@ def _statement(
     span_name: Optional[str],
 ) -> str:
     subject = field
-    if field == "span_count" and (span_kind or span_name):
+    if field == RuleField.SPAN_COUNT and (span_kind or span_name):
         subject = f"span_count({', '.join(p for p in (span_kind, span_name) if p)})"
     rule = f"{subject} {op}" if op in VALUELESS_OPS else f"{subject} {op} {_text(value)}"
     return f"not {rule}" if negate else rule

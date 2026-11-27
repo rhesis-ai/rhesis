@@ -198,6 +198,10 @@ PER_UNIT = frozenset(kind for kind, preset in TARGETS.items() if preset.span_kin
 PER_SPAN = PER_UNIT - {TargetKind.TURN}
 
 
+#: The key that says what a target judges: ``{"on": "tool_call"}``.
+ON = "on"
+
+
 class Refinement(StrEnum):
     """The fields that narrow which units a per-unit target judges, or what it reads."""
 
@@ -257,7 +261,7 @@ def _check_supported(value: Dict[str, Any]) -> None:
     """Refuse a target in a shape this SDK doesn't know, saying so instead of failing
     validation: a metric made with a newer Rhesis version can carry one."""
     kinds = [kind.value for kind in TargetKind]
-    on = value.get("on")
+    on = value.get(ON)
     if on not in kinds:
         raise UnsupportedTarget(f"'{on}' is not a target; valid targets: {', '.join(kinds)}")
     unknown = sorted(set(value) - set(Target.model_fields))
@@ -306,11 +310,21 @@ def span_kind_value(value: Any) -> Any:
     return preset.span_kind if preset is not None and preset.span_kind else value
 
 
+#: Operators whose value is a kind, which may be written as a target name (``tool_call``).
+#: A pattern or a substring stays as written.
+_KIND_VALUE_OPS = (ConditionOp.EQ, ConditionOp.NE, ConditionOp.IN, ConditionOp.NOT_IN)
+
+
 def _normalised_where(where: Any) -> Any:
     """``where`` as a list of conditions. The older form, attribute values by key (a list
     means any of its values), is read as ``==`` and ``in``."""
-    if where is None:
+    if where is None or where == {}:
+        # The older form allowed an empty dict: it narrowed nothing.
         return None
+    if not isinstance(where, (dict, list, tuple)):
+        raise ValueError(
+            f"where is a list of conditions, or attribute values by key; got {type(where).__name__}"
+        )
     if isinstance(where, dict):
         # The keys are attribute keys; one named like a special field reads the attribute.
         where = [
@@ -324,7 +338,7 @@ def _normalised_where(where: Any) -> Any:
     conditions = []
     for item in where:
         condition = Condition.coerce(item)
-        if condition.field == SpecialField.KIND and condition.value is not None:
+        if condition.field == SpecialField.KIND and condition.op in _KIND_VALUE_OPS:
             condition = condition.model_copy(update={"value": span_kind_value(condition.value)})
         conditions.append(condition)
     return conditions
@@ -402,7 +416,7 @@ class Target(BaseModel):
         if isinstance(value, Target) or value is None:
             return value
         if isinstance(value, (str, TargetKind)):
-            _check_supported({"on": getattr(value, "value", value)})
+            _check_supported({ON: getattr(value, "value", value)})
             return cls(on=value)
         if isinstance(value, dict):
             _check_supported(value)
@@ -446,6 +460,11 @@ class Target(BaseModel):
 
     def to_config(self) -> Dict[str, Any]:
         return self.model_dump(mode="json", exclude_none=True, exclude_defaults=True)
+
+    @property
+    def is_bare(self) -> bool:
+        """Whether the target is only its kind, with no refinement or pass rule."""
+        return self.to_config() == Target.model_construct(on=self.on).to_config()
 
     def expand(self) -> "Target":
         """This target written as a span target, when it judges spans: a preset becomes its
@@ -822,20 +841,29 @@ _TURN_KEYS = {
 }
 
 
-def _read_value(span: Span, reader: Optional[str], default: Any, turn: Span) -> Any:
+def _read_value(
+    span: Span, reader: Optional[str], default: Any, own: Tuple[Any, Any], turn: Span
+) -> Any:
     """What ``reader`` names on ``span``; ``default`` when the target reads nothing else.
-    The conversation readers read ``turn``, the root span the unit belongs to, falling back
-    to the span itself."""
+    ``own`` is the unit's input and output as its kind reads them. The conversation readers
+    read ``turn``, the root span the unit belongs to: its conversation attribute, else its own
+    input or output, else the span's attribute."""
     if reader is None:
         return default
     if reader == Reader.INPUT:
-        return span.input
+        return own[0]
     if reader == Reader.OUTPUT:
-        return span.output
+        return own[1]
     if reader in _TURN_KEYS:
-        key = _TURN_KEYS[Reader(reader)]
-        value = turn.attributes.get(key)
-        return value if value is not None else span.attributes.get(key)
+        reader = Reader(reader)
+        key = _TURN_KEYS[reader]
+        for value in (
+            turn.attributes.get(key),
+            turn.input if reader is Reader.CONVERSATION_INPUT else turn.output,
+        ):
+            if value not in (None, ""):
+                return value
+        return span.attributes.get(key)
     if reader.startswith(EVENT_READER):
         return _event_value(span, reader[len(EVENT_READER) :])
     return span.attributes.get(reader)
@@ -853,8 +881,9 @@ def _unit(
     """One unit from ``span``; ``root`` is the root span of the turn it belongs to."""
     read = target.read
     if read is not None:
-        input = _read_value(span, read.input, input, root)
-        output = _read_value(span, read.output, output, root)
+        own = (input, output)
+        input = _read_value(span, read.input, input, own, root)
+        output = _read_value(span, read.output, output, own, root)
     return Unit(
         span, _text(input), _text(output), _subtree(trace, span), turn.pop(ResultKey.NAME), **turn
     )

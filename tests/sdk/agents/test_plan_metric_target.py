@@ -62,7 +62,8 @@ class TestMetricTargetField:
         metric = build_save_plan_tool()["parameters"]["properties"]["metrics"]["items"]
         short, full = metric["properties"]["target"]["anyOf"]
 
-        assert short["enum"] == [kind.value for kind in TargetKind]
+        # A span target needs conditions, so "span" alone can't be one.
+        assert short["enum"] == [kind.value for kind in TargetKind if kind is not TargetKind.SPAN]
         assert {"on", "name", "within", "where", "read"} <= set(full["properties"])
 
 

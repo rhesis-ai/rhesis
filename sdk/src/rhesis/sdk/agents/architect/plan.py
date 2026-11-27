@@ -35,7 +35,9 @@ _TARGET_CHOICES = "; ".join(
 def _target_schema(schema: Dict[str, Any]) -> None:
     """Offer the bare kind next to the full target, so "tool_call" stays a valid plan."""
     full = {key: schema.pop(key) for key in ("$ref", "allOf") if key in schema}
-    schema["anyOf"] = [{"type": "string", "enum": [kind.value for kind in TargetKind]}, full]
+    # A span target needs conditions, so "span" alone isn't one.
+    bare = [kind.value for kind in TARGETS]
+    schema["anyOf"] = [{"type": "string", "enum": bare}, full]
 
 
 # Fields that track execution progress and must never be written by the LLM.
@@ -237,9 +239,7 @@ class MetricSpec(BaseModel):
     def _stored_target(self, target: Target) -> Union[str, Dict[str, Any]]:
         # A bare kind stays a string, so plans saved before full targets round-trip unchanged;
         # anything more is the form the platform stores in config.target.
-        stored = target.to_config()
-        bare = Target.model_construct(on=target.on).to_config()
-        return target.on.value if stored == bare else stored
+        return target.on.value if target.is_bare else target.to_config()
 
     @model_validator(mode="before")
     @classmethod
@@ -422,7 +422,7 @@ class ArchitectPlan(BaseModel):
 
 def _target_words(target: Target) -> str:
     """A preset's label when it is used as is, else the target in words."""
-    if target == Target(on=target.on):
+    if target.is_bare:
         return preset_of(target.on).label
     return target.describe()
 

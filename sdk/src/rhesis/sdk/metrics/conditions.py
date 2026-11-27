@@ -11,6 +11,8 @@ filters spans by a target: ``check_portable_pattern`` refuses the constructs tha
 import json
 import math
 import re
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from enum import StrEnum
 from typing import Any, List, Optional, Tuple
 
@@ -93,6 +95,19 @@ ATTRIBUTE_PREFIX = "attributes."
 
 Scalar = (str, int, float, bool)
 
+#: Text that reads as a number, here and in the SQL that matches targets in Postgres
+#: (``crud/span_target_sql.py``): ASCII digits, an optional fraction and exponent, ASCII
+#: whitespace around. Python's ``float()`` also takes ``1_000`` and other scripts' digits,
+#: which a Postgres cast refuses, so neither counts. The exponent is capped so the cast can't
+#: fail; past it a float is infinite, so not a number anyway.
+_DIGITS = "[0-9]+"
+_SPACE = "[ \t\n\r\f\v]*"
+NUMBER_TEXT = (
+    rf"^{_SPACE}[-+]?({_DIGITS}(\.({_DIGITS})?)?|\.{_DIGITS})([eE][-+]?0*[0-9]{{1,4}})?{_SPACE}$"
+)
+NUMBER_TEXT_LIMIT = 1000
+_NUMBER_TEXT = re.compile(NUMBER_TEXT)
+
 
 def compare(op: str, measured: Any, value: Any, field: str) -> bool:
     """Whether ``measured`` compares as ``op`` says with ``value``. A numeric comparison with
@@ -138,15 +153,20 @@ def same(measured: Any, value: Any, field: str) -> bool:
 
 
 def number(value: Any) -> Optional[float]:
+    """``value`` as a finite float, or None when it isn't one: a bool, text that isn't plain
+    ASCII digits (``NUMBER_TEXT``), or a number too large for a float."""
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return float(value) if math.isfinite(value) else None
-    if isinstance(value, str):
         try:
-            parsed = float(value.strip())
-        except ValueError:
+            parsed = float(value)
+        except OverflowError:
             return None
+        return parsed if math.isfinite(parsed) else None
+    if isinstance(value, str):
+        if len(value) > NUMBER_TEXT_LIMIT or not _NUMBER_TEXT.fullmatch(value):
+            return None
+        parsed = float(value)
         return parsed if math.isfinite(parsed) else None
     return None
 
@@ -201,12 +221,17 @@ def value_type(op: ConditionOp) -> ValueType:
     return ValueType.TEXT
 
 
+#: Operators that compare with one value, never a list.
+SINGLE_VALUE_OPS = (ConditionOp.EQ, ConditionOp.NE, ConditionOp.CONTAINS)
+
+
 def check_value(
-    op: Any, value: Any, ops: Tuple[ConditionOp, ...] = OPS, portable: bool = True
+    op: Any, value: Any, ops: Tuple[ConditionOp, ...] = OPS, strict: bool = True
 ) -> None:
-    """Raise ``ValueError`` when ``op`` is unknown or ``value`` doesn't fit it. ``portable``
-    also refuses a pattern Postgres would read differently; a stored rule is built without
-    it, so one saved before the check existed still runs."""
+    """Raise ``ValueError`` when ``op`` is unknown or ``value`` doesn't fit it. ``strict``
+    adds the checks a rule saved before them may fail: a pattern Postgres reads differently,
+    an empty list, a list where one value is compared. A stored rule is built without them,
+    so it still runs."""
     op = known_op(op, ops)
     if op in VALUELESS_OPS:
         if value is not None:
@@ -216,8 +241,13 @@ def check_value(
         raise ValueError(f"'{op}' needs a value")
     if op in NUMERIC_OPS and number(value) is None:
         raise ValueError(f"'{op}' compares with a number; got {value!r}")
-    if op in (ConditionOp.IN, ConditionOp.NOT_IN) and (not isinstance(value, list) or not value):
-        raise ValueError(f"'{op}' takes a list of at least one value")
+    if op in (ConditionOp.IN, ConditionOp.NOT_IN):
+        if not isinstance(value, list):
+            raise ValueError(f"'{op}' takes a list of values")
+        if strict and not value:
+            raise ValueError(f"'{op}' takes a list of at least one value")
+    if strict and op in SINGLE_VALUE_OPS and isinstance(value, list):
+        raise ValueError(f"'{op}' compares with one value; use 'in' for a list")
     if op is ConditionOp.MATCHES:
         if not isinstance(value, str):
             raise ValueError(f"'{op}' takes a regular expression")
@@ -227,18 +257,47 @@ def check_value(
             re.compile(value)
         except re.error as e:
             raise ValueError(f"Invalid regular expression: {e}") from e
-        if portable:
+        if strict:
             check_portable_pattern(value)
+            check_backtracking(value)
 
 
 # What each construct that Python and Postgres read differently is, and what to write instead.
 _ESCAPES = {
-    "b": ("\\b (a word boundary in Python, a backspace in Postgres)", "(^|\\W) or (\\W|$)"),
+    "b": (
+        "\\b (a word boundary in Python, a backspace in Postgres)",
+        "(^|[^A-Za-z0-9_]) or ([^A-Za-z0-9_]|$)",
+    ),
     "B": ("\\B (not a word boundary)", None),
     "A": ("\\A (start of text)", "^"),
     "Z": ("\\Z (end of text)", "$"),
     "z": ("\\z (end of text)", "$"),
     "G": ("\\G", None),
+    "N": ("\\N{...} (a character by name)", "the character itself"),
+    # Python's classes are Unicode; Postgres's follow the database locale. On Postgres 16 with
+    # en_US.utf8, \d is ASCII only, \w takes letters such as é, and \s takes U+2003 but not
+    # U+00A0. Python's re.ASCII agrees for \d only, so spell the characters out.
+    "d": ("\\d (which digits count differs)", "[0-9]"),
+    "D": ("\\D (which digits count differs)", "[^0-9]"),
+    "w": ("\\w (which letters count differs)", "[A-Za-z0-9_]"),
+    "W": ("\\W (which letters count differs)", "[^A-Za-z0-9_]"),
+    "s": ("\\s (which spaces count differs)", "[ \\t\\n\\r\\f\\v]"),
+    "S": ("\\S (which spaces count differs)", "[^ \\t\\n\\r\\f\\v]"),
+}
+#: Escapes that mean the same inside a character class and out.
+_CLASS_ESCAPES = ("N", "d", "D", "w", "W", "s", "S")
+#: Postgres refuses a repeat count above this.
+MAX_REPEAT = 255
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+#: ``{m}``, ``{m,}``, ``{m,n}`` and ``{,n}``: in Python a quantifier; ``{,n}`` is plain text to
+#: Postgres.
+_BRACES = re.compile(r"\{(\d*)(,(\d*))?\}")
+#: Inside a class, Postgres reads these as a POSIX class, a collating element or an
+#: equivalence class; Python reads the characters.
+_CLASS_SPECIALS = {
+    "[:": ("a POSIX class such as [[:alpha:]]", "the characters, such as [A-Za-z]"),
+    "[.": ("a collating element such as [[.a.]]", "the character itself"),
+    "[=": ("an equivalence class such as [[=e=]]", "the characters, such as [eé]"),
 }
 _GROUPS = (
     ("(?P<", "a named group (?P<name>...)", "a plain group (...)"),
@@ -248,36 +307,80 @@ _GROUPS = (
     ("(?<", "a named group (?<name>...)", "a plain group (...)"),
     ("(?>", "an atomic group (?>...)", "a plain group (...)"),
     ("(?#", "a comment (?#...)", None),
+    ("(?(", "a conditional group (?(1)...|...)", None),
 )
 _INLINE_FLAGS = re.compile(r"\(\?[aiLmsux-]+[:)]")
+
+
+def _refuse(construct: str, instead: Optional[str]) -> None:
+    hint = f"; write {instead} instead" if instead else ""
+    raise ValueError(
+        f"The regular expression uses {construct}, which doesn't work the same everywhere "
+        f"Rhesis matches patterns{hint}"
+    )
+
+
+def _check_escape(pattern: str, i: int, in_class: bool) -> None:
+    escaped = pattern[i + 1]
+    if escaped in _ESCAPES and (not in_class or escaped in _CLASS_ESCAPES):
+        _refuse(*_ESCAPES[escaped])
+    # Python reads two hex digits after \x; Postgres reads every hex digit there is.
+    if escaped == "x" and pattern[i + 4 : i + 5] in _HEX_DIGITS and i + 4 < len(pattern):
+        _refuse(
+            "\\x followed by another hex digit (Postgres reads them all as one code)",
+            "the character itself",
+        )
+
+
+def _check_braces(pattern: str, i: int) -> Optional[int]:
+    """Check the braces opening at ``i``; where they end when they are a quantifier."""
+    braces = _BRACES.match(pattern, i)
+    if not braces:
+        return None
+    lower, upper = braces.group(1), braces.group(3)
+    if lower == "" and upper:
+        _refuse(f"the quantifier {braces.group()}", f"{{0,{upper}}}")
+    if any(int(n) > MAX_REPEAT for n in (lower, upper) if n):
+        _refuse(f"the repeat count {braces.group()}", f"a count of at most {MAX_REPEAT}")
+    if not lower:
+        return None
+    end = braces.end()
+    if pattern[end : end + 1] == "+":
+        _refuse("a possessive quantifier such as a{2}+", "a plain quantifier")
+    return end
+
+
+def _check_group(pattern: str, i: int) -> None:
+    for prefix, construct, instead in _GROUPS:
+        if pattern.startswith(prefix, i):
+            _refuse(construct, instead)
+    if _INLINE_FLAGS.match(pattern, i):
+        _refuse("inline flags such as (?i)", "the letters both ways, such as [Rr]efund")
 
 
 def check_portable_pattern(pattern: str) -> None:
     """Refuse a pattern that Python and Postgres would read differently, naming the construct
     and what to write instead where there is a portable form."""
-
-    def refuse(construct: str, instead: Optional[str]) -> None:
-        hint = f"; write {instead} instead" if instead else ""
-        raise ValueError(
-            f"The regular expression uses {construct}, which doesn't work the same everywhere "
-            f"Rhesis matches patterns{hint}"
-        )
-
     in_class = False
     i = 0
     while i < len(pattern):
         char = pattern[i]
         if char == "\\" and i + 1 < len(pattern):
-            escaped = pattern[i + 1]
-            if not in_class and escaped in _ESCAPES:
-                refuse(*_ESCAPES[escaped])
+            _check_escape(pattern, i, in_class)
             i += 2
             continue
         if in_class:
-            if char == "]":
-                in_class = False
+            special = _CLASS_SPECIALS.get(pattern[i : i + 2])
+            if special:
+                _refuse(*special)
+            in_class = char != "]"
             i += 1
             continue
+        if char == "{":
+            end = _check_braces(pattern, i)
+            if end is not None:
+                i = end
+                continue
         if char == "[":
             in_class = True
             i += 1
@@ -288,17 +391,116 @@ def check_portable_pattern(pattern: str) -> None:
                 i += 1
             continue
         if char == "(" and pattern[i + 1 : i + 2] == "?":
-            for prefix, construct, instead in _GROUPS:
-                if pattern.startswith(prefix, i):
-                    refuse(construct, instead)
-            if _INLINE_FLAGS.match(pattern, i):
-                refuse(
-                    "inline flags such as (?i)",
-                    "the letters both ways, such as [Rr]efund",
-                )
-        if char in "*+?}" and pattern[i + 1 : i + 2] == "+":
-            refuse("a possessive quantifier such as a++", "a plain quantifier such as a+")
+            _check_group(pattern, i)
+        if char in "*+?" and pattern[i + 1 : i + 2] == "+":
+            _refuse("a possessive quantifier such as a++", "a plain quantifier such as a+")
         i += 1
+
+
+@dataclass
+class _Group:
+    """What the scan of ``check_backtracking`` knows about an open group."""
+
+    repeats: bool = False
+    """Its body repeats something."""
+    firsts: List[Optional[str]] = dataclass_field(default_factory=lambda: [None])
+    """The first character of each alternative, None when it isn't one literal character."""
+    started: bool = False
+    """The current alternative has its first atom."""
+
+
+def _repeat_at(pattern: str, i: int) -> Tuple[bool, int]:
+    """Whether a quantifier at ``i`` repeats (allows more than one), and where it ends."""
+    char = pattern[i : i + 1]
+    if char in ("*", "+"):
+        end, repeats = i + 1, True
+    elif char == "?":
+        end, repeats = i + 1, False
+    elif char == "{" and (braces := _BRACES.match(pattern, i)) and braces.group(1):
+        upper = braces.group(3)
+        end = braces.end()
+        repeats = braces.group(2) is not None and (not upper or int(upper) > 1)
+        repeats = repeats or int(braces.group(1)) > 1
+    else:
+        return False, i
+    if pattern[end : end + 1] == "?":  # a lazy quantifier repeats the same
+        end += 1
+    return repeats, end
+
+
+def check_backtracking(pattern: str) -> None:
+    """Refuse a repeated group that can match the same text in many ways, which makes
+    Python's backtracking matcher take exponential time on text that almost matches: a group
+    repeated with ``*``, ``+`` or ``{m,n}`` whose body repeats something (``(a+)+``), or whose
+    alternatives can start with the same character (``(a|ab)*``).
+
+    The check reads the pattern, not what it matches, so it refuses some safe patterns too:
+    ``([a-z]+\\.)*com`` can only match one way, because each repeat ends at a dot, but it is
+    refused like ``(a+)+``. ``(ab)+``, ``(cat|dog)+`` and ``(\\d{3}-)?\\d{4}`` are kept.
+    """
+    message = (
+        "The regular expression repeats a group that itself repeats, such as (a+)+, which can "
+        "take exponential time; repeat the inner part only, or match the parts separately"
+    )
+    stack = [_Group()]
+    i = 0
+    while i < len(pattern):
+        char, group = pattern[i], stack[-1]
+        first: Optional[str] = None
+        if char == "(":
+            stack.append(_Group())
+            i += 2 if pattern[i + 1 : i + 2] == "?" else 1
+            # Skip a non-capturing or lookaround group's marker: (?: (?= (?!
+            if pattern[i - 1 : i] == "?" and pattern[i : i + 1] in (":", "=", "!"):
+                i += 1
+            continue
+        if char == "|":
+            group.firsts.append(None)
+            group.started = False
+            i += 1
+            continue
+        if char == ")" and len(stack) > 1:
+            inner = stack.pop()
+            group = stack[-1]
+            repeats, end = _repeat_at(pattern, i + 1)
+            known = [f for f in inner.firsts if f is not None]
+            overlapping = len(inner.firsts) > 1 and (
+                len(known) < len(inner.firsts) or len(set(known)) < len(known)
+            )
+            if repeats and (inner.repeats or overlapping):
+                raise ValueError(message)
+            group.repeats = group.repeats or inner.repeats or repeats
+            group.started = True
+            i = end
+            continue
+        if char == "\\":
+            escaped = pattern[i + 1 : i + 2]
+            first = escaped if escaped and not escaped.isalnum() else None
+            end = i + 2
+        elif char == "[":
+            end = _class_end(pattern, i)
+        elif char == "." or char in "^$":
+            end = i + 1
+        else:
+            first, end = char, i + 1
+        if not group.started and char not in "^$":
+            group.firsts[-1] = first
+            group.started = True
+        repeats, end = _repeat_at(pattern, end)
+        group.repeats = group.repeats or repeats
+        i = end
+
+
+def _class_end(pattern: str, i: int) -> int:
+    """Where the character class opening at ``i`` ends."""
+    i += 1
+    if pattern[i : i + 1] == "^":
+        i += 1
+    if pattern[i : i + 1] == "]":
+        i += 1
+    while i < len(pattern) and pattern[i] != "]":
+        i += 2 if pattern[i] == "\\" else 1
+    return i + 1
 
 
 class Condition(BaseModel):
@@ -314,6 +516,13 @@ class Condition(BaseModel):
     field: str
     op: ConditionOp
     value: Any = None
+
+    def __init__(self, *args: Any, **data: Any) -> None:
+        """``Condition(field, op, value=None)``, or the same by name."""
+        if len(args) > 3:
+            raise TypeError("Condition takes field, op and value")
+        data.update(zip(("field", "op", "value")[: len(args)], args, strict=True))
+        super().__init__(**data)
 
     @field_validator("op", mode="before")
     @classmethod
@@ -344,7 +553,7 @@ class Condition(BaseModel):
         if isinstance(value, (tuple, list)):
             if len(value) not in (2, 3):
                 raise ValueError(f"A condition is (field, op) or (field, op, value); got {value!r}")
-            return cls(field=value[0], op=value[1], value=value[2] if len(value) == 3 else None)
+            return cls(*value)
         return cls.model_validate(value)
 
     def met_by(self, measured: Any) -> bool:
