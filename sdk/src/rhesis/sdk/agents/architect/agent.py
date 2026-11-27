@@ -247,12 +247,14 @@ class ArchitectAgent(BaseAgent):
         # items saved when they were held, as (kind, name) pairs, or ("tool", …)
         # for a call with no entity name. An Accept moves it into _approved_scope.
         self._pending_scope: FrozenSet[Tuple[str, str]] = frozenset()
-        # Everything the user has accepted this session, so approved work that
-        # spans turns is not asked about again. Creating an approved entity stays
-        # covered until it is created once (then it is kept as "created:<kind>" so
-        # links to it stay covered); any other approved call only in the Accept's
-        # turn. Work the agent adds later, even through save_plan, is held again.
+        # The entities the user has accepted this session, so creating them is
+        # not asked about again in a later turn. Each covers one create; it is then
+        # kept as "created:<kind>" so links to it stay covered. Work the agent adds
+        # later, even through save_plan, is held again.
         self._approved_scope: FrozenSet[Tuple[str, str]] = frozenset()
+        # What the prompt this turn answers showed. Every other approved call
+        # (an update, a schedule) must be in it: an older Accept doesn't cover it.
+        self._turn_accepted: FrozenSet[Tuple[str, str]] = frozenset()
         self._mutating_tools: Optional[FrozenSet[str]] = None
         # Populated by get_available_tools(); empty until the first call,
         # which makes the pre-dispatch check a no-op rather than a false
@@ -383,10 +385,13 @@ class ArchitectAgent(BaseAgent):
             # stays open through it.
             resumed = message.startswith(TASK_COMPLETED_PREFIX)
             prompt_open = self._needs_confirmation and bool(self._confirming_tools)
+            self._turn_accepted = frozenset()
             if prompt_open and not resumed:
                 self._creation_approved = approve is not False
                 if self._creation_approved:
-                    self._approved_scope = self._approved_scope | self._pending_scope
+                    self._turn_accepted = self._pending_scope
+                    entities = {k for k in self._pending_scope if k[0] != "tool"}
+                    self._approved_scope = self._approved_scope | entities
                 self._pending_scope = frozenset()
             self._prompt_kept_open = prompt_open and resumed
             # The last turn's question is answered now. A finish sets it again if
@@ -559,6 +564,7 @@ class ArchitectAgent(BaseAgent):
         self._confirming_tools = frozenset()
         self._pending_scope = frozenset()
         self._approved_scope = frozenset()
+        self._turn_accepted = frozenset()
         self._blocked_this_turn = False
         self._prompt_kept_open = False
         self._mutating_tools = None
@@ -857,16 +863,14 @@ class ArchitectAgent(BaseAgent):
 
     def _in_approved_scope(self, tool_call: ToolCall) -> bool:
         key = self._scope_key(tool_call)
-        if key[0] != "tool" and self._entity_approved(*key):
-            if plan_category_for(tool_call.tool_name) is not None:
-                # Creating it stays approved across turns until it exists, and only once.
-                return key in self._approved_scope
-            # Another tool that only names it (scheduling a test set) gets the Accept's turn.
-            return self._creation_approved
-        if key in self._approved_scope:
-            # A call approved as shown (this update, this link): the Accept's turn only,
-            # so an approval that never ran can't cover a different change later.
-            return self._creation_approved
+        if key[0] != "tool" and plan_category_for(tool_call.tool_name) is not None:
+            # Creating an approved entity stays approved across turns until it exists, once.
+            if key in self._approved_scope:
+                return True
+        elif key in self._turn_accepted:
+            # Anything else (an update, scheduling a test set) only if the prompt this
+            # turn answers showed it: an older Accept doesn't cover it.
+            return True
         if tool_call.tool_name == "add_requirement_to_metric":
             # A link between two approved entities was part of what was shown.
             # The typed maps only hold this turn's results; _id_to_name is restored
@@ -893,14 +897,12 @@ class ArchitectAgent(BaseAgent):
 
     def _spend_approval(self, tool_call: ToolCall, key: Tuple[str, str]) -> None:
         """Use up the approval a call ran under, once it succeeded."""
-        if key not in self._approved_scope:
-            return
-        scope = set(self._approved_scope) - {key}
-        if key[0] != "tool" and plan_category_for(tool_call.tool_name) is not None:
-            # Created now: a second create needs its own Accept, but links to it
-            # and the Accept turn's other calls on it are still covered.
-            scope.add((_CREATED_PREFIX + key[0], key[1]))
-        self._approved_scope = frozenset(scope)
+        if key[0] == "tool":
+            self._turn_accepted = self._turn_accepted - {key}
+        elif key in self._approved_scope and plan_category_for(tool_call.tool_name) is not None:
+            # Created now: a second create needs its own Accept, but links to it stay covered.
+            created = (_CREATED_PREFIX + key[0], key[1])
+            self._approved_scope = (self._approved_scope - {key}) | {created}
 
     # ── argument validation ──────────────────────────────────────
 

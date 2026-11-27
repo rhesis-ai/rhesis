@@ -1086,6 +1086,34 @@ class TestArchitectWriteGuard:
         assert [tc.tool_name for tc in agent._blocked_calls] == ["schedule_test_set"]
 
     @pytest.mark.asyncio
+    async def test_a_later_accept_does_not_cover_scheduling_an_earlier_test_set(self, mock_model):
+        """Only the prompt being answered counts for calls other than creates."""
+        tools = [self._tool("create_requirement"), self._tool("schedule_test_set")]
+        agent = _make_agent(mock_model, tools=tools)
+        agent._mutating_tools = frozenset({"create_requirement", "schedule_test_set"})
+        agent._test_set_names_by_id = {"ts1": "Claims smoke"}
+        agent.guard_state = {"pending_scope": [], "approved_scope": [["test_set", "claims smoke"]]}
+        await self._hold(agent, mock_model, "create_requirement", "Always use English")
+
+        schedule = _tool_dict("schedule_test_set", {"test_set_id": "ts1", "cron": "0 2 * * *"})
+        await self._accept(agent, mock_model, schedule)
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["schedule_test_set"]
+
+    @pytest.mark.asyncio
+    async def test_scheduling_shown_with_the_prompt_runs_on_its_accept(self, mock_model):
+        agent = _make_agent(mock_model, tools=[self._tool("schedule_test_set")])
+        agent._mutating_tools = frozenset({"schedule_test_set"})
+        agent._test_set_names_by_id = {"ts1": "Claims smoke"}
+        schedule = _tool_dict("schedule_test_set", {"test_set_id": "ts1", "cron": "0 2 * * *"})
+        await self._turn(agent, mock_model, "Schedule it nightly.", schedule)
+        assert agent._needs_confirmation is True
+
+        await self._accept(agent, mock_model, schedule)
+
+        assert agent._blocked_calls == []
+
+    @pytest.mark.asyncio
     async def test_change_keeps_what_was_approved_before(self, mock_model):
         tools = [self._tool("create_metric"), self._tool("create_requirement")]
         agent = _make_agent(mock_model, tools=tools)
