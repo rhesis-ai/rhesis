@@ -2,7 +2,7 @@
 
 import pytest
 
-from rhesis.sdk.entities.trace import Trace
+from rhesis.sdk.entities.trace import Span, Trace
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 
@@ -41,6 +41,27 @@ def test_a_bare_response_has_no_spans_beyond_its_invocation():
 
     assert len(trace.spans()) == 1
     assert (trace.context, trace.tool_calls, trace.metadata) == ([], [], {})
+
+
+def test_a_built_trace_has_no_duration():
+    """Its times only order the spans: nothing was measured, so nothing reads as 0 ms."""
+    response = Trace.from_response("Hi", "Hello", context=["Doc"])
+    conversation = Trace.from_conversation(
+        [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}]
+    )
+
+    assert {span.duration_ms for span in response.spans() + conversation.spans()} == {None}
+
+
+def test_a_reported_span_has_no_duration_wherever_it_comes_from():
+    span = Span(
+        span_name="book",
+        duration_ms=0.0,
+        attributes={"rhesis.span.source": "reported"},
+    )
+
+    assert span.duration_ms is None
+    assert Span(span_name="book", duration_ms=12.0).duration_ms == 12.0
 
 
 def test_a_structured_output_is_kept_as_text():

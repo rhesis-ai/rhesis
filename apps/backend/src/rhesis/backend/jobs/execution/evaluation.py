@@ -13,7 +13,7 @@ Functions:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from sqlalchemy.orm import Session
 
@@ -98,9 +98,42 @@ def _build_conversation_history(
     return ConversationHistory.from_messages(messages)
 
 
-def conversation_trace(conversation_summary: List[Dict[str, Any]]) -> Optional[Trace]:
-    """The trace of a stored conversation, one turn per summary entry, or None when empty."""
-    history = _build_conversation_history(conversation_summary)
+def conversation_trace(
+    stored_output: Dict[str, Any],
+    organization_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    unsaved_spans: Sequence[Any] = (),
+) -> Optional[Trace]:
+    """The trace of a multi-turn test's conversation, or None when it has no turns.
+
+    The spans the endpoint left, read once, with each turn's full input and output from the
+    conversation summary. Only when there are none (tracing off, a result stored before the
+    output kept its trace id) is the trace built from the summary, and then it has no timing.
+    """
+    from rhesis.backend.app.services.telemetry.evaluation_trace import (
+        evaluation_trace_loader,
+        with_conversation_values,
+    )
+
+    summary = stored_output.get(CONVERSATION_SUMMARY_KEY) or []
+    loader = evaluation_trace_loader(
+        stored_output, organization_id, project_id, user_id, unsaved_spans
+    )
+    stored = None
+    if loader is not None:
+        try:
+            stored = loader()
+        except Exception:
+            logger.warning("Could not read the conversation's trace", exc_info=True)
+    if stored is not None and stored.root_spans:
+        turns = [
+            (turn.get(PENELOPE_MESSAGE_KEY) or "", turn.get(TARGET_RESPONSE_KEY) or "")
+            for turn in summary
+        ]
+        return with_conversation_values(stored, turns)
+
+    history = _build_conversation_history(summary)
     return Trace.from_conversation(history) if history is not None else None
 
 
@@ -377,7 +410,7 @@ def evaluate_multi_turn_metrics(
         require_model=True,
     )
 
-    trace = conversation_trace(stored_output.get(CONVERSATION_SUMMARY_KEY, []))
+    trace = conversation_trace(stored_output, organization_id, project_id, user_id)
     if trace is None:
         return {}
 

@@ -17,7 +17,8 @@ from rhesis.sdk.entities.trace import (
     Span,
     Trace,
 )
-from rhesis.sdk.telemetry.reported_spans import reported_spans
+from rhesis.sdk.telemetry.reported_spans import reported_attributes, reported_spans
+from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext
 from rhesis.telemetry.schemas import OTELSpan
 
@@ -29,15 +30,16 @@ INVOCATION_SPAN_NAME = "function.endpoint_invoke"
 _CONVERSATION = ConversationContext.SpanAttributes
 
 
-def span_from_otel(span: OTELSpan) -> Span:
-    """An SDK span from an OpenTelemetry one, without children."""
+def span_from_otel(span: OTELSpan, *, timed: bool = True) -> Span:
+    """An SDK span from an OpenTelemetry one, without children. ``timed=False`` for a span
+    built rather than recorded: its times only order it, so it has no duration."""
     return Span(
         span_id=span.span_id,
         span_name=span.span_name,
         span_kind=span.span_kind.value,
         start_time=span.start_time,
         end_time=span.end_time,
-        duration_ms=(span.end_time - span.start_time).total_seconds() * 1000,
+        duration_ms=(span.end_time - span.start_time).total_seconds() * 1000 if timed else None,
         status_code=span.status_code.value,
         status_message=span.status_message,
         attributes=dict(span.attributes),
@@ -56,7 +58,11 @@ def _turn(
     metadata: Any = None,
     conversation_id: Optional[str] = None,
 ) -> Span:
-    attributes: Dict[str, Any] = {TRACE_SOURCE_ATTRIBUTE: source}
+    attributes: Dict[str, Any] = {
+        TRACE_SOURCE_ATTRIBUTE: source,
+        AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_ENDPOINT_INVOKE,
+        **reported_attributes({"metadata": metadata}),
+    }
     if input not in (None, ""):
         attributes[_CONVERSATION.CONVERSATION_INPUT] = _text(input)
     if output not in (None, ""):
@@ -74,9 +80,9 @@ def _turn(
         end_time=start,
         attributes=attributes,
     )
-    root = span_from_otel(invocation)
+    root = span_from_otel(invocation, timed=False)
     reported = reported_spans({"tool_calls": tool_calls, "context": context}, invocation)
-    root.children = [span_from_otel(span) for span in reported]
+    root.children = [span_from_otel(span, timed=False) for span in reported]
     return root
 
 

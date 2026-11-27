@@ -340,7 +340,7 @@ class TestSuggestionPipelineStream:
     ):
         """Each suggestion gets a matching output and evaluation, ending in the summaries."""
         mock_invoker = MagicMock()
-        mock_invoker.invoke = AsyncMock(return_value=("an answer", None))
+        mock_invoker.invoke_traced = AsyncMock(return_value=("an answer", None, None))
         run_metrics = AsyncMock(return_value={"Correctness": {"score": 1.0, "is_successful": True}})
 
         with (
@@ -392,7 +392,7 @@ class TestSuggestionPipelineStream:
     ):
         """An endpoint failure produces an output error event and no evaluation event."""
         mock_invoker = MagicMock()
-        mock_invoker.invoke = AsyncMock(return_value=("", "endpoint exploded"))
+        mock_invoker.invoke_traced = AsyncMock(return_value=("", "endpoint exploded", None))
 
         with (
             patch(
@@ -436,7 +436,7 @@ class TestSuggestionPipelineStream:
     ):
         """With generate_embeddings=True, suggestions_done carries a real diversity ordering."""
         mock_invoker = MagicMock()
-        mock_invoker.invoke = AsyncMock(return_value=("an answer", None))
+        mock_invoker.invoke_traced = AsyncMock(return_value=("an answer", None, None))
         run_metrics = AsyncMock(return_value={"Correctness": {"score": 1.0, "is_successful": True}})
 
         vectors = {"first": [1.0, 0.0], "second": [0.0, 1.0]}
@@ -486,7 +486,7 @@ class TestSuggestionPipelineStream:
         embeddings here only drive diversity ordering.
         """
         mock_invoker = MagicMock()
-        mock_invoker.invoke = AsyncMock(return_value=("an answer", None))
+        mock_invoker.invoke_traced = AsyncMock(return_value=("an answer", None, None))
         run_metrics = AsyncMock(return_value={"Correctness": {"score": 1.0, "is_successful": True}})
         embed_one = AsyncMock()
 
@@ -623,7 +623,7 @@ class TestSuggestionsWithEmbeddingsOff:
 
     async def test_pipeline_skips_embeddings(self):
         mock_invoker = MagicMock()
-        mock_invoker.invoke = AsyncMock(return_value=("an answer", None))
+        mock_invoker.invoke_traced = AsyncMock(return_value=("an answer", None, None))
         embed_one = AsyncMock()
 
         with (

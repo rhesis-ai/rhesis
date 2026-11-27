@@ -2,6 +2,7 @@
 Metric evaluation for batch tests.
 """
 
+import asyncio
 import logging
 from typing import Any, Callable, Dict, Optional, Sequence
 
@@ -56,6 +57,12 @@ async def evaluate_metrics(
     # runner.py's _tracked already narrates per-test completion.
     metrics_results = dict(penelope_metrics)
     test_metric_configs = ctx.get_metric_configs_for_test(test_id)
+    unsaved_spans = [
+        span
+        for deferred in deferred_traces
+        if isinstance(deferred, DeferredTraceData)
+        for span in deferred.spans
+    ]
     try:
         if is_multi_turn:
             metrics_results.update(
@@ -65,6 +72,7 @@ async def evaluate_metrics(
                     test,
                     output,
                     test_metric_configs,
+                    unsaved_spans=unsaved_spans,
                 )
             )
         else:
@@ -77,12 +85,7 @@ async def evaluate_metrics(
                     prompt_content,
                     expected_response,
                     test_metric_configs,
-                    unsaved_spans=[
-                        span
-                        for deferred in deferred_traces
-                        if isinstance(deferred, DeferredTraceData)
-                        for span in deferred.spans
-                    ],
+                    unsaved_spans=unsaved_spans,
                 )
             )
     except Exception as e:
@@ -99,14 +102,13 @@ async def _evaluate_multi_turn_metrics(
     output: Dict[str, Any],
     metric_configs: list,
     on_metric_complete: Any = None,
+    unsaved_spans: Sequence[Any] = (),
 ) -> Dict[str, Any]:
-    from rhesis.backend.jobs.execution.constants import CONVERSATION_SUMMARY_KEY
     from rhesis.backend.jobs.execution.evaluation import (
         conversation_expectations,
         conversation_trace,
     )
 
-    trace = conversation_trace(output.get(CONVERSATION_SUMMARY_KEY, []))
     test_config_data = test.test_configuration or {}
 
     # The evaluator leaves out the metrics that can't judge a conversation.
@@ -128,7 +130,17 @@ async def _evaluate_multi_turn_metrics(
     if not filtered_configs:
         return {}
 
-    # An empty conversation summary leaves nothing to evaluate.
+    # Read here, after the checks above, so a test with nothing to score reads nothing. The
+    # read blocks, so it runs off the event loop.
+    trace = await asyncio.to_thread(
+        conversation_trace,
+        output,
+        ctx.organization_id,
+        str(ctx.endpoint.project_id) if ctx.endpoint.project_id else None,
+        ctx.user_id,
+        unsaved_spans,
+    )
+    # A conversation with no turns leaves nothing to evaluate.
     if trace is None:
         return {}
 

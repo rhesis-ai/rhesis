@@ -135,7 +135,8 @@ RESPONSE_METADATA_ATTRIBUTE = "endpoint.response.metadata"
 # Marks spans the platform made from tool calls and context the response reported.
 _SPAN_SOURCE = "rhesis.span.source"
 _REPORTED = "reported"
-# Marks a trace built from a response or a conversation rather than recorded.
+# Marks a trace built from a response or a conversation rather than recorded. The platform
+# marks the recorded turns of a multi-turn test as a conversation too, so one turn reads as one.
 TRACE_SOURCE_ATTRIBUTE = "rhesis.trace.source"
 FROM_RESPONSE = "response"
 FROM_CONVERSATION = "conversation"
@@ -270,6 +271,14 @@ class Span(BaseModel):
     matches_annotation: Optional[bool] = None
     annotation_summary: Optional[Dict[str, Any]] = None
     children: List["Span"] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _no_duration_when_reported(self) -> "Span":
+        # A reported span stands in for one the endpoint did not send, at its parent's time:
+        # its timing is unknown, not zero.
+        if self.attributes.get(_SPAN_SOURCE) == _REPORTED:
+            self.duration_ms = None
+        return self
 
     @property
     def kind(self) -> str:

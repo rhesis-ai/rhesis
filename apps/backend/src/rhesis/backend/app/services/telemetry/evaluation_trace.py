@@ -9,17 +9,17 @@ import json
 import logging
 import secrets
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from rhesis.telemetry.constants import ConversationContext
-from rhesis.telemetry.schemas import OTELSpan
+from rhesis.telemetry.schemas import OTELSpan, StatusCode
 
 from rhesis.backend.app.crud.telemetry import get_trace_by_id
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.services.invokers.tracing import EndpointAttributes
 from rhesis.backend.app.services.telemetry.span_types import classify_span_type
-from rhesis.sdk.entities.trace import Span, Trace
-from rhesis.sdk.telemetry.reported_spans import reported_spans
+from rhesis.sdk.entities.trace import FROM_CONVERSATION, TRACE_SOURCE_ATTRIBUTE, Span, Trace
+from rhesis.sdk.telemetry.reported_spans import reported_attributes, reported_spans
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +188,7 @@ def with_live_values(
     root.attributes[ConversationAttributes.CONVERSATION_OUTPUT] = output_text
     if metadata:
         root.attributes[EndpointAttributes.RESPONSE_METADATA] = json.dumps(metadata, default=str)
+        root.attributes.update(reported_attributes({"metadata": metadata}))
 
     reported = {
         "tool_calls": None if trace.spans(kind="tool.invoke") else tool_calls,
@@ -207,6 +208,48 @@ def with_live_values(
     for node in _from_otel(reported_spans(reported, parent)):
         node.pop("parent_span_id")
         root.children.append(Span.model_validate(node))
+    return trace
+
+
+def _is_turn(span: Span) -> bool:
+    return bool(
+        span.attributes.get(ConversationAttributes.CONVERSATION_INPUT)
+        or span.attributes.get(ConversationAttributes.CONVERSATION_OUTPUT)
+    )
+
+
+def with_conversation_values(trace: Trace, turns: Sequence[Tuple[str, str]]) -> Trace:
+    """Put each turn's full input and output on its root, and read the trace as a conversation.
+
+    ``turns`` are the conversation's ``(input, output)`` pairs as it recorded them, in order; the
+    stored copies are cut at ``MAX_IO_LENGTH``. A failed attempt the conversation retried is left
+    out. When the turns can't be paired with the spans, the stored values stay.
+    """
+    roots = [root for root in trace.root_spans if _is_turn(root)]
+    if len(roots) > len(turns):
+        answered = [root for root in roots if root.status_code != StatusCode.ERROR.value]
+        if len(answered) == len(turns):
+            kept = {id(root) for root in answered}
+            trace.root_spans = [
+                root for root in trace.root_spans if not _is_turn(root) or id(root) in kept
+            ]
+            roots = answered
+    if len(roots) == len(turns):
+        for root, (input_text, output_text) in zip(roots, turns, strict=True):
+            if input_text:
+                root.attributes[ConversationAttributes.CONVERSATION_INPUT] = input_text
+            if output_text:
+                root.attributes[ConversationAttributes.CONVERSATION_OUTPUT] = output_text
+    else:
+        logger.info(
+            "Trace %s has %d turns and its conversation %d; keeping the stored turn texts",
+            trace.trace_id,
+            len(roots),
+            len(turns),
+        )
+    # One turn of a multi-turn test is still a conversation.
+    for root in roots:
+        root.attributes[TRACE_SOURCE_ATTRIBUTE] = FROM_CONVERSATION
     return trace
 
 

@@ -17,6 +17,7 @@ from rhesis.backend.app.utils.response_extractor import (
     get_http_error_status_code,
     is_endpoint_failure,
 )
+from rhesis.backend.metrics.inputs import TraceLoader
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,18 @@ class EndpointInvoker:
             ``(output, None)`` on success, where output is :data:`NO_OUTPUT` if the
             endpoint returned nothing. ``("", error_message)`` on failure.
         """
+        output, error, _ = await self.invoke_traced(input_text)
+        return output, error
+
+    async def invoke_traced(
+        self, input_text: str
+    ) -> Tuple[str, Optional[str], Optional[TraceLoader]]:
+        """``invoke``, plus a loader for the trace the call left, so metrics judging its
+        output read the invocation the invoker measured. None when it left no trace."""
         from rhesis.backend.app.database import get_db_with_tenant_variables
+        from rhesis.backend.app.services.telemetry.evaluation_trace import (
+            evaluation_trace_loader,
+        )
 
         async with self._semaphore:
             try:
@@ -98,7 +110,10 @@ class EndpointInvoker:
                 # returned as a successful output: callers then persisted "HTTP 401 error
                 # from endpoint" as a test's output and ran LLM judges over it.
                 if is_endpoint_failure(processed):
-                    return "", _failure_message(processed)
-                return (processed.get("output") or "").strip() or NO_OUTPUT, None
+                    return "", _failure_message(processed), None
+                loader = evaluation_trace_loader(
+                    raw, self._organization_id, self._project_id, self._user_id
+                )
+                return (processed.get("output") or "").strip() or NO_OUTPUT, None, loader
             except Exception as e:  # noqa: BLE001
-                return "", str(e)
+                return "", str(e), None

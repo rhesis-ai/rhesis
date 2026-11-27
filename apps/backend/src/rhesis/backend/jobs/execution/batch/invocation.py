@@ -250,6 +250,9 @@ async def _run_multi_turn(
     # Same key single-turn results use, so the run-level lookup finds both.
     if target.reported_version_info:
         trace["version_info"] = target.reported_version_info
+    # Where the conversation's spans are, so metrics and re-scores read them.
+    if target.conversation_trace_id:
+        trace["trace_id"] = target.conversation_trace_id
 
     return {
         "output": trace,

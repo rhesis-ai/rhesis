@@ -39,6 +39,13 @@ class TestBackendEndpointTargetResponseMetadata:
         with patch.object(target, "endpoint_service", mock_service):
             return target.send_message("Hello", conversation_id="conv-1")
 
+    def test_the_conversation_keeps_its_first_turns_trace(self, target):
+        """The turns share one trace; the first turn's id is where their spans are."""
+        self._invoke_with_response(target, {"output": "Hi.", "trace_id": "a" * 32})
+        self._invoke_with_response(target, {"output": "Again.", "trace_id": "b" * 32})
+
+        assert target.conversation_trace_id == "a" * 32
+
     def test_tool_calls_propagated(self, target):
         """tool_calls from response_data appear in response_metadata."""
         tool_calls = [{"name": "search", "arguments": {"q": "test"}, "result": "ok"}]
@@ -194,9 +201,7 @@ class TestMakeTargetFactory:
         from rhesis.backend.jobs.endpoint.target import make_target_factory
 
         db = MagicMock(spec=Session)
-        factory = make_target_factory(
-            org_id="org-1", user_id="user-1", db=db, project_id="proj-1"
-        )
+        factory = make_target_factory(org_id="org-1", user_id="user-1", db=db, project_id="proj-1")
 
         with (
             patch.object(
