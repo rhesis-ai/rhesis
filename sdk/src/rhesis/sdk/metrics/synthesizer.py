@@ -126,9 +126,6 @@ class GeneratedMetric(BaseModel):
                 raise ValueError("min_score must be below max_score")
             if not self.min_score <= self.threshold <= self.max_score:
                 raise ValueError("threshold must lie between min_score and max_score")
-            if self.threshold_operator is None:
-                # The platform's default; sending None would store a metric without one.
-                self.threshold_operator = ThresholdOperator.GREATER_THAN_OR_EQUAL
         elif self.score_type == ScoreType.CATEGORICAL:
             if not self.categories or len(self.categories) < 2:
                 raise ValueError("at least 2 categories are required for categorical metrics")
@@ -138,6 +135,10 @@ class GeneratedMetric(BaseModel):
             if unknown:
                 raise ValueError(f"passing_categories must be among categories, not {unknown}")
         return self
+
+
+class GeneratedMetricRejected(Exception):
+    """The model's metric broke the platform's rules twice; the message says which."""
 
 
 def _rejection(error: ValidationError) -> str:
@@ -199,14 +200,18 @@ class MetricSynthesizer:
             getattr(self.model, "model_name", type(self.model).__name__),
         )
 
-        return self._generate_metric(rendered)
+        metric = self._generate_metric(rendered)
+        if metric["score_type"] == ScoreType.NUMERIC and metric["threshold_operator"] is None:
+            # The platform's default; sending None would store a metric without one.
+            metric["threshold_operator"] = ThresholdOperator.GREATER_THAN_OR_EQUAL.value
+        return metric
 
     def _generate_metric(self, rendered: str) -> Dict[str, Any]:
         """Ask for a metric; if it breaks a rule, send it back once with the reason.
 
         Raises:
             RuntimeError: If the LLM returns an error response.
-            ValidationError: If the second answer still breaks a rule.
+            GeneratedMetricRejected: If the second answer still breaks a rule.
         """
         try:
             return self._ask(rendered)
@@ -214,10 +219,14 @@ class MetricSynthesizer:
             logger.warning(
                 "[MetricSynthesizer] Generated metric rejected, retrying:\n%s", _rejection(e)
             )
-            return self._ask(
+            retry = (
                 f"{rendered}\n\n## Your previous answer was rejected\n\n{_rejection(e)}\n\n"
                 "Return the whole metric again with these fixed."
             )
+        try:
+            return self._ask(retry)
+        except ValidationError as e:
+            raise GeneratedMetricRejected(_rejection(e)) from e
 
     def _ask(self, prompt: str) -> Dict[str, Any]:
         response = self.model.generate(prompt, schema=GeneratedMetric)
@@ -253,4 +262,8 @@ class MetricSynthesizer:
             getattr(self.model, "model_name", type(self.model).__name__),
         )
 
-        return self._generate_metric(rendered)
+        metric = self._generate_metric(rendered)
+        if metric["threshold_operator"] is None:
+            # Left out is not a change: a "<" metric must not turn into ">=" and invert.
+            metric["threshold_operator"] = existing_metric.get("threshold_operator")
+        return metric

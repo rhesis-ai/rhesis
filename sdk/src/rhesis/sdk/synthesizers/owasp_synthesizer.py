@@ -301,6 +301,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
             problem = multi_turn_config_problem(nested["test_configuration"])
             if problem:
                 # Short batches are topped up by _generate_with_retry.
+                self.last_error = f"generated a test the platform would not save: {problem}"
                 logger.warning(
                     "[OWASPSynthesizer] Dropped a test the platform would not save: %s", problem
                 )

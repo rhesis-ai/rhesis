@@ -55,6 +55,9 @@ class Synthesizer(TestSetSynthesizer):
         self.categories = categories
         self.topics = topics
 
+    def _requested_requirements(self) -> Optional[List[str]]:
+        return self.requirements
+
     def _get_template_context(self, **generate_kwargs):
         """
         Prepare template context for _generate_batch() call.

@@ -88,6 +88,7 @@ _MULTI_TURN_TEXT_LIMITS = {
     "scenario": 5000,
 }
 _TURN_RANGE = (1, 50)
+_DEFAULT_MAX_TURNS = 10  # what the platform stores when max_turns is left out
 
 
 def multi_turn_config_problem(config: Dict[str, Any]) -> Optional[str]:
@@ -104,6 +105,7 @@ def multi_turn_config_problem(config: Dict[str, Any]) -> Optional[str]:
     for field, value in turns.items():
         if not _TURN_RANGE[0] <= value <= _TURN_RANGE[1]:
             return f"{field} must be between {_TURN_RANGE[0]} and {_TURN_RANGE[1]}"
-    if len(turns) == 2 and turns["min_turns"] > turns["max_turns"]:
+    min_turns = turns.get("min_turns")
+    if min_turns is not None and min_turns > turns.get("max_turns", _DEFAULT_MAX_TURNS):
         return "min_turns is above max_turns"
     return None

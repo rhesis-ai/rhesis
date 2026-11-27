@@ -7,6 +7,7 @@ import pytest
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers.config_synthesizer import ConfigSynthesizer, GenerationConfig
+from rhesis.sdk.synthesizers.synthesizer import Synthesizer
 from rhesis.sdk.synthesizers.utils import canonical_requirement
 
 os.environ["RHESIS_API_KEY"] = "test"
@@ -51,3 +52,20 @@ def test_single_turn_without_requested_requirements_keeps_what_the_model_wrote()
     tests = synthesizer._single_turn_tests([_flat("Its own")])
 
     assert [t["requirement"] for t in tests] == ["Its own"]
+
+
+def test_the_prompt_synthesizer_keeps_to_its_requirements_too():
+    synthesizer = Synthesizer(prompt="p", requirements=["Compliance"], model=Mock(spec=BaseLLM))
+
+    tests = synthesizer._single_turn_tests([_flat("COMPLIANCE"), _flat("Other")])
+
+    assert [t["requirement"] for t in tests] == ["Compliance"]
+
+
+def test_when_every_test_is_dropped_the_reason_is_kept():
+    config = GenerationConfig(generation_prompt="p", requirements=["Compliance"])
+    synthesizer = ConfigSynthesizer(config=config, model=Mock(spec=BaseLLM))
+
+    synthesizer._single_turn_tests([_flat("Other")])
+
+    assert "Other" in synthesizer.last_error

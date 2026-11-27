@@ -498,6 +498,8 @@ class TestSetSynthesizer(ABC):
                 }
             )
         if dropped:
+            # Kept as the reason if every batch ends up empty.
+            self.last_error = f"tests named requirements outside {allowed}: {sorted(set(dropped))}"
             logger.warning(
                 "[Synthesizer] Dropped %d test(s) with a requirement outside the requested "
                 "set %s: %s",

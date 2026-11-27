@@ -6,7 +6,11 @@ from unittest.mock import Mock, patch
 import pytest
 from pydantic import ValidationError
 
-from rhesis.sdk.metrics.synthesizer import GeneratedMetric, MetricSynthesizer
+from rhesis.sdk.metrics.synthesizer import (
+    GeneratedMetric,
+    GeneratedMetricRejected,
+    MetricSynthesizer,
+)
 from rhesis.sdk.models.base import BaseLLM
 
 os.environ["RHESIS_API_KEY"] = "test"
@@ -261,11 +265,11 @@ def test_a_rejected_metric_is_sent_back_once_with_the_reason():
     assert "max_score required for numeric metrics" in retry_prompt
 
 
-def test_a_metric_rejected_twice_raises():
+def test_a_metric_rejected_twice_raises_with_the_reasons():
     mock_model = Mock(spec=BaseLLM)
     mock_model.generate.return_value = {**_NUMERIC_RESPONSE, "max_score": None}
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(GeneratedMetricRejected, match="max_score required"):
         MetricSynthesizer(model=mock_model).generate("numeric metric")
     assert mock_model.generate.call_count == 2
 
@@ -293,9 +297,24 @@ def test_improving_a_binary_metric_keeps_it_binary():
     assert mock_model.generate.call_count == 1
 
 
-def test_a_numeric_metric_without_an_operator_gets_the_platform_default():
-    metric = GeneratedMetric(**{**_NUMERIC_RESPONSE, "threshold_operator": None})
-    assert metric.threshold_operator == ">="
+def test_a_generated_numeric_metric_without_an_operator_gets_the_platform_default():
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {**_NUMERIC_RESPONSE, "threshold_operator": None}
+
+    result = MetricSynthesizer(model=mock_model).generate("numeric metric")
+
+    assert result["threshold_operator"] == ">="
+
+
+def test_improving_without_an_operator_keeps_the_stored_one():
+    """Filling in ">=" here would invert a "lower is better" metric."""
+    existing = {**_NUMERIC_RESPONSE, "threshold_operator": "<"}
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {**_NUMERIC_RESPONSE, "threshold_operator": None}
+
+    result = MetricSynthesizer(model=mock_model).improve(existing, "clearer wording")
+
+    assert result["threshold_operator"] == "<"
 
 
 @pytest.mark.parametrize(
