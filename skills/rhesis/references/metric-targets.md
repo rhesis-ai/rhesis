@@ -64,6 +64,34 @@ A per-span target only matches what the endpoint reports. SDK endpoints report e
 
 ---
 
+## When a rule fits
+
+A rule is a metric with no model: it reads a field of the trace, or one of the test's
+expectations, and compares it with a fixed value. It costs no judge calls and gives the same
+verdict every time. Plan a rule, not a judge, when the requirement is a limit or an exact check.
+Reuse the seeded rules first: "Response Time", "No Failed Tool Calls", "Token Budget",
+"Exact Match" and "Tool Call Trajectory".
+
+| Requirement | Rule | Target |
+|---|---|---|
+| Answers within 5 seconds | `FieldRule` `{"field": "duration_ms", "op": "<=", "value": 5000}` | `turn` |
+| No tool call fails | `FieldRule` `{"field": "error_count", "op": "==", "value": 0}` | `tool_call` |
+| Never deletes an account | `FieldRule` `{"field": "span_count", "span_kind": "tool_call", "span_name": "delete_account", "op": "==", "value": 0}` | `run` |
+| Stays under a token budget | `FieldRule` `{"field": "tokens.total", "op": "<=", "value": 20000}` | `run` or `conversation` |
+| Returns valid JSON | `FieldRule` `{"field": "output", "op": "is_json"}` | `turn` |
+| Leaks no email address | `FieldRule` `{"field": "output", "op": "matches", "value": "[\\w.]+@[\\w.]+", "negate": true}` | `turn` |
+| Equals the expected answer | `ResponseRule` `{"match": "exact"}` | `turn` |
+| Calls the expected tools in order | `ToolCallTrajectory` `{"match": "in_order"}` | `run` |
+
+Send `class_name` (the rule), `metric_type: "rule"`, `backend_type: "rhesis"`, `score_type:
+"numeric"` with `min_score` 0, `max_score` 1, `threshold` 1, and the settings in `config` next to
+the target. `create_metric`'s description lists every field and operator. When the data a rule
+reads is missing (a span with no timing, no token counts, no expected response), its result is not
+applicable, never a pass: check what the endpoint reports before promising a rule will judge it.
+Keep judges for questions of meaning, such as whether an answer is grounded or helpful.
+
+---
+
 ## Sending it
 
 `create_metric` takes it in `config`. It is optional: leave it out and the default (`turn` for custom judges) is stored and returned in the response's `config`.

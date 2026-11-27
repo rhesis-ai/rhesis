@@ -78,7 +78,7 @@ flowchart TB
 
 1. `list_requirements`, `list_metrics` (reuse check)
 2. `create_requirement` (new requirements only)
-3. `create_metric` or reuse existing
+3. `create_metric` or reuse existing: a judge for questions of meaning, a rule (`metric_type: "rule"`, no model) for limits and exact checks, see `metric-targets.md`
 4. `add_requirement_to_metric` for every mapping (**all must complete before step 5**)
 5. `generate_test_set` → `get_job_status` → `get_test_set` + `list_test_set_tests` (verify)
 6. Offer `execute_test_set`

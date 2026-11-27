@@ -1248,6 +1248,39 @@ class TestMetricTargets:
 
 
 @pytest.mark.unit
+class TestRuleMetrics:
+    """The rule settings create_metric describes are the SDK's, all of them."""
+
+    def _description(self):
+        tool = next(t for t in load_tool_configs() if t["name"] == "create_metric")
+        return " ".join(tool["description"].split())
+
+    def test_every_field_and_operator_is_described(self):
+        from rhesis.sdk.metrics.providers.native.rules import FIELDS, OPS
+
+        described = self._description()
+
+        missing = [name for name in (*FIELDS, *OPS) if f" {name}" not in described]
+        assert not missing, f"create_metric doesn't describe {missing}"
+
+    def test_every_response_match_and_similarity_is_described(self):
+        from rhesis.sdk.metrics.providers.native.rules import RESPONSE_MATCHES, SIMILARITIES
+
+        described = self._description()
+
+        missing = [
+            name for name in (*RESPONSE_MATCHES, *SIMILARITIES) if f'"{name}"' not in described
+        ]
+        assert not missing, f"create_metric doesn't describe {missing}"
+
+    def test_every_rule_class_is_named(self):
+        described = self._description()
+
+        for class_name in ("FieldRule", "ResponseRule", "ToolCallTrajectory"):
+            assert f'"{class_name}"' in described
+
+
+@pytest.mark.unit
 class TestReportMcpTools:
     """Agents may build report drafts; publishing stays with a person in the app."""
 
