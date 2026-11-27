@@ -1,4 +1,8 @@
-import { BaseApiClient, type ApiErrorData } from '../base-client';
+import {
+  BaseApiClient,
+  readApiErrorBody,
+  type ApiErrorData,
+} from '../base-client';
 import {
   MODEL_NOT_CONFIGURED_ERROR_CODE,
   onModelNotConfigured,
@@ -474,5 +478,80 @@ describe('BaseApiClient', () => {
         'API error: 404'
       );
     });
+  });
+});
+
+describe('readApiErrorBody', () => {
+  const CLOUDFLARE_PAGE =
+    '<!DOCTYPE html><html><head><title>504: Gateway time-out</title></head></html>';
+
+  it('uses the JSON detail and keeps the parsed body', async () => {
+    const result = await readApiErrorBody(
+      makeFetchResponse({ detail: 'Test set not found' }, 404, {
+        'content-type': 'application/json',
+      })
+    );
+    expect(result).toEqual({
+      message: 'Test set not found',
+      data: { detail: 'Test set not found' },
+    });
+  });
+
+  it("uses the proxy's own error field", async () => {
+    const result = await readApiErrorBody(
+      makeFetchResponse({ error: 'Backend request timed out' }, 504, {
+        'content-type': 'application/json',
+      })
+    );
+    expect(result.message).toBe('Backend request timed out');
+  });
+
+  it('replaces a gateway timeout page with a short message', async () => {
+    const result = await readApiErrorBody(
+      makeFetchResponse(CLOUDFLARE_PAGE, 504, { 'content-type': 'text/html' })
+    );
+    expect(result).toEqual({
+      message: 'The server took too long to respond. Please try again.',
+    });
+  });
+
+  it('spots an HTML page sent without an HTML content type', async () => {
+    const result = await readApiErrorBody(
+      makeFetchResponse(CLOUDFLARE_PAGE, 502)
+    );
+    expect(result.message).toBe(
+      'The server is unavailable right now. Please try again in a moment.'
+    );
+  });
+
+  it('gives a generic message for an HTML page on any other status', async () => {
+    const result = await readApiErrorBody(
+      makeFetchResponse(CLOUDFLARE_PAGE, 500)
+    );
+    expect(result.message).toBe('The server returned an unexpected error.');
+  });
+
+  it('keeps a plain-text body as is', async () => {
+    const result = await readApiErrorBody(makeFetchResponse('Bad file', 400));
+    expect(result).toEqual({ message: 'Bad file' });
+  });
+
+  it('treats invalid JSON as text instead of throwing', async () => {
+    const result = await readApiErrorBody(
+      makeFetchResponse('not json', 500, { 'content-type': 'application/json' })
+    );
+    expect(result).toEqual({ message: 'not json' });
+  });
+
+  it('turns a 504 page into a readable error on a request', async () => {
+    const client = new TestableClient('token');
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        makeFetchResponse(CLOUDFLARE_PAGE, 504, { 'content-type': 'text/html' })
+      );
+    await expect(client.fetchPublic('/test_runs/')).rejects.toThrow(
+      'API error: 504 - The server took too long to respond. Please try again.'
+    );
   });
 });

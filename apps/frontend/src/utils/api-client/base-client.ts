@@ -132,7 +132,53 @@ export function parseApiErrorResponse(errorData: ApiErrorData): string {
     return errorData.message;
   }
 
+  // The /api/backend proxy's own failures, e.g. a backend timeout.
+  if (errorData.error) {
+    return errorData.error;
+  }
+
   return JSON.stringify(errorData, null, 2);
+}
+
+/** Shown instead of an HTML error page, which a proxy or CDN serves in place of ours. */
+const HTML_ERROR_MESSAGES: Record<number, string> = {
+  502: 'The server is unavailable right now. Please try again in a moment.',
+  503: 'The server is unavailable right now. Please try again in a moment.',
+  504: 'The server took too long to respond. Please try again.',
+  524: 'The server took too long to respond. Please try again.',
+};
+const HTML_ERROR_FALLBACK = 'The server returned an unexpected error.';
+
+/**
+ * A failed response's body as a message, plus the parsed JSON when there is one.
+ * Reads the body once, and never returns an HTML page as the message.
+ */
+export async function readApiErrorBody(
+  response: Response
+): Promise<{ message: string; data?: ApiErrorData }> {
+  const text = await response.text().catch(() => '');
+  const contentType = response.headers.get('content-type') ?? '';
+
+  // Some error responses carry JSON without saying so.
+  if (
+    contentType.includes('application/json') ||
+    text.trimStart().startsWith('{')
+  ) {
+    try {
+      const data = JSON.parse(text) as ApiErrorData;
+      return { message: parseApiErrorResponse(data), data };
+    } catch {
+      // Not the JSON it claimed to be; treat it as text below.
+    }
+  }
+
+  if (contentType.includes('text/html') || text.trimStart().startsWith('<')) {
+    return {
+      message: HTML_ERROR_MESSAGES[response.status] ?? HTML_ERROR_FALLBACK,
+    };
+  }
+
+  return { message: text };
 }
 
 interface RetryConfig {
@@ -415,20 +461,9 @@ export class BaseApiClient {
             }
           }
 
-          let errorMessage = '';
-          let errorData: ApiErrorData | undefined;
-
-          try {
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-              errorData = (await response.json()) as ApiErrorData;
-              errorMessage = parseApiErrorResponse(errorData);
-            } else {
-              errorMessage = await response.text();
-            }
-          } catch (_parseError) {
-            errorMessage = await response.text();
-          }
+          const body = await readApiErrorBody(response);
+          let errorMessage = body.message;
+          const errorData = body.data;
 
           if (shouldLog) {
             const errorDetails = {
@@ -694,20 +729,8 @@ export class BaseApiClient {
     });
 
     if (!response.ok) {
-      let errorMessage = '';
-      let errorData: ApiErrorData | undefined;
-
-      try {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          errorData = (await response.json()) as ApiErrorData;
-          errorMessage = parseApiErrorResponse(errorData);
-        } else {
-          errorMessage = await response.text();
-        }
-      } catch (_parseError) {
-        errorMessage = await response.text();
-      }
+      const { message: errorMessage, data: errorData } =
+        await readApiErrorBody(response);
 
       const error = new Error(
         `API error: ${response.status} - ${errorMessage}`
