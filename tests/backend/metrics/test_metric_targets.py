@@ -134,8 +134,11 @@ class TestStoredTargets:
     def test_where_narrows_turns_and_spans_but_not_the_run(self):
         where = {"rhesis.reported.metadata.channel": ["email", "sms"]}
 
-        assert check_metric_config(None, {"target": {"on": "turn", "where": where}})
-        with pytest.raises(ValueError, match="where narrows a per-unit target"):
+        stored = check_metric_config(None, {"target": {"on": "turn", "where": where}})
+        assert stored["target"]["where"] == [
+            {"field": "rhesis.reported.metadata.channel", "op": "in", "value": ["email", "sms"]}
+        ]
+        with pytest.raises(ValueError, match="where is for a target with several units"):
             check_metric_config(None, {"target": {"on": "run", "where": where}}, accepted=["trace"])
 
     def test_a_malformed_target_names_the_problem(self):

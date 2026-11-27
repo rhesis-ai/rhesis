@@ -124,7 +124,7 @@ class TestPushPull:
             {
                 "name": "test_metric",
                 "evaluation_prompt": "Test prompt",
-                "config": {"target": {"on": "span", "where": [{"field": "kind", "op": "exists"}]}},
+                "config": {"target": {"on": "trajectory"}},
                 "score_type": "numeric",
                 "class_name": "NumericJudge",
                 "backend_type": "rhesis",
@@ -142,10 +142,9 @@ class TestTargetsThisSdkCantRead:
     @pytest.mark.parametrize(
         "target",
         [
-            {"on": "span", "where": [{"field": "kind", "op": "==", "value": "tool.invoke"}]},
-            {"on": "tool_call", "read": {"input": "ai.tool.arguments"}},
-            {"on": "tool_call", "where": [{"field": "ai.tool.name", "op": "==", "value": "x"}]},
-            "span",
+            {"on": "trajectory"},
+            {"on": "tool_call", "group_by": "ai.agent.name"},
+            "trajectory",
         ],
     )
     def test_a_newer_target_says_the_sdk_needs_upgrading(self, target):

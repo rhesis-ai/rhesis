@@ -7,8 +7,6 @@ with a fixed value (``FieldRule``), or the output with the test's expected respo
 When the thing it reads wasn't recorded, a rule is not applicable: never a pass or a fail.
 """
 
-import json
-import math
 import re
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
@@ -21,7 +19,24 @@ from rhesis.sdk.metrics.base import (
     MetricType,
     ScoreType,
 )
+from rhesis.sdk.metrics.conditions import (
+    NUMERIC_OPS,
+    OPS,
+    PATTERN_LIMIT,
+    REGEX_TEXT_LIMIT,
+    VALUELESS_OPS,
+    ConditionOp,
+    SpanStatus,
+    SpecialField,
+    check_value,
+    compare,
+    span_status,
+)
+from rhesis.sdk.metrics.conditions import number as _number
+from rhesis.sdk.metrics.conditions import text as _text
 from rhesis.sdk.metrics.expectations import ExpectationsLike
+from rhesis.telemetry.attributes import AIAttributes
+from rhesis.telemetry.constants import ConversationContext
 
 #: Fields a ``FieldRule`` reads, besides ``attributes.<key>``.
 FIELDS = (
@@ -39,27 +54,19 @@ FIELDS = (
     "length.output",
 )
 ATTRIBUTE_PREFIX = "attributes."
-NUMERIC_OPS = ("<", "<=", ">", ">=")
-OPS = (*NUMERIC_OPS, "==", "!=", "in", "not_in", "contains", "matches", "exists", "is_json")
-#: Operators that take no value.
-VALUELESS_OPS = ("exists", "is_json")
 RESPONSE_MATCHES = ("exact", "contains", "matches", "similar")
 SIMILARITIES = ("edit_distance", "rouge_l")
 
 #: Above this many characters, edit distance compares words, to stay fast.
 _CHARACTER_EDIT_LIMIT = 2000
-#: A regular expression is searched in at most this many characters, and may be at most
-#: ``_PATTERN_LIMIT`` long: the standard library has no time limit for a slow pattern.
-_REGEX_TEXT_LIMIT = 100_000
-_PATTERN_LIMIT = 1000
 #: The most characters of a text kept in a result's details.
 _DETAIL_TEXT_LIMIT = 500
 
-_TOKENS_INPUT = "ai.llm.tokens.input"
-_TOKENS_OUTPUT = "ai.llm.tokens.output"
-_TOKENS_TOTAL = "ai.llm.tokens.total"
-_CONVERSATION_INPUT = "rhesis.conversation.input"
-_CONVERSATION_OUTPUT = "rhesis.conversation.output"
+_TOKENS_INPUT = AIAttributes.LLM_TOKENS_INPUT
+_TOKENS_OUTPUT = AIAttributes.LLM_TOKENS_OUTPUT
+_TOKENS_TOTAL = AIAttributes.LLM_TOKENS_TOTAL
+_CONVERSATION_INPUT = ConversationContext.SpanAttributes.CONVERSATION_INPUT
+_CONVERSATION_OUTPUT = ConversationContext.SpanAttributes.CONVERSATION_OUTPUT
 
 
 def rule_not_applicable(reason: str) -> MetricResult:
@@ -167,29 +174,7 @@ class FieldRule(TraceRule):
             raise ValueError(
                 f"field must be one of {', '.join(FIELDS)}, or attributes.<key>; got {field!r}"
             )
-        if op not in OPS:
-            raise ValueError(f"op must be one of {', '.join(OPS)}; got {op!r}")
-        value = config.get("value")
-        if op in VALUELESS_OPS:
-            if value is not None:
-                raise ValueError(f"'{op}' takes no value")
-        elif "value" not in config or value is None:
-            raise ValueError(f"'{op}' needs a value")
-        if op in NUMERIC_OPS and _number(value) is None:
-            raise ValueError(f"'{op}' compares with a number; got {value!r}")
-        if op in ("in", "not_in") and not isinstance(value, list):
-            raise ValueError(f"'{op}' takes a list of values")
-        if op == "matches":
-            if not isinstance(value, str):
-                raise ValueError("'matches' takes a regular expression")
-            if len(value) > _PATTERN_LIMIT:
-                raise ValueError(
-                    f"The regular expression is longer than {_PATTERN_LIMIT} characters"
-                )
-            try:
-                re.compile(value)
-            except re.error as e:
-                raise ValueError(f"Invalid regular expression: {e}") from e
+        check_value(op, config.get("value"), OPS)
         if not isinstance(config.get("negate", False), bool):
             raise ValueError("negate must be true or false")
         if field != "span_count" and (
@@ -215,20 +200,18 @@ class FieldRule(TraceRule):
         trace: Optional[Trace] = None,
     ) -> MetricResult:
         measured, missing = self._read(input, output, trace)
-        if missing is not None and self.op != "exists":
+        if missing is not None and self.op != ConditionOp.EXISTS:
             return rule_not_applicable(missing)
         if self.op in NUMERIC_OPS and _number(measured) is None:
             return rule_not_applicable(
                 f"{_label(self.field)} is {_shown(measured)}, not a number, so "
                 f"`{self.statement}` can't be judged."
             )
-        passed, failure = _compare(self.op, measured, self.value, self.field)
+        passed = compare(self.op, measured, self.value, self.field)
         if self.negate:
             passed = not passed
         verdict = "passes" if passed else "fails"
         reason = f"{_label(self.field)} is {_shown(measured)}, so `{self.statement}` {verdict}."
-        if failure and not self.negate:
-            reason = f"{failure} `{self.statement}` fails."
         return rule_result(passed, reason, measured, self.value)
 
     def _read(self, input: Any, output: Any, trace: Optional[Trace]) -> Tuple[Any, Optional[str]]:
@@ -245,15 +228,16 @@ class FieldRule(TraceRule):
             )
         if field in ("status", "error_count"):
             # A reported span carries no status, so it can neither pass nor fail one.
-            read = [span for span in (roots if field == "status" else spans) if not _reported(span)]
+            status = field == SpecialField.STATUS
+            read = [span for span in (roots if status else spans) if not _reported(span)]
             if not read:
                 return None, (
                     "Only reported spans are here, and they carry no status. Send traces to "
                     "judge whether calls failed."
                 )
-            errors = sum(1 for span in read if _status(span) == "error")
-            if field == "status":
-                return ("error" if errors else "ok"), None
+            errors = sum(1 for span in read if span_status(span.status_code) is SpanStatus.ERROR)
+            if status:
+                return (SpanStatus.ERROR if errors else SpanStatus.OK).value, None
             return errors, None
         if field == "span_count":
             return sum(1 for span in spans if self._counted(span)), None
@@ -374,13 +358,13 @@ class ResponseRule(TraceRule):
             )
             return rule_result(passed, reason, actual, wanted)
         if self.match == "matches":
-            if len(wanted) > _PATTERN_LIMIT:
+            if len(wanted) > PATTERN_LIMIT:
                 return rule_not_applicable(
-                    f"The expected response is longer than {_PATTERN_LIMIT} characters, too "
+                    f"The expected response is longer than {PATTERN_LIMIT} characters, too "
                     "long to use as a regular expression."
                 )
             try:
-                passed = re.search(wanted, actual[:_REGEX_TEXT_LIMIT]) is not None
+                passed = re.search(wanted, actual[:REGEX_TEXT_LIMIT]) is not None
             except re.error as e:
                 return rule_not_applicable(
                     f"The expected response is not a valid regular expression: {e}"
@@ -492,16 +476,11 @@ def _deduplicated(spans: List[Span]) -> List[Span]:
     return [span for span in spans if not (_reported(span) and span.kind in recorded_kinds)]
 
 
-def _status(span: Span) -> str:
-    code = (span.status_code or "").lower().removeprefix("status_code_")
-    return "error" if code == "error" else "ok"
-
-
 def _tokens(spans: Iterable[Span], which: str) -> Optional[int]:
     # Only model calls: a span around them may repeat their counts.
     total, found = 0, False
     for span in spans:
-        if span.kind != "llm.invoke":
+        if span.kind != AIAttributes.OPERATION_LLM_INVOKE:
             continue
         counts = {
             "input": _number(span.attributes.get(_TOKENS_INPUT)),
@@ -535,85 +514,12 @@ def _turn_value(trace: Optional[Trace], which: str, given: Any) -> Any:
 def _names(span: Span) -> List[str]:
     candidates = [
         span.tool_name,
-        span.attributes.get("ai.agent.name"),
+        span.attributes.get(AIAttributes.AGENT_NAME),
         span.model_name,
-        span.attributes.get("ai.model.name"),
+        span.attributes.get(AIAttributes.MODEL_NAME),
         span.span_name,
     ]
     return [name for name in candidates if isinstance(name, str) and name]
-
-
-def _compare(op: str, measured: Any, value: Any, field: str) -> Tuple[bool, Optional[str]]:
-    """Whether ``measured`` compares as ``op`` says with ``value``, and why not when it can't
-    be compared at all."""
-    if op == "exists":
-        return measured is not None, None
-    if op == "is_json":
-        return _is_json(measured), None
-    if op in NUMERIC_OPS:
-        # FieldRule.evaluate makes a non-number not applicable before comparing.
-        left, right = _number(measured), _number(value)
-        return {
-            "<": left < right,
-            "<=": left <= right,
-            ">": left > right,
-            ">=": left >= right,
-        }[op], None
-    if op == "==":
-        return _same(measured, value, field), None
-    if op == "!=":
-        return not _same(measured, value, field), None
-    if op == "in":
-        return any(_same(measured, choice, field) for choice in value), None
-    if op == "not_in":
-        return not any(_same(measured, choice, field) for choice in value), None
-    if op == "contains":
-        return _text(value) in _text(measured), None
-    return re.search(value, _text(measured)[:_REGEX_TEXT_LIMIT]) is not None, None
-
-
-def _same(measured: Any, value: Any, field: str) -> bool:
-    # Attributes can arrive as text: 200 and "200", true and "true" are the same.
-    left, right = _number(measured), _number(value)
-    if left is not None and right is not None:
-        return left == right
-    if field == "status":
-        return _text(measured).lower() == _text(value).lower()
-    return _text(measured) == _text(value)
-
-
-def _number(value: Any) -> Optional[float]:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value) if math.isfinite(value) else None
-    if isinstance(value, str):
-        try:
-            number = float(value.strip())
-        except ValueError:
-            return None
-        return number if math.isfinite(number) else None
-    return None
-
-
-def _is_json(value: Any) -> bool:
-    if isinstance(value, (dict, list)):
-        return True
-    if not isinstance(value, str):
-        return False
-    try:
-        json.loads(value)
-    except ValueError:
-        return False
-    return True
-
-
-def _text(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    return json.dumps(value, default=str)
 
 
 def _label(field: str) -> str:
