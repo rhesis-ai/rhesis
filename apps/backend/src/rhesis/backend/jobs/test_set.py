@@ -1,6 +1,8 @@
 import logging
 from typing import Any, List, Optional, Union
 
+from pydantic import ValidationError
+
 from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.crud import test_set as test_set_crud
@@ -117,6 +119,24 @@ def count_test_sets(self):
 # Helper functions for test set generation and saving
 
 
+class GeneratedTestsUnsavable(ValueError):
+    """None of the generated tests fit the schema a saved test must meet.
+
+    A ValueError for callers that already handle those, but caught before the generic
+    handler, which reads "invalid" in a message as a model-settings problem.
+    """
+
+
+def _unsavable_failure(
+    self, error: GeneratedTestsUnsavable, test_set_id, org_id: str, user_id: str
+) -> ValueError:
+    """Record a generation whose tests could not be saved; return the error to raise."""
+    self.log_with_context("error", "Generated tests could not be saved", error=str(error))
+    if test_set_id:
+        _mark_test_set_generation_failed(self, test_set_id, org_id, user_id, str(error))
+    return ValueError(f"Test set generation failed: {error}")
+
+
 def _save_test_set_to_database(
     self,
     test_set,
@@ -145,6 +165,8 @@ def _save_test_set_to_database(
     from rhesis.backend.app.schemas.test_set import TestData
 
     converted_tests = []
+    kept_tests = []
+    rejected: List[str] = []
     for test in test_set.tests:
         # Get dict from test (handles both dict and Pydantic model)
         if isinstance(test, dict):
@@ -157,7 +179,29 @@ def _save_test_set_to_database(
         test_dict["category"] = test_dict.get("category") or ""
         test_dict["topic"] = test_dict.get("topic") or ""
 
-        converted_tests.append(TestData(**test_dict))
+        # One generated test that doesn't fit is dropped, not the whole set with it.
+        try:
+            converted_tests.append(TestData(**test_dict))
+        except ValidationError as e:
+            rejected.append(e.errors()[0]["msg"])
+            continue
+        kept_tests.append(test)
+
+    if rejected:
+        self.log_with_context(
+            "warning",
+            "Dropped generated tests that do not fit the test schema",
+            dropped=len(rejected),
+            kept=len(converted_tests),
+            reasons=sorted(set(rejected)),
+        )
+        if not converted_tests:
+            raise GeneratedTestsUnsavable(
+                f"None of the {len(rejected)} generated tests could be saved: "
+                f"{'; '.join(sorted(set(rejected)))}"
+            )
+        # The job reports how many tests it generated from this list.
+        test_set.tests = kept_tests
 
     if test_set.test_set_type:
         test_set_type_str = TestSetType.get_value(TestSetType.from_string(test_set.test_set_type))
@@ -643,6 +687,8 @@ def generate_and_save_test_set(
         if test_set_id:
             _mark_test_set_generation_failed(self, test_set_id, org_id, user_id, str(e))
         raise
+    except GeneratedTestsUnsavable as e:
+        raise _unsavable_failure(self, e, test_set_id, org_id, user_id) from e
     except ValueError as e:
         error_msg = str(e)
         error_msg_lower = error_msg.lower()

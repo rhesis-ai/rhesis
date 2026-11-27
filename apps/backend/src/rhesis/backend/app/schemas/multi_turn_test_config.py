@@ -7,7 +7,7 @@ stored in the test's test_configuration attribute for multi-turn tests.
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 #: Where a test's expected tool calls live in ``test_configuration``, for either test type.
 EXPECTED_TOOL_CALLS_KEY = "expected_tool_calls"
@@ -70,14 +70,25 @@ class MultiTurnTestConfig(BaseModel):
         description="Tools the target should call over the conversation, in order (optional)",
     )
 
-    @field_validator("goal", "instructions", "restrictions", "scenario")
+    @field_validator("goal", "instructions", "restrictions", "scenario", mode="before")
     @classmethod
-    def strip_whitespace(cls, v: Optional[str]) -> Optional[str]:
-        """Strip leading/trailing whitespace from string fields."""
-        if v is None:
-            return None
+    def strip_whitespace(cls, v: Any) -> Any:
+        """Strip leading/trailing whitespace before the length checks, so a blank goal
+        is refused rather than stored as no goal."""
+        if not isinstance(v, str):
+            return v
         stripped = v.strip()
         return stripped if stripped else None
+
+    @model_validator(mode="after")
+    def min_turns_within_max(self) -> "MultiTurnTestConfig":
+        if (
+            self.min_turns is not None
+            and self.max_turns is not None
+            and self.min_turns > self.max_turns
+        ):
+            raise ValueError("min_turns cannot be above max_turns")
+        return self
 
     model_config = {"extra": "forbid"}  # Don't allow additional fields
 
