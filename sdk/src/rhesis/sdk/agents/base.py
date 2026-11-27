@@ -1011,21 +1011,7 @@ class BaseAgent:
             result = await self.execute_tool(tc)
             result.duration_ms = round((time.monotonic() - t0) * 1000)
             results.append(result)
-
-            if not result.success:
-                logger.warning(
-                    "[Agent] Tool %s failed: %s",
-                    tc.tool_name,
-                    result.error,
-                )
-                self._turn_failures[self._call_key(tc)] = result.error or ""
-                self._turn_failure_counts[tc.tool_name] = (
-                    self._turn_failure_counts.get(tc.tool_name, 0) + 1
-                )
-            else:
-                # Counts failures in a row: a tool called many times a turn (one chart per
-                # breakdown) may correct a few rejected calls without being shut off.
-                self._turn_failure_counts.pop(tc.tool_name, None)
+            self._note_outcome(tc, result)
 
             await _emit(
                 self._event_handlers,
@@ -1041,6 +1027,44 @@ class BaseAgent:
                 else:
                     print(f"      x {result.tool_name}: {result.error}")
         return results
+
+    def _note_outcome(self, tool_call: ToolCall, result: ToolResult) -> None:
+        """Track failures so a call that keeps failing is refused (see _refuse_repeated_failure)."""
+        if not result.success:
+            logger.warning("[Agent] Tool %s failed: %s", tool_call.tool_name, result.error)
+            self._turn_failures[self._call_key(tool_call)] = result.error or ""
+            self._turn_failure_counts[tool_call.tool_name] = (
+                self._turn_failure_counts.get(tool_call.tool_name, 0) + 1
+            )
+        else:
+            # Counts failures in a row: a tool called many times a turn (one chart per
+            # breakdown) may correct a few rejected calls without being shut off.
+            self._turn_failure_counts.pop(tool_call.tool_name, None)
+
+    async def _report_unsent(
+        self, tool_call: ToolCall, error: str, reasoning: str = ""
+    ) -> ToolResult:
+        """Report a call rejected before sending the way a failed call is reported."""
+        refused = self._refuse_repeated_failure(tool_call)
+        if refused:
+            return refused
+        await _emit(
+            self._event_handlers,
+            "on_tool_start",
+            tool_name=tool_call.tool_name,
+            arguments=tool_call.arguments,
+            reasoning=reasoning,
+        )
+        result = ToolResult(tool_name=tool_call.tool_name, success=False, error=error)
+        self._note_outcome(tool_call, result)
+        await _emit(
+            self._event_handlers,
+            "on_tool_end",
+            tool_name=tool_call.tool_name,
+            result=result,
+            arguments=tool_call.arguments,
+        )
+        return result
 
     @staticmethod
     def _call_key(tool_call: ToolCall) -> str:
