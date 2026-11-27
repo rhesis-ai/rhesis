@@ -16,17 +16,25 @@ export const SPAN_SOURCE_ATTRIBUTE = 'rhesis.span.source';
 export const REPORTED_SPAN_SOURCE = 'reported';
 export const NO_TIMING_LABEL = 'No timing';
 
-/** Whether the span was built from a response's reported values, which carry no timing. */
+/**
+ * Whether the span was built from a response's reported values, which carry no
+ * timing. A span list row says so in `reported`; a full span in its attributes.
+ */
 export function isReportedSpan(span: {
   attributes?: Record<string, unknown> | null;
+  reported?: boolean;
 }): boolean {
-  return span.attributes?.[SPAN_SOURCE_ATTRIBUTE] === REPORTED_SPAN_SOURCE;
+  return (
+    span.reported === true ||
+    span.attributes?.[SPAN_SOURCE_ATTRIBUTE] === REPORTED_SPAN_SOURCE
+  );
 }
 
 /** A span's duration, or "No timing" for a reported span, whose zero is not a measurement. */
 export function formatSpanDuration(span: {
   duration_ms: number;
   attributes?: Record<string, unknown> | null;
+  reported?: boolean;
 }): string {
   return isReportedSpan(span)
     ? NO_TIMING_LABEL

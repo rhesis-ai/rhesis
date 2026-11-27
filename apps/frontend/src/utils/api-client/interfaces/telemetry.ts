@@ -224,6 +224,8 @@ export interface SpanSummary {
   trace_name?: string | null;
   start_time: string;
   duration_ms: number;
+  /** Built from what a response reported: `duration_ms` is not a measurement. */
+  reported?: boolean;
   status_code: string;
   environment: string;
   conversation_id?: string | null;

@@ -10,6 +10,15 @@ describe('formatSpanDuration', () => {
     ).toBe('No timing');
   });
 
+  it('reads a span list row, which says reported instead of carrying attributes', () => {
+    expect(formatSpanDuration({ duration_ms: 0, reported: true })).toBe(
+      'No timing'
+    );
+    expect(formatSpanDuration({ duration_ms: 12, reported: false })).toBe(
+      '12ms'
+    );
+  });
+
   it('shows a recorded span’s duration', () => {
     expect(formatSpanDuration({ duration_ms: 250, attributes: {} })).toBe(
       '250ms'
