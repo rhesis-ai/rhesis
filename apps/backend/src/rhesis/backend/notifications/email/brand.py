@@ -199,7 +199,8 @@ def warn_if_imprint_missing() -> None:
     settings = get_smtp_settings()
     if settings.host and not imprint_lines(settings.imprint):
         logger.warning(
-            "Email is sent without an imprint because EMAIL_IMPRINT is unset. In some "
+            "Email is sent without an imprint because EMAIL_IMPRINT is unset; a notice "
+            "shows in its place. In some "
             "countries, such as Germany, business email must name the sending company "
             "and its legal details. Set EMAIL_IMPRINT to yours, one line per entry."
         )
@@ -238,7 +239,7 @@ class Brand:
     # whoever runs the deployment, which is still the sender.
     white_label: bool = False
     has_logo: bool = False
-    # The deployment's EMAIL_IMPRINT. Empty means no imprint block at all.
+    # The deployment's EMAIL_IMPRINT. Empty shows a notice that it is not set.
     imprint: tuple[ImprintLine, ...] = ()
 
     @property

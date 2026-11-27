@@ -19,7 +19,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 2. If a reverse proxy (Caddy, nginx, a load balancer) sits in front of the backend in a docker-compose install, set `TRUSTED_PROXY_COUNT` to the number of proxies, usually `1`. Since 0.23.0, docker-compose sets it to `0`, which reads the client IP from the connection, so every client behind the proxy shares one rate-limit count. The Helm chart is not affected.
 3. If you deploy with Helm and never set `FROM_EMAIL`, set it now to an address your SMTP server accepts. Unset, it used to fall back to a Rhesis address and now falls back to `noreply@example.com`.
 4. A bare `FROM_EMAIL` address no longer gets the name "Harry from Rhesis AI" added. To send under a name, set it as `"Your Name" <address>`. Mail to an organization with a branded product name uses that name either way.
-5. Emails no longer carry the Rhesis AI GmbH imprint, which named the wrong company on a self-hosted install. If your email needs a legal imprint (in Germany, business email does), set `EMAIL_IMPRINT` to your company's details, one per line: `config.emailImprint` in the Helm chart, or `EMAIL_IMPRINT="Acme GmbH\nMain St. 1\n..."` in `.env.docker`. The backend logs a warning at startup while SMTP is configured without one.
+5. Emails no longer carry the Rhesis AI GmbH imprint, which named the wrong company on a self-hosted install. If your email needs a legal imprint (in Germany, business email does), set `EMAIL_IMPRINT` to your company's details, one per line: `config.emailImprint` in the Helm chart, or `EMAIL_IMPRINT="Acme GmbH\nMain St. 1\n..."` in `.env.docker`. Until you do, emails show a "No imprint configured" notice in its place, and the backend logs a warning at startup.
 
 ### Changed
 

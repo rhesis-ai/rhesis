@@ -403,7 +403,8 @@ class SMTPSettings(BaseSettings):
     # Must be publicly reachable — mail clients fetch these directly.
     asset_base_url: str = Field(default="https://rhesis.ai", alias="EMAIL_ASSET_BASE_URL")
     # The sending company's legal details at the foot of every email, one per line.
-    # Unset, emails carry none: only the deployment's operator knows who sends them.
+    # Unset, emails show a notice in its place: only the deployment's operator knows
+    # who sends them.
     imprint: str | None = Field(default=None, alias="EMAIL_IMPRINT")
 
 

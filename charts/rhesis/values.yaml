@@ -178,7 +178,7 @@ config:
   # SMTP
   smtpPort: "465"
   # Your company's legal details at the foot of every email, one per line. Empty
-  # means no imprint; the backend warns at startup when mail is configured without one.
+  # shows a "No imprint configured" notice there, and the backend warns at startup.
   emailImprint: ""
 
   # Celery

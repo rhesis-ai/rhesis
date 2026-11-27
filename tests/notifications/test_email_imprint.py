@@ -63,11 +63,12 @@ class TestImprintLines:
 
 @pytest.mark.unit
 class TestRenderedImprint:
-    def test_unset_leaves_the_imprint_out(self, smtp_env):
+    def test_unset_shows_a_notice_in_its_place(self, smtp_env):
         smtp_env()
         html = _render()
         assert "Rhesis AI GmbH" not in html
-        assert "unstyled-auto-detected" not in html.split("</style>", 1)[1]
+        assert "No imprint configured" in html
+        assert "set EMAIL_IMPRINT" in html
 
     def test_the_operators_details_are_shown(self, smtp_env):
         smtp_env(EMAIL_IMPRINT="Acme GmbH\nMain St. 1\nE-Mail: legal@acme.example")
@@ -76,6 +77,7 @@ class TestRenderedImprint:
         assert "Main St. 1" in html
         assert 'href="mailto:legal@acme.example"' in html
         assert "Rhesis AI GmbH" not in html
+        assert "No imprint configured" not in html
 
     def test_imprint_text_is_escaped(self, smtp_env):
         smtp_env(EMAIL_IMPRINT='Acme <script>alert("x")</script> GmbH')
