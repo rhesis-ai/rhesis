@@ -59,6 +59,57 @@ class ReleaseProcessor:
         order = ["platform"] + list(COMPONENTS)
         return {name: versions[name] for name in order if name in versions}
 
+    def _update_docs_changelog(self, platform_version: str) -> bool:
+        """Draft the aggregated docs changelog from the components in this release."""
+        from release_tools.changelog import (
+            DOCS_COMPONENT_ORDER,
+            docs_placeholder_entry,
+            extract_release_notes,
+            update_docs_changelog,
+        )
+
+        if self.dry_run:
+            info(f"Would generate docs changelog draft for platform v{platform_version}")
+            return True
+
+        component_versions = {
+            component: self.component_versions[component]
+            for component in DOCS_COMPONENT_ORDER
+            if component in self.component_versions
+        }
+        component_changelogs = {}
+        for component, version in component_versions.items():
+            config = COMPONENTS.get(component)
+            if config is None:
+                continue
+            path = self.repo_root / config.changelog_path
+            if not path.exists():
+                warn(f"No changelog for {component}; leaving it out of the docs draft")
+                continue
+            notes = extract_release_notes(path.read_text(), version)
+            if notes:
+                component_changelogs[component] = notes
+            else:
+                warn(f"No Unreleased or {version} notes for {component} in the docs draft")
+
+        entry = generate_docs_changelog_with_llm(
+            self.gemini_api_key,
+            platform_version,
+            component_changelogs,
+            self.repo_root,
+            component_versions,
+        )
+        if not entry:
+            warn("Writing a visible TODO placeholder for the docs changelog")
+            entry = docs_placeholder_entry(component_versions)
+
+        return update_docs_changelog(
+            platform_version,
+            entry,
+            self.repo_root,
+            self.dry_run,
+        )
+
     def process_releases(self) -> bool:
         """Process all releases"""
         log("Starting release process...")
@@ -146,6 +197,8 @@ class ReleaseProcessor:
                     self.repo_root,
                     self.dry_run,
                 )
+                if not self._update_docs_changelog(platform_version):
+                    warn("Docs changelog draft was not written; continuing with the release")
 
         return True
 
@@ -198,3 +251,6 @@ class ReleaseProcessor:
         success("Release process completed! 🎉")
 
         return True
+
+# Exposed for tests that monkeypatch the docs generator.
+from release_tools.changelog import generate_docs_changelog_with_llm  # noqa: E402,F401

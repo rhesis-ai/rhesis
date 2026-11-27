@@ -2,6 +2,7 @@
 Changelog generation for the Rhesis release tool.
 """
 
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -305,3 +306,235 @@ This release includes the following component versions:
     _insert_under_unreleased(changelog_path, platform_entry)
     success(f"Updated platform changelog: {PLATFORM_CHANGELOG}")
     return True
+
+
+DOCS_DRAFT_MARKER = "{/* TODO: review and edit this draft */}"
+DOCS_COMPONENT_ORDER = ("backend", "frontend", "sdk", "polyphemus")
+VERSION_HEADING = re.compile(r"^## \[([^\]]+)\]")
+
+
+def extract_release_notes(text: str, version: str) -> str:
+    """Return the Unreleased notes and the entry for `version`, without older releases.
+
+    The component changelogs put the new version directly below a long hand-written Unreleased
+    section. A character cap therefore cuts off the entry the release just generated; selecting by
+    heading keeps both parts and leaves every older release out.
+    """
+    sections: List[Tuple[str, List[str]]] = []
+    current_version: Optional[str] = None
+    current_lines: List[str] = []
+
+    for line in text.splitlines():
+        match = VERSION_HEADING.match(line)
+        if match:
+            if current_version is not None:
+                sections.append((current_version, current_lines))
+            current_version = match.group(1).strip()
+            current_lines = [line]
+        elif current_version is not None:
+            current_lines.append(line)
+
+    if current_version is not None:
+        sections.append((current_version, current_lines))
+
+    wanted = version.strip().lstrip("v").lower()
+    selected = []
+    for section_version, lines in sections:
+        name = section_version.lstrip("v").lower()
+        if name != "unreleased" and name != wanted:
+            continue
+        body = "\n".join(lines).strip()
+        # A bare heading has no release notes for the model to read.
+        if body and body != lines[0].strip():
+            selected.append(body)
+    return "\n\n".join(selected)
+
+
+def _docs_style_reference(repo_root: Path) -> str:
+    """Intro plus one complete released entry from the docs changelog.
+
+    Cutting at the second `## [` heading shows the model a whole entry, including its Highlights
+    sections, instead of stopping partway through one.
+    """
+    docs_changelog = "docs/content/changelog.mdx"
+    path = repo_root / docs_changelog
+    if not path.exists():
+        return ""
+    text = path.read_text()
+    headings = [match.start() for match in re.finditer(r"(?m)^## \[", text)]
+    if len(headings) >= 2:
+        return text[: headings[1]].rstrip()
+    return text.strip()
+
+
+def _docs_platform_release_section(component_versions: Dict[str, str]) -> str:
+    """The release manifest, written by code instead of being guessed by the model."""
+    lines = ["### Platform Release", "", "This release includes the following component versions:"]
+    for component in DOCS_COMPONENT_ORDER:
+        version = component_versions.get(component)
+        if version:
+            lines.append(f"- **{format_component_name(component)} {version}**")
+    return "\n".join(lines)
+
+
+def _docs_highlight_headings(component_changelogs: Dict[str, str]) -> List[str]:
+    return [
+        f"### {format_component_name(component)} Highlights"
+        for component in DOCS_COMPONENT_ORDER
+        if component_changelogs.get(component, "").strip()
+    ]
+
+
+def _docs_changelog_prompt(
+    version: str,
+    component_changelogs: Dict[str, str],
+    style_reference: str,
+    component_versions: Dict[str, str],
+) -> str:
+    component_sections = []
+    for component in DOCS_COMPONENT_ORDER:
+        content = component_changelogs.get(component, "").strip()
+        if content:
+            component_sections.append(
+                f"### {format_component_name(component)} changelog\n{content}"
+            )
+
+    highlight_headings = "\n".join(_docs_highlight_headings(component_changelogs))
+    highlight_instruction = (
+        f"Then one section per component, using exactly these headings:\n{highlight_headings}"
+        if highlight_headings
+        else "Then one `### Component Highlights` section."
+    )
+
+    return f"""You are drafting one entry for the Rhesis aggregated docs changelog.
+
+Version: {version}
+
+Use the component changelogs below as the source of truth. Do not invent features, dates, issue
+numbers, or breaking changes. If a component changelog says something is a placeholder or TODO,
+do not present it as a finished claim.
+
+The caller writes the Platform Release section. Do not repeat it.
+
+Write Markdown/MDX with exactly these sections, in this order:
+### Summary
+Two to four sentences describing the release as a whole.
+### Breaking Changes
+Only real breaking changes; omit the section if there are none.
+### Featured Capabilities
+Group related changes under bold short headings. Prefer user-visible capabilities over internal
+refactors.
+{highlight_instruction}
+
+Use only the component changelogs that are present. Do not add sections for components that were
+not part of this release. Do not add a `## [version]` heading, a date, or a TODO comment.
+Return only the body, with no preamble or code fence.
+
+Existing docs changelog style reference:
+{style_reference}
+
+Component changelogs:
+{chr(10).join(component_sections)}
+"""
+
+
+def generate_docs_changelog_with_llm(
+    api_key: str,
+    version: str,
+    component_changelogs: Dict[str, str],
+    repo_root: Path,
+    component_versions: Optional[Dict[str, str]] = None,
+) -> Optional[str]:
+    """Generate the body of the aggregated docs changelog entry.
+
+    The caller supplies only the components that were released; the Platform Release manifest is
+    added here from the versions, not generated by the model.
+    """
+    if not api_key:
+        warn("No Gemini API key; skipping docs changelog draft")
+        return None
+    if not any(content.strip() for content in component_changelogs.values()):
+        warn("No component release notes for the docs changelog draft")
+        return None
+
+    versions = component_versions or {}
+    prompt = _docs_changelog_prompt(
+        version,
+        component_changelogs,
+        _docs_style_reference(repo_root),
+        versions,
+    )
+    content = call_gemini_api(api_key, prompt)
+    if not content:
+        warn("No docs changelog draft generated")
+        return None
+
+    content = content.strip()
+    # Some models include the heading even when told not to; drop it so the caller owns the header.
+    if content.startswith("## ["):
+        _, separator, rest = content.partition("\n")
+        content = rest.lstrip() if separator else ""
+    if not content:
+        return None
+
+    return f"{_docs_platform_release_section(versions)}\n\n{content}"
+
+
+def docs_placeholder_entry(component_versions: Dict[str, str]) -> str:
+    """A visible draft when the model cannot run, so the docs entry is never silently skipped."""
+    return (
+        f"{_docs_platform_release_section(component_versions)}\n\n"
+        "### Summary\n\n"
+        f"{placeholder_entry('docs changelog').strip()}"
+    )
+
+
+def update_docs_changelog(
+    new_version: str,
+    entry: str,
+    repo_root: Path,
+    dry_run: bool = False,
+) -> bool:
+    """Insert a draft entry before the newest released docs section."""
+    if not entry.strip():
+        warn("Refusing to insert an empty docs changelog entry")
+        return False
+
+    docs_changelog = "docs/content/changelog.mdx"
+    path = repo_root / docs_changelog
+    if not path.exists():
+        warn(f"Docs changelog not found: {docs_changelog}")
+        return False
+
+    date = datetime.now().strftime("%Y-%m-%d")
+    draft_lines = [
+        DOCS_DRAFT_MARKER,
+        f"## [{new_version}] - {date}",
+        "",
+        *entry.strip().splitlines(),
+        "",
+    ]
+
+    if dry_run:
+        info(f"Would insert docs changelog entry for v{new_version} in {docs_changelog}")
+        return True
+
+    lines = path.read_text().splitlines()
+    first_released = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if line.startswith("## [") and not line.startswith("## [Unreleased]")
+        ),
+        None,
+    )
+
+    if first_released is None:
+        new_lines = [*lines, "", *draft_lines]
+    else:
+        new_lines = [*lines[:first_released], *draft_lines, *lines[first_released:]]
+
+    path.write_text("\n".join(new_lines).rstrip() + "\n")
+    success(f"Updated docs changelog: {docs_changelog}")
+    return True
+

@@ -61,6 +61,21 @@ COMPONENTS = {
 # Platform-specific files
 PLATFORM_VERSION_FILE = "VERSION"
 PLATFORM_CHANGELOG = "CHANGELOG.md"
+DOCS_CHANGELOG = "docs/content/changelog.mdx"
+
+# Deploy files that name the platform version, so a release tag's compose file and chart
+# point at that release's images. Each regex has a group before and after the version.
+PLATFORM_PINNED_FILES = {
+    "docker-compose.ghcr.yml": r"(\$\{RHESIS_VERSION:-)[^}]+(\})",
+    # Top-level keys only: the dependencies' indented `version:` lines don't match.
+    "charts/rhesis/Chart.yaml": r'(?m)^((?:version|appVersion): "?)[^"\n]+("?)$',
+}
+
+
+# The SDK requires the core `rhesis` package, which is built with the SDK's version and published
+# just before it. Each SDK release raises this floor to its own version, so an SDK never installs
+# next to an older core that lacks modules it imports.
+SDK_CORE_REQUIREMENT = ("sdk/pyproject.toml", r'("rhesis\[telemetry\]>=)([^"]+)(")')
 
 # Deploy files that name the platform version, so a release tag's compose file and chart
 # point at that release's images. Each regex has a group before and after the version.
