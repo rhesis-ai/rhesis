@@ -106,8 +106,14 @@ jest.mock('@/hooks/useMetricTargetBuilder', () => ({
   },
 }));
 
+let mockProjectId: string | null = 'project-1';
 jest.mock('@/contexts/ActiveProjectContext', () => ({
-  useActiveProject: () => ({ activeProject: { id: 'project-1' } }),
+  useActiveProject: () => ({
+    activeProject: mockProjectId ? { id: mockProjectId } : null,
+  }),
+}));
+jest.mock('@/utils/active-project', () => ({
+  readActiveProjectId: () => null,
 }));
 
 const mockAnnounce = jest.fn();
@@ -321,6 +327,103 @@ describe('MetricTargetBuilder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove condition 1' }));
     expect(screen.getAllByTestId('target-condition-row')).toHaveLength(1);
   });
+
+  it('moves focus to the next row, the previous row, then Add condition, after a removal', () => {
+    render(<Harness initial={{ on: 'tool_call' }} />);
+    const add = screen.getByRole('button', { name: 'Add condition' });
+    fireEvent.click(add);
+    fireEvent.click(add);
+    fireEvent.click(add);
+    const removeButtons = () =>
+      screen.getAllByRole('button', { name: /^Remove condition/ });
+
+    // The middle row goes: the next row (now second) takes focus.
+    const next = removeButtons()[2];
+    fireEvent.click(removeButtons()[1]);
+    expect(next).toHaveFocus();
+
+    // The last row goes: the previous one takes focus.
+    const previous = removeButtons()[0];
+    fireEvent.click(removeButtons()[1]);
+    expect(previous).toHaveFocus();
+
+    // The only row goes: Add condition takes focus.
+    fireEvent.click(removeButtons()[0]);
+    expect(screen.getByRole('button', { name: 'Add condition' })).toHaveFocus();
+  });
+
+  it('moves through the targets with the arrow keys, one tab stop for the group', () => {
+    render(<Harness initial={{ on: 'turn' }} />);
+    const radio = (name: string) => screen.getByRole('radio', { name });
+    expect(radio('Each turn')).toHaveAttribute('tabindex', '0');
+    expect(radio('The whole run')).toHaveAttribute('tabindex', '-1');
+
+    fireEvent.keyDown(radio('Each turn'), { key: 'ArrowRight' });
+    expect(radio('The whole run')).toHaveAttribute('aria-checked', 'true');
+    expect(radio('The whole run')).toHaveFocus();
+    expect(radio('The whole run')).toHaveAttribute('tabindex', '0');
+    expect(radio('Each turn')).toHaveAttribute('tabindex', '-1');
+
+    fireEvent.keyDown(radio('The whole run'), { key: 'End' });
+    expect(radio('Custom spans')).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(radio('Custom spans'), { key: 'ArrowRight' });
+    expect(radio('Each turn')).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(radio('Each turn'), { key: 'ArrowLeft' });
+    expect(radio('Custom spans')).toHaveFocus();
+  });
+
+  it('can save after custom spans left an empty row and the whole run was chosen', () => {
+    render(<Harness initial={{ on: 'turn' }} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Custom spans' }));
+    expect(screen.getAllByTestId('target-condition-row')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('radio', { name: 'The whole run' }));
+    expect(mockPreviewArgs).toHaveBeenLastCalledWith('project-1', {
+      on: 'run',
+    });
+    expect(screen.getByTestId('target-preview')).not.toHaveTextContent(
+      'once the target is complete'
+    );
+  });
+
+  it('marks only the share field when the share is wrong', () => {
+    render(
+      <Harness
+        initial={{
+          on: 'tool_call',
+          aggregate: 'share',
+          min_share: 0.9,
+          where: [{ field: 'app.tier', op: '==', value: 'gold' }],
+        }}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Add condition' }));
+    const share = screen.getByLabelText('Share that must pass, in percent');
+    expect(share).not.toHaveAttribute('aria-invalid', 'true');
+    fireEvent.change(share, { target: { value: '0' } });
+    expect(share).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText(/percentage above 0/)).toBeInTheDocument();
+  });
+});
+
+describe('MetricTargetBuilder without a project', () => {
+  afterEach(() => {
+    mockProjectId = 'project-1';
+  });
+
+  it('promises no preview', () => {
+    mockProjectId = null;
+    settled(undefined);
+    render(<Harness initial={{ on: 'tool_call', name: 'x' }} />);
+    expect(screen.getByTestId('target-preview')).toHaveTextContent(
+      'No project is selected, so there are no traces to preview.'
+    );
+    expect(screen.getByTestId('target-summary')).toHaveTextContent(
+      'The summary appears once the metric is saved.'
+    );
+    expect(screen.getByTestId('target-summary')).not.toHaveTextContent(
+      'with the preview'
+    );
+  });
 });
 
 describe('MetricTargetBuilder preview', () => {
@@ -337,6 +440,17 @@ describe('MetricTargetBuilder preview', () => {
     );
     rerender(<Harness initial={{ on: 'tool_call' }} />);
     expect(mockAnnounce).toHaveBeenCalledTimes(1);
+
+    // An edit that ends with the same counts is announced again.
+    mockPreviewResult = { ...mockPreviewResult, pending: true };
+    fireEvent.change(screen.getByLabelText('Inside agent'), {
+      target: { value: 'billing_agent' },
+    });
+    settled(PREVIEW);
+    fireEvent.change(screen.getByLabelText('Inside agent'), {
+      target: { value: 'billing_agent ' },
+    });
+    expect(mockAnnounce).toHaveBeenCalledTimes(2);
   });
 
   it('says when there are no traces yet', () => {

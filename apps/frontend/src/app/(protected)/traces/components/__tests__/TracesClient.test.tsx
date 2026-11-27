@@ -42,8 +42,11 @@ jest.mock('../TraceFilterDrawer', () => ({
 
 jest.mock('../TargetFilterChip', () => ({
   __esModule: true,
-  default: ({ onRemove }: any) => (
-    <button onClick={() => onRemove()}>remove target</button>
+  default: ({ onRemove, onShowSpans }: any) => (
+    <>
+      <button onClick={() => onRemove()}>remove target</button>
+      {onShowSpans && <button onClick={onShowSpans}>show spans</button>}
+    </>
   ),
 }));
 
@@ -238,6 +241,25 @@ describe('TracesClient opened from a metric target', () => {
     expect(
       screen.getByRole('button', { name: 'remove target' })
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'show spans' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('in the traces view, marks the target as the spans view’s and switches there', () => {
+    render(
+      <TracesClient
+        initialView="traces"
+        initialFilters={{ timeRange: 'all', target }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'show spans' }));
+
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      expect.stringContaining('view=spans'),
+      { scroll: false }
+    );
   });
 });
 

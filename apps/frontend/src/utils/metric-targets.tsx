@@ -40,6 +40,17 @@ export const SPAN_TARGET_CHOICE: MetricTargetChoice = {
  */
 export const SPECIAL_FIELD = {
   KIND: 'kind',
+  NAME: 'name',
+} as const;
+
+/**
+ * The operators the UI writes itself (a preset's kind and name as conditions).
+ * The list of operators comes from `GET /metrics/targets`; these mirror the
+ * SDK's names for two of them.
+ */
+export const CONDITION_OP = {
+  EQ: '==',
+  IN: 'in',
 } as const;
 
 /** Reads an attribute whose key is also a special field's name: `attributes.status`. */
@@ -67,15 +78,56 @@ export function targetConditions(
   target: Pick<MetricTarget, 'where'> | null | undefined,
   specialFields: Pick<SpecialFieldChoice, 'field'>[] = []
 ): MetricTargetCondition[] {
-  const where = target?.where;
-  if (!where) return [];
-  if (Array.isArray(where)) return where;
+  const where: unknown = target?.where;
+  if (!where || typeof where !== 'object') return [];
+  // A hand-edited URL can hold anything: keep only rows shaped like conditions.
+  if (Array.isArray(where)) return where.filter(isCondition);
   const special = new Set(specialFields.map(f => f.field));
-  return Object.entries(where).map(([key, value]) => ({
-    field: special.has(key) ? `${ATTRIBUTE_PREFIX}${key}` : key,
-    op: Array.isArray(value) ? 'in' : '==',
-    value,
-  }));
+  return Object.entries(where as Record<string, unknown>)
+    .filter(([, value]) => isConditionValue(value))
+    .map(([key, value]) => ({
+      field: special.has(key) ? `${ATTRIBUTE_PREFIX}${key}` : key,
+      op: Array.isArray(value) ? CONDITION_OP.IN : CONDITION_OP.EQ,
+      value: value as MetricTargetCondition['value'],
+    }));
+}
+
+function isScalar(value: unknown): boolean {
+  return ['string', 'number', 'boolean'].includes(typeof value);
+}
+
+function isConditionValue(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    isScalar(value) ||
+    (Array.isArray(value) && value.every(isScalar))
+  );
+}
+
+/** Shaped like a condition: an object with a text field and op, and a scalar or list value. */
+export function isCondition(value: unknown): value is MetricTargetCondition {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.field === 'string' &&
+    typeof row.op === 'string' &&
+    isConditionValue(row.value)
+  );
+}
+
+/** Kept only when shaped like a stored target, so junk never reaches a page or the API. */
+export function isTargetShape(value: unknown): value is MetricTarget {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const target = value as Record<string, unknown>;
+  if (typeof target.on !== 'string') return false;
+  const optionalText = (v: unknown) => v === undefined || typeof v === 'string';
+  if (!optionalText(target.name) || !optionalText(target.within)) return false;
+  const where = target.where;
+  if (where === undefined || where === null) return true;
+  if (Array.isArray(where)) return where.every(isCondition);
+  if (typeof where !== 'object') return false;
+  return Object.values(where).every(isConditionValue);
 }
 
 /** The registry label for a target, with its name when it has one. */
@@ -161,12 +213,22 @@ export function targetSpanKind(
   const preset = choices?.find(c => c.on === target.on)?.span_kind;
   if (preset) return preset;
   if (target.on !== METRIC_TARGET.SPAN) return null;
-  const kind = targetConditions(target).find(
-    c => c.field === SPECIAL_FIELD.KIND && typeof c.value === 'string'
-  );
-  if (!kind || typeof kind.value !== 'string') return null;
+  // Only a condition that picks kinds names one: `!=` or `matches` do not.
+  const kind = targetConditions(target)
+    .filter(c => c.field === SPECIAL_FIELD.KIND)
+    .map(c =>
+      c.op === CONDITION_OP.EQ
+        ? c.value
+        : c.op === CONDITION_OP.IN && Array.isArray(c.value)
+          ? c.value.length === 1
+            ? c.value[0]
+            : undefined
+          : undefined
+    )
+    .find((value): value is string => typeof value === 'string');
+  if (!kind) return null;
   // A kind may be written as a preset's name (`tool_call`) or its span kind.
-  return choices?.find(c => c.on === kind.value)?.span_kind ?? kind.value;
+  return choices?.find(c => c.on === kind)?.span_kind ?? kind;
 }
 
 /**

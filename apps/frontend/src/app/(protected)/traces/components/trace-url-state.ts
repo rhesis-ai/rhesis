@@ -1,4 +1,5 @@
 import { TRACE_METRICS_STATUS } from '@/utils/api-client/interfaces/telemetry';
+import { isTargetShape } from '@/utils/metric-targets';
 import {
   EMPTY_TRACE_DRAWER_FILTERS,
   type TraceDrawerFilters,
@@ -154,19 +155,14 @@ export function withTraceUrlState(
 }
 
 /**
- * A target from the URL, kept only when it is a JSON object with an `on`; the
- * API checks the rest and names any problem. Junk is dropped, not sent.
+ * A target from the URL, kept only when it is shaped like a stored target (an
+ * `on`, and conditions that are objects with a field and an op); the API checks
+ * the rest and names any problem. Junk is dropped, not sent or drawn.
  */
 function validTargetJson(value: string | undefined): string | undefined {
   if (!value) return undefined;
   try {
-    const parsed: unknown = JSON.parse(value);
-    return parsed &&
-      typeof parsed === 'object' &&
-      !Array.isArray(parsed) &&
-      typeof (parsed as { on?: unknown }).on === 'string'
-      ? value
-      : undefined;
+    return isTargetShape(JSON.parse(value)) ? value : undefined;
   } catch {
     return undefined;
   }

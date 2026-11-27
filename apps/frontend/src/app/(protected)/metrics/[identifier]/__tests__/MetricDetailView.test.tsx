@@ -544,6 +544,43 @@ describe('MetricDetailView — target', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('keeps the fields of a stored target the metric no longer offers', async () => {
+    mockGetMetric.mockResolvedValue({
+      ...mockMetric,
+      // Retrieval is in the registry but not among this metric's targets.
+      supported_targets: ['turn', 'tool_call'],
+      config: {
+        target: {
+          on: 'retrieval',
+          within: 'kb_agent',
+          where: [{ field: 'app.tier', op: '==', value: 'gold' }],
+          aggregate: 'any',
+        },
+      },
+    });
+    mockUpdateMetric.mockResolvedValue({});
+    await renderAndViewMetric();
+
+    const card = targetCard();
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /^edit$/i }));
+    });
+    fireEvent.change(within(card).getByLabelText('Inside agent'), {
+      target: { value: 'kb_agent_v2' },
+    });
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /save/i }));
+    });
+
+    await waitFor(() => expect(mockUpdateMetric).toHaveBeenCalled());
+    expect(mockUpdateMetric.mock.calls[0][1].config.target).toEqual({
+      on: 'retrieval',
+      within: 'kb_agent_v2',
+      where: [{ field: 'app.tier', op: '==', value: 'gold' }],
+      aggregate: 'any',
+    });
+  });
+
   it('offers custom spans and sends their conditions', async () => {
     mockGetMetric.mockResolvedValue({
       ...mockMetric,

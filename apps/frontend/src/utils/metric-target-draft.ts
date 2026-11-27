@@ -13,6 +13,7 @@ import type {
   SpanAttributeSummary,
 } from '@/utils/api-client/interfaces/telemetry';
 import {
+  CONDITION_OP,
   METRIC_TARGET,
   SPECIAL_FIELD,
   targetConditions,
@@ -63,6 +64,8 @@ export function operatorLabel(op: string): string {
   return OPERATOR_LABELS[op] ?? op;
 }
 
+type StoredValue = MetricTargetCondition['value'];
+
 export interface ConditionDraft {
   /** Stable React key; never sent. */
   id: string;
@@ -70,6 +73,8 @@ export interface ConditionDraft {
   op: string;
   /** Text for one value, a list for `in`/`not_in`. */
   value: string | string[];
+  /** The stored value, so an untouched 200 or true goes back as a number or boolean. */
+  stored?: StoredValue;
 }
 
 export interface TargetDraft {
@@ -84,6 +89,8 @@ export interface TargetDraft {
   aggregate: MetricTargetAggregate;
   /** Percent, as typed; only read with aggregate `share`. */
   minSharePercent: string;
+  /** The stored share, sent unrounded while the shown percent is untouched. */
+  storedMinShare?: number;
 }
 
 let nextConditionId = 0;
@@ -111,7 +118,13 @@ function conditionDraft(condition: MetricTargetCondition): ConditionDraft {
       : value === undefined || value === null
         ? ''
         : valueText(value),
+    stored: value,
   };
+}
+
+/** A share as the percent the field shows: 0.9 is "90", 0.12345 is "12.3". */
+function sharePercentText(share: number): string {
+  return String(Math.round(share * 1000) / 10);
 }
 
 /** The draft for a stored target, or for a new one judging `defaultOn`. */
@@ -130,13 +143,12 @@ export function draftFromTarget(
     readOutput: target?.read?.output ?? '',
     aggregate: target?.aggregate ?? TARGET_AGGREGATE.ALL,
     minSharePercent:
-      share === undefined
-        ? DEFAULT_MIN_SHARE_PERCENT
-        : String(Math.round(share * 1000) / 10),
+      share === undefined ? DEFAULT_MIN_SHARE_PERCENT : sharePercentText(share),
+    storedMinShare: share,
   };
 }
 
-type ChoiceShape = Pick<MetricTargetChoice, 'on' | 'per_span'>;
+type ChoiceShape = Pick<MetricTargetChoice, 'on' | 'per_span' | 'span_kind'>;
 
 /** Judges spans one by one: a per-span preset, or custom spans. */
 export function isPerSpanTarget(on: string, choices: ChoiceShape[]): boolean {
@@ -154,6 +166,11 @@ export function isPerUnitTarget(on: string, choices: ChoiceShape[]): boolean {
   return on === METRIC_TARGET.TURN || isPerSpanTarget(on, choices);
 }
 
+/** The operator a new row starts with: `==` when the API offers it, else its first. */
+export function defaultOperator(operators: ConditionOperatorChoice[]): string {
+  return findOperator(CONDITION_OP.EQ, operators)?.op ?? operators[0]?.op ?? '';
+}
+
 export function findOperator(
   op: string,
   operators: ConditionOperatorChoice[]
@@ -168,6 +185,22 @@ function parsedNumber(text: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/**
+ * *text* as the stored value it shows, when the row still holds it: a stored 200
+ * or true goes back as a number or boolean, not as "200" or "true".
+ */
+function storedType(
+  text: string,
+  stored: StoredValue
+): MetricTargetAttributeValue {
+  const candidates = Array.isArray(stored) ? stored : [stored];
+  const same = candidates.find(
+    (v): v is MetricTargetAttributeValue =>
+      v !== undefined && v !== null && valueText(v) === text
+  );
+  return same ?? text;
+}
+
 /** The condition as the API takes it, or null while it is incomplete. */
 export function conditionFromDraft(
   draft: ConditionDraft,
@@ -180,7 +213,8 @@ export function conditionFromDraft(
   if (operator.value_type === VALUE_TYPE.LIST) {
     const values = (Array.isArray(draft.value) ? draft.value : [draft.value])
       .map(v => v.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map(v => storedType(v, draft.stored));
     return values.length ? { field, op: operator.op, value: values } : null;
   }
   const text = Array.isArray(draft.value)
@@ -190,7 +224,11 @@ export function conditionFromDraft(
     const value = parsedNumber(text);
     return value === null ? null : { field, op: operator.op, value };
   }
-  return text.trim() ? { field, op: operator.op, value: text } : null;
+  // A pattern is sent as typed: a space in it is part of what it matches.
+  const sent = operator.value_type === VALUE_TYPE.PATTERN ? text : text.trim();
+  return sent.trim()
+    ? { field, op: operator.op, value: storedType(sent, draft.stored) }
+    : null;
 }
 
 /** A value kept across an operator change: a list becomes its first entry and back. */
@@ -243,22 +281,38 @@ export function targetFromDraft(
     target.aggregate = draft.aggregate;
   }
   if (draft.aggregate === TARGET_AGGREGATE.SHARE) {
+    const untouched =
+      draft.storedMinShare !== undefined &&
+      draft.minSharePercent === sharePercentText(draft.storedMinShare);
     const percent = parsedNumber(draft.minSharePercent);
-    if (percent !== null) target.min_share = percent / 100;
+    if (untouched) target.min_share = draft.storedMinShare;
+    else if (percent !== null) target.min_share = percent / 100;
   }
   return target;
 }
 
+/** What is wrong with the share that must pass, or null; only asked with aggregate `share`. */
+export function shareProblem(draft: TargetDraft): string | null {
+  if (draft.aggregate !== TARGET_AGGREGATE.SHARE) return null;
+  const percent = parsedNumber(draft.minSharePercent);
+  return percent === null || percent <= 0 || percent > 100
+    ? 'The share that must pass is a percentage above 0, up to 100.'
+    : null;
+}
+
 /**
- * What stops the draft from being saved, in words, or null. The API checks the
- * rest (operators, value types, patterns) and names the problem itself.
+ * What stops the draft from being saved, in words, or null. Only the parts the
+ * target shows are checked: a target with one unit hides its conditions and
+ * sends none, so a row left there blocks nothing. The API checks the rest
+ * (operators, value types, patterns) and names the problem itself.
  */
 export function draftProblem(
   draft: TargetDraft,
-  choices: ChoiceShape[],
+  registry: ChoiceShape[],
   operators: ConditionOperatorChoice[]
 ): string | null {
   if (!draft.on) return 'Choose what the metric judges.';
+  if (!isPerUnitTarget(draft.on, registry)) return null;
   const complete = draft.conditions.filter(
     c => conditionFromDraft(c, operators) !== null
   ).length;
@@ -268,30 +322,105 @@ export function draftProblem(
   if (draft.on === METRIC_TARGET.SPAN && complete === 0) {
     return 'Custom spans need at least one condition. To judge the whole trace, choose the whole run.';
   }
-  if (
-    isPerUnitTarget(draft.on, choices) &&
-    draft.aggregate === TARGET_AGGREGATE.SHARE
-  ) {
-    const percent = parsedNumber(draft.minSharePercent);
-    if (percent === null || percent <= 0 || percent > 100) {
-      return 'The share that must pass is a percentage above 0, up to 100.';
-    }
-  }
-  return null;
+  return shareProblem(draft);
 }
 
-/** A target with its parts in one order, so two that mean the same compare equal. */
+function scalarKey(value: unknown): unknown {
+  return value === undefined || value === null ? null : String(value);
+}
+
+/**
+ * A target with its parts in one order, so two that mean the same compare equal.
+ * Values compare as text, as the API compares them: 200 and "200" are the same.
+ */
 export function targetKey(target: MetricTarget | null | undefined): string {
   if (!target) return '';
   return JSON.stringify({
     on: target.on,
     name: target.name ?? null,
     within: target.within ?? null,
-    where: targetConditions(target).map(c => [c.field, c.op, c.value ?? null]),
+    where: targetConditions(target).map(c => [
+      c.field,
+      c.op,
+      Array.isArray(c.value) ? c.value.map(scalarKey) : scalarKey(c.value),
+    ]),
     read: [target.read?.input ?? null, target.read?.output ?? null],
     aggregate: target.aggregate ?? TARGET_AGGREGATE.ALL,
     min_share: target.min_share ?? null,
   });
+}
+
+/** A kind row's values: one for `==`, several for `in`; none for any other operator. */
+function kindValues(condition: ConditionDraft): string[] {
+  if (condition.field.trim() !== SPECIAL_FIELD.KIND) return [];
+  if (condition.op === CONDITION_OP.EQ && typeof condition.value === 'string') {
+    return [condition.value.trim()];
+  }
+  if (condition.op === CONDITION_OP.IN && Array.isArray(condition.value)) {
+    return condition.value.map(v => v.trim());
+  }
+  return [];
+}
+
+/**
+ * The draft after choosing *on*, picking the same spans where it can:
+ * - A preset to custom spans: the preset's kind and name become conditions, as
+ *   the SDK expands them, unless a kind row already says the same.
+ * - Custom spans to a preset: a kind row the preset implies goes (it would say
+ *   the kind twice); one that names another kind stays, so the conflict shows.
+ * - To a target with one unit: incomplete rows go, as they can't be finished there.
+ */
+export function switchTarget(
+  draft: TargetDraft,
+  on: string,
+  registry: ChoiceShape[],
+  operators: ConditionOperatorChoice[]
+): TargetDraft {
+  if (on === draft.on) return draft;
+  const eq = defaultOperator(operators);
+  const from = registry.find(c => c.on === draft.on);
+  const to = registry.find(c => c.on === on);
+  let conditions = draft.conditions;
+  let name = draft.name;
+
+  if (on === METRIC_TARGET.SPAN) {
+    const kind = from?.span_kind;
+    const added: ConditionDraft[] = [];
+    const saysKind = conditions.some(c => {
+      const values = kindValues(c);
+      return values.length === 1 && kind !== undefined && values[0] === kind;
+    });
+    if (kind && eq && !saysKind) {
+      added.push({
+        ...emptyCondition(eq),
+        field: SPECIAL_FIELD.KIND,
+        value: kind,
+      });
+    }
+    if (name.trim() && eq) {
+      added.push({
+        ...emptyCondition(eq),
+        field: SPECIAL_FIELD.NAME,
+        value: name.trim(),
+      });
+    }
+    name = '';
+    conditions = [...added, ...conditions];
+    if (conditions.length === 0) conditions = [emptyCondition(eq)];
+  } else if (draft.on === METRIC_TARGET.SPAN && to?.span_kind) {
+    const implied = new Set([to.span_kind, to.on]);
+    conditions = conditions.filter(c => {
+      const values = kindValues(c);
+      return !(values.length > 0 && values.every(v => implied.has(v)));
+    });
+  }
+
+  if (!isPerUnitTarget(on, registry)) {
+    conditions = conditions.filter(
+      c => conditionFromDraft(c, operators) !== null
+    );
+  }
+  return { ...draft, on, name, conditions };
 }
 
 /* ------------------------------------------------------------------------ */

@@ -94,7 +94,7 @@ export default function MetricTargetSection({
 
   const handleSave = React.useCallback(
     async (draft: TargetDraft) => {
-      const problem = draftProblem(draft, choices, operators ?? []);
+      const problem = draftProblem(draft, allTargets, operators ?? []);
       if (problem) {
         setShowErrors(true);
         notifications.show(problem, { severity: 'error' });
@@ -106,7 +106,7 @@ export default function MetricTargetSection({
         const saved = await metricsClient.updateMetric(metric.id as UUID, {
           config: {
             ...(metric.config ?? {}),
-            target: targetFromDraft(draft, choices, operators ?? []),
+            target: targetFromDraft(draft, allTargets, operators ?? []),
           },
         });
         const updated = await metricsClient.getMetric(metric.id as UUID);
@@ -126,7 +126,7 @@ export default function MetricTargetSection({
         return false;
       }
     },
-    [choices, operators, metric, notifications, onSaved]
+    [allTargets, operators, metric, notifications, onSaved]
   );
 
   const handleEditingChange = React.useCallback((editing: boolean) => {
@@ -204,9 +204,9 @@ export default function MetricTargetSection({
       onSave={handleSave}
       onEditingChange={handleEditingChange}
       isDirty={(draft, initial) =>
-        targetKey(targetFromDraft(draft, choices, operators ?? [])) !==
-          targetKey(targetFromDraft(initial, choices, operators ?? [])) ||
-        draftProblem(draft, choices, operators ?? []) !== null
+        targetKey(targetFromDraft(draft, allTargets, operators ?? [])) !==
+          targetKey(targetFromDraft(initial, allTargets, operators ?? [])) ||
+        draftProblem(draft, allTargets, operators ?? []) !== null
       }
     >
       {({ draft, setDraft, isEditing }) =>

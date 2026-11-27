@@ -6,14 +6,18 @@ import type {
 import type { SpanAttributeCatalogue } from '@/utils/api-client/interfaces/telemetry';
 import {
   conditionFromDraft,
+  defaultOperator,
   draftFromTarget,
   draftProblem,
   emptyCondition,
   fieldOptions,
   operatorLabel,
+  shareProblem,
   SPECIAL_FIELDS_GROUP,
+  switchTarget,
   targetFromDraft,
   targetKey,
+  type TargetDraft,
   valueForOperator,
   valueSuggestions,
   readKeySuggestions,
@@ -316,5 +320,204 @@ describe('operatorLabel', () => {
   it('words known operators and shows an unknown one as itself', () => {
     expect(operatorLabel('not_in')).toBe('is none of');
     expect(operatorLabel('~=')).toBe('~=');
+  });
+});
+
+const RETRIEVAL: MetricTargetChoice = {
+  on: 'retrieval',
+  label: 'Each retrieval',
+  description: '',
+  per_span: true,
+  span_kind: 'retrieval',
+};
+const REGISTRY = [...CHOICES, RETRIEVAL];
+
+function rows(draft: TargetDraft) {
+  return draft.conditions.map(c => [c.field, c.op, c.value]);
+}
+
+describe('hidden rows (bug 1)', () => {
+  it('a row left on a target with one unit blocks nothing and is not sent', () => {
+    let draft = draftFromTarget(null, 'turn');
+    draft = switchTarget(draft, 'span', REGISTRY, OPERATORS);
+    expect(rows(draft)).toEqual([['', '==', '']]);
+    expect(draftProblem(draft, REGISTRY, OPERATORS)).toMatch(/incomplete/);
+
+    draft = switchTarget(draft, 'run', REGISTRY, OPERATORS);
+    expect(draft.conditions).toEqual([]);
+    expect(draftProblem(draft, REGISTRY, OPERATORS)).toBeNull();
+    expect(targetFromDraft(draft, REGISTRY, OPERATORS)).toEqual({ on: 'run' });
+  });
+
+  it('a hidden incomplete row is not checked even when it stays', () => {
+    const draft = {
+      ...draftFromTarget({ on: 'run' }, 'turn'),
+      conditions: [emptyCondition('==')],
+    };
+    expect(draftProblem(draft, REGISTRY, OPERATORS)).toBeNull();
+  });
+});
+
+describe('switchTarget (risk 3)', () => {
+  it('carries a preset’s kind and name over to custom spans', () => {
+    const draft = draftFromTarget(
+      {
+        on: 'tool_call',
+        name: 'issue_refund',
+        where: [{ field: 'app.channel', op: '!=', value: 'internal' }],
+      },
+      'turn'
+    );
+    const custom = switchTarget(draft, 'span', REGISTRY, OPERATORS);
+    expect(rows(custom)).toEqual([
+      ['kind', '==', 'tool.invoke'],
+      ['name', '==', 'issue_refund'],
+      ['app.channel', '!=', 'internal'],
+    ]);
+    expect(custom.name).toBe('');
+    // The same spans as the SDK's expand() of the preset.
+    expect(targetFromDraft(custom, REGISTRY, OPERATORS)).toEqual({
+      on: 'span',
+      where: [
+        { field: 'kind', op: '==', value: 'tool.invoke' },
+        { field: 'name', op: '==', value: 'issue_refund' },
+        { field: 'app.channel', op: '!=', value: 'internal' },
+      ],
+    });
+  });
+
+  it('adds no second kind row when one already says the kind', () => {
+    const draft = draftFromTarget(
+      {
+        on: 'tool_call',
+        where: [{ field: 'kind', op: '==', value: 'tool.invoke' }],
+      },
+      'turn'
+    );
+    const custom = switchTarget(draft, 'span', REGISTRY, OPERATORS);
+    expect(rows(custom)).toEqual([['kind', '==', 'tool.invoke']]);
+  });
+
+  it('drops the kind row a preset implies when going back to it', () => {
+    const custom = draftFromTarget(
+      {
+        on: 'span',
+        where: [
+          { field: 'kind', op: '==', value: 'retrieval' },
+          { field: 'app.tier', op: '==', value: 'gold' },
+        ],
+      },
+      'turn'
+    );
+    const retrieval = switchTarget(custom, 'retrieval', REGISTRY, OPERATORS);
+    expect(rows(retrieval)).toEqual([['app.tier', '==', 'gold']]);
+  });
+
+  it('keeps a kind row naming another kind, so the conflict shows', () => {
+    const custom = draftFromTarget(
+      {
+        on: 'span',
+        where: [{ field: 'kind', op: '==', value: 'tool.invoke' }],
+      },
+      'turn'
+    );
+    const retrieval = switchTarget(custom, 'retrieval', REGISTRY, OPERATORS);
+    expect(rows(retrieval)).toEqual([['kind', '==', 'tool.invoke']]);
+  });
+
+  it('writes the kind with ==, wherever the API lists it', () => {
+    const reordered = [OPERATORS[1], ...OPERATORS.filter(o => o.op !== '!=')];
+    expect(defaultOperator(reordered)).toBe('==');
+    const custom = switchTarget(
+      draftFromTarget({ on: 'tool_call' }, 'turn'),
+      'span',
+      REGISTRY,
+      reordered
+    );
+    expect(rows(custom)).toEqual([['kind', '==', 'tool.invoke']]);
+  });
+});
+
+describe('a stored target no longer offered (risk 4)', () => {
+  it('keeps its fields: the registry, not the offered choices, says what it takes', () => {
+    const stored: MetricTarget = {
+      on: 'retrieval',
+      within: 'kb_agent',
+      where: [{ field: 'app.tier', op: '==', value: 'gold' }],
+      aggregate: 'any',
+    };
+    const draft = draftFromTarget(stored, 'turn');
+    expect(targetFromDraft(draft, REGISTRY, OPERATORS)).toEqual(stored);
+  });
+});
+
+describe('values as stored (bug 9 and nits)', () => {
+  it('trims text values, but sends a pattern as typed', () => {
+    const row = (op: string, value: string) => ({
+      ...emptyCondition(op),
+      field: 'app.channel',
+      value,
+    });
+    expect(conditionFromDraft(row('==', '  web '), OPERATORS)?.value).toBe(
+      'web'
+    );
+    expect(conditionFromDraft(row('matches', ' web$'), OPERATORS)?.value).toBe(
+      ' web$'
+    );
+  });
+
+  it('sends untouched numbers and booleans back as they were stored', () => {
+    const stored: MetricTarget = {
+      on: 'turn',
+      where: [
+        { field: 'http.status', op: '==', value: 200 },
+        { field: 'app.retried', op: '==', value: false },
+        { field: 'app.codes', op: 'in', value: [1, 'two'] },
+      ],
+    };
+    const draft = draftFromTarget(stored, 'turn');
+    const sent = targetFromDraft(draft, REGISTRY, OPERATORS);
+    expect(sent).toEqual(stored);
+    expect(targetKey(sent)).toBe(targetKey(stored));
+  });
+
+  it('compares 200 and "200" as the same target', () => {
+    expect(
+      targetKey({
+        on: 'turn',
+        where: [{ field: 'http.status', op: '==', value: 200 }],
+      })
+    ).toBe(
+      targetKey({
+        on: 'turn',
+        where: [{ field: 'http.status', op: '==', value: '200' }],
+      })
+    );
+  });
+
+  it('sends min_share unrounded until it is edited', () => {
+    const stored: MetricTarget = {
+      on: 'tool_call',
+      aggregate: 'share',
+      min_share: 0.12345,
+    };
+    const draft = draftFromTarget(stored, 'turn');
+    expect(draft.minSharePercent).toBe('12.3');
+    expect(targetFromDraft(draft, REGISTRY, OPERATORS).min_share).toBe(0.12345);
+    expect(
+      targetFromDraft({ ...draft, minSharePercent: '50' }, REGISTRY, OPERATORS)
+        .min_share
+    ).toBe(0.5);
+  });
+
+  it('names a bad share apart from the rest of the draft', () => {
+    const draft = {
+      ...draftFromTarget(null, 'tool_call'),
+      aggregate: 'share' as const,
+      minSharePercent: '0',
+      conditions: [emptyCondition('==')],
+    };
+    expect(shareProblem(draft)).toMatch(/percentage/);
+    expect(shareProblem({ ...draft, minSharePercent: '90' })).toBeNull();
   });
 });

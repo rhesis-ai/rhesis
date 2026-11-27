@@ -35,6 +35,8 @@ interface TargetConditionRowProps {
   suggestions: string[];
   onChange: (condition: ConditionDraft) => void;
   onRemove: () => void;
+  /** The remove button, so focus can land on it after another row goes. */
+  removeButtonRef?: React.Ref<HTMLButtonElement>;
   /** Mark incomplete parts as errors (after a save attempt). */
   showErrors?: boolean;
 }
@@ -57,6 +59,7 @@ export default function TargetConditionRow({
   suggestions,
   onChange,
   onRemove,
+  removeButtonRef,
   showErrors = false,
 }: TargetConditionRowProps) {
   const id = React.useId();
@@ -264,6 +267,7 @@ export default function TargetConditionRow({
         {valueInput()}
       </Box>
       <IconButton
+        ref={removeButtonRef}
         aria-label={`Remove condition ${index}`}
         onClick={onRemove}
         size="small"

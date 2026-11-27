@@ -6,7 +6,6 @@ import {
   MetricDetail,
   MetricQueryParams,
   MetricSaved,
-  MetricTargetChoice,
   MetricTargetOptions,
   MetricTargetPreview,
   MetricTargetPreviewRequest,
@@ -62,11 +61,6 @@ export class MetricsClient extends BaseApiClient {
       readers: options.readers ?? [],
       event_prefix: options.event_prefix ?? null,
     };
-  }
-
-  /** The target registry alone: what a metric can judge, in display order. */
-  async getMetricTargets(): Promise<MetricTargetChoice[]> {
-    return (await this.getMetricTargetOptions()).targets;
   }
 
   /** What a target picks in a project's latest traces, before any metric runs. */

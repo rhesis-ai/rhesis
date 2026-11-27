@@ -3,6 +3,7 @@ import {
   formatMetricTarget,
   getMetricTargetIcon,
   isTargetOnValue,
+  isTargetShape,
   metricRunsOnTestType,
   offeredTargets,
   offeredTargetsWithCustom,
@@ -10,7 +11,10 @@ import {
   targetConditions,
   targetSpanKind,
 } from '../metric-targets';
-import type { MetricTargetChoice } from '@/utils/api-client/interfaces/metric';
+import type {
+  MetricTarget,
+  MetricTargetChoice,
+} from '@/utils/api-client/interfaces/metric';
 
 const CHOICES: MetricTargetChoice[] = [
   { on: 'turn', label: 'Each turn', description: '', per_span: false },
@@ -113,7 +117,23 @@ describe('offeredTargetsWithCustom', () => {
 describe('targetConditions', () => {
   it('returns the list form as it is', () => {
     const where = [{ field: 'kind', op: '==', value: 'tool.invoke' }];
-    expect(targetConditions({ where })).toBe(where);
+    expect(targetConditions({ where })).toEqual(where);
+  });
+
+  it('skips rows that are not conditions, as a hand-edited URL can hold', () => {
+    const where = [
+      null,
+      'kind',
+      { op: '==', value: 'x' },
+      { field: 'kind', op: '==', value: { nested: true } },
+      { field: 'kind', op: '==', value: 'tool.invoke' },
+    ] as unknown as MetricTarget['where'];
+    expect(targetConditions({ where })).toEqual([
+      { field: 'kind', op: '==', value: 'tool.invoke' },
+    ]);
+    expect(
+      targetConditions({ where: 'kind' as unknown as MetricTarget['where'] })
+    ).toEqual([]);
   });
 
   it('reads the old dict form as == and in', () => {
@@ -174,6 +194,34 @@ describe('targetSpanKind', () => {
         CHOICES
       )
     ).toBeNull();
+  });
+
+  it('reads only kind conditions that pick a kind (== and a one-item in)', () => {
+    const kindOf = (op: string, value: string | string[]) =>
+      targetSpanKind(
+        { on: 'span', where: [{ field: 'kind', op, value }] },
+        CHOICES
+      );
+    expect(kindOf('!=', 'tool.invoke')).toBeNull();
+    expect(kindOf('matches', 'tool.*')).toBeNull();
+    expect(kindOf('in', ['retrieval'])).toBe('retrieval');
+  });
+});
+
+describe('isTargetShape', () => {
+  it.each([
+    [{ on: 'turn' }, true],
+    [{ on: 'span', where: [{ field: 'kind', op: '==', value: 'x' }] }, true],
+    [{ on: 'turn', where: { channel: 'web', tier: ['a', 'b'] } }, true],
+    [{ on: 'span', where: [null] }, false],
+    [{ on: 'span', where: [{ op: '==', value: 'x' }] }, false],
+    [{ on: 'span', where: 'kind' }, false],
+    [{ on: 'span', where: { channel: { nested: 1 } } }, false],
+    [{ on: 'tool_call', name: 3 }, false],
+    [{ where: [] }, false],
+    [[{ on: 'turn' }], false],
+  ])('%j is a target shape: %s', (value, expected) => {
+    expect(isTargetShape(value)).toBe(expected);
   });
 });
 

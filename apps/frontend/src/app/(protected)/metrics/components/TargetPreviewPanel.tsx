@@ -167,9 +167,14 @@ export default function TargetPreviewPanel({
   const announce = useAnnounce();
   const announced = React.useRef<string | null>(null);
 
-  // Polite, and only once per settled result, so typing doesn't flood the reader.
+  // Polite, and once per settled result, so typing doesn't flood the reader. An
+  // edit clears the last message: the same counts after an edit are news too.
   React.useEffect(() => {
-    if (!preview || stale || loading) return;
+    if (stale) {
+      announced.current = null;
+      return;
+    }
+    if (!preview || loading) return;
     const message = previewAnnouncement(preview, unitNoun);
     if (message === announced.current) return;
     announced.current = message;
@@ -180,7 +185,7 @@ export default function TargetPreviewPanel({
     if (noProject) {
       return (
         <Typography variant="body2" color="text.secondary">
-          Choose a project to preview what this target picks.
+          No project is selected, so there are no traces to preview.
         </Typography>
       );
     }

@@ -169,6 +169,36 @@ describe('TargetFilterChip', () => {
     expect(onTargetLoaded).not.toHaveBeenCalled();
   });
 
+  it('says in the traces view that the target applies to spans, and offers them', () => {
+    const onShowSpans = jest.fn();
+    render(
+      <TargetFilterChip
+        target={JSON.stringify({ on: 'tool_call', name: 'issue_refund' })}
+        onRemove={jest.fn()}
+        onShowSpans={onShowSpans}
+      />
+    );
+
+    const note = screen.getByTestId('target-filter-inactive');
+    expect(note).toHaveTextContent('Applies to the spans view.');
+    expect(screen.getByTestId('target-filter-chip')).toHaveAttribute(
+      'aria-describedby',
+      note.id
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Show spans' }));
+    expect(onShowSpans).toHaveBeenCalledTimes(1);
+  });
+
+  it('draws nothing for a malformed target', () => {
+    render(
+      <TargetFilterChip
+        target={JSON.stringify({ on: 'span', where: [null] })}
+        onRemove={jest.fn()}
+      />
+    );
+    expect(screen.queryByTestId('target-filter-chip')).not.toBeInTheDocument();
+  });
+
   it('shows nothing when the metric cannot be read and no target is set', async () => {
     mockGetMetric.mockRejectedValue(new Error('not found'));
 

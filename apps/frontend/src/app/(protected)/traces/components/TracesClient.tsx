@@ -154,6 +154,7 @@ export default function TracesClient({
     setDrawerFilters(prev => withoutTargetFilter(prev));
     setFromMetricId(null);
   }, []);
+  const showSpans = useCallback(() => setView('spans'), []);
   // An old link (tool and span type filters, no target) gets the metric's target.
   const applyLoadedTarget = useCallback((target: string) => {
     setDrawerFilters(prev => (prev.target ? prev : { ...prev, target }));
@@ -392,15 +393,16 @@ export default function TracesClient({
         costScope={costScope}
       />
 
-      {(fromMetricId || (view === 'spans' && drawerFilters.target)) &&
-        !skeleton && (
-          <TargetFilterChip
-            metricId={fromMetricId}
-            target={drawerFilters.target}
-            onRemove={removeTargetFilter}
-            onTargetLoaded={view === 'spans' ? applyLoadedTarget : undefined}
-          />
-        )}
+      {(fromMetricId || drawerFilters.target) && !skeleton && (
+        <TargetFilterChip
+          metricId={fromMetricId}
+          target={drawerFilters.target}
+          onRemove={removeTargetFilter}
+          onTargetLoaded={view === 'spans' ? applyLoadedTarget : undefined}
+          // The traces list takes no target: say so there, rather than filter silently.
+          onShowSpans={view === 'traces' ? showSpans : undefined}
+        />
+      )}
 
       <CachedContent active={cachedView}>
         <Paper sx={GRID_PAPER_SX}>

@@ -308,7 +308,7 @@ export default function NewMetricForm({
   const isStepValid = React.useCallback((): boolean => {
     // Common required fields
     if (!formData.name.trim()) return false;
-    if (draftProblem(formData.target, targetChoices, operators) !== null) {
+    if (draftProblem(formData.target, allTargets, operators) !== null) {
       return false;
     }
     if (isRule) return ruleDraftError(formData.rule) === null;
@@ -331,7 +331,7 @@ export default function NewMetricForm({
     }
 
     return true;
-  }, [formData, isRule, targetChoices, operators]);
+  }, [formData, isRule, allTargets, operators]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -370,7 +370,7 @@ export default function NewMetricForm({
         throw new Error(`Backend type "${backendTypeValue}" not found`);
       }
 
-      const target = targetFromDraft(formData.target, targetChoices, operators);
+      const target = targetFromDraft(formData.target, allTargets, operators);
       // Tags are added separately, after the metric exists.
       const metricRequest: MetricCreate = isRule
         ? {
@@ -1044,7 +1044,7 @@ export default function NewMetricForm({
       </Typography>
       <Chip
         label={formatMetricTarget(
-          targetFromDraft(formData.target, targetChoices, operators),
+          targetFromDraft(formData.target, allTargets, operators),
           targetChoices
         )}
         color="primary"

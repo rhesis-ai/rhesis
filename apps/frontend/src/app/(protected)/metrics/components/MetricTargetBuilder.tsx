@@ -4,11 +4,9 @@ import * as React from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
@@ -28,25 +26,24 @@ import type {
   SpecialFieldChoice,
 } from '@/utils/api-client/interfaces/metric';
 import {
+  defaultOperator,
   draftProblem,
   emptyCondition,
   fieldOptions as buildFieldOptions,
   isPerSpanTarget,
   isPerUnitTarget,
   readKeySuggestions,
+  shareProblem,
+  switchTarget,
   TARGET_AGGREGATE,
   targetFromDraft,
   targetKey,
   type TargetDraft,
   valueSuggestions,
 } from '@/utils/metric-target-draft';
-import {
-  getMetricTargetIcon,
-  METRIC_TARGET,
-  SPECIAL_FIELD,
-  targetSpanKind,
-} from '@/utils/metric-targets';
+import { METRIC_TARGET, targetSpanKind } from '@/utils/metric-targets';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import TargetChoiceRadios from './TargetChoiceRadios';
 import TargetConditionRow from './TargetConditionRow';
 import TargetPreviewPanel from './TargetPreviewPanel';
 import TargetSummaryText from './TargetSummaryText';
@@ -203,15 +200,18 @@ export default function MetricTargetBuilder({
   const { data: catalogue } = useSpanAttributeCatalogue(projectId);
 
   const selected = choices.find(c => c.on === draft.on);
-  const perUnit = isPerUnitTarget(draft.on, choices);
-  const perSpan = isPerSpanTarget(draft.on, choices);
+  // The full registry, not the offered choices: a stored target no longer
+  // offered keeps its fields.
+  const perUnit = isPerUnitTarget(draft.on, allTargets);
+  const perSpan = isPerSpanTarget(draft.on, allTargets);
   const isCustom = draft.on === METRIC_TARGET.SPAN;
 
   const target = React.useMemo(
-    () => targetFromDraft(draft, choices, operators),
-    [draft, choices, operators]
+    () => targetFromDraft(draft, allTargets, operators),
+    [draft, allTargets, operators]
   );
-  const problem = draftProblem(draft, choices, operators);
+  const problem = draftProblem(draft, allTargets, operators);
+  const shareError = shareProblem(draft);
   const matchesSaved =
     !!savedTarget && targetKey(target) === targetKey(savedTarget);
   const preview = useMetricTargetPreview(projectId, problem ? null : target);
@@ -242,30 +242,38 @@ export default function MetricTargetBuilder({
   const update = (patch: Partial<TargetDraft>) =>
     onChange({ ...draft, ...patch });
 
-  const choose = (on: string) => {
-    if (on === draft.on) return;
-    // Custom spans start from the kind the preset judged, so its spans stay picked.
-    const fromKind = choices.find(c => c.on === draft.on)?.span_kind;
-    const defaultOp = operators[0]?.op ?? '';
-    const conditions =
-      on === METRIC_TARGET.SPAN && draft.conditions.length === 0
-        ? [
-            fromKind
-              ? {
-                  ...emptyCondition(defaultOp),
-                  field: SPECIAL_FIELD.KIND,
-                  value: fromKind,
-                }
-              : emptyCondition(defaultOp),
-          ]
-        : draft.conditions;
-    update({ on, conditions });
+  const choose = (on: string) =>
+    onChange(switchTarget(draft, on, allTargets, operators));
+
+  // After a row is removed, focus moves to the next row's remove button, else
+  // the previous one's, else "Add condition", never to the page's top.
+  const removeButtons = React.useRef(new Map<string, HTMLButtonElement>());
+  const addButton = React.useRef<HTMLButtonElement>(null);
+  const focusAfterRemove = React.useRef<string | null | undefined>(undefined);
+  React.useEffect(() => {
+    const next = focusAfterRemove.current;
+    if (next === undefined) return;
+    focusAfterRemove.current = undefined;
+    const button = next ? removeButtons.current.get(next) : addButton.current;
+    button?.focus();
+  }, [draft.conditions]);
+
+  const removeCondition = (index: number) => {
+    const rows = draft.conditions;
+    focusAfterRemove.current =
+      rows[index + 1]?.id ?? rows[index - 1]?.id ?? null;
+    update({ conditions: rows.filter((_c, i) => i !== index) });
   };
 
-  const unit = unitNoun(draft.on, choices);
+  const unit = unitNoun(draft.on, allTargets);
   const previewBlocked = problem
     ? 'The preview runs once the target is complete.'
     : null;
+  const noSummaryText =
+    problem ??
+    (projectId
+      ? 'The summary appears with the preview.'
+      : 'The summary appears once the metric is saved.');
 
   return (
     <Box
@@ -282,33 +290,13 @@ export default function MetricTargetBuilder({
       >
         <Box>
           <SectionLabel id={`${a11yId}-start`}>Start from</SectionLabel>
-          <Box
-            role="radiogroup"
-            aria-labelledby={`${a11yId}-start`}
-            sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}
-          >
-            {choices.map(choice => {
-              const isSelected = choice.on === draft.on;
-              return (
-                <Tooltip
-                  key={choice.on}
-                  title={choice.description}
-                  describeChild
-                >
-                  <Chip
-                    role="radio"
-                    aria-checked={isSelected}
-                    icon={getMetricTargetIcon(choice.on, allTargets)}
-                    label={choice.label}
-                    clickable
-                    color={isSelected ? 'primary' : 'default'}
-                    variant={isSelected ? 'filled' : 'outlined'}
-                    onClick={() => choose(choice.on)}
-                  />
-                </Tooltip>
-              );
-            })}
-          </Box>
+          <TargetChoiceRadios
+            labelledBy={`${a11yId}-start`}
+            choices={choices}
+            registry={allTargets}
+            value={draft.on}
+            onChange={choose}
+          />
           {selected && (
             <Typography
               variant="body2"
@@ -381,24 +369,23 @@ export default function MetricTargetBuilder({
                       ),
                     })
                   }
-                  onRemove={() =>
-                    update({
-                      conditions: draft.conditions.filter(
-                        c => c.id !== condition.id
-                      ),
-                    })
-                  }
+                  onRemove={() => removeCondition(i)}
+                  removeButtonRef={button => {
+                    if (button) removeButtons.current.set(condition.id, button);
+                    else removeButtons.current.delete(condition.id);
+                  }}
                 />
               ))}
               <Box>
                 <Button
+                  ref={addButton}
                   size="small"
                   startIcon={<AddIcon />}
                   onClick={() =>
                     update({
                       conditions: [
                         ...draft.conditions,
-                        emptyCondition(operators[0]?.op ?? ''),
+                        emptyCondition(defaultOperator(operators)),
                       ],
                     })
                   }
@@ -474,7 +461,8 @@ export default function MetricTargetBuilder({
                 size="small"
                 value={draft.minSharePercent}
                 onChange={e => update({ minSharePercent: e.target.value })}
-                error={showErrors && !!problem}
+                error={!!shareError}
+                helperText={shareError ?? undefined}
                 sx={{ width: theme => theme.spacing(12) }}
                 slotProps={{
                   htmlInput: {
@@ -514,7 +502,7 @@ export default function MetricTargetBuilder({
             </Typography>
           ) : (
             <Typography variant="body2" color="text.secondary">
-              {problem ?? 'The summary appears with the preview.'}
+              {noSummaryText}
             </Typography>
           )}
         </Box>

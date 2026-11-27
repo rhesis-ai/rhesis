@@ -247,6 +247,8 @@ export default function RequirementMetricsViewer({
                       metricType={metric.metric_type?.type_value}
                       scoreType={metric.score_type ?? undefined}
                       target={getMetricTarget(metric) ?? undefined}
+                      targetSummary={metric.target_summary_short}
+                      targetSummaryFull={metric.target_summary}
                       targetChoices={targetChoices}
                       metricId={metric.id}
                       usedIn={[requirement.name]}

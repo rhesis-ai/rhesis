@@ -83,6 +83,19 @@ describe('old links', () => {
     expect(fromMetric).toBe('metric-1');
   });
 
+  it.each([
+    '{"on":"span","where":[null]}',
+    '{"on":"span","where":"kind"}',
+    '{"on":"span","where":[{"op":"==","value":"x"}]}',
+    '{"on":"span","where":{"channel":{"a":1}}}',
+    '{"on":"tool_call","name":["x"]}',
+  ])('drop a malformed target (%s) instead of drawing or sending it', raw => {
+    const params = new URLSearchParams();
+    params.set('view', 'spans');
+    params.set('target', raw);
+    expect(filtersFromSearchParams(params).target).toBeUndefined();
+  });
+
   it.each(['not json', '[1,2]', '{"name":"x"}', '%7B'])(
     'drop a target that is not a JSON target (%s) instead of sending it',
     raw => {
