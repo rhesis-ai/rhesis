@@ -36,11 +36,8 @@ QUEUES: dict[str, tuple[str, list[str]]] = {
         [_J + "telemetry.ingest.ingest_spans"],
     ),
     "trace-eval": (
-        "Trace metric evaluation after the spans are stored. The enrichment and linking "
-        "jobs here only drain messages queued by the previous release.",
+        "Trace metric evaluation after the spans are stored.",
         [
-            _J + "telemetry.enrich.enrich_trace_async",
-            _J + "telemetry.post_ingest.post_ingest_link",
             _J + "telemetry.evaluate.evaluate_turn_trace_metrics",
             _J + "telemetry.evaluate.evaluate_conversation_trace_metrics",
         ],
