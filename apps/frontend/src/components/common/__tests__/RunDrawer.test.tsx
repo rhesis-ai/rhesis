@@ -53,7 +53,10 @@ jest.mock('../ModelSelector', () => ({
 
 // One array for every render, as React Query gives: a fresh one each call
 // re-runs the drawer's endpoint filter forever.
-const mockEndpointsResult = { data: [], isLoading: false };
+const mockEndpointsResult: {
+  data: { id: string; name: string; project_id: string }[];
+  isLoading: boolean;
+} = { data: [], isLoading: false };
 jest.mock('@/hooks/useEndpoints', () => ({
   useEndpoints: jest.fn(() => mockEndpointsResult),
 }));
@@ -301,6 +304,39 @@ describe('RunDrawer sections', () => {
     await waitFor(() =>
       expect(screen.getByLabelText('Test Set')).toHaveValue('Safety checks')
     );
+  });
+
+  it('picks the only endpoint and folds "Run against" to it', async () => {
+    mockEndpointsResult.data = [
+      { id: 'ep-1', name: 'visit_prep_chat', project_id: 'p-1' },
+    ];
+    try {
+      renderExecuteDrawer();
+
+      const runAgainst = screen.getByRole('button', { name: /run against/i });
+      await waitFor(() =>
+        expect(runAgainst).toHaveAttribute('aria-expanded', 'false')
+      );
+      expect(within(runAgainst).getByText('visit_prep_chat')).toBeVisible();
+    } finally {
+      mockEndpointsResult.data = [];
+    }
+  });
+
+  it('leaves the endpoint open to choose when there are several', async () => {
+    mockEndpointsResult.data = [
+      { id: 'ep-1', name: 'visit_prep_chat', project_id: 'p-1' },
+      { id: 'ep-2', name: 'travel_agent', project_id: 'p-1' },
+    ];
+    try {
+      renderExecuteDrawer();
+
+      const runAgainst = screen.getByRole('button', { name: /run against/i });
+      await act(async () => {});
+      expect(runAgainst).toHaveAttribute('aria-expanded', 'true');
+    } finally {
+      mockEndpointsResult.data = [];
+    }
   });
 
   it('shows a folded section as one summary line', () => {
