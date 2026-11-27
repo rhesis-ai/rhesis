@@ -353,8 +353,8 @@ See [Telemetry System Documentation](/contribute/telemetry) for what is collecte
 | `TRACE_EVAL_CONTEXT_TTL_SECONDS` | How long a project's trace metrics and judge model are cached. A change to a project's trace metrics reaches new traces within this time | `60` |
 | `USAGE_ACCRUAL_FLUSH_SECONDS` | How often each process writes the model tokens it has counted to the usage counter. Tokens not yet written are lost if the process is killed. `0` writes each call at once | `2` |
 
-Worker processes ignore `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` and use fixed values from
-`apps/worker/start.sh`. In the `combined` layout a worker pod opens at most 40 connections (30 for
+`apps/worker/start.sh` sets `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` for each worker process, so
+values you set only reach the API. In the `combined` layout a worker pod opens at most 40 connections (30 for
 the main process, 10 for Architect); in `split` each of the five processes has its own. Postgres
 `max_connections` has to cover every API process and worker pod together, unless a pooler sits in
 between.
