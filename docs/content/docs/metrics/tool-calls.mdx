@@ -2,7 +2,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Checking Tool Calls
 
-The **Tool Call Trajectory** metric compares the tools an endpoint called with the tools a test expects it to call. It needs no model: it reads the tool calls from the run's [trace](/docs/metrics/code-metrics#checking-what-the-endpoint-did) and the expected ones from the test.
+The **Tool Call Trajectory** metric compares the tools an endpoint called with the tools a test expects it to call. It is the [rule](/docs/metrics/rules) for expected tool calls: it needs no model, reads the tool calls from the run's [trace](/docs/metrics/code-metrics#checking-what-the-endpoint-did) and the expected ones from the test, and has the metric type `rule`.
 
 ## Giving a test its expected tool calls
 
@@ -27,9 +27,13 @@ TestSet(name="Refund flow", tests=[test]).push()`}
 
 Through the API and MCP, send the same list as `test_configuration.expected_tool_calls` when creating or updating a test. An empty list expects no tool calls at all.
 
+### Expecting calls turn by turn
+
+A multi-turn test can list the calls it expects in each turn with `expected_tool_calls_per_turn` (`Test(expected_tool_calls_per_turn=[...])` in the SDK): one entry per turn, the first for turn 1, each a list like `expected_tool_calls`, or `null` where the test says nothing about that turn. With the target "Each turn", the metric compares each turn's calls with that turn's entry, and a turn without one is not applicable. With "The conversation" or "The whole run", it compares every call of the conversation with all the entries in order, unless the test also gives `expected_tool_calls`.
+
 ## Adding the metric
 
-Every organization has a built-in **Tool Call Trajectory** metric. Add it to a requirement or a test set like any other metric. Tests without expected tool calls are not judged by it: their cell in the results grid shows as not applicable, and the test's result comes from its other metrics. A test with no other metric is Inconclusive. Production traces have no expectations, so the metric never runs on them.
+Every organization has a built-in **Tool Call Trajectory** metric. Add it to a requirement or a test set like any other metric. On a test without expected tool calls it is not applicable: its cell in the results grid shows as not applicable, and the test's result comes from its other metrics. A test with no other metric is Inconclusive. Production traces have no expectations, so the metric never runs on them.
 
 The endpoint has to report its tool calls:
 
@@ -74,4 +78,4 @@ result = metric.evaluate(
 print(result.score, result.details["reason"])`}
 </CodeBlock>
 
-For a check the modes can't express, write a [code metric](/docs/metrics/code-metrics) that reads `trace.tool_calls`.
+To forbid a tool outright, with no expected calls on the test, use a [field rule](/docs/metrics/rules#field-rules) that counts its calls: `span_count` with `span_kind: tool_call`, `span_name: delete_account`, `== 0`. For a check neither can express, write a [code metric](/docs/metrics/code-metrics) that reads `trace.tool_calls`.

@@ -1,0 +1,140 @@
+---
+title: Rules
+description: Metrics with no model and no code that check a field of the trace or compare the output with the expected response.
+keywords: [rule, latency, duration, tokens, cost, status, regex, json, exact match, similarity, tool calls]
+---
+
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Rules
+
+A rule is a metric with no model and no code. It reads one thing from what its [target](/docs/metrics/targets) picks, such as a turn's duration or a tool call's status, and compares it: with a fixed value, or with what the test expects. It passes or fails, and its result names the value it measured ("`duration_ms` is 4,210, so `duration_ms <= 5000` passes."). Rules have the metric type `rule`.
+
+When the thing a rule reads wasn't recorded, the rule is **not applicable**, never a pass or a fail. A latency rule on a span with no timing, or a cost rule on an endpoint that reports no tokens, says what is missing and how to report it. A not-applicable result doesn't count towards the test's verdict.
+
+There are two kinds of rule:
+
+- **Field rules** (`FieldRule`) compare a field of the trace with a fixed value.
+- **Expectation rules** compare with the test's expectations: `ResponseRule` with the expected response, and [Tool Call Trajectory](/docs/metrics/tool-calls) with the expected tool calls.
+
+## Field rules
+
+A field rule is a field, an operator and a value. On a target with several units, such as each tool call, the rule runs on every unit and the [aggregation](/docs/metrics/targets#combining-the-verdicts) gives the verdict, so "9 in 10 turns under 3 s" is one rule.
+
+| `field` | Reads | Not applicable when |
+| --- | --- | --- |
+| `duration_ms` | the unit's time; for several turns, from the first turn's start to the last turn's end | the span has no timing: reported spans, a trace built from a bare response |
+| `status` | `ok`, or `error` when the unit's root span failed | never |
+| `error_count` | spans with an error status in the unit | never |
+| `span_count` | spans in the unit, narrowed with `span_kind` (`tool_call`, `retrieval`, `model_call`, `agent`, `guardrail`, or a span kind such as `tool.invoke`) and `span_name` | never |
+| `tokens.input`, `tokens.output`, `tokens.total` | summed over the unit's model calls | no model call in the unit reports tokens |
+| `cost_usd` | summed over the unit's spans | no span in the unit has a cost: the model calls carry no model name or token counts, or their model has no published price |
+| `input`, `output` | the unit's input or output; for several turns, the first turn's input and the last turn's output | nothing was recorded |
+| `length.input`, `length.output` | the number of characters | nothing was recorded |
+| `attributes.<key>` | an attribute of the unit's root span, including what a REST endpoint reports (`attributes.rhesis.reported.metadata.<key>`) | the attribute isn't set |
+
+| `op` | Passes when the field |
+| --- | --- |
+| `<`, `<=`, `>`, `>=` | compares with the number `value` |
+| `==`, `!=` | equals, or doesn't equal, `value`. Text and numbers compare as the same value: `200` equals `"200"` |
+| `in`, `not_in` | is, or isn't, one of the list `value` |
+| `contains` | contains the text `value` |
+| `matches` | matches the regular expression `value` anywhere |
+| `exists` | is set. This operator takes no value, and a missing field fails it rather than being not applicable |
+| `is_json` | is valid JSON. Takes no value |
+
+`negate: true` turns the rule around: `output` `matches` an email pattern with `negate` passes when the output contains no email address.
+
+## Expectation rules
+
+`ResponseRule` compares the unit's output with the test's expected response. Its `match` is one of:
+
+| `match` | Passes when the output |
+| --- | --- |
+| `exact` | equals the expected response, ignoring surrounding whitespace |
+| `contains` | contains the expected response |
+| `matches` | matches the expected response as a regular expression |
+| `similar` | is at least `min_similarity` (0 to 1) similar to the expected response, by `similarity`: `rouge_l` (the default; the longest common run of words, ignoring case and punctuation) or `edit_distance` (characters; above 2,000 characters, words) |
+
+A test without an expected response, and every production trace, makes an expectation rule not applicable.
+
+[Tool Call Trajectory](/docs/metrics/tool-calls) is the rule for expected tool calls, with its own match and argument modes.
+
+## What rules cover
+
+| Area | Target | Rule | Needs |
+| --- | --- | --- | --- |
+| Speed | Each turn | `duration_ms <= 5000` | any endpoint |
+| | Each turn, a share of 0.9 must pass | `duration_ms <= 3000` | any endpoint |
+| | Each tool call | `duration_ms <= 2000` | traced tool calls; reported ones are not applicable |
+| Cost and effort | The whole run | `tokens.total <= 20000` | traced model calls, or `usage` in the [response mapping](/docs/endpoints/response-mapping) |
+| | The whole run | `cost_usd <= 0.05` | traced model calls with a priced model |
+| | Each agent named `planner` | `span_count <= 6` with `span_kind: model_call` | traced agents |
+| Reliability | The whole run | `error_count == 0` | any endpoint |
+| | Each tool call, all must pass | `status == ok` | tool calls |
+| | Each turn | `attributes.endpoint.response.status == 200` | REST endpoints |
+| Agent behaviour | The whole run | `span_count == 0` with `span_kind: tool_call`, `span_name: delete_account` | tool calls |
+| | Each model call | `attributes.ai.model.name in [...]` | traced model calls |
+| Output | Each turn | `output is_json` | any endpoint |
+| | Each turn | `output matches ^ORD-[0-9]{6}$` | any endpoint |
+| | Each turn | `output` `matches` a PII pattern, with `negate` | any endpoint |
+| | Each turn | `length.output <= 1200` | any endpoint |
+| | Each turn | `ResponseRule` with `match: similar`, `min_similarity: 0.8` | an expected response |
+| What a REST endpoint reports | Each turn | `attributes.rhesis.reported.metadata.confidence >= 0.7` | `metadata` mapped |
+
+Field rules need no expectations, so they run on [production traces](/docs/metrics/trace-metrics) as well as tests.
+
+Rules can't judge meaning ("was the answer helpful"): use a judge for that, and a rule in front of it to catch the cheap failures. They compare one run with fixed values, not with earlier runs, and give no statistics over many runs, such as p95 latency; those are in Insights.
+
+Every organization has these rules built in: **Response Time** (each turn, `duration_ms <= 5000`), **No Failed Tool Calls** (each tool call, `status == ok`), **Token Budget** (the whole run, `tokens.total <= 20000`), **Exact Match** (`ResponseRule`, `exact`) and **Tool Call Trajectory**.
+
+## Creating a rule
+
+A rule's settings and its target live in the metric's `config`:
+
+<CodeBlock filename="rule.sh" language="bash">
+{`curl -X POST "$RHESIS_BASE_URL/metrics/" \\
+  -H "Authorization: Bearer $RHESIS_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Tool calls under 2 s",
+    "class_name": "FieldRule",
+    "metric_type": "rule",
+    "backend_type": "rhesis",
+    "score_type": "numeric",
+    "threshold": 1,
+    "threshold_operator": ">=",
+    "evaluation_prompt": "duration_ms <= 2000",
+    "config": {
+      "field": "duration_ms",
+      "op": "<=",
+      "value": 2000,
+      "target": {"on": "tool_call"}
+    }
+  }'`}
+</CodeBlock>
+
+`evaluation_prompt` holds the rule in words; a rule doesn't send it to a model. A setting the rule doesn't know, or a value that doesn't fit its operator, is refused.
+
+## Trying a rule locally
+
+<CodeBlock filename="rules.py" language="python">
+{`from rhesis.sdk.metrics import FieldRule, ResponseRule
+
+fast = FieldRule(field="duration_ms", op="<=", value=5000)
+result = fast.evaluate(trace=trace)  # a Trace, for example Trace.pull(trace_id)
+print(result.score, result.details["reason"])
+
+every_tool_call = FieldRule(field="status", op="==", value="ok")
+print(every_tool_call.evaluate(trace=trace, target="tool_call").details["reason"])
+
+order_number = FieldRule(field="output", op="matches", value=r"ORD-[0-9]{6}")
+print(order_number.evaluate(output="Your order ORD-123456 ships today.").score)
+
+close_enough = ResponseRule(match="similar", min_similarity=0.8)
+print(close_enough.evaluate(
+    output="Paris is the capital.", expectations="The capital is Paris."
+).score)`}
+</CodeBlock>
+
+A rule's result has `measured` and `expected` in its `details`, next to the `reason`.
