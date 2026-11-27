@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
+from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 
@@ -70,7 +71,8 @@ class GeneratedMetric(BaseModel):
             "should do about a fail."
         )
     )
-    score_type: str = Field(description='Must be exactly "numeric" or "categorical"')
+    # The platform's score types; improving a binary metric must keep it binary.
+    score_type: ScoreType = Field(description='"numeric" or "categorical" for a new metric')
     min_score: Optional[float] = Field(
         default=None,
         description="Minimum score value (numeric metrics only)",
@@ -83,13 +85,9 @@ class GeneratedMetric(BaseModel):
         default=None,
         description="Pass/fail threshold (numeric metrics only)",
     )
-    threshold_operator: Optional[str] = Field(
+    threshold_operator: Optional[ThresholdOperator] = Field(
         default=None,
-        description=(
-            "Comparison operator for threshold. One of: "
-            '"=", "<", ">", "<=", ">=", "!=". '
-            "Only used for numeric metrics."
-        ),
+        description="Comparison operator for threshold. Only used for numeric metrics.",
     )
     categories: Optional[List[str]] = Field(
         default=None,
@@ -111,6 +109,29 @@ class GeneratedMetric(BaseModel):
             'metrics that judge a whole conversation, ["Single-Turn"] for a single '
             "request-response exchange, and both only when it genuinely works either way."
         ),
+    )
+
+    @model_validator(mode="after")
+    def _score_fields_match_score_type(self) -> "GeneratedMetric":
+        """The rules the platform applies when saving a metric, so a generated one saves."""
+        if self.score_type == ScoreType.NUMERIC:
+            bounds = ("min_score", "max_score", "threshold")
+            missing = [f for f in bounds if getattr(self, f) is None]
+            if missing:
+                raise ValueError(f"{', '.join(missing)} required for numeric metrics")
+        elif self.score_type == ScoreType.CATEGORICAL:
+            if not self.categories or len(self.categories) < 2:
+                raise ValueError("at least 2 categories are required for categorical metrics")
+            if not self.passing_categories:
+                raise ValueError("at least 1 passing category is required for categorical metrics")
+        return self
+
+
+def _rejection(error: ValidationError) -> str:
+    """The validation errors as short lines, without echoing the rejected values."""
+    return "\n".join(
+        f"- {'.'.join(str(p) for p in err['loc']) or 'metric'}: {err['msg']}"
+        for err in error.errors()
     )
 
 
@@ -165,13 +186,33 @@ class MetricSynthesizer:
             getattr(self.model, "model_name", type(self.model).__name__),
         )
 
-        response = self.model.generate(rendered, schema=GeneratedMetric)
+        return self._generate_metric(rendered)
 
+    def _generate_metric(self, rendered: str) -> Dict[str, Any]:
+        """Ask for a metric; if it breaks a rule, send it back once with the reason.
+
+        Raises:
+            RuntimeError: If the LLM returns an error response.
+            ValidationError: If the second answer still breaks a rule.
+        """
+        try:
+            return self._ask(rendered)
+        except ValidationError as e:
+            logger.warning(
+                "[MetricSynthesizer] Generated metric rejected, retrying:\n%s", _rejection(e)
+            )
+            return self._ask(
+                f"{rendered}\n\n## Your previous answer was rejected\n\n{_rejection(e)}\n\n"
+                "Return the whole metric again with these fixed."
+            )
+
+    def _ask(self, prompt: str) -> Dict[str, Any]:
+        response = self.model.generate(prompt, schema=GeneratedMetric)
         if isinstance(response, dict) and "error" in response:
             raise RuntimeError(str(response["error"]))
-        if isinstance(response, dict):
-            return response
-        return response.model_dump()
+        data = response if isinstance(response, dict) else response.model_dump()
+        # Providers differ in whether they validate against the schema; this always does.
+        return GeneratedMetric.model_validate(data).model_dump(mode="json")
 
     def improve(self, existing_metric: Dict[str, Any], prompt: str) -> Dict[str, Any]:
         """Improve an existing metric based on natural-language instructions.
@@ -199,10 +240,4 @@ class MetricSynthesizer:
             getattr(self.model, "model_name", type(self.model).__name__),
         )
 
-        response = self.model.generate(rendered, schema=GeneratedMetric)
-
-        if isinstance(response, dict) and "error" in response:
-            raise RuntimeError(str(response["error"]))
-        if isinstance(response, dict):
-            return response
-        return response.model_dump()
+        return self._generate_metric(rendered)

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Architect no longer asks the user to approve work they already approved. Approved requirements, metrics and test sets stay approved across messages until they are created, a later confirmation no longer withdraws an earlier one, and linking a requirement to a metric approved in an earlier message is covered. Other approved calls, such as an update, still run only in the reply to the Accept. A step that mixes approved and new calls runs the approved ones and asks only about the rest.
 - Architect checks a create or update call's arguments and the saved plan before asking for approval, so the user is never asked to approve a call that would be rejected and then asked again about the corrected one.
 - The backend's `[TASK_COMPLETED]` resume message no longer counts as approving an open confirmation, and no longer closes it.
+- `MetricSynthesizer` returns only metrics the platform accepts. `score_type` and `threshold_operator` use the `ScoreType` and `ThresholdOperator` enums, the output is checked against the same score-field rules as saving a metric, and an answer that breaks them is sent back to the model once with the reason. Generating a metric through the platform no longer fails on a numeric metric without `max_score`.
 
 ## [0.23.0] - 2026-11-27
 

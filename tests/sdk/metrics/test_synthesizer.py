@@ -202,6 +202,108 @@ def test_generate_categorical_metric_fields():
     assert result["threshold"] is None
 
 
+# ── Rules the platform enforces on save ──────────────────────────
+
+
+def test_schema_offers_only_the_valid_operators_and_score_types():
+    """Structured output can then only produce values the platform accepts."""
+    schema = GeneratedMetric.model_json_schema()
+    defs = schema.get("$defs", {})
+
+    def enum_of(field):
+        prop = schema["properties"][field]
+        options = prop.get("anyOf", [prop])
+        for option in options:
+            target = defs.get(option.get("$ref", "").split("/")[-1], option)
+            if "enum" in target:
+                return set(target["enum"])
+        return set(prop.get("enum", []))
+
+    assert enum_of("score_type") == {"binary", "numeric", "categorical"}
+    assert enum_of("threshold_operator") == {"=", "<", ">", "<=", ">=", "!="}
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"max_score": None},
+        {"min_score": None},
+        {"threshold": None},
+        {"threshold_operator": ">-1.5"},
+        {"score_type": "pass_fail"},
+    ],
+)
+def test_a_numeric_metric_the_platform_would_reject_is_invalid(change):
+    with pytest.raises(ValidationError):
+        GeneratedMetric(**{**_NUMERIC_RESPONSE, **change})
+
+
+@pytest.mark.parametrize(
+    "change",
+    [{"categories": ["only one"]}, {"categories": None}, {"passing_categories": []}],
+)
+def test_a_categorical_metric_the_platform_would_reject_is_invalid(change):
+    with pytest.raises(ValidationError):
+        GeneratedMetric(**{**_CATEGORICAL_RESPONSE, **change})
+
+
+def test_a_rejected_metric_is_sent_back_once_with_the_reason():
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.side_effect = [
+        {**_NUMERIC_RESPONSE, "max_score": None},
+        dict(_NUMERIC_RESPONSE),
+    ]
+
+    result = MetricSynthesizer(model=mock_model).generate("numeric metric")
+
+    assert result["max_score"] == 5.0
+    retry_prompt = mock_model.generate.call_args_list[1].args[0]
+    assert "max_score required for numeric metrics" in retry_prompt
+
+
+def test_a_metric_rejected_twice_raises():
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {**_NUMERIC_RESPONSE, "max_score": None}
+
+    with pytest.raises(ValidationError):
+        MetricSynthesizer(model=mock_model).generate("numeric metric")
+    assert mock_model.generate.call_count == 2
+
+
+def test_improve_sends_a_rejected_metric_back_too():
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.side_effect = [
+        {**_CATEGORICAL_RESPONSE, "passing_categories": []},
+        dict(_CATEGORICAL_RESPONSE),
+    ]
+
+    result = MetricSynthesizer(model=mock_model).improve(dict(_CATEGORICAL_RESPONSE), "stricter")
+
+    assert result["passing_categories"] == ["appropriate"]
+
+
+def test_improving_a_binary_metric_keeps_it_binary():
+    binary = {**_NUMERIC_RESPONSE, "score_type": "binary", "threshold_operator": "="}
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = dict(binary)
+
+    result = MetricSynthesizer(model=mock_model).improve(dict(binary), "clearer wording")
+
+    assert result["score_type"] == "binary"
+    assert mock_model.generate.call_count == 1
+
+
+def test_returned_values_are_plain_strings():
+    """The backend builds MetricCreate from the dict and stores it as JSON."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = dict(_NUMERIC_RESPONSE)
+
+    result = MetricSynthesizer(model=mock_model).generate("numeric metric")
+
+    assert type(result["score_type"]) is str
+    assert type(result["threshold_operator"]) is str
+
+
 # ── Multi-turn awareness in generation template ──────────────────
 
 
