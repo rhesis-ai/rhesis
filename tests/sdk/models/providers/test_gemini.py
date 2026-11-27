@@ -16,6 +16,12 @@ def test_gemini_defaults():
     assert DEFAULT_MODEL_NAME != ""
 
 
+def test_gemini_default_model_is_not_retired():
+    # gemini-2.0-flash was shut down on 2026-06-01
+    llm = GeminiLLM(api_key="test_api_key")
+    assert llm.model_name == "gemini/gemini-3.8-flash"
+
+
 class TestGeminiLLM:
     def test_init_with_api_key(self):
         """Test initialization with explicit API key"""

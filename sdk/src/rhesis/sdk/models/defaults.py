@@ -16,7 +16,7 @@ DEFAULT_LANGUAGE_MODELS = {
     "rhesis": "rhesis/rhesis",
     "anthropic": "anthropic/claude-4",
     "cohere": "cohere/command-r-plus",
-    "gemini": "gemini/gemini-2.0-flash",
+    "gemini": "gemini/gemini-3.8-flash",
     "groq": "groq/llama3-8b-8192",
     "huggingface": "huggingface/meta-llama/Llama-2-7b-chat-hf",
     "lmformatenforcer": "lmformatenforcer/meta-llama/Llama-2-7b-chat-hf",
