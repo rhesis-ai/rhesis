@@ -8,9 +8,9 @@ Trace Metrics let you run evaluation metrics against live production traces auto
 
 Trace metrics evaluate at two levels depending on the type of trace.
 
-**Per-turn evaluation** runs immediately after each request, with every project metric whose [target](/docs/metrics/targets) isn't `conversation`. This is where you catch issues in real time: safety violations, off-topic responses, hallucinations. Every trace gets per-turn evaluation.
+**Per-turn evaluation** runs immediately after each request, with the project metrics whose [target](/docs/metrics/targets) is a turn or a span kind, such as each tool call or each retrieval. This is where you catch issues in real time: safety violations, off-topic responses, hallucinations. A trace without a conversation is judged once, as it arrives, by every project metric except those that target `conversation`.
 
-**Conversation evaluation** runs after a multi-turn conversation goes quiet (default: 5 minutes of inactivity). This is where you assess the conversation as a whole: whether the assistant stayed coherent, achieved the user's goal, and retained context across turns. It uses the project's metrics whose target is `conversation`. Only multi-turn traces get conversation evaluation.
+**Conversation evaluation** runs after a multi-turn conversation goes quiet (default: 5 minutes of inactivity). This is where you assess the conversation as a whole: whether the assistant stayed coherent, achieved the user's goal, and retained context across turns. It uses the project's metrics whose target is `conversation` or `run`, so a whole-run metric judges the finished conversation once instead of each turn. Only multi-turn traces get conversation evaluation.
 
 *Note: The inactivity timeout is centrally configurable in the backend via the `DEFAULT_CONVERSATION_DEBOUNCE_SECONDS` environment variable.*
 
@@ -30,7 +30,8 @@ Any metric can evaluate traces. Its [target](/docs/metrics/targets) decides whic
 | Target | Evaluates | Typical use |
 | --- | --- | --- |
 | `conversation` | Full conversation, after inactivity | Coherence, goal achievement, knowledge retention |
-| Any other target | Each turn, immediately | Safety, toxicity, response relevance |
+| `run` | Full conversation once, after inactivity; a trace without a conversation as it arrives | Token budgets, whole-run rules |
+| `turn` or a span kind | Each turn, immediately | Safety, toxicity, response relevance |
 
 A trace without a `conversation_id` only gets per-turn evaluation, so a metric that targets `conversation` never runs on it.
 

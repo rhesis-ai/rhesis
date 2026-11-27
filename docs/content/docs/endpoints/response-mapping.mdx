@@ -67,7 +67,8 @@ Each call to a REST or WebSocket endpoint leaves a trace: one `endpoint.invoke` 
 | `metadata` | One attribute per key on the span, `rhesis.reported.metadata.<key>`, also available to [custom metrics](/docs/metrics#using-metadata-in-evaluation). A long value is cut on its own |
 | Conversation tracking fields (`conversation_id`, `session_id`, `thread_id`, etc.) | The trace's conversation, for [multi-turn conversations](/docs/endpoints/request-mapping#multi-turn-conversations) |
 | `version_info` | The version of your application behind this endpoint, as a JSON object. Recorded on the run and shown in its Configuration tab, the test runs list, and trace span details. Takes precedence over the version configured on the endpoint. See [Version Information](/docs/endpoints/management#version-information) |
-| Any other field | An attribute on the span, `rhesis.reported.<name>` |
+| `status` | The span's `endpoint.response.status` attribute. This is the mapped field, not the HTTP status code |
+| Any other field | An attribute on the span, `rhesis.reported.<name>`, except `error` and `message`, which Rhesis reads to detect failed and finished calls |
 
 Child spans made from the response are marked as reported. They have no timing of their own: the endpoint said what happened, not how long it took. An endpoint that sends its own traces, through the Rhesis SDK or OpenTelemetry, adds its spans to the same trace.
 
