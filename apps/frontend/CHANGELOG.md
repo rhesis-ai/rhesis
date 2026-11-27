@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **API Tokens for Members**: Members can open the API page to manage their own tokens; it no longer requires an admin role.
+- **Span Input and Timing**: A REST invocation span shows the turn's input and output, and a retrieval span its query and documents. A span the endpoint reported shows No timing instead of 0µs.
 
 ## [0.22.0] - 2026-11-19
 

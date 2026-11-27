@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Routes survive a late teardown**: closing an old connector socket, or its heartbeat while it lingers, no longer removes or takes back the route of a connection that re-registered the same project and environment, locally or in Redis.
 - **Bounded call bookkeeping**: calls dispatched for Celery workers are forgotten once their timeout passes, instead of piling up.
 - **Dropped connectors fail fast**: when a connector drops and no connection of its scope comes back within 90 seconds, its in-flight calls fail with `sdk_connection_lost` instead of waiting for the endpoint timeout. The error is not retried, since the function may already have run.
+- **Evaluations read the whole trace**: an evaluation that reads a trace waits, up to 15 seconds, for that trace's spans still queued for storage. A test run scored an SDK endpoint's trace before its spans were stored, and judged part of it, or a bare response.
+- **Production traces without turn text are judged**: a turn whose root span has no `rhesis.conversation.input` or `rhesis.conversation.output` is judged on what its trace recorded, instead of being skipped. When the trace recorded no input or output at all, metrics that judge the turn's text are not applicable, and rules and per-span metrics still run.
 
 ## [0.22.0] - 2026-11-19
 

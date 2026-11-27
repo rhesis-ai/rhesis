@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - After a connection that had stayed up drops, the connector reconnects at once instead of waiting out a backoff that grew with every earlier drop (up to 60 seconds), and sends during the reconnect go straight to the outbox.
 - The backend's keepalive `ping` is logged at debug level instead of info.
 - The SDK requires the `rhesis` core package at its own version or newer, instead of `0.17.1`, so it no longer installs next to an older core.
+- An `@endpoint` function called directly by the application, not through Rhesis, records the turn's input and output (`rhesis.conversation.input` and `rhesis.conversation.output`) on its root span, read through its `request_mapping` and `response_mapping`. Production traces from such calls had neither, so trace metrics never judged them.
+- Each direct call of a traced function starts a trace of its own. The tracer kept the first call's trace id, so later calls in the same thread were treated as nested: they got no conversation id and kept a reference to every result.
+- `@observe.retrieval` records the query (an `ai.retrieval.query` event), so a retrieval span has an input and metrics on each retrieval can judge it.
 
 ## [0.22.0] - 2026-11-19
 

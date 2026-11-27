@@ -93,6 +93,8 @@ The project stores its trace metrics in `attributes.trace_metrics`, either as a 
 
 No changes needed in your application code. If your endpoint is already sending traces to Rhesis, evaluation starts as soon as the project has trace metrics.
 
+A turn is judged on what its trace recorded. Its input and output are `rhesis.conversation.input` and `rhesis.conversation.output` on the root span. An `@endpoint` function sets both, whether Rhesis calls it or your application does. When a trace records no input or output at all, metrics that judge the turn's text are not applicable. Rules, and metrics that target a span kind such as each tool call, still run.
+
 ## Viewing Results
 
 ### Traces Table

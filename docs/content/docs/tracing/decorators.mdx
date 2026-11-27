@@ -129,6 +129,8 @@ def search_docs(query: str) -> list:
 | `backend` | Yes | Backend name (pinecone, weaviate, chroma) |
 | `top_k` | No | Number of results |
 
+The span records the query, from the argument named `query`, `question`, `q`, `text`, `input` or `prompt`, else the first argument. It also records the documents the function returned. Metrics that target each retrieval judge these two.
+
 #### @observe.rerank()
 
 For reranking search results.
