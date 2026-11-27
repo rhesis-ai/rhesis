@@ -531,6 +531,58 @@ class TestCheckEndpointConnectivity:
         assert waits == [50, 60]
 
 
+class TestCheckSdkEndpointConnectivity:
+    """SDK endpoints are checked without calling the function (issue #3323)."""
+
+    IS_CONNECTED = "rhesis.backend.app.services.connector.manager.connection_manager.is_connected"
+    CREATE_INVOKER = "rhesis.backend.app.services.invokers.create_invoker"
+
+    @staticmethod
+    def _sdk_endpoint(status_name="Active"):
+        endpoint = MagicMock(
+            connection_type="SDK",
+            environment="development",
+            endpoint_metadata={"sdk_connection": {"function_name": "chat"}},
+        )
+        endpoint.status.name = status_name
+        return endpoint
+
+    async def _check(self, endpoint, connected):
+        from rhesis.backend.app.services.preflight.checks import (
+            check_endpoint_connectivity,
+        )
+
+        with (
+            patch(self.IS_CONNECTED, AsyncMock(return_value=connected)),
+            patch(self.CREATE_INVOKER) as create_invoker,
+        ):
+            result = await check_endpoint_connectivity(endpoint, publish=False)
+        # Calling the function would add a trace with placeholder input to the project.
+        create_invoker.assert_not_called()
+        return result
+
+    @pytest.mark.asyncio
+    async def test_connected_and_registered_passes(self):
+        result = await self._check(self._sdk_endpoint(), connected=True)
+
+        assert result.status == PreflightCheckStatus.PASSED
+        assert "chat" in result.detail
+
+    @pytest.mark.asyncio
+    async def test_not_connected_fails(self):
+        result = await self._check(self._sdk_endpoint(), connected=False)
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert result.message == "SDK connector is not connected"
+
+    @pytest.mark.asyncio
+    async def test_unregistered_function_fails(self):
+        result = await self._check(self._sdk_endpoint("Inactive"), connected=True)
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert result.message == "Function is no longer registered"
+
+
 class TestValidateMetricsLoadable:
     MODEL_UTIL = "rhesis.backend.app.utils.user_model_utils.resolve_model"
     VALIDATE_CONFIGS = "rhesis.backend.metrics.metric_config.validate_metric_configs"
