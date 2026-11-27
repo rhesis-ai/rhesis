@@ -17,6 +17,7 @@ from rhesis.telemetry.schemas import OTELSpan, StatusCode
 from rhesis.backend.app.crud.telemetry import get_trace_by_id
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.services.invokers.tracing import EndpointAttributes
+from rhesis.backend.app.services.telemetry.ingest_pending import wait_until_stored
 from rhesis.backend.app.services.telemetry.span_types import classify_span_type
 from rhesis.sdk.entities.trace import FROM_CONVERSATION, TRACE_SOURCE_ATTRIBUTE, Span, Trace
 from rhesis.sdk.telemetry.reported_spans import reported_attributes, reported_spans
@@ -128,8 +129,11 @@ def load_evaluation_trace(
     """The trace with this id, read from storage in a session of its own.
 
     ``unsaved_spans`` stand in when nothing is stored yet: a batch run writes its invocation
-    spans only after scoring, and those are exactly the spans it will write.
+    spans only after scoring, and those are exactly the spans it will write. Spans still
+    queued for storage are waited for, for a while, so an evaluation right after the endpoint
+    answered reads the whole trace.
     """
+    wait_until_stored(organization_id, project_id, trace_id)
     with get_db_with_tenant_variables(organization_id, user_id, project_id) as db:
         rows = get_trace_by_id(
             db, trace_id=trace_id, project_id=project_id, organization_id=organization_id

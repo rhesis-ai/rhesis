@@ -1,11 +1,13 @@
 """Celery task that stores queued trace spans, then links and queues their evaluation."""
 
 import logging
+import uuid
 from typing import Any, Dict
 
 from sqlalchemy.exc import InterfaceError, OperationalError
 
 from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
+from rhesis.backend.app.services.telemetry import ingest_pending
 from rhesis.backend.app.services.telemetry.ingest import (
     IngestJob,
     SpanStorageError,
@@ -45,6 +47,7 @@ def finish_stored_batch(db, batch: StoredBatch, job: IngestJob) -> None:
 def ingest_spans(self, message: Dict[str, Any]) -> Dict[str, Any]:
     """Store the spans of one queued :class:`IngestJob` message."""
     job = IngestJob.from_message(message)
+    retrying = False
     db = SessionLocal()
     try:
         bind_scope_to_session(db, job.organization_id, job.user_id or "", job.project_id)
@@ -55,6 +58,7 @@ def ingest_spans(self, message: Dict[str, Any]) -> Dict[str, Any]:
             return {"stored": 0, "received": len(job.spans), "trace_ids": []}
         except (SpanStorageError, OperationalError, InterfaceError) as exc:
             # InterfaceError/OperationalError: the database was unreachable before storage.
+            retrying = self.request.retries < self.max_retries
             raise self.retry(exc=exc, countdown=min(10 * 2**self.request.retries, 300))
 
         logger.info(
@@ -64,12 +68,43 @@ def ingest_spans(self, message: Dict[str, Any]) -> Dict[str, Any]:
         finish_stored_batch(db, batch, job)
     finally:
         db.close()
+        if not retrying:
+            _mark_done(message, job)
     return {"stored": batch.span_count, "received": len(job.spans), "trace_ids": batch.trace_ids}
 
 
+def _mark_done(message: Dict[str, Any], job: IngestJob) -> None:
+    if not message.get("id"):
+        return
+    try:
+        ingest_pending.mark_done(
+            message["id"], job.organization_id, job.project_id, message.get("trace_ids") or []
+        )
+    except Exception:
+        logger.warning("Could not clear the pending ingest mark", exc_info=True)
+
+
 def enqueue_ingest(job: IngestJob, max_message_bytes: int) -> int:
-    """Queue ``job`` on the trace-ingest queue, split by message size. Returns messages."""
+    """Queue ``job`` on the trace-ingest queue, split by message size. Returns messages.
+
+    Each message is marked against its traces first, so an evaluation that reads one of
+    them waits for the worker to store it.
+    """
     messages = job.messages(max_message_bytes)
+    # Every message names all the job's traces: a superset, cleared by that same message.
+    trace_ids = sorted({span.trace_id for span in job.spans if span.trace_id})
     for message in messages:
-        ingest_spans.apply_async(kwargs={"message": message})
+        message["id"] = uuid.uuid4().hex
+        message["trace_ids"] = trace_ids
+        try:
+            ingest_pending.mark_queued(
+                message["id"], job.organization_id, job.project_id, trace_ids
+            )
+        except Exception:
+            logger.warning("Could not mark spans as queued", exc_info=True)
+        try:
+            ingest_spans.apply_async(kwargs={"message": message})
+        except Exception:
+            _mark_done(message, job)
+            raise
     return len(messages)

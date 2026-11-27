@@ -401,6 +401,28 @@ class RedisBackedCache:
             bucket = self._memory.get(key)
             return dict(bucket) if isinstance(bucket, dict) else {}
 
+    def _hdel(self, key: str, *fields: str) -> None:
+        """Remove fields from a hash; the hash goes when its last field does."""
+        if not fields:
+            return
+        if self._using_redis:
+            try:
+                self._redis.hdel(key, *fields)
+                return
+            except Exception as exc:
+                logger.warning(
+                    f"{self._cache_name}: Redis hdel failed, falling back to memory: {exc}"
+                )
+
+        with self._lock:
+            bucket = self._memory.get(key)
+            if isinstance(bucket, dict):
+                for field in fields:
+                    bucket.pop(field, None)
+                if not bucket:
+                    self._memory.pop(key, None)
+                    self._memory_timestamps.pop(key, None)
+
     def _getdel(self, key: str) -> Optional[str]:
         """Get and delete a key atomically."""
         if self._using_redis:
