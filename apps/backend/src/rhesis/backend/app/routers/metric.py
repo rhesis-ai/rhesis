@@ -191,6 +191,11 @@ def generate_metric(
 
 
 _FRAMEWORK_READ_ONLY = "Framework metrics are read-only; their definition comes from the framework"
+_FRAMEWORK_TARGET_ONLY = (
+    "Framework metrics are read-only except their target; their definition comes from the "
+    'framework. Send only config with the new target, such as {"config": {"target": '
+    '{"on": "retrieval"}}}'
+)
 
 
 def _is_framework_metric(db_metric: models.Metric) -> bool:
@@ -200,6 +205,18 @@ def _is_framework_metric(db_metric: models.Metric) -> bool:
         MetricBackendType.RHESIS,
         MetricBackendType.CUSTOM,
     }
+
+
+def _changes_only_target(update: schemas.MetricUpdate, db_metric: models.Metric) -> bool:
+    """The target says where a metric is applied, not what it is, so a framework metric keeps it
+    editable, like its tags."""
+    if update.config is None or update.model_fields_set - {"config"}:
+        return False
+
+    def settings(config: dict) -> dict:
+        return {key: value for key, value in config.items() if key != "target"}
+
+    return settings(update.config) == settings(db_metric.config or {})
 
 
 @router.post(
@@ -407,8 +424,8 @@ def update_metric(
     db_metric = metric_crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
-    if _is_framework_metric(db_metric):
-        raise HTTPException(status_code=403, detail=_FRAMEWORK_READ_ONLY)
+    if _is_framework_metric(db_metric) and not _changes_only_target(metric, db_metric):
+        raise HTTPException(status_code=403, detail=_FRAMEWORK_TARGET_ONLY)
 
     # A null model_id doesn't clear it (the update drops nulls), so the stored one stays in force.
     _refuse_decision_model_on_metric(

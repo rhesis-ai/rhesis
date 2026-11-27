@@ -1357,7 +1357,9 @@ tools:
       remove_requirement_from_metric for those. Send ONLY fields to change.
       Do NOT send server-managed fields (id, user_id, organization_id,
       created_at, updated_at, owner_id, assignee_id, status_id, model_id,
-      backend_type_id, metric_type_id).
+      backend_type_id, metric_type_id). A framework metric (backend type
+      deepeval, garak or ragas) accepts only a new target: send config with
+      the target alone and nothing else; any other change is refused.
     parameters:
       metric_id:
         description: "REQUIRED. UUID of the metric to update."

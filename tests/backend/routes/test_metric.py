@@ -244,6 +244,43 @@ class TestMetricDetailAccessRestriction(MetricTestMixin, BaseEntityTests):
         assert get_resp.json()["threshold"] == metric["threshold"]
 
     @pytest.mark.parametrize("backend", ["deepeval", "garak", "ragas"])
+    def test_framework_metric_target_can_change(self, backend, metric_factory):
+        """The target says where a framework metric is applied, so it stays editable."""
+        data = self.get_sample_data()
+        data["backend_type"] = backend
+        metric = metric_factory.create(data)
+        current = metric["config"]["target"]["on"]
+        other = next(t for t in metric["supported_targets"] if t != current)
+
+        put_resp = metric_factory.client.put(
+            self.endpoints.put(metric["id"]), json={"config": {"target": {"on": other}}}
+        )
+
+        assert put_resp.status_code == status.HTTP_200_OK, put_resp.text
+        assert put_resp.json()["config"]["target"]["on"] == other
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"config": {"target": {"on": "run"}}, "threshold": 0.9},
+            {"config": {"target": {"on": "run"}, "strict_mode": True}},
+        ],
+        ids=["with another field", "with another setting"],
+    )
+    def test_framework_metric_target_change_cant_carry_more(self, body, metric_factory):
+        """Only the target changes: anything else in the same update is refused."""
+        data = self.get_sample_data()
+        data["backend_type"] = "deepeval"
+        metric = metric_factory.create(data)
+
+        put_resp = metric_factory.client.put(self.endpoints.put(metric["id"]), json=body)
+
+        assert put_resp.status_code == status.HTTP_403_FORBIDDEN
+        assert "except their target" in put_resp.json()["detail"]
+        get_resp = metric_factory.client.get(self.endpoints.get(metric["id"]))
+        assert get_resp.json()["config"] == metric["config"]
+
+    @pytest.mark.parametrize("backend", ["deepeval", "garak", "ragas"])
     def test_improve_framework_metric_returns_403(self, backend, metric_factory):
         """POST /metrics/{id}/improve refuses a framework metric before any generation."""
         data = self.get_sample_data()
