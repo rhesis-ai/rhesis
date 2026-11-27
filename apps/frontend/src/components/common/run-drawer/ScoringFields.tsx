@@ -70,10 +70,7 @@ interface MetricsFieldProps {
   onMetricModeChange: (mode: MetricMode) => void;
   testSetMetricCount: number;
   selectedMetrics: SelectedMetric[];
-  onAddMetric: (metric: {
-    id: UUID;
-    name: string;
-  }) => void;
+  onAddMetric: (metric: { id: UUID; name: string }) => void;
   onRemoveMetric: (id: UUID) => void;
   testType?: string;
 }

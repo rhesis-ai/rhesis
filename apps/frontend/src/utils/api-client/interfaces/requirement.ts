@@ -58,7 +58,6 @@ export interface RequirementMetricRef {
   description?: string | null;
   score_type?: string | null;
   config?: MetricConfig | null;
-  supported_targets?: string[] | null;
   metric_type?: RequirementLookupRef | null;
   backend_type?: RequirementLookupRef | null;
   project_id?: UUID | null;
