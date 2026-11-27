@@ -39,14 +39,11 @@ PYTHONUNBUFFERED=1  # Ensures immediate log output`}
 
 ### Celery Logging Configuration
 
-In the worker startup, Celery is configured with:
-
-<CodeBlock language="bash" isTerminal={true}>
-{`celery -A rhesis.backend.worker.app worker \
-    --loglevel=\${CELERY_WORKER_LOGLEVEL:-INFO} \
-    --concurrency=\${CELERY_WORKER_CONCURRENCY:-8} \
-    # ... other options`}
-</CodeBlock>
+`apps/worker/start.sh` starts one or more Celery processes, depending on `WORKER_LAYOUT`. Rhesis's
+hosted environments run `split`, with one process per group of queues. Each process logs at
+`CELERY_WORKER_LOGLEVEL`, which defaults to `LOG_LEVEL`. See
+[Running workers](/contribute/worker/background-tasks#running-workers) for the layouts and their
+concurrency settings.
 
 ## Log Sources and Formats
 
@@ -150,25 +147,29 @@ docker-compose logs --tail=100 worker`}
 
 ### GKE Deployment
 
+The chart names each worker's Deployment, pod label and container `worker-<name>`. The commands
+below use the default worker, `worker-default`, which runs in the `rhesis` namespace on the hosted
+clusters.
+
 #### Basic Log Access
 <CodeBlock language="bash" isTerminal={true}>
 {`# Get logs from worker container
-kubectl logs <pod-name> -c worker -n <namespace>
+kubectl logs <pod-name> -c worker-default -n <namespace>
 
 # Get recent logs (last 100 lines)
-kubectl logs <pod-name> -c worker -n <namespace> --tail=100
+kubectl logs <pod-name> -c worker-default -n <namespace> --tail=100
 
 # Get logs from last hour
-kubectl logs <pod-name> -c worker -n <namespace> --since=1h`}
+kubectl logs <pod-name> -c worker-default -n <namespace> --since=1h`}
 </CodeBlock>
 
 #### Real-Time Monitoring
 <CodeBlock language="bash" isTerminal={true}>
 {`# Follow logs as they're generated
-kubectl logs -f <pod-name> -c worker -n <namespace>
+kubectl logs -f <pod-name> -c worker-default -n <namespace>
 
 # Follow logs from all worker pods
-kubectl logs -f deployment/rhesis-worker -n <namespace>
+kubectl logs -f -l app=worker-default -n <namespace> --prefix
 
 # Follow logs from all containers in pod
 kubectl logs -f <pod-name> -n <namespace> --all-containers=true`}
@@ -177,10 +178,10 @@ kubectl logs -f <pod-name> -n <namespace> --all-containers=true`}
 #### Historical Logs
 <CodeBlock language="bash" isTerminal={true}>
 {`# Get logs from previous container restart (if crashed)
-kubectl logs <pod-name> -c worker -n <namespace> --previous
+kubectl logs <pod-name> -c worker-default -n <namespace> --previous
 
 # Get logs with timestamps
-kubectl logs <pod-name> -c worker -n <namespace> --timestamps=true`}
+kubectl logs <pod-name> -c worker-default -n <namespace> --timestamps=true`}
 </CodeBlock>
 
 ## Log Analysis Techniques
@@ -189,7 +190,7 @@ kubectl logs <pod-name> -c worker -n <namespace> --timestamps=true`}
 
 <CodeBlock language="bash" isTerminal={true}>
 {`# List all worker pods
-kubectl get pods -n <namespace> -l app=rhesis-worker
+kubectl get pods -n <namespace> -l app=worker-default
 
 # Get pod details including restart count
 kubectl get pods -n <namespace> -o wide`}
@@ -200,34 +201,34 @@ kubectl get pods -n <namespace> -o wide`}
 #### Search for Errors
 <CodeBlock language="bash" isTerminal={true}>
 {`# Find all errors
-kubectl logs <pod-name> -c worker -n <namespace> | grep -i error
+kubectl logs <pod-name> -c worker-default -n <namespace> | grep -i error
 
 # Find Redis connection issues
-kubectl logs <pod-name> -c worker -n <namespace> | grep -i "redis\|connection\|timeout"
+kubectl logs <pod-name> -c worker-default -n <namespace> | grep -i "redis\|connection\|timeout"
 
 # Find task failures
-kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(failed|exception|error)"`}
+kubectl logs <pod-name> -c worker-default -n <namespace> | grep -E "(failed|exception|error)"`}
 </CodeBlock>
 
 #### Search for Task Activity
 <CodeBlock language="bash" isTerminal={true}>
 {`# Find task executions
-kubectl logs <pod-name> -c worker -n <namespace> | grep "Received task"
+kubectl logs <pod-name> -c worker-default -n <namespace> | grep "Received task"
 
 # Find task completions
-kubectl logs <pod-name> -c worker -n <namespace> | grep "succeeded in"
+kubectl logs <pod-name> -c worker-default -n <namespace> | grep "succeeded in"
 
 # Find batch runner markers
-kubectl logs <pod-name> -c worker -n <namespace> | grep "\\[BATCH\\]"`}
+kubectl logs <pod-name> -c worker-default -n <namespace> | grep "\\[BATCH\\]"`}
 </CodeBlock>
 
 #### Search for Health Check Activity
 <CodeBlock language="bash" isTerminal={true}>
 {`# Find health check requests
-kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(GET /health|GET /ping)"
+kubectl logs <pod-name> -c worker-default -n <namespace> | grep -E "(GET /health|GET /ping)"
 
 # Find health check failures
-kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(500|timeout|failed)"`}
+kubectl logs <pod-name> -c worker-default -n <namespace> | grep -E "(500|timeout|failed)"`}
 </CodeBlock>
 
 ### 3. Advanced Log Analysis
@@ -235,21 +236,21 @@ kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(500|timeout|failed)
 #### Export Logs for Analysis
 <CodeBlock language="bash" isTerminal={true}>
 {`# Save logs to file
-kubectl logs <pod-name> -c worker -n <namespace> --tail=1000 > worker-logs.txt
+kubectl logs <pod-name> -c worker-default -n <namespace> --tail=1000 > worker-logs.txt
 
 # Save logs with timestamps
-kubectl logs <pod-name> -c worker -n <namespace> --timestamps=true --tail=1000 > worker-logs-timestamped.txt
+kubectl logs <pod-name> -c worker-default -n <namespace> --timestamps=true --tail=1000 > worker-logs-timestamped.txt
 
 # Save logs from specific time period
-kubectl logs <pod-name> -c worker -n <namespace> --since=2h > recent-worker-logs.txt`}
+kubectl logs <pod-name> -c worker-default -n <namespace> --since=2h > recent-worker-logs.txt`}
 </CodeBlock>
 
 #### Multi-Pod Log Aggregation
 <CodeBlock language="bash" isTerminal={true}>
 {`# Get logs from all worker pods
-for pod in $(kubectl get pods -n <namespace> -l app=rhesis-worker -o jsonpath='{.items[*].metadata.name}'); do
+for pod in $(kubectl get pods -n <namespace> -l app=worker-default -o jsonpath='{.items[*].metadata.name}'); do
   echo "=== Logs from $pod ===" >> all-worker-logs.txt
-  kubectl logs $pod -c worker -n <namespace> --tail=100 >> all-worker-logs.txt
+  kubectl logs $pod -c worker-default -n <namespace> --tail=100 >> all-worker-logs.txt
   echo "" >> all-worker-logs.txt
 done`}
 </CodeBlock>
@@ -322,13 +323,13 @@ INFO: 127.0.0.1:42756 - "GET /health HTTP/1.1" 500 Internal Server Error`}
 #### Using kubectl and basic tools
 <CodeBlock language="bash" isTerminal={true}>
 {`# Count errors in last 100 log lines
-kubectl logs <pod-name> -c worker -n <namespace> --tail=100 | grep -c ERROR
+kubectl logs <pod-name> -c worker-default -n <namespace> --tail=100 | grep -c ERROR
 
 # Check for recent connection issues
-kubectl logs <pod-name> -c worker -n <namespace> --since=10m | grep -i "connection\|timeout"
+kubectl logs <pod-name> -c worker-default -n <namespace> --since=10m | grep -i "connection\|timeout"
 
 # Monitor health check success rate
-kubectl logs <pod-name> -c worker -n <namespace> --since=1h | grep "GET /health" | grep -c "200 OK"`}
+kubectl logs <pod-name> -c worker-default -n <namespace> --since=1h | grep "GET /health" | grep -c "200 OK"`}
 </CodeBlock>
 
 ## Debugging with Logs

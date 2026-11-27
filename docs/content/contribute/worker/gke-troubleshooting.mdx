@@ -47,19 +47,30 @@ script from [Troubleshooting](/contribute/worker/troubleshooting#worker-registra
 
 ### Cluster Management Commands
 
+The Helm chart creates one Deployment per entry in `workers`, named `worker-<name>`. The default
+worker is `worker-default`, in the `rhesis` namespace on the hosted clusters. Its pods carry the
+label `app=worker-default` and run a single container, also named `worker-default`.
+
+On the hosted clusters a KEDA `ScaledObject`, also named `worker-default`, owns the replica count.
+It undoes a `kubectl scale` within seconds. Pause it instead.
+
 **Scale workers down (for debugging):**
 <CodeBlock language="bash" isTerminal={true}>
-{`kubectl scale deployment rhesis-worker --replicas=0 -n <namespace>`}
+{`kubectl annotate scaledobject worker-default -n <namespace> \
+  autoscaling.keda.sh/paused-replicas="0" --overwrite`}
 </CodeBlock>
 
-**Scale workers back up:**
+**Hand scaling back to KEDA:**
 <CodeBlock language="bash" isTerminal={true}>
-{`kubectl scale deployment rhesis-worker --replicas=2 -n <namespace>`}
+{`kubectl annotate scaledobject worker-default -n <namespace> autoscaling.keda.sh/paused-replicas-`}
 </CodeBlock>
+
+Without KEDA (`hpa.enabled: false`, the chart default), `kubectl scale deployment worker-default`
+works as usual.
 
 **Check current replica count:**
 <CodeBlock language="bash" isTerminal={true}>
-{`kubectl get deployment rhesis-worker -n <namespace>`}
+{`kubectl get deployment worker-default -n <namespace>`}
 </CodeBlock>
 
 ## Common Troubleshooting Commands
@@ -72,8 +83,8 @@ script from [Troubleshooting](/contribute/worker/troubleshooting#worker-registra
 **Expected Output:**
 <CodeBlock language="text" isTerminal={false}>
 {`NAME                             READY   STATUS    RESTARTS   AGE
-rhesis-worker-6d9bcd9c6f-6bxk8   2/2     Running   0          5m
-rhesis-worker-6d9bcd9c6f-9kqwz   2/2     Running   0          3m`}
+worker-default-6d9bcd9c6f-6bxk8  2/2     Running   0          5m
+worker-default-6d9bcd9c6f-9kqwz  2/2     Running   0          3m`}
 </CodeBlock>
 
 **Problem Indicators:**
@@ -135,7 +146,7 @@ kubectl exec -it <pod-name> -n <namespace> -- curl -m 15 http://localhost:8080/d
 **Symptoms:**
 <CodeBlock language="text" isTerminal={false}>
 {`NAME                             READY   STATUS    RESTARTS   AGE
-rhesis-worker-586659994f-lldfn   1/2     Running   167        13h`}
+worker-default-586659994f-lldfn  1/2     Running   167        13h`}
 </CodeBlock>
 
 **Diagnosis:**
@@ -273,10 +284,10 @@ telnet <redis-hostname> 6378`}
 ### Monitor Logs in Real-Time
 <CodeBlock language="bash" isTerminal={true}>
 {`# Follow logs for all worker pods
-kubectl logs -f deployment/rhesis-worker -n <namespace>
+kubectl logs -f -l app=worker-default -n <namespace> --prefix
 
-# Follow logs for specific container
-kubectl logs -f <pod-name> -c worker -n <namespace>`}
+# Follow logs for one pod
+kubectl logs -f <pod-name> -n <namespace>`}
 </CodeBlock>
 
 ### Network Debugging
@@ -366,19 +377,22 @@ readinessProbe:
 </CodeBlock>
 
 ### Scale Down/Up
+Pause KEDA rather than running `kubectl scale`, which KEDA undoes (see
+[Cluster Management Commands](#cluster-management-commands)):
+
 <CodeBlock language="bash" isTerminal={true}>
-{`kubectl scale deployment rhesis-worker --replicas=0 -n <namespace>
-kubectl scale deployment rhesis-worker --replicas=2 -n <namespace>`}
+{`kubectl annotate scaledobject worker-default -n <namespace> \
+  autoscaling.keda.sh/paused-replicas="0" --overwrite
+kubectl annotate scaledobject worker-default -n <namespace> autoscaling.keda.sh/paused-replicas-`}
 </CodeBlock>
 
 ### Emergency Debugging
 <CodeBlock language="bash" isTerminal={true}>
-{`# Create debug pod with same network
-kubectl run debug-pod --image=gcr.io/PROJECT_ID/rhesis-worker:latest \
-  --namespace=<namespace> --rm -it -- bash
+{`# There is no worker Service; forward a port to the Deployment instead
+kubectl port-forward deployment/worker-default 8080:8080 -n <namespace>
 
-# Test from debug pod
-curl http://rhesis-worker-service:8080/debug`}
+# In another terminal
+curl http://localhost:8080/debug`}
 </CodeBlock>
 
 ## Getting Help
@@ -410,5 +424,5 @@ When reporting issues, include:
 
 5. **Configuration:**
    ```bash
-   kubectl get deployment rhesis-worker -n <namespace> -o yaml
+   kubectl get deployment worker-default -n <namespace> -o yaml
    ```
