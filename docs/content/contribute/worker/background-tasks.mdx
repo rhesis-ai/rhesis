@@ -135,24 +135,22 @@ def execute_test_configuration_endpoint(
 
 ## Running workers
 
-`apps/worker/start.sh` runs two Celery workers against the same broker:
+Every job is routed to a named queue by kind; the queues, the rule for each and the jobs on it
+are in `apps/backend/src/rhesis/backend/celery/queues.py`. A new job goes on the queue whose rule
+it fits, and `tests/backend/jobs/test_task_routes.py` fails until it is listed.
 
-- a **main** worker on the `celery`, `execution`, and `telemetry` queues
-- an **architect** worker on the `architect` queue
+`apps/worker/start.sh` runs the workers in one of two layouts, chosen by `WORKER_LAYOUT`:
 
-Both use the thread pool. Concurrency and prefetch are set through environment variables
-(`CELERY_WORKER_CONCURRENCY`, `CELERY_WORKER_PREFETCH_MULTIPLIER`, and the `CELERY_ARCHITECT_*`
-equivalents):
+- `combined` (the default): one **main** worker on every queue but `architect`, plus an
+  **architect** worker. Concurrency is `CELERY_WORKER_CONCURRENCY`.
+- `split` (Rhesis's hosted environments): one process per kind of job, each sized for its work:
+  `test-runs` and `long-jobs`, `trace-ingest`, `trace-eval` with the short queues, `architect`,
+  and a prefork process for `cpu-bound`. Concurrency is `CELERY_LONG_CONCURRENCY`,
+  `CELERY_INGEST_CONCURRENCY` and `CELERY_FAST_CONCURRENCY`.
 
-<CodeBlock language="bash" filename="start.sh" isTerminal={true}>
-{`celery -A rhesis.backend.worker.app worker \\
-    --pool threads -n main@%h \\
-    --queues=celery,execution,telemetry \\
-    --loglevel="$CELERY_WORKER_LOGLEVEL" \\
-    --concurrency="$CELERY_WORKER_CONCURRENCY" \\
-    --prefetch-multiplier="$CELERY_WORKER_PREFETCH_MULTIPLIER" \\
-    --optimization=fair -E`}
-</CodeBlock>
+All but the `cpu-bound` process use the thread pool. Both layouts also consume the previous
+release's queue names (`celery`, `execution`, `telemetry`), so messages queued before an upgrade
+still drain. `./rh dev worker` runs one process on every queue.
 
 `LOG_LEVEL` controls application logs; `CELERY_WORKER_LOGLEVEL` controls Celery's own
 task-lifecycle messages and defaults to `LOG_LEVEL`. Set `ENABLE_FLOWER=yes` to run the Flower

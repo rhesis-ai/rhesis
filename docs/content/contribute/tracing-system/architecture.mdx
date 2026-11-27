@@ -12,21 +12,19 @@ Detailed architecture of the Rhesis tracing system.
     OT["OpenTelemetry Tracer"]
     BP["BatchSpanProcessor<br/>(5s batching)"]
     API["Backend API<br/>POST /telemetry/traces"]
-    PG["PostgreSQL<br/>(trace table + JSONB)"]
-    PIL["post_ingest_link<br/>(Celery task)"]
-    CW["enrich_trace_async<br/>(cost/anomaly enrichment)"]
-    ED["enriched_data<br/>(JSONB cache)"]
+    IS["ingest_spans<br/>(Celery task: store, enrich, link)"]
+    PG["PostgreSQL<br/>(trace table, enriched_data JSONB)"]
+    EV["evaluate_turn_trace_metrics<br/>(Celery task)"]
     QA["Query API<br/>GET /telemetry/traces/{id}"]
 
     TE -->|"invokes"| SE
     SE -->|"creates"| OT
     OT -->|"batches (5s)"| BP
     BP -->|"OTLP/HTTP"| API
-    API -->|"stores"| PG
-    API -->|"delay()"| PIL
-    PIL -->|"link + dispatch"| CW
-    CW -->|"caches"| ED
-    ED -->|"queries"| QA`} />
+    API -->|"queues"| IS
+    IS -->|"stores"| PG
+    IS -->|"queues"| EV
+    PG -->|"queries"| QA`} />
 
 ## SDK Components
 
@@ -88,9 +86,7 @@ Span names are validated server-side (`packages/rhesis/src/rhesis/telemetry/sche
 3. Resolves `project_id`: the span's `project_id` when it names one (access-checked), else the request's project scope, otherwise 422
 4. Queues an `IngestJob` on the `trace-ingest` queue and returns `status="received"` with the span count
 
-The Enterprise Edition's OTLP route (`POST /telemetry/v1/traces`) does the same after translating OpenTelemetry GenAI spans. A worker's `ingest_spans` task stores the spans and dispatches `post_ingest_link`; if the broker is down at that point, the spans stay stored and post-processing for that batch does not run.
-
-The `post_ingest_link` task itself (`jobs/telemetry/post_ingest.py`) performs test-result linking, conversation-id linking, input-file linking, and dispatches an enrichment → evaluation chain per root span. See [Worker: Trace Ingestion Pipeline](/contribute/worker/trace-ingestion-pipeline) for the full breakdown, including metric evaluation.
+The Enterprise Edition's OTLP route (`POST /telemetry/v1/traces`) does the same after translating OpenTelemetry GenAI spans. Both routes queue the same `ingest_spans` task. It stores and enriches the spans in one transaction, then runs test-result linking, conversation-id linking and input-file linking inline (`process_stored_spans` in `services/telemetry/post_ingest.py`), and queues one `evaluate_turn_trace_metrics` task per root span when the project has trace metrics. If the broker is down at that point, the spans stay stored and enriched, and that batch is not evaluated. See [Worker: Trace Ingestion Pipeline](/contribute/worker/trace-ingestion-pipeline) for the full breakdown, including metric evaluation.
 
 ### Linking Service
 
@@ -105,14 +101,14 @@ The `post_ingest_link` task itself (`jobs/telemetry/post_ingest.py`) performs te
         return crud.update_traces_with_test_result_id(...)
 
     def link_traces_for_incoming_batch(self, spans, organization_id) -> int:
-        """Called from post_ingest_link (catches fast tests)."""
+        """Called from ingest_spans (catches fast tests)."""
         # Extracts test_run_id/test_id/test_configuration_id from the first
         # span's attributes, finds the matching TestResult, then links.`}
 </CodeBlock>
 
 ### Enrichment
 
-`TraceEnricher` (`services/telemetry/enrichment/processor.py`) computes costs, anomalies, and metadata from a trace's spans:
+`calculate_enrichment()` (`services/telemetry/enrichment/processor.py`) computes costs, anomalies, and metadata from a trace's spans. `store_spans()` (`services/telemetry/span_storage.py`) runs it inside the insert transaction:
 
 - **Costs** — `calculate_token_costs()` uses `litellm.cost_per_token()` on spans with `ai.operation.type = llm.invoke`, in USD and EUR
 - **Anomalies** — `detect_anomalies()` flags spans over 10 seconds (`slow_span`), LLM spans over 10,000 total tokens (`high_token_usage`), and error-status spans (`error`)
@@ -142,7 +138,7 @@ The result is cached in the `enriched_data` JSONB column:
 }`}
 </CodeBlock>
 
-Re-enrichment is skipped once every span in the trace has a non-null `processed_at` — new child spans (later LLM calls, tool calls) trigger a re-run so multi-turn traces stay up to date as they arrive.
+Each batch that adds spans to a trace recomputes the enrichment over the trace's stored and new spans and writes it to every span of the trace, so multi-turn traces stay up to date as spans arrive.
 
 ## Query API
 
@@ -204,12 +200,4 @@ See [Environment Variables](/contribute/environment-variables) for the full refe
 
 ### Celery Workers
 
-Traces are processed by the same worker(s) that run test execution — see [Worker: Background Tasks](/contribute/worker/background-tasks) for queue and concurrency configuration.
-
-<CodeBlock filename="Start Workers" language="bash">
-{`celery -A rhesis.backend.worker.app worker --pool threads -n main@%h \\
-  --queues=celery,execution,telemetry \\
-  --concurrency=$CELERY_WORKER_CONCURRENCY \\
-  --prefetch-multiplier=$CELERY_WORKER_PREFETCH_MULTIPLIER \\
-  --optimization=fair`}
-</CodeBlock>
+Traces are processed by the same worker pods that run test execution, on their own queues: `trace-ingest` stores spans and `trace-eval` evaluates them. See [Worker: Background Tasks](/contribute/worker/background-tasks) for the queues and worker layouts.

@@ -13,11 +13,9 @@ This page covers the complete trace lifecycle, including the race condition prob
 T=2000ms  Test completes → create test_result
 T=2010ms  Linking attempt #1 → Finds 0 traces (not exported yet)
 T=5000ms  BatchSpanProcessor exports spans → backend receives
-T=5015ms  Spans stored in database
-T=5020ms  post_ingest_link dispatched → linking attempt #2 finds test_result
-T=5030ms  Enrichment chain dispatched (Celery)
-T=5080ms  Enrichment cached
-T=5090ms  User queries trace → 10ms (cached)
+T=5015ms  ingest_spans stores spans with their enrichment
+T=5020ms  Same task: linking attempt #2 finds test_result
+T=5030ms  User queries trace → 10ms (cached)
 
 Total: ~5 seconds from test start to queryable enriched trace`}
 </CodeBlock>
@@ -45,8 +43,8 @@ Total: ~5 seconds from test start to queryable enriched trace`}
     subgraph Phase4["4. Backend Processing"]
         I["Validate OTLP format"]
         J["Store in PostgreSQL"]
-        K["Dispatch post_ingest_link"]
-        L["Linking + enrichment"]
+        K["Enrich in the same transaction"]
+        L["Link to test result"]
     end
 
     A --> B --> C
@@ -116,7 +114,7 @@ linking_service.link_traces_for_test_result(
 
 ### Point #2: After Span Ingestion
 
-**Location**: `jobs/telemetry/post_ingest.py` → `link_traces_for_incoming_batch()`, run inside the async `post_ingest_link` task dispatched once the `ingest_spans` worker task has stored the spans
+**Location**: `services/telemetry/post_ingest.py` → `link_traces_for_incoming_batch()`, run by the `ingest_spans` worker task right after it stores the spans
 
 **Purpose**: Catch traces that arrived AFTER test result (fast tests)
 
@@ -182,7 +180,7 @@ This context is stored as span attributes:
 | BatchSpanProcessor delay | 5 seconds | Largest delay, unavoidable |
 | Test execution | Variable | Determines which scenario |
 | Span ingestion | ~10-20ms | Fast |
-| Linking + enrichment | ~50-100ms | Background (Celery) |
+| Storage, enrichment + linking | ~50-100ms | Background (Celery, `ingest_spans`) |
 | Query | ~10ms | Cached |
 
 ### Why 5 Seconds?
@@ -204,37 +202,29 @@ OpenTelemetry's default of 5 seconds optimizes for **production efficiency** ove
 
 ## Error Handling
 
-### Broker Unreachable at Dispatch
+### Database Failure During Storage
 
-**Detection**: `post_ingest_link.delay(...)` raises a broker error (Redis/kombu unreachable)
+**Handling**: `ingest_spans` retries up to 5 times with exponential backoff. Values the database refuses are logged and dropped, not retried.
 
-**Handling**: Caught and logged as a warning; ingestion still returns 200
-
-**Impact**: Linking and enrichment are skipped for that batch — this is fire-and-forget, not retried by the ingestion request itself
-
-### Task Failure After Dispatch
-
-**Handling**: `post_ingest_link` retries up to 3 times (`max_retries=3`, 30s delay) on uncaught exceptions
-
-**Impact**: Transient failures (e.g. a momentarily locked row) self-heal; exhausted retries are logged
-
-### Database Failure
-
-**Handling**: Return 500 error
-
-**Impact**: Spans lost (SDK retries the export)
-
-### Linking Failure
-
-**Handling**: Log error, don't fail the task
-
-**Impact**: Traces stored but not linked
+**Impact**: Nothing from the batch is committed until storage succeeds; resent spans are skipped as duplicates
 
 ### Enrichment Failure
 
-**Handling**: Skip problematic spans
+**Handling**: Logged; the trace's spans are stored without enrichment
 
-**Impact**: Partial enrichment (other spans still enriched)
+**Impact**: No costs or anomalies shown for that trace until a later batch of the trace enriches it
+
+### Linking Failure
+
+**Handling**: The failed step is logged and rolled back; the other linking steps and evaluation queueing still run, and the task is not retried
+
+**Impact**: Traces stored but not linked; link point #1 can still link them when the test result is created
+
+### Broker Unreachable When Queueing Evaluation
+
+**Handling**: Logged as a warning; the spans stay stored and enriched
+
+**Impact**: That root span is not evaluated, and nothing retries it
 
 ## Debugging Guide
 
@@ -248,7 +238,7 @@ OpenTelemetry's default of 5 seconds optimizes for **production efficiency** ove
 ### Traces Not Linked to Test Results?
 
 1. Check test context: Are spans created with `rhesis.test.*` attributes?
-2. Check Celery: Is `post_ingest_link` running (broker reachable)?
+2. Check worker logs: Did `ingest_spans` log `Failed to link traces to test results`?
 3. Check database: Is `test_result_id` NULL or set?
 
 <CodeBlock filename="Debug Query" language="sql">
@@ -265,8 +255,8 @@ LIMIT 10;`}
 
 ### Enrichment Not Happening?
 
-1. Check workers: Are Celery workers running?
-2. Check logs: Did `post_ingest_link` dispatch successfully?
+1. Check workers: Is a worker consuming the `trace-ingest` queue?
+2. Check logs: Did `ingest_spans` log `Enrichment failed for trace`?
 3. Check database: Is `enriched_data` populated and `processed_at` set?
 
 <CodeBlock filename="Check Enrichment" language="sql">

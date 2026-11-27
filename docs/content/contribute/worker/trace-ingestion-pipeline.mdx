@@ -6,80 +6,33 @@ This document explains how traces are processed after arriving via `POST /teleme
 
 ## Pipeline Overview
 
-Neither route writes to the database. The route validates the spans and queues them; a worker stores them, then dispatches post-ingestion work (linking, enrichment, evaluation).
+Neither route writes to the database. The route validates the spans and queues them. A worker's `ingest_spans` task stores and enriches them in one transaction, then links them and queues their evaluation, the only follow-up job.
 
 <Mermaid chart={`flowchart TD
     API["POST /telemetry/traces<br/>POST /telemetry/v1/traces"]
     QUEUE["ingest_spans<br/>(trace-ingest queue)"]
-    STORE["Store spans in database"]
-    POST["post_ingest_link<br/>(telemetry queue)"]
+    STORE["Store + enrich spans<br/>(one transaction)"]
 
     L1["1. Test-result linking"]
     L2["2. Conversation-id linking"]
     L3["3. Input file linking"]
-    CHAIN["4. Per trace: enrichment chain"]
 
-    ENRICH["enrich_trace_async<br/>(costs, anomalies, metadata)"]
-    EVAL["evaluate_turn_trace_metrics<br/>(LLM-based scoring)"]
+    EVAL["evaluate_turn_trace_metrics<br/>(trace-eval queue, LLM-based scoring)"]
 
     API --> QUEUE
     QUEUE --> STORE
-    STORE --> POST
-    POST --> L1
-    POST --> L2
-    POST --> L3
-    POST --> CHAIN
-    CHAIN --> ENRICH
-    ENRICH --> EVAL`} />
+    STORE --> L1
+    L1 --> L2
+    L2 --> L3
+    L3 -->|"per root span, if the<br/>project has trace metrics"| EVAL`} />
 
 ## Phase 1: Admission and Queueing
 
 The routes share `routers/telemetry_intake.py`. Each request takes a per-process admission slot, reads its body under a size cap, and passes the queue-depth and per-organization rate checks (`services/telemetry/admission.py`). Parsing, OTLP translation and project checks run in a small thread pool, so the event loop never blocks and the route holds no database session. The spans become an `IngestJob` (`services/telemetry/ingest.py`), gzip-compressed inside the Celery message and split by size, queued as `ingest_spans` on the `trace-ingest` queue. The limits are the `TRACE_INGEST_*` settings; see [trace ingest limits](/self-hosting/environment-variables#trace-ingest-limits).
 
-## Phase 2: Span Storage
+## Phase 2: Storage and Enrichment
 
-The `ingest_spans` task (`jobs/telemetry/ingest.py`) runs `process_ingest_job`. It injects any pending mapped output into span attributes (for SDK endpoints where output arrives asynchronously), runs the job's pre-store hooks (the OTLP route's hook re-files later conversation turns onto the conversation's first trace), takes per-trace advisory locks, and stores the spans via `crud.create_trace_spans()`. Spans already stored with the same trace and span id are skipped, so a resent batch is safe. A database failure retries the task with backoff; values the database refuses are logged and dropped.
-
-After the commit, the task dispatches a single `post_ingest_link` task:
-
-<CodeBlock language="python" filename="jobs/telemetry/ingest.py" isTerminal={false}>
-{`post_ingest_link.delay(
-    stored_span_ids=stored_span_ids,
-    unique_trace_ids=unique_trace_ids,
-    organization_id=organization_id,
-    project_id=str(project_id),
-    test_run_id=...,
-    test_id=...,
-    test_configuration_id=...,
-)`}
-</CodeBlock>
-
-## Phase 3: Linking
-
-The `post_ingest_link` task performs three types of linking:
-
-1. **Test-result linking**: Associates trace spans with test results when spans carry test execution context attributes (`rhesis.test.test_run_id`, `rhesis.test.test_result_id`, etc.).
-
-2. **Conversation-id linking**: Patches first-turn spans with conversation IDs that were not known at the time the span was stored. This happens when a stateful endpoint generates the conversation ID during invocation.
-
-3. **Input file linking**: Attaches pending file records (images, documents) to their corresponding trace spans.
-
-## Phase 4: Enrichment
-
-After linking, the pipeline dispatches an enrichment chain per unique trace ID. The first task in the chain is `enrich_trace_async`, which runs the `TraceEnricher` processor:
-
-<CodeBlock language="python" filename="jobs/telemetry/enrich.py" isTerminal={false}>
-{`@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def enrich_trace_async(self, trace_id, project_id, organization_id):
-    db = SessionLocal()
-    try:
-        bind_scope_to_session(db, organization_id, "", project_id)
-        enricher = TraceEnricher(db)
-        enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
-        # ...
-    finally:
-        db.close()`}
-</CodeBlock>
+The `ingest_spans` task (`jobs/telemetry/ingest.py`) runs `process_ingest_job`. It injects any pending mapped output into span attributes (for SDK endpoints where output arrives asynchronously) and runs the job's pre-store hooks (the OTLP route's hook re-files later conversation turns onto the conversation's first trace). Then `store_spans` (`services/telemetry/span_storage.py`) takes per-trace advisory locks, reads the trace's stored spans once, computes the trace's enrichment over stored and new spans, and inserts the new spans with it before a single commit. Spans already stored with the same trace and span id are skipped, so a resent batch is safe. A database failure retries the task with backoff; values the database refuses are logged and dropped.
 
 Enrichment calculates three things from the trace's spans:
 
@@ -89,17 +42,29 @@ Enrichment calculates three things from the trace's spans:
 
 - **Metadata extraction**: Collects unique models, tools, and operation types used across the trace.
 
-The enriched data is stored in the `enriched_data` JSON column on the root span.
+The result is written to the `enriched_data` column of every span in the trace. If enrichment fails, the spans are stored without it.
 
-## Phase 5: Trace Metrics Evaluation
+## Phase 3: Linking
 
-The second task in the chain is `evaluate_turn_trace_metrics`, which runs LLM-based metric evaluation on the trace. This is the step that applies configured quality metrics (relevance, coherence, safety, etc.) to trace content.
+After the commit, the same task runs `process_stored_spans` (`services/telemetry/post_ingest.py`) on the rows it stored. It meters the spans and performs three types of linking:
+
+1. **Test-result linking**: Associates trace spans with test results when spans carry test execution context attributes (`rhesis.test.test_run_id`, `rhesis.test.test_result_id`, etc.).
+
+2. **Conversation-id linking**: Patches first-turn spans with conversation IDs that were not known at the time the span was stored. This happens when a stateful endpoint generates the conversation ID during invocation.
+
+3. **Input file linking**: Attaches pending file records (images, documents) to their corresponding trace spans.
+
+Each step commits on its own. A failed step is logged and rolled back, the later steps still run, and the ingest task is not retried, since the spans are already stored. The old `post_ingest_link` and `enrich_trace_async` tasks remain only to drain messages queued by the previous release.
+
+## Phase 4: Trace Metrics Evaluation
+
+Last, `EnrichmentService.dispatch_for_spans` queues one `evaluate_turn_trace_metrics` task per root span on the `trace-eval` queue, and only when the project has trace metrics. The task applies the configured quality metrics (relevance, coherence, safety, etc.) to trace content. If the broker is unreachable, the evaluation is logged as skipped and not retried; the spans stay stored and enriched.
 
 ### Prerequisites for Evaluation
 
 Evaluation requires all of the following:
 
-1. **Celery workers consuming the `telemetry` queue** -- evaluation runs there.
+1. **Celery workers consuming the `trace-eval` queue** -- evaluation runs there.
 
 2. **Trace metrics enabled on the project** -- the project's `attributes.trace_metrics.enabled` must not be `false`.
 
@@ -197,8 +162,8 @@ When posting traces via `POST /telemetry/traces`, include these attributes on th
 
 ### What Runs Without These Attributes
 
-- **Enrichment** (Phase 4) always runs. Cost calculation skips spans that lack LLM-specific attributes; anomaly detection and metadata extraction still process all spans.
-- **Evaluation** (Phase 5) requires `rhesis.conversation.input` and/or `rhesis.conversation.output`. Without them, evaluation returns early with status `no_io`.
+- **Enrichment** (Phase 2) always runs. Cost calculation skips spans that lack LLM-specific attributes; anomaly detection and metadata extraction still process all spans.
+- **Evaluation** (Phase 4) requires `rhesis.conversation.input` and/or `rhesis.conversation.output`. Without them, evaluation returns early with status `no_io`.
 
 ## Related Documentation
 

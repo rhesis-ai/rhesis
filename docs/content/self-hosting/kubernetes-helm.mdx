@@ -791,19 +791,27 @@ more pods before CPU climbs.
           long-jobs: 4
           trace-ingest: 200
           trace-eval: 200
-          quick-tasks: 100`}
+          quick-tasks: 100
+          cpu-bound: 2
+    env:
+      - name: WORKER_LAYOUT
+        value: "split"`}
 </CodeBlock>
 
 Each queue number is the count of waiting jobs that justifies one more replica. A worker pod
-already holds the jobs it is running (with the default `WORKER_LAYOUT=split`, 24 test runs and up
-to 256 trace evaluations), so the queue only holds overflow. The worker runs at the highest
-replica count that CPU or any queue asks for, between `minReplicas` and `maxReplicas`, and
-scales down after 10 minutes of lower demand (`keda.scaleDownStabilizationSeconds`). Queue names
-are the ones in `apps/backend/src/rhesis/backend/celery/queues.py`.
+already holds the jobs it is running (with `WORKER_LAYOUT=split`, 24 test runs, up to 256 trace
+evaluations and one CPU-bound job), so the queue only holds overflow. These numbers assume the
+split layout, which uses about 2 GiB per pod under load, so set the worker's
+`resources.limits.memory` to at least 3Gi (the default is 1Gi). The default `combined` layout
+runs 2 jobs at a time per pod, so give its queues lower numbers.
 
-The triggers read the bundled Valkey with the password from `valkey.auth.existingSecret`. If
-your `BROKER_URL` uses a Redis database other than 0, set `keda.databaseIndex`. Without KEDA
-installed, the chart renders the CPU-only HPA instead.
+The worker runs at the highest replica count that CPU or any queue asks for, between
+`minReplicas` and `maxReplicas`, and scales down after 10 minutes of lower demand
+(`keda.scaleDownStabilizationSeconds`). Queue names are the ones in
+`apps/backend/src/rhesis/backend/celery/queues.py`.
+
+The triggers read the bundled Valkey with the password from `valkey.auth.existingSecret`. Without
+KEDA installed, the chart renders the CPU-only HPA instead.
 
 Check it after the sync: `kubectl get scaledobject -n rhesis` shows `READY True`, and
 `kubectl get hpa worker-default -n rhesis` lists one metric per queue next to CPU.
