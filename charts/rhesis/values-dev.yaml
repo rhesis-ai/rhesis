@@ -233,7 +233,8 @@ workers:
       targetCPUUtilizationPercentage: 60
       # No memory target (as in prd): Python RSS does not come back down after a run,
       # so memory would pin the workers at maxReplicas.
-      # Also scale on the jobs waiting in each queue (templates/worker/hpa.yaml).
+      # Scale on the jobs waiting in each queue (templates/worker/hpa.yaml). The CPU
+      # target above only applies without KEDA.
       keda:
         enabled: true
         # Waiting jobs per replica, by queue. A worker pod already holds as many as it

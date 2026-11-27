@@ -32,7 +32,7 @@ config:
   chatbotDailyBudgetUsd: "5"
   hostedModelTokensPerMinute: "300000"
   hostedModelOrgTokensPerMinute: "100000"
-  # On after dev's sweeps checked out; prd follows after a count query on prd.
+  # On after dev's sweeps checked out.
   jobRetentionEnabled: true
   # Live after four clean dry runs (16-19 Oct 2026).
   traceRetentionEnabled: true
@@ -159,7 +159,8 @@ workers:
       targetCPUUtilizationPercentage: 70
       # No memory target (as in prd): Python RSS does not come back down after a run,
       # so memory pins the workers at maxReplicas.
-      # Also scale on the jobs waiting in each queue (templates/worker/hpa.yaml).
+      # Scale on the jobs waiting in each queue (templates/worker/hpa.yaml). The CPU
+      # target above only applies without KEDA.
       keda:
         enabled: true
         # Waiting jobs per replica, by queue. A worker pod already holds as many as it
