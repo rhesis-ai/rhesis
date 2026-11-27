@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Architect checks a create or update call's arguments and the saved plan before asking for approval, so the user is never asked to approve a call that would be rejected and then asked again about the corrected one.
 - The backend's `[TASK_COMPLETED]` resume message no longer counts as approving an open confirmation, and no longer closes it.
 - `MetricSynthesizer` returns only metrics the platform accepts. `score_type` and `threshold_operator` use the `ScoreType` and `ThresholdOperator` enums, the output is checked against the same score-field rules as saving a metric, and an answer that breaks them is sent back to the model once with the reason. Generating a metric through the platform no longer fails on a numeric metric without `max_score`.
+- `GeneratedMetric` also requires a numeric metric's threshold to lie between `min_score` and `max_score`, a categorical metric's passing categories to be among its categories, and defaults a numeric metric's `threshold_operator` to `>=`.
+- Test generation keeps to the requested requirements: single-turn generation maps a re-cased requirement to the requested spelling and drops tests for requirements that were not requested, as multi-turn generation already did, and `OWASPSynthesizer` stores its configured requirement instead of the model's rewording.
+- Multi-turn generation, including `OWASPSynthesizer`, drops tests the platform would not save (blank goal, text over the length limits, `min_turns` above `max_turns`) and generates replacements.
 
 ## [0.23.0] - 2026-11-27
 

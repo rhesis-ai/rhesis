@@ -63,6 +63,9 @@ class ConfigSynthesizer(TestSetSynthesizer):
         )
         self.config = config
 
+    def _requested_requirements(self) -> Optional[List[str]]:
+        return self.config.requirements
+
     def _get_template_context(self, **generate_kwargs):
         """
         Prepare template context for _generate_batch() call.

@@ -293,6 +293,28 @@ def test_improving_a_binary_metric_keeps_it_binary():
     assert mock_model.generate.call_count == 1
 
 
+def test_a_numeric_metric_without_an_operator_gets_the_platform_default():
+    metric = GeneratedMetric(**{**_NUMERIC_RESPONSE, "threshold_operator": None})
+    assert metric.threshold_operator == ">="
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"min_score": 5.0, "max_score": 1.0},
+        {"threshold": 7.0},
+    ],
+)
+def test_numeric_bounds_the_platform_would_reject_are_invalid(change):
+    with pytest.raises(ValidationError):
+        GeneratedMetric(**{**_NUMERIC_RESPONSE, **change})
+
+
+def test_a_passing_category_that_is_not_a_category_is_invalid():
+    with pytest.raises(ValidationError):
+        GeneratedMetric(**{**_CATEGORICAL_RESPONSE, "passing_categories": ["Appropriate"]})
+
+
 def test_returned_values_are_plain_strings():
     """The backend builds MetricCreate from the dict and stores it as JSON."""
     mock_model = Mock(spec=BaseLLM)

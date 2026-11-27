@@ -113,17 +113,30 @@ class GeneratedMetric(BaseModel):
 
     @model_validator(mode="after")
     def _score_fields_match_score_type(self) -> "GeneratedMetric":
-        """The rules the platform applies when saving a metric, so a generated one saves."""
+        """The rules the platform applies when saving a metric, so a generated one saves.
+
+        Mirrors ``check_score_fields`` in the backend's ``schemas/metric_types.py``.
+        """
         if self.score_type == ScoreType.NUMERIC:
             bounds = ("min_score", "max_score", "threshold")
             missing = [f for f in bounds if getattr(self, f) is None]
             if missing:
                 raise ValueError(f"{', '.join(missing)} required for numeric metrics")
+            if self.min_score >= self.max_score:
+                raise ValueError("min_score must be below max_score")
+            if not self.min_score <= self.threshold <= self.max_score:
+                raise ValueError("threshold must lie between min_score and max_score")
+            if self.threshold_operator is None:
+                # The platform's default; sending None would store a metric without one.
+                self.threshold_operator = ThresholdOperator.GREATER_THAN_OR_EQUAL
         elif self.score_type == ScoreType.CATEGORICAL:
             if not self.categories or len(self.categories) < 2:
                 raise ValueError("at least 2 categories are required for categorical metrics")
             if not self.passing_categories:
                 raise ValueError("at least 1 passing category is required for categorical metrics")
+            unknown = [c for c in self.passing_categories if c not in self.categories]
+            if unknown:
+                raise ValueError(f"passing_categories must be among categories, not {unknown}")
         return self
 
 
