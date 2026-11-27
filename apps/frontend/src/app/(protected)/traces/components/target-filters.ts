@@ -2,7 +2,7 @@ import type {
   MetricTarget,
   MetricTargetChoice,
 } from '@/utils/api-client/interfaces/metric';
-import { METRIC_TARGET } from '@/utils/metric-targets';
+import { METRIC_TARGET, whereConditions } from '@/utils/metric-targets';
 import {
   EMPTY_TRACE_DRAWER_FILTERS,
   type TraceDrawerFilters,
@@ -71,16 +71,10 @@ export function targetTraceFilters(
 export function unappliedRefinements(
   target: Pick<MetricTarget, 'within' | 'where'>
 ): string[] {
-  const phrases: string[] = [];
-  if (target.within) phrases.push(`inside ${target.within}`);
-  for (const [key, value] of Object.entries(target.where ?? {})) {
-    phrases.push(
-      Array.isArray(value)
-        ? `${key} is one of ${value.map(String).join(', ')}`
-        : `${key} is ${String(value)}`
-    );
-  }
-  return phrases;
+  return [
+    ...(target.within ? [`inside ${target.within}`] : []),
+    ...whereConditions(target),
+  ];
 }
 
 /** A link to the Traces page filtered to what a metric's target judges. */

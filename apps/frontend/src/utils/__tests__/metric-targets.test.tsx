@@ -6,8 +6,10 @@ import {
   targetPhrase,
   isTargetOnValue,
   metricRunsOnTestType,
+  moreConditionsText,
   offeredTargets,
   toMetricTarget,
+  whereConditions,
 } from '../metric-targets';
 import type { MetricTargetChoice } from '@/utils/api-client/interfaces/metric';
 
@@ -153,5 +155,28 @@ describe('targetPhrase', () => {
   it('is null until the labels load', () => {
     expect(targetPhrase({ on: 'turn' }, undefined)).toBeNull();
     expect(targetPhrase({ on: 'unknown' }, CHOICES)).toBeNull();
+  });
+});
+
+describe('whereConditions', () => {
+  it('reads each attribute condition', () => {
+    expect(
+      whereConditions({
+        where: { channel: 'web', tier: ['gold', 'silver'], retried: false },
+      })
+    ).toEqual([
+      'channel is web',
+      'tier is one of gold, silver',
+      'retried is false',
+    ]);
+    expect(whereConditions({})).toEqual([]);
+  });
+});
+
+describe('moreConditionsText', () => {
+  it('counts the conditions the line leaves to the tooltip', () => {
+    expect(moreConditionsText(0)).toBe('');
+    expect(moreConditionsText(1)).toBe('and 1 more condition');
+    expect(moreConditionsText(2)).toBe('and 2 more conditions');
   });
 });

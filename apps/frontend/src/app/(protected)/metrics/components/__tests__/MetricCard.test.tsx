@@ -87,4 +87,50 @@ describe('MetricCard target line', () => {
       'Each turn'
     );
   });
+
+  it('names the agent and counts the conditions instead of hiding them', async () => {
+    render(
+      <MetricCard
+        title="Refund matches the order"
+        description=""
+        target={{
+          on: 'tool_call',
+          name: 'issue_refund',
+          within: 'billing_agent',
+          where: { channel: 'web', tier: ['gold', 'silver'] },
+        }}
+        targetChoices={CHOICES}
+      />
+    );
+
+    const link = screen.getByTestId('metric-target-link');
+    expect(link).toHaveTextContent(
+      'each tool call named issue_refund inside billing_agent and 2 more conditions'
+    );
+    fireEvent.mouseOver(link);
+    expect(
+      await screen.findByText(
+        'Show the spans this metric judges. Also where channel is web and tier is one of gold, silver'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the short tooltip without conditions', async () => {
+    render(
+      <MetricCard
+        title="Answer relevancy"
+        description=""
+        target={{ on: 'tool_call', within: 'billing_agent' }}
+        targetChoices={CHOICES}
+      />
+    );
+
+    const link = screen.getByTestId('metric-target-link');
+    expect(link).toHaveTextContent('each tool call inside billing_agent');
+    expect(link).not.toHaveTextContent('more condition');
+    fireEvent.mouseOver(link);
+    expect(
+      await screen.findByText('Show the spans this metric judges')
+    ).toBeInTheDocument();
+  });
 });
