@@ -1,9 +1,28 @@
 import { emptyFilters, buildListFilter, listParams } from '@/utils/list';
 import {
+  backendLabel,
   metricsList,
   METRICS_SELECT,
   OWASP_METRIC_FILTER_VALUE,
+  orderBackends,
 } from '../list';
+
+describe('backendLabel', () => {
+  it('writes acronyms in capitals and capitalizes the rest', () => {
+    expect(backendLabel('sdk')).toBe('SDK');
+    expect(backendLabel('Sdk')).toBe('SDK');
+    expect(backendLabel('custom')).toBe('Custom');
+    expect(backendLabel('deepeval')).toBe('Deepeval');
+  });
+});
+
+describe('orderBackends', () => {
+  it('puts custom and sdk first, then the rest alphabetically', () => {
+    expect(
+      orderBackends(['rhesis', 'Sdk', 'deepeval', 'garak', 'Custom'])
+    ).toEqual(['Custom', 'Sdk', 'deepeval', 'garak', 'rhesis']);
+  });
+});
 
 const empty = emptyFilters(metricsList);
 
