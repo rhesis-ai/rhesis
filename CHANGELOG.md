@@ -13,6 +13,15 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-11-28
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.23.1**
+- **Frontend 0.23.1**
+- **SDK 0.23.1**
+
 ### Upgrading a self-hosted deployment
 
 1. If you upgrade from a release before 0.23.0, run 0.23.0 until its worker has emptied the old `telemetry` queue. The jobs that finished traces queued by older releases are removed in this release.
@@ -28,6 +37,31 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 ### Removed
 
 - The `enrich_trace_async` and `post_ingest_link` worker jobs. Spans are enriched and linked by the job that stores them.
+
+### Summary of Changes
+
+**Backend v0.23.1:**
+- Added custom organization branding for member emails and configurable email imprints via the `EMAIL_IMPRINT` setting.
+- Implemented on-demand parameter loading for Architect mode tools, persisting loaded tools across conversation turns.
+- Enhanced backend validation for generated metrics and tests to prevent save failures and return proper 422 error codes.
+- Optimized trace usage rollup queries for faster test run list rendering and updated preflight checks to prevent unwanted trace creation.
+
+**Frontend v0.23.1:**
+- Fixed tag filter suggestions in drawers to display relevant entity tags and narrow options correctly as you type.
+- Improved error handling to show concise messages instead of raw HTML when encountering proxy timeouts or server errors.
+- Resolved an issue causing document title loop updates when opening drawers.
+
+**SDK v0.23.1:**
+- Optimized Architect tool performance by loading parameters on demand and persisting loaded tools across turns.
+- Fixed Architect re-prompting for approved work by keeping approvals valid across turn boundaries and executing approved calls within mixed steps immediately.
+- Improved metric and test generation reliability by enforcing platform validation rules, automatically retrying invalid outputs, and raising `GeneratedMetricRejected` when metrics cannot be saved.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
 
 ## [0.23.0] - 2026-11-27
 

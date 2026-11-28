@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.23.0"
+version = "0.23.1"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "rhesis[telemetry]>=0.23.0",
+    "rhesis[telemetry]>=0.23.1",
     "python-dotenv>=1.0.1",
     "requests>=2.31.0",
     "pydantic>=2.0.0",

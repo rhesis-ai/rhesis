@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-11-28
+
+### Added
+
+- **On-demand tool parameter loading for Architect**: Tool definitions for the Architect component are now loaded dynamically on demand across agent turns. Missing tool parameters load automatically prior to execution without being counted as execution failures.
+
 ### Changed
 
 - **Email imprint is a setting**: the legal imprint at the foot of every email comes from `EMAIL_IMPRINT` (Helm: `config.emailImprint`), one line per entry, instead of a fixed Rhesis AI GmbH address. Unset, emails show a "No imprint configured" notice in its place, and the backend logs a warning at startup when SMTP is configured.
@@ -20,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Multi-turn test configuration**: a blank goal is refused instead of being stored as no goal, and `min_turns` cannot be above `max_turns`.
 - **Metric score fields are checked on save**: a numeric metric's `min_score` must be below `max_score` with the threshold between them, and a categorical metric's passing categories must be among its categories. An update is checked together with the fields it doesn't send, so a threshold sent alone must fit the stored range. A generated or improved metric that still breaks these after one retry returns 422 with the reason instead of a server error, and metric tuning says so instead of blaming the model settings.
 - **Explorer suggestions**: a model that writes fewer suggestions than requested no longer fails the request, and blank suggestions are dropped.
+
+### Performance
+
+- **Trace usage aggregation**: Replaced a two-pass query scan with a single-pass rollup when aggregating trace usage tokens, resolving high query latency when listing test runs.
+
+### Removed
+
+- **Legacy trace processing jobs**: Removed obsolete worker tasks (`enrich_trace_async`, `post_ingest_link`, and `TraceEnricher`) now that trace ingestion directly enriches and links spans.
+
 
 ## [0.23.0] - 2026-11-27
 
