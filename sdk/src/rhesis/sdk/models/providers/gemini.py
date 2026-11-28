@@ -23,7 +23,8 @@ class GeminiLLM(LiteLLM):
         This class provides an interface to the Gemini family of large language models via LiteLLM.
 
         Args:
-            model_name (str): The name of the Gemini model to use (default: "gemini-2.0-flash").
+            model_name (str): The name of the Gemini model to use
+             (default: "gemini-3.1-flash-lite").
             api_key (str, optional): API key for Gemini. If not provided, will use GEMINI_API_KEY
              or GOOGLE_API_KEY from environment.
             **kwargs: Additional parameters passed to the underlying LiteLLM completion call.
