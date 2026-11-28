@@ -254,7 +254,12 @@ export default function MentionTextInput({
     : theme.palette.primary.main;
 
   const verticalPadding = theme.spacing(1.5);
-  const minHeight = `calc(${minRows} * ${theme.typography.body2.lineHeight}em + ${verticalPadding} * 2)`;
+  // The theme's line height may already carry a unit (e.g. "1.375rem"); adding "em" to
+  // that made the calc invalid, so the field collapsed to a single line.
+  const bodyLineHeight = theme.typography.body2.lineHeight;
+  const rowHeight =
+    typeof bodyLineHeight === 'number' ? `${bodyLineHeight}em` : bodyLineHeight;
+  const minHeight = `calc(${minRows} * ${rowHeight} + ${verticalPadding} * 2)`;
   // Fixed border width (color-only change on focus) avoids the 1px layout
   // shift that previously caused a visible jump when the field gained focus.
   const borderWidth = theme.spacing(0.25);

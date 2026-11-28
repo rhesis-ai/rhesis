@@ -32,13 +32,19 @@ export const ANNOTATION_COPY = {
     `Minimum ${min} characters required (${length}/${min})`,
   saveFailed: 'Failed to save the annotation. Please try again.',
 
+  improveLabel: 'Use this to improve the evaluation',
+  improveSummary: (requirement: string, metrics: string[]) => {
+    const name = requirement || 'the requirement';
+    if (metrics.length === 0) return `Saved as an example for “${name}”.`;
+    const list =
+      metrics.length === 1
+        ? metrics[0]
+        : `${metrics.slice(0, -1).join(', ')} and ${metrics[metrics.length - 1]}`;
+    return `Saved as an example for “${name}” and used to check ${list}.`;
+  },
+  improveChange: 'Change',
   requirementLabel: 'Requirement',
   requirementPlaceholder: 'Search requirements…',
-  requirementHelp:
-    'Saved as an example for this requirement. Clear it to keep a plain annotation.',
-  tuningCaseLabel: (metric: string) =>
-    `Also add as a tuning case for ${metric}`,
-  tuningCaseHelp: "Input and output are copied into the metric's tuning set.",
   tuningCaseFailed:
     'Annotation saved, but some tuning cases could not be added.',
 

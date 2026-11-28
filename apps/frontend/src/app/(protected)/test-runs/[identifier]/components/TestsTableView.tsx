@@ -42,6 +42,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer, { TEST_RESULT_DRAWER_TAB } from './TestResultDrawer';
 import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
 import {
+  automatedMetricsPassed,
   findStatusByCategory,
   getEffectiveTestResultStatus,
   getTestEvaluationDetails,
@@ -785,6 +786,9 @@ export default function TestsTableView({
         entityId={testToOverrule?.id}
         onSaved={() => handleOverruleSave(testToOverrule?.id ?? '')}
         initialRequirement={testToOverrule?.test?.requirement ?? null}
+        automatedPassed={
+          testToOverrule ? automatedMetricsPassed(testToOverrule) : undefined
+        }
       />
     </Box>
   );
