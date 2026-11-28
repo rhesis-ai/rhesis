@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, ButtonBase, Collapse, Typography } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { drawerFieldsSx } from '@/components/common/drawerFormFieldSx';
@@ -12,6 +12,8 @@ interface Props {
   /** One line shown beside the title while the section is folded. */
   summary?: React.ReactNode;
   defaultExpanded?: boolean;
+  /** Folds the section when this turns true, e.g. once its field is filled for the user. */
+  collapse?: boolean;
   children: React.ReactNode;
 }
 
@@ -23,10 +25,15 @@ export default function RunDrawerSection({
   title,
   summary,
   defaultExpanded = true,
+  collapse = false,
   children,
 }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const contentId = React.useId();
+
+  useEffect(() => {
+    if (collapse) setExpanded(false);
+  }, [collapse]);
 
   return (
     <Box sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>

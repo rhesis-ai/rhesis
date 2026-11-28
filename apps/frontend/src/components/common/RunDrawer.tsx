@@ -301,6 +301,8 @@ export default function RunDrawer(props: RunDrawerProps) {
   );
   const [selectedProject, setSelectedProject] = useState<UUID | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
+  // The project has exactly one endpoint, so it was picked for the user.
+  const [endpointAutoPicked, setEndpointAutoPicked] = useState(false);
 
   // ---- Test set (single-select for newTestRun / runExperiment) ----
   const [testSets, setTestSets] = useState<TestSet[]>([]);
@@ -695,11 +697,15 @@ export default function RunDrawer(props: RunDrawerProps) {
       ? endpoints.filter(e => e.project_id === selectedProject)
       : endpoints;
     setFilteredEndpoints(filtered);
-    // Clear endpoint selection if it no longer appears in the filtered list
+    // Keep a selection that is still listed; otherwise pick the only endpoint, if there is one.
+    const onlyEndpoint =
+      filtered.length === 1 ? (filtered[0].id as UUID) : null;
     setSelectedEndpoint(prev =>
-      prev && filtered.some(e => e.id === prev) ? prev : null
+      prev && filtered.some(e => e.id === prev) ? prev : onlyEndpoint
     );
-  }, [selectedProject, endpoints, mode]);
+    setEndpointAutoPicked(onlyEndpoint !== null);
+    // `open` re-runs this on every open, after the open reset cleared the endpoint.
+  }, [open, selectedProject, endpoints, mode]);
 
   // Clear experiments on project switch (project-scoped)
   useEffect(() => {
@@ -1539,7 +1545,11 @@ export default function RunDrawer(props: RunDrawerProps) {
             )}
           </RunDrawerSection>
 
-          <RunDrawerSection title="Run against" summary={targetSummary}>
+          <RunDrawerSection
+            title="Run against"
+            summary={targetSummary}
+            collapse={endpointAutoPicked}
+          >
             {renderEndpointField()}
             {renderExperiments()}
           </RunDrawerSection>
