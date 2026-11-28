@@ -1451,6 +1451,19 @@ class TestArchitectToolLoading:
         assert "metric_id: string (required)" in prompt
 
     @pytest.mark.asyncio
+    async def test_load_tools_with_malformed_names_does_not_crash(self, mock_model):
+        tool = self._tool("update_metric", required=("metric_id",))
+        agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)
+        await agent.get_available_tools()
+
+        result = agent._execute_load_tools(
+            ToolCall(tool_name="load_tools", arguments={"names": ["update_metric", {"x": 1}]})
+        )
+
+        assert result.success is True
+        assert "update_metric" in agent._loaded_tools
+
+    @pytest.mark.asyncio
     async def test_a_call_to_a_tool_not_loaded_is_sent_back_and_loads_it(self, mock_model):
         tool = self._tool("get_trace", required=("trace_id",))
         agent = _make_agent(mock_model, tools=[tool], tools_loaded=False)

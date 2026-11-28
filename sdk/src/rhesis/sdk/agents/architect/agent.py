@@ -739,9 +739,12 @@ class ArchitectAgent(BaseAgent):
             | self._loaded_tools
         )
 
-    def _tool_loaded(self, name: str) -> bool:
-        # An unknown name isn't sent back to be loaded: running it reports it unknown.
-        return name in self._shown_in_full() or name not in self._tool_schemas
+    def _needs_loading(self, name: str) -> bool:
+        """Whether a call to this tool is sent back so its parameters can be loaded.
+
+        Not for an unknown name: running it is what reports it unknown.
+        """
+        return name in self._tool_schemas and name not in self._shown_in_full()
 
     def _format_tools(self, tools: List[Dict[str, Any]]) -> str:
         """Full parameters for loaded tools; one line each for the rest.
@@ -771,10 +774,12 @@ class ArchitectAgent(BaseAgent):
 
     def _execute_load_tools(self, tool_call: ToolCall) -> ToolResult:
         names = (tool_call.arguments or {}).get("names") or []
-        if isinstance(names, str):
+        if not isinstance(names, list):
             names = [names]
-        known = [str(n) for n in names if n in self._tool_schemas]
-        unknown = [str(n) for n in names if n not in self._tool_schemas]
+        # The model fills this in, so an item may not be a string (or hashable).
+        names = [str(n) for n in names]
+        known = [n for n in names if n in self._tool_schemas]
+        unknown = [n for n in names if n not in self._tool_schemas]
         self._loaded_tools.update(known)
         message = (
             f"Loaded {', '.join(known)}: their parameters are listed under Available Tools now."
@@ -836,7 +841,7 @@ class ArchitectAgent(BaseAgent):
                 "under Available Tools now; call it again using them."
             )
             for tc in action.tool_calls
-            if not self._tool_loaded(tc.tool_name)
+            if self._needs_loading(tc.tool_name)
         }
         if unloaded:
             self._loaded_tools.update(
