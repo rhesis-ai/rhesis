@@ -28,6 +28,8 @@ const SPANS_FILTERS = {
   tools: { kind: 'raw', multi: true },
   /** 'true', 'false', or '' for both -- list filters are strings. */
   isRoot: { kind: 'raw' },
+  /** A metric target as JSON, or ''. */
+  target: { kind: 'raw' },
 } as const;
 
 export type SpansListFilters = FiltersOf<typeof SPANS_FILTERS>;
@@ -56,6 +58,7 @@ export function spansListFilters(
     models: drawer.models ?? [],
     tools: drawer.tools ?? [],
     isRoot: drawer.isRoot === undefined ? '' : String(drawer.isRoot),
+    target: drawer.target ?? '',
   };
 }
 
@@ -78,6 +81,7 @@ function toDrawerFilters(f: SpansListFilters): TraceDrawerFilters {
     models: f.models,
     tools: f.tools,
     isRoot: f.isRoot === '' ? undefined : f.isRoot === 'true',
+    target: f.target || undefined,
   };
 }
 

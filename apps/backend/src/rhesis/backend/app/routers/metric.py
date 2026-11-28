@@ -2,17 +2,21 @@ import logging
 from typing import List
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Query, Response
+from fastapi import Depends, HTTPException, Query, Request, Response
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.constants import MetricBackendType
 from rhesis.backend.app.crud import metric as metric_crud
+from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.dependencies import (
+    assert_project_access,
     get_tenant_context,
     get_tenant_db_session,
     per_user_rate_limit,
@@ -20,8 +24,9 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.schemas.metric import check_updated_config
+from rhesis.backend.app.schemas.metric import check_updated_config, read_target
 from rhesis.backend.app.services.metric_tuning import attach_tuning_case_counts
+from rhesis.backend.app.services.telemetry.span_attributes import target_key_warnings
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
@@ -54,7 +59,13 @@ def _refuse_decision_model_on_metric(db: Session, model_id, organization_id, sco
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
-@router.post("/", response_model=schemas.Metric)
+def _saved(metric: models.Metric, warnings: List[str]) -> schemas.MetricSaved:
+    saved = schemas.MetricSaved.model_validate(metric)
+    saved.warnings = warnings
+    return saved
+
+
+@router.post("/", response_model=schemas.MetricSaved)
 @handle_database_exceptions(
     entity_name="metric", custom_unique_message="Metric with this name already exists"
 )
@@ -69,6 +80,8 @@ def create_metric(
     organization_id, user_id = tenant_context
 
     _refuse_decision_model_on_metric(db, metric.model_id, organization_id, metric.score_type)
+    # Checked before the write, which stamps the metric with the request's project.
+    warnings = target_key_warnings(db, organization_id, project_id_from_scope(db), metric.config)
 
     try:
         # Set the current user as the owner if not specified
@@ -78,7 +91,7 @@ def create_metric(
         result = metric_crud.create_metric(
             db=db, metric=metric, organization_id=organization_id, user_id=user_id
         )
-        return result
+        return _saved(result, warnings)
 
     except Exception as e:
         logger.error(f"Error creating metric '{metric.name}': {e}", exc_info=True)
@@ -315,25 +328,83 @@ def improve_metric(
         raise internal_error(e, context=f"improving metric {metric_id}") from e
 
 
-@router.get("/targets", response_model=list[schemas.TargetChoice])
+@router.get("/targets", response_model=schemas.TargetChoices)
 def read_metric_targets(current_user: User = Depends(require_current_user_or_token)):
-    """Every target a metric can have, in the order an editor offers them. Which of them a
-    given metric can take is its ``supported_targets``."""
+    """Every target a metric can have, in the order an editor offers them, the operators and
+    special fields a condition takes, and what ``read`` may name. Which targets a given metric
+    can take is its ``supported_targets``."""
     try:
-        from rhesis.sdk.metrics.targets import TARGETS
-    except ImportError:  # a core install, which runs no metric
-        return []
-
-    return [
-        schemas.TargetChoice(
-            on=kind.value,
-            label=preset.label,
-            description=preset.description,
-            per_span=preset.span_kind is not None,
-            span_kind=preset.span_kind,
+        from rhesis.sdk.metrics.conditions import (
+            CONDITION_OPS,
+            SPECIAL_FIELDS,
+            ValueType,
+            value_type,
         )
-        for kind, preset in TARGETS.items()
-    ]
+        from rhesis.sdk.metrics.targets import EVENT_READER, READER_LABELS, READERS, TARGETS
+    except ImportError:  # a core install, which runs no metric
+        return schemas.TargetChoices()
+
+    return schemas.TargetChoices(
+        targets=[
+            schemas.TargetChoice(
+                on=kind.value,
+                label=preset.label,
+                description=preset.description,
+                per_span=preset.span_kind is not None,
+                span_kind=preset.span_kind,
+            )
+            for kind, preset in TARGETS.items()
+        ],
+        operators=[
+            schemas.ConditionOperatorChoice(
+                op=op.value,
+                takes_value=value_type(op) is not ValueType.NONE,
+                value_type=value_type(op).value,
+            )
+            for op in CONDITION_OPS
+        ],
+        special_fields=[
+            schemas.SpecialFieldChoice(field=field.value, label=label)
+            for field, label in SPECIAL_FIELDS.items()
+        ],
+        readers=[
+            schemas.ReaderChoice(reader=reader.value, label=READER_LABELS.get(reader, reader.value))
+            for reader in READERS
+        ],
+        event_prefix=EVENT_READER,
+    )
+
+
+@router.post(
+    "/targets/preview",
+    response_model=schemas.TargetPreview,
+    **capability(Permission.Telemetry.READ),
+)
+def preview_metric_target(
+    body: schemas.TargetPreviewRequest,
+    request: Request,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """What a target picks in the project's latest traces, matched as evaluation matches it:
+    how many traces it applies to, how many units a metric would run on, and a few of them.
+    It reads traces and changes nothing, so it needs only read access to them."""
+    try:
+        from rhesis.backend.app.services.telemetry.target_preview import preview_target
+
+        target = read_target(body.target)
+    except ImportError as e:  # a core install, which runs no metric
+        raise HTTPException(status_code=501, detail="Targets need the metrics SDK") from e
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except (TypeError, OverflowError, RecursionError) as e:  # read_target turns these too
+        raise HTTPException(status_code=422, detail=f"Invalid target: {e}") from e
+
+    organization_id, user_id = tenant_context
+    project_id = assert_project_access(request, current_user, str(body.project_id), db=db)
+    with temporary_project_scope(db, organization_id, user_id, project_id):
+        return preview_target(db, project_id, target, body.traces)
 
 
 @router.get("/", response_model=list[schemas.MetricDetail])
@@ -409,7 +480,7 @@ def read_metric(
     return db_metric
 
 
-@router.put("/{metric_id}", response_model=schemas.Metric)
+@router.put("/{metric_id}", response_model=schemas.MetricSaved)
 @handle_database_exceptions(
     entity_name="metric", custom_unique_message="Metric with this name already exists"
 )
@@ -438,12 +509,14 @@ def update_metric(
     if metric.config is not None:
         try:
             metric.config = check_updated_config(metric, db_metric)
-        except ValueError as e:
+        except (ValueError, TypeError, OverflowError) as e:
             raise HTTPException(status_code=422, detail=f"Invalid config: {e}") from e
+    warnings = target_key_warnings(db, organization_id, db_metric.project_id, metric.config)
 
-    return metric_crud.update_metric(
+    result = metric_crud.update_metric(
         db=db, metric_id=metric_id, metric=metric, organization_id=organization_id, user_id=user_id
     )
+    return _saved(result, warnings)
 
 
 @router.delete("/{metric_id}", response_model=schemas.Metric)

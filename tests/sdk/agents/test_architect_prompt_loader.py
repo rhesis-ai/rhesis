@@ -170,6 +170,22 @@ class TestRenderPhaseKnowledge:
         assert "Step 1:" in text
         assert "evaluation_steps" in text
 
+    def test_planning_reads_the_catalogue_and_previews_a_span_target(self):
+        from rhesis.sdk.metrics.targets import Reader, Refinement
+
+        env = build_architect_jinja_env(_TEMPLATES_DIR)
+        text = render_phase_knowledge(env, AgentMode.PLANNING, WorkflowPath.EXPLORE)
+        span_section = text[text.index("**Planning a span target.**") :]
+
+        catalogue = span_section.index("list_trace_attributes")
+        preview = span_section.index("preview_target")
+        assert catalogue < preview
+        assert "A preset" in span_section
+        assert "If the preview finds nothing, do not save the target" in span_section
+        assert f"`{Refinement.READ.value}`" in span_section
+        assert f'"{Reader.CONVERSATION_INPUT.value}"' in span_section
+        assert '"within": "billing_agent"' in span_section
+
     def test_discovery_flags_a_project_with_no_endpoint(self):
         # Discovery is where the endpoint gets resolved, so the "none at all"
         # case has to be handled here too — not only in the system prompt.

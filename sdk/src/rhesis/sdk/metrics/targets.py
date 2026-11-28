@@ -12,31 +12,83 @@ docs read it.
 import inspect
 import json
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from rhesis.sdk.entities.trace import (
-    _CONVERSATION_INPUT,
-    _CONVERSATION_OUTPUT,
     _REPORTED,
     _SPAN_SOURCE,
     TRACE_SOURCE_ATTRIBUTE,
     Span,
     Trace,
     _documents,
-    _recorded,
 )
 from rhesis.sdk.metrics.arguments import judged_input_output, judging_unit
-from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.base import MetricResult, ThresholdOperator
+from rhesis.sdk.metrics.conditions import (
+    ATTRIBUTE_PREFIX,
+    CHOICE_OPS,
+    SPECIAL_FIELDS,
+    Condition,
+    ConditionOp,
+    SpecialField,
+    span_status,
+)
 from rhesis.sdk.metrics.constants import THRESHOLD_OPERATOR_MAP
 from rhesis.sdk.metrics.expectations import Expectations
+from rhesis.telemetry.attributes import AIAttributes
+from rhesis.telemetry.constants import ConversationContext
 
 #: At most this many spans are judged per metric; the rest are counted, not judged.
 MAX_JUDGED_SPANS = 25
 #: Spans one metric judges at the same time, so a judge doesn't send 25 model calls at once.
 MAX_CONCURRENT_SPANS = 5
+#: Latest traces ``Target.preview`` tries a target on unless told otherwise.
+PREVIEW_TRACES = 50
+
+
+class JudgedParam(StrEnum):
+    """Parameters of a metric's ``evaluate`` that say what it judges."""
+
+    INPUT = "input"
+    OUTPUT = "output"
+    TRACE = "trace"
+    EXPECTATIONS = "expectations"
+
+
+#: A metric reading either of these judges one unit's input and output.
+READS_INPUT_OUTPUT = frozenset({JudgedParam.INPUT, JudgedParam.OUTPUT})
+
+
+class ExpectationName(StrEnum):
+    """Fields of ``Expectations`` a target decides about."""
+
+    RESPONSE = "response"
+    TOOL_CALLS = "tool_calls"
+    TOOL_CALLS_PER_TURN = "tool_calls_per_turn"
+
+
+class ResultKey(StrEnum):
+    """Keys of a target result's details, and of each judged span's row in them."""
+
+    IS_SUCCESSFUL = "is_successful"
+    NOT_APPLICABLE = "not_applicable"
+    INCONCLUSIVE = "inconclusive"
+    REASON = "reason"
+    TARGET = "target"
+    MATCHED = "matched"
+    PASSED = "passed"
+    SPANS = "spans"
+    SPAN_ID = "span_id"
+    NAME = "name"
+    SCORE = "score"
+
+
+#: Keys of a span event as stored on a span.
+EVENT_NAME_KEY = "name"
+EVENT_ATTRIBUTES_KEY = "attributes"
 
 
 class TargetKind(str, Enum):
@@ -48,6 +100,8 @@ class TargetKind(str, Enum):
     MODEL_CALL = "model_call"
     AGENT = "agent"
     GUARDRAIL = "guardrail"
+    SPAN = "span"
+    """Each span its conditions pick: the presets are short forms of it."""
 
 
 class Aggregation(str, Enum):
@@ -73,6 +127,9 @@ class TargetPreset:
     """How an endpoint that reports none of these spans can report them."""
 
 
+NAME_KEYS = (AIAttributes.TOOL_NAME, AIAttributes.AGENT_NAME, AIAttributes.MODEL_NAME)
+"""The attributes holding a span's name, ahead of its span name."""
+
 TARGETS: Dict[TargetKind, TargetPreset] = {
     TargetKind.TURN: TargetPreset(
         "Each turn",
@@ -88,51 +145,104 @@ TARGETS: Dict[TargetKind, TargetPreset] = {
     TargetKind.TOOL_CALL: TargetPreset(
         "Each tool call",
         "Every tool call: its arguments as input, its result as output.",
-        span_kind="tool.invoke",
+        span_kind=AIAttributes.OPERATION_TOOL_INVOKE,
         noun=("tool call", "tool calls"),
         hint="If the endpoint makes them, map tool_calls in its response or send traces.",
     ),
     TargetKind.RETRIEVAL: TargetPreset(
         "Each retrieval",
         "Every retrieval: its query as input, the documents it found as output.",
-        span_kind="retrieval",
+        span_kind=AIAttributes.OPERATION_RETRIEVAL,
         noun=("retrieval", "retrievals"),
         hint="If the endpoint retrieves documents, map context in its response or send traces.",
     ),
     TargetKind.MODEL_CALL: TargetPreset(
         "Each model call",
         "Every call to a model: its prompt as input, its completion as output.",
-        span_kind="llm.invoke",
+        span_kind=AIAttributes.OPERATION_LLM_INVOKE,
         noun=("model call", "model calls"),
     ),
     TargetKind.AGENT: TargetPreset(
         "Each agent",
         "Every agent run: its task as input, its final answer as output.",
-        span_kind="agent.invoke",
+        span_kind=AIAttributes.OPERATION_AGENT_INVOKE,
         noun=("agent run", "agent runs"),
     ),
     TargetKind.GUARDRAIL: TargetPreset(
         "Each guardrail check",
         "Every guardrail check: what it checked as input, its decision as output.",
-        span_kind="guardrail",
+        span_kind=AIAttributes.OPERATION_GUARDRAIL,
         noun=("guardrail check", "guardrail checks"),
     ),
 }
+"""The presets, the targets offered as choices. ``span`` is not one: it is what they are
+short forms of, and it is written with conditions (``Target.spans``)."""
+
+#: ``on: "span"``, which no preset stands for.
+SPAN_TARGET = TargetPreset(
+    "Custom spans",
+    "Every span that meets the target's conditions: its input and output as its kind "
+    "reads them, unless the target says what to read.",
+    noun=("span", "spans"),
+)
 
 #: Expectations about the whole test, which no single span or turn is held to.
-WHOLE_TEST_EXPECTATIONS = ("response", "tool_calls")
+WHOLE_TEST_EXPECTATIONS = (ExpectationName.RESPONSE, ExpectationName.TOOL_CALLS)
 
 #: Targets judged once per matching unit rather than once in all.
 PER_UNIT = frozenset(kind for kind, preset in TARGETS.items() if preset.span_kind) | {
-    TargetKind.TURN
+    TargetKind.TURN,
+    TargetKind.SPAN,
 }
+#: Targets that judge spans one by one: every per-unit target but the turn.
+PER_SPAN = PER_UNIT - {TargetKind.TURN}
 
 
-#: An attribute value a unit's root span must have, or a list of values it may have.
-AttributeValue = Union[str, int, float, bool]
+#: The key that says what a target judges: ``{"on": "tool_call"}``.
+ON = "on"
 
-#: The fields that narrow which units a per-unit target judges.
-REFINEMENTS = ("name", "within", "where")
+
+class Refinement(StrEnum):
+    """The fields that narrow which units a per-unit target judges, or what it reads."""
+
+    NAME = "name"
+    WITHIN = "within"
+    WHERE = "where"
+    READ = "read"
+
+
+REFINEMENTS = tuple(Refinement)
+
+
+class Reader(StrEnum):
+    """What ``read`` may name besides an attribute key or an event: the span's own input or
+    output, or the turn's."""
+
+    INPUT = "input"
+    OUTPUT = "output"
+    CONVERSATION_INPUT = "conversation.input"
+    CONVERSATION_OUTPUT = "conversation.output"
+
+
+READERS = tuple(Reader)
+#: Each reader in words. The turn's input and output come from the root span of the turn the
+#: unit belongs to, however deep it sits.
+READER_LABELS = {
+    Reader.INPUT: "Its own input",
+    Reader.OUTPUT: "Its own output",
+    Reader.CONVERSATION_INPUT: "The turn's input",
+    Reader.CONVERSATION_OUTPUT: "The turn's output",
+}
+#: ``read`` naming an event's value: ``event:ai.retrieval.query``.
+EVENT_READER = "event:"
+
+
+_CONVERSATION_INPUT = ConversationContext.SpanAttributes.CONVERSATION_INPUT
+_CONVERSATION_OUTPUT = ConversationContext.SpanAttributes.CONVERSATION_OUTPUT
+
+
+def preset_of(kind: TargetKind) -> TargetPreset:
+    return TARGETS.get(kind, SPAN_TARGET)
 
 
 class UnsupportedTarget(ValueError):
@@ -151,19 +261,98 @@ def _check_supported(value: Dict[str, Any]) -> None:
     """Refuse a target in a shape this SDK doesn't know, saying so instead of failing
     validation: a metric made with a newer Rhesis version can carry one."""
     kinds = [kind.value for kind in TargetKind]
-    on = value.get("on")
+    on = value.get(ON)
     if on not in kinds:
         raise UnsupportedTarget(f"'{on}' is not a target; valid targets: {', '.join(kinds)}")
     unknown = sorted(set(value) - set(Target.model_fields))
     if unknown:
         raise UnsupportedTarget(f"A target has no {', '.join(unknown)}")
-    if isinstance(value.get("where"), list):
-        raise UnsupportedTarget("where takes attribute values, not a list of conditions")
+
+
+class Read(BaseModel):
+    """What a per-unit target hands the metric as ``input`` and ``output``: an attribute key,
+    one of ``READERS``, or ``event:<name>``. Either left out keeps the kind's own."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    input: Optional[str] = Field(default=None, min_length=1)
+    output: Optional[str] = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def _either(self) -> "Read":
+        if self.input is None and self.output is None:
+            raise ValueError("read names an input, an output or both")
+        for reader in (self.input, self.output):
+            if reader is not None and reader.startswith(EVENT_READER):
+                if len(reader) == len(EVENT_READER):
+                    raise ValueError("event: needs an event name, such as event:ai.retrieval.query")
+        return self
+
+    @classmethod
+    def coerce(cls, value: Any) -> Optional["Read"]:
+        if value is None or isinstance(value, Read):
+            return value
+        if isinstance(value, (tuple, list)):
+            if len(value) != 2:
+                raise ValueError("read is (input, output); use None for one left as it is")
+            return cls(input=value[0], output=value[1])
+        return cls.model_validate(value)
+
+
+def span_kind_value(value: Any) -> Any:
+    """A kind written as a target name (``tool_call``) as the span kind it stands for."""
+    if isinstance(value, list):
+        return [span_kind_value(item) for item in value]
+    try:
+        preset = TARGETS.get(TargetKind(value))
+    except ValueError:
+        return value
+    return preset.span_kind if preset is not None and preset.span_kind else value
+
+
+#: Operators whose value is a kind, which may be written as a target name (``tool_call``).
+#: A pattern or a substring stays as written.
+_KIND_VALUE_OPS = (ConditionOp.EQ, ConditionOp.NE, ConditionOp.IN, ConditionOp.NOT_IN)
+
+
+def _normalised_where(where: Any) -> Any:
+    """``where`` as a list of conditions. The older form, attribute values by key (a list
+    means any of its values), is read as ``==`` and ``in``."""
+    if where is None or where == {}:
+        # The older form allowed an empty dict: it narrowed nothing.
+        return None
+    if not isinstance(where, (dict, list, tuple)):
+        raise ValueError(
+            f"where is a list of conditions, or attribute values by key; got {type(where).__name__}"
+        )
+    if isinstance(where, dict):
+        # The keys are attribute keys; one named like a special field reads the attribute.
+        where = [
+            Condition(
+                field=f"{ATTRIBUTE_PREFIX}{key}" if key in SPECIAL_FIELDS else key,
+                op=ConditionOp.IN if isinstance(value, list) else ConditionOp.EQ,
+                value=value,
+            )
+            for key, value in where.items()
+        ]
+    conditions = []
+    for item in where:
+        condition = Condition.coerce(item)
+        if condition.field == SpecialField.KIND and condition.op in _KIND_VALUE_OPS:
+            condition = condition.model_copy(update={"value": span_kind_value(condition.value)})
+        conditions.append(condition)
+    return conditions
 
 
 class Target(BaseModel):
-    """What a metric judges. ``name`` and ``within`` narrow a per-span target, and ``where``
-    any per-unit target."""
+    """What a metric judges.
+
+    ``on`` picks the kind of unit. ``name`` and ``within`` narrow a preset's spans; ``where``
+    holds conditions every unit's root span must meet; ``read`` says what a unit hands the
+    metric. ``on: "span"`` judges every span its conditions pick:
+
+        Target.spans(kind="tool_call", where=[("ai.tool.name", "in", ["a", "b"])])
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -172,25 +361,50 @@ class Target(BaseModel):
     """Only spans with this name: the tool, the agent, the model, or the span's name."""
     within: Optional[str] = Field(default=None, min_length=1)
     """Only spans inside the agent with this name."""
-    where: Optional[Dict[str, Union[AttributeValue, List[AttributeValue]]]] = Field(
-        default=None, min_length=1
-    )
-    """Only units whose root span has these attributes; a list means any of its values."""
+    where: Optional[List[Condition]] = None
+    """Conditions the unit's root span must meet, all of them."""
+    read: Optional[Read] = None
     aggregate: Aggregation = Aggregation.ALL
     min_share: Optional[float] = Field(default=None, gt=0, le=1)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalise(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            data = dict(data)
+            if Refinement.WHERE in data:
+                data[Refinement.WHERE] = _normalised_where(data[Refinement.WHERE])
+            if Refinement.READ in data:
+                data[Refinement.READ] = Read.coerce(data[Refinement.READ])
+        return data
+
     @model_validator(mode="after")
     def _check(self) -> "Target":
-        if self.on not in PER_UNIT or self.on is TargetKind.TURN:
-            narrowed = [f for f in ("name", "within") if getattr(self, f) is not None]
+        if self.on is not TargetKind.SPAN and self.where is not None and not self.where:
+            raise ValueError("where needs at least one condition; leave it out to keep every unit")
+        if self.on is TargetKind.SPAN:
+            if self.name is not None:
+                raise ValueError(
+                    "name doesn't narrow a span target; add a condition on name instead"
+                )
+            if not self.where:
+                raise ValueError(
+                    "A span target needs conditions; to judge the whole trace, use 'run'"
+                )
+        elif self.on not in PER_SPAN:
+            narrowed = [
+                f for f in (Refinement.NAME, Refinement.WITHIN) if getattr(self, f) is not None
+            ]
             if narrowed:
                 raise ValueError(
                     f"{' and '.join(narrowed)} only narrow a per-span target, not '{self.on.value}'"
                 )
-        if self.on not in PER_UNIT and self.where is not None:
-            raise ValueError(f"where narrows a per-unit target, and '{self.on.value}' has one unit")
-        if any(value == [] for value in (self.where or {}).values()):
-            raise ValueError("where needs at least one value per attribute")
+        if self.on not in PER_UNIT:
+            for field in (Refinement.WHERE, Refinement.READ):
+                if getattr(self, field) is not None:
+                    raise ValueError(
+                        f"{field} is for a target with several units, and '{self.on.value}' has one"
+                    )
         if self.on not in PER_UNIT and self.aggregate is not Aggregation.ALL:
             raise ValueError(f"aggregate combines several verdicts, and '{self.on.value}' has one")
         if (self.aggregate is Aggregation.SHARE) != (self.min_share is not None):
@@ -202,18 +416,218 @@ class Target(BaseModel):
         if isinstance(value, Target) or value is None:
             return value
         if isinstance(value, (str, TargetKind)):
-            _check_supported({"on": getattr(value, "value", value)})
+            _check_supported({ON: getattr(value, "value", value)})
             return cls(on=value)
         if isinstance(value, dict):
             _check_supported(value)
         return cls.model_validate(value)
 
+    @classmethod
+    def spans(
+        cls,
+        kind: Optional[Union[str, Sequence[str]]] = None,
+        name: Optional[Union[str, Sequence[str]]] = None,
+        where: Sequence[Any] = (),
+        within: Optional[str] = None,
+        read: Any = None,
+        aggregate: Union[Aggregation, str] = Aggregation.ALL,
+        min_share: Optional[float] = None,
+    ) -> "Target":
+        """A span target from its parts. ``kind`` is a span kind (``tool.invoke``) or a
+        preset's name (``tool_call``), and ``name`` the tool, agent or model name; a list of
+        either means any of them. ``where`` items are ``Condition`` objects or
+        ``(field, op, value)`` tuples; ``read`` is ``(input, output)`` or a dict."""
+        conditions: List[Any] = []
+        for field, value in ((SpecialField.KIND, kind), (SpecialField.NAME, name)):
+            if value is None:
+                continue
+            many = not isinstance(value, str)
+            op = ConditionOp.IN if many else ConditionOp.EQ
+            conditions.append(Condition(field=field, op=op, value=list(value) if many else value))
+        conditions.extend(where)
+        return cls(
+            on=TargetKind.SPAN,
+            where=conditions or None,
+            within=within,
+            read=read,
+            aggregate=aggregate,
+            min_share=min_share,
+        )
+
     @property
     def preset(self) -> TargetPreset:
-        return TARGETS[self.on]
+        return preset_of(self.on)
 
     def to_config(self) -> Dict[str, Any]:
         return self.model_dump(mode="json", exclude_none=True, exclude_defaults=True)
+
+    @property
+    def is_bare(self) -> bool:
+        """Whether the target is only its kind, with no refinement or pass rule."""
+        return self.to_config() == Target.model_construct(on=self.on).to_config()
+
+    def expand(self) -> "Target":
+        """This target written as a span target, when it judges spans: a preset becomes its
+        kind and name as conditions. Matching uses this form, so a preset and the span target
+        it stands for pick the same spans. Turns, the conversation and the run stay as they
+        are."""
+        if self.on not in PER_SPAN or self.on is TargetKind.SPAN:
+            return self
+        conditions = [
+            Condition(field=SpecialField.KIND, op=ConditionOp.EQ, value=self.preset.span_kind)
+        ]
+        if self.name is not None:
+            conditions.append(
+                Condition(field=SpecialField.NAME, op=ConditionOp.EQ, value=self.name)
+            )
+        conditions.extend(self.where or ())
+        return Target(
+            on=TargetKind.SPAN,
+            where=conditions,
+            within=self.within,
+            read=self.read,
+            aggregate=self.aggregate,
+            min_share=self.min_share,
+        )
+
+    def describe(self, short: bool = False) -> str:
+        """What the target picks, in words: "each tool call named `issue_refund` inside
+        `billing_agent`". ``short`` lists only the first condition beyond kind, name and
+        agent, and counts the rest."""
+        return _phrase(self, plural=False, short=short)
+
+    def select(self, trace: Trace) -> List["Unit"]:
+        """The units this target picks from ``trace``, as the platform judges them."""
+        return matching_units(trace, self)
+
+    def preview(self, project: Any, traces: int = PREVIEW_TRACES) -> Dict[str, Any]:
+        """What this target picks in ``project``'s latest ``traces`` traces, matched on the
+        platform as evaluation matches it: how many traces and units match, and samples.
+        ``project`` is a ``Project`` or its id."""
+        from rhesis.sdk.clients import APIClient, Endpoints, Methods
+
+        project_id = getattr(project, "id", project)
+        if not project_id:
+            raise ValueError("preview needs a project with an id; pull or push it first")
+        body = {"project_id": str(project_id), "target": self.to_config(), "traces": traces}
+        return APIClient().send_request(
+            endpoint=Endpoints.METRIC_TARGET_PREVIEW, method=Methods.POST, data=body
+        )
+
+
+# ---------------------------------------------------------------------------
+# The target in words
+# ---------------------------------------------------------------------------
+
+
+_OP_WORDS = {
+    ConditionOp.EQ: "is",
+    ConditionOp.NE: "is not",
+    ConditionOp.LT: "is under",
+    ConditionOp.LE: "is at most",
+    ConditionOp.GT: "is over",
+    ConditionOp.GE: "is at least",
+    ConditionOp.CONTAINS: "contains",
+    ConditionOp.MATCHES: "matches",
+}
+
+
+def _code(value: Any) -> str:
+    return f"`{value if isinstance(value, str) else json.dumps(value, default=str)}`"
+
+
+def _either(values: Sequence[Any], joiner: str = "or") -> str:
+    shown = [_code(value) for value in values]
+    if len(shown) == 1:
+        return shown[0]
+    return f"{', '.join(shown[:-1])} {joiner} {shown[-1]}"
+
+
+def _condition_words(condition: Condition) -> str:
+    field = _code(condition.field)
+    op, value = condition.op, condition.value
+    if op is ConditionOp.EXISTS:
+        return f"{field} is set"
+    if op is ConditionOp.NOT_EXISTS:
+        return f"{field} is not set"
+    if op is ConditionOp.IN:
+        return f"{field} is {_either(value)}"
+    if op is ConditionOp.NOT_IN:
+        return (
+            f"{field} is neither {_either(value, 'nor')}"
+            if len(value) > 1
+            else (f"{field} is not {_code(value[0])}")
+        )
+    return f"{field} {_OP_WORDS[op]} {_code(value)}"
+
+
+# The name attribute a kind's own spans carry, read as "named …" in a description.
+_OWN_NAME_KEY = {
+    AIAttributes.OPERATION_TOOL_INVOKE: AIAttributes.TOOL_NAME,
+    AIAttributes.OPERATION_AGENT_INVOKE: AIAttributes.AGENT_NAME,
+    AIAttributes.OPERATION_LLM_INVOKE: AIAttributes.MODEL_NAME,
+}
+
+
+def _kind_noun(kinds: Sequence[Any], plural: bool) -> Optional[str]:
+    """The noun for spans of these kinds ("tool call"), when they are all one preset's."""
+    nouns = {
+        preset.noun[1 if plural else 0]
+        for preset in TARGETS.values()
+        if preset.span_kind is not None and preset.span_kind in kinds
+    }
+    known = all(any(p.span_kind == kind for p in TARGETS.values()) for kind in kinds)
+    return nouns.pop() if known and len(nouns) == 1 else None
+
+
+def _phrase(target: Target, plural: bool, short: bool, each: bool = True) -> str:
+    if target.on is TargetKind.CONVERSATION:
+        return "the conversation"
+    if target.on is TargetKind.RUN:
+        return "the whole run"
+    expanded = target.expand()
+    kinds = None
+    if target.on is TargetKind.TURN:
+        noun, rest = ("turns" if plural else "turn"), list(expanded.where or ())
+    else:
+        rest = list(expanded.where or ())
+        kinds = _taken(rest, SpecialField.KIND)
+        noun = _kind_noun(kinds, plural) if kinds is not None else None
+        if noun is None:
+            if kinds is not None:
+                rest.insert(
+                    0, Condition(field=SpecialField.KIND, op=ConditionOp.IN, value=list(kinds))
+                )
+            noun = "spans" if plural else "span"
+    parts = [noun if plural or not each else f"each {noun}"]
+    names = _taken(rest, SpecialField.NAME)
+    own_key = _OWN_NAME_KEY.get(kinds[0]) if kinds and len(kinds) == 1 else None
+    if names is None and own_key is not None:
+        names = _taken(rest, own_key)
+    if names is not None:
+        parts.append(f"named {_either(names)}")
+    if expanded.within:
+        parts.append(f"inside {_code(expanded.within)}")
+    phrase = " ".join(parts)
+    if not rest:
+        return phrase
+    shown, hidden = (rest[:1], len(rest) - 1) if short else (rest, 0)
+    joiner = ", where " if len(parts) > 1 else " where "
+    phrase += joiner + " and ".join(_condition_words(c) for c in shown)
+    if hidden:
+        phrase += f", and {hidden} more condition{'s' if hidden > 1 else ''}"
+    return phrase
+
+
+def _taken(conditions: List[Condition], field: str) -> Optional[List[Any]]:
+    """The values of the first ``==`` or ``in`` condition on ``field``, taken out of
+    ``conditions``; None when there is none."""
+    for index, condition in enumerate(conditions):
+        if condition.field == field and condition.op in CHOICE_OPS:
+            del conditions[index]
+            value = condition.value
+            return list(value) if isinstance(value, list) else [value]
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -260,16 +674,16 @@ def targets_for(
         return [TargetKind.CONVERSATION, TargetKind.RUN]
     declared = set(declared)
     kinds: List[TargetKind] = []
-    if declared & {"input", "output"}:
+    if declared & READS_INPUT_OUTPUT:
         kinds += [kind for kind in TargetKind if kind in PER_UNIT]
-    if "trace" in declared:
+    if JudgedParam.TRACE in declared:
         kinds += [TargetKind.CONVERSATION, TargetKind.RUN]
         if TargetKind.TURN not in kinds:
             kinds.insert(0, TargetKind.TURN)
         kinds += [kind for kind in TargetKind if kind in PER_UNIT and kind not in kinds]
     if set(compares) & set(WHOLE_TEST_EXPECTATIONS):
-        kinds = [kind for kind in kinds if not TARGETS[kind].span_kind]
-    if "response" in compares:
+        kinds = [kind for kind in kinds if kind not in PER_SPAN]
+    if ExpectationName.RESPONSE in compares:
         kinds = [kind for kind in kinds if kind is not TargetKind.CONVERSATION]
     return kinds
 
@@ -278,7 +692,7 @@ def _compares(metric: Any) -> List[str]:
     compares = list(getattr(metric, "REQUIRED_EXPECTATIONS", ()))
     # An instance's setting, or a class that always compares with one (DeepEval's recall).
     if getattr(metric, "requires_ground_truth", False) is True:
-        compares.append("response")
+        compares.append(ExpectationName.RESPONSE)
     return compares
 
 
@@ -294,9 +708,9 @@ def default_target(metric: Any) -> Optional[TargetKind]:
     if _conversational(metric):
         return TargetKind.CONVERSATION
     declared = _declared(metric)
-    if declared & {"input", "output"}:
+    if declared & READS_INPUT_OUTPUT:
         return TargetKind.TURN
-    if "trace" in declared:
+    if JudgedParam.TRACE in declared:
         return TargetKind.RUN
     return None
 
@@ -314,7 +728,7 @@ def check_target(
     if supported is None:
         supported = supported_targets(metric)
     if supported and target.on not in supported:
-        choices = ", ".join(f"{TARGETS[k].label} ({k.value})" for k in supported)
+        choices = ", ".join(f"{preset_of(k).label} ({k.value})" for k in supported)
         raise ValueError(f"This metric can't judge '{target.on.value}'. Choices: {choices}.")
     return target
 
@@ -351,7 +765,7 @@ def _text(value: Any) -> str:
 
 def _name(span: Span) -> Optional[str]:
     attributes = span.attributes
-    for key in ("ai.tool.name", "ai.agent.name", "ai.model.name"):
+    for key in NAME_KEYS:
         value = attributes.get(key)
         if isinstance(value, str) and value:
             return value
@@ -362,7 +776,8 @@ def _walk(spans: Sequence[Span], agents: Tuple[str, ...] = ()):
     """Each span with the names of the agents it runs inside, depth first."""
     for span in spans:
         yield span, agents
-        inner = agents + (_name(span) or "",) if span.kind == "agent.invoke" else agents
+        is_agent = span.kind == AIAttributes.OPERATION_AGENT_INVOKE
+        inner = agents + (_name(span) or "",) if is_agent else agents
         yield from _walk(span.children, inner)
 
 
@@ -387,60 +802,130 @@ def _subtree(trace: Trace, span: Span) -> Trace:
     return unit
 
 
-def _same(actual: Any, wanted: AttributeValue) -> bool:
-    # Attributes arrive as strings from some exporters: 200 and "200", True and "true" match.
-    def plain(value: Any) -> str:
-        return value if isinstance(value, str) else json.dumps(value, default=str)
+def field_value(span: Span, field: str) -> Any:
+    """What a condition on ``field`` reads from ``span``; None when the span hasn't it. A
+    reported span carries no timing or status."""
+    if field == SpecialField.KIND:
+        return span.kind
+    if field == SpecialField.NAME:
+        return _name(span)
+    if field == SpecialField.SPAN_NAME:
+        return span.span_name
+    if field == SpecialField.DURATION_MS:
+        return None if _reported(span) else span.duration_ms
+    if field == SpecialField.STATUS:
+        return None if _reported(span) else span_status(span.status_code).value
+    if field.startswith(ATTRIBUTE_PREFIX):
+        return span.attributes.get(field[len(ATTRIBUTE_PREFIX) :])
+    return span.attributes.get(field)
 
-    return actual is not None and plain(actual) == plain(wanted)
+
+def _meets(span: Span, conditions: Optional[Sequence[Condition]]) -> bool:
+    return all(c.met_by(field_value(span, c.field)) for c in conditions or ())
 
 
-def _has_attributes(span: Span, where: Optional[Dict[str, Any]]) -> bool:
-    for key, wanted in (where or {}).items():
-        actual = span.attributes.get(key)
-        choices = wanted if isinstance(wanted, list) else [wanted]
-        if not any(_same(actual, choice) for choice in choices):
-            return False
-    return True
+def _event_value(span: Span, name: str) -> Any:
+    for event in span.events:
+        if isinstance(event, dict) and event.get(EVENT_NAME_KEY) == name:
+            attributes = event.get(EVENT_ATTRIBUTES_KEY) or {}
+            if len(attributes) == 1:
+                return next(iter(attributes.values()))
+            return attributes or None
+    return None
+
+
+#: The turn's attribute each conversation reader names.
+_TURN_KEYS = {
+    Reader.CONVERSATION_INPUT: _CONVERSATION_INPUT,
+    Reader.CONVERSATION_OUTPUT: _CONVERSATION_OUTPUT,
+}
+
+
+def _read_value(
+    span: Span, reader: Optional[str], default: Any, own: Tuple[Any, Any], turn: Span
+) -> Any:
+    """What ``reader`` names on ``span``; ``default`` when the target reads nothing else.
+    ``own`` is the unit's input and output as its kind reads them. The conversation readers
+    read ``turn``, the root span the unit belongs to: its conversation attribute, else its own
+    input or output, else the span's attribute."""
+    if reader is None:
+        return default
+    if reader == Reader.INPUT:
+        return own[0]
+    if reader == Reader.OUTPUT:
+        return own[1]
+    if reader in _TURN_KEYS:
+        reader = Reader(reader)
+        key = _TURN_KEYS[reader]
+        for value in (
+            turn.attributes.get(key),
+            turn.input if reader is Reader.CONVERSATION_INPUT else turn.output,
+        ):
+            if value not in (None, ""):
+                return value
+        return span.attributes.get(key)
+    if reader.startswith(EVENT_READER):
+        return _event_value(span, reader[len(EVENT_READER) :])
+    return span.attributes.get(reader)
+
+
+def _unit(
+    span: Span,
+    root: Span,
+    input: Any,
+    output: Any,
+    target: Target,
+    trace: Trace,
+    **turn: Any,
+) -> Unit:
+    """One unit from ``span``; ``root`` is the root span of the turn it belongs to."""
+    read = target.read
+    if read is not None:
+        own = (input, output)
+        input = _read_value(span, read.input, input, own, root)
+        output = _read_value(span, read.output, output, own, root)
+    return Unit(
+        span, _text(input), _text(output), _subtree(trace, span), turn.pop(ResultKey.NAME), **turn
+    )
 
 
 def _turns(trace: Trace, target: Target) -> List[Unit]:
     units = []
     roots = trace._turn_roots()
     for turn, root in enumerate(roots):
-        if not _has_attributes(root, target.where):
+        if not _meets(root, target.where):
             continue
         user = _turn_input(root)
         reply = root.attributes.get(_CONVERSATION_OUTPUT) or root.output
-        subtree = _subtree(trace, root)
-        units.append(Unit(root, _text(user), _text(reply), subtree, None, turn, len(roots)))
+        units.append(
+            _unit(root, root, user, reply, target, trace, name=None, turn=turn, turns=len(roots))
+        )
     return units
 
 
 def _spans(trace: Trace, target: Target) -> List[Unit]:
-    kind = target.preset.span_kind
+    # Presets match as the span targets they stand for, so the two can't drift apart.
+    target = target.expand()
     found = [
         (span, root)
         for root in trace.root_spans
         for span, agents in _walk([root])
-        if span.kind == kind
-        and (target.name is None or _name(span) == target.name)
-        and (target.within is None or target.within in agents)
-        and _has_attributes(span, target.where)
+        if (target.within is None or target.within in agents) and _meets(span, target.where)
     ]
-    # A call the endpoint both recorded and reported counts once.
-    kept = {id(span) for span in _recorded([span for span, _ in found], kind)}
+    # A call the endpoint both recorded and reported counts once: where a kind was recorded,
+    # its reported spans are left out.
+    recorded = {span.kind for span, _ in found if not _reported(span)}
     units = []
     for span, root in found:
-        if id(span) not in kept:
+        if _reported(span) and span.kind in recorded:
             continue
         input, output = span.input, span.output
-        if kind == "retrieval":
+        if span.kind == AIAttributes.OPERATION_RETRIEVAL:
             output = "\n\n".join(_documents(output))
             if input in (None, "") and _reported(span):
                 # A response reports the documents, not the query: it is the turn's input.
                 input = _turn_input(root)
-        units.append(Unit(span, _text(input), _text(output), _subtree(trace, span), _name(span)))
+        units.append(_unit(span, root, input, output, target, trace, name=_name(span)))
     return units
 
 
@@ -462,41 +947,42 @@ def matching_units(trace: Trace, target: Target) -> List[Unit]:
 
 
 def _described(target: Target, count: int) -> str:
-    singular, plural = target.preset.noun
-    noun = singular if count == 1 else plural
-    if target.name:
-        noun += f" named `{target.name}`"
-    if target.within:
-        noun += f" inside `{target.within}`"
-    if target.where:
-        conditions = " and ".join(f"`{key}` is {value}" for key, value in target.where.items())
-        noun += f" where {conditions}"
-    return noun
+    return _phrase(target, plural=count != 1, short=False, each=False)
+
+
+def _hint(target: Target) -> str:
+    """How an endpoint can report what the target looks for."""
+    if target.on is not TargetKind.SPAN:
+        return target.preset.hint
+    kinds = _taken(list(target.where or ()), SpecialField.KIND) or []
+    presets = [p for p in TARGETS.values() if p.span_kind is not None and p.span_kind in kinds]
+    return presets[0].hint if len(presets) == 1 else SPAN_TARGET.hint
 
 
 def not_applicable(target: Target) -> MetricResult:
     """The result for a target that matched nothing in the trace."""
-    reason = f"No {_described(target, 2)} were recorded. {target.preset.hint}"
+    reason = f"No {_described(target, 2)} were recorded. {_hint(target)}"
     return MetricResult(
         score=None,
         details={
-            "is_successful": None,
-            "not_applicable": True,
-            "reason": reason,
-            "target": target.on.value,
-            "matched": 0,
+            ResultKey.IS_SUCCESSFUL: None,
+            ResultKey.NOT_APPLICABLE: True,
+            ResultKey.REASON: reason,
+            ResultKey.TARGET: target.on.value,
+            ResultKey.MATCHED: 0,
         },
     )
 
 
 def _verdict(result: MetricResult, metric: Any) -> Optional[bool]:
     """The metric's own verdict, else its score against its threshold."""
-    if "is_successful" in result.details:
-        return result.details["is_successful"]
+    if ResultKey.IS_SUCCESSFUL in result.details:
+        return result.details[ResultKey.IS_SUCCESSFUL]
     score, threshold = _numeric(result.score), _numeric(getattr(metric, "threshold", None))
     if score is None or threshold is None:
         return None
-    compare = THRESHOLD_OPERATOR_MAP.get(getattr(metric, "threshold_operator", None) or ">=")
+    default = ThresholdOperator.GREATER_THAN_OR_EQUAL.value
+    compare = THRESHOLD_OPERATOR_MAP.get(getattr(metric, "threshold_operator", None) or default)
     return compare(score, threshold) if compare else None
 
 
@@ -506,7 +992,7 @@ def _numeric(score: Any) -> Optional[float]:
 
 
 def _is_not_applicable(result: MetricResult) -> bool:
-    return bool(result.details.get("not_applicable"))
+    return bool(result.details.get(ResultKey.NOT_APPLICABLE))
 
 
 def combine(
@@ -519,30 +1005,30 @@ def combine(
     """One result from the results of each judged unit."""
     rows = [
         {
-            "span_id": unit.span.span_id,
-            "name": unit.name,
-            "score": result.score,
-            "is_successful": None if _is_not_applicable(result) else verdict,
-            "reason": result.details.get("reason"),
-            **({"not_applicable": True} if _is_not_applicable(result) else {}),
+            ResultKey.SPAN_ID: unit.span.span_id,
+            ResultKey.NAME: unit.name,
+            ResultKey.SCORE: result.score,
+            ResultKey.IS_SUCCESSFUL: None if _is_not_applicable(result) else verdict,
+            ResultKey.REASON: result.details.get(ResultKey.REASON),
+            **({ResultKey.NOT_APPLICABLE: True} if _is_not_applicable(result) else {}),
         }
         for unit, result, verdict in zip(units, results, verdicts, strict=True)
     ]
-    if rows and all(row.get("not_applicable") for row in rows):
+    if rows and all(row.get(ResultKey.NOT_APPLICABLE) for row in rows):
         # Nothing to judge in any unit (a rule's missing field): not applicable, not a fail.
         return MetricResult(
             score=None,
             details={
-                "is_successful": None,
-                "not_applicable": True,
-                "reason": rows[0]["reason"],
-                "target": target.on.value,
-                "matched": matched,
-                "spans": rows,
+                ResultKey.IS_SUCCESSFUL: None,
+                ResultKey.NOT_APPLICABLE: True,
+                ResultKey.REASON: rows[0][ResultKey.REASON],
+                ResultKey.TARGET: target.on.value,
+                ResultKey.MATCHED: matched,
+                ResultKey.SPANS: rows,
             },
         )
-    decided = [row for row in rows if row["is_successful"] is not None]
-    passed = sum(1 for row in decided if row["is_successful"])
+    decided = [row for row in rows if row[ResultKey.IS_SUCCESSFUL] is not None]
+    passed = sum(1 for row in decided if row[ResultKey.IS_SUCCESSFUL])
     share: Optional[float] = passed / len(decided) if decided else None
 
     if not decided:
@@ -556,15 +1042,15 @@ def combine(
 
     reason = _reason(target, rows, decided, passed, matched, is_successful)
     details: Dict[str, Any] = {
-        "is_successful": is_successful,
-        "reason": reason,
-        "target": target.on.value,
-        "matched": matched,
-        "passed": passed,
-        "spans": rows,
+        ResultKey.IS_SUCCESSFUL: is_successful,
+        ResultKey.REASON: reason,
+        ResultKey.TARGET: target.on.value,
+        ResultKey.MATCHED: matched,
+        ResultKey.PASSED: passed,
+        ResultKey.SPANS: rows,
     }
     if is_successful is None:
-        details["inconclusive"] = True
+        details[ResultKey.INCONCLUSIVE] = True
     return MetricResult(score=_score(target, decided, share), details=details)
 
 
@@ -575,31 +1061,35 @@ def _score(target: Target, decided: List[Dict[str, Any]], share: Optional[float]
     if target.aggregate is Aggregation.SHARE:
         return share
     looked_for = target.aggregate is Aggregation.ANY
-    deciding = next((r for r in decided if r["is_successful"] is looked_for), None)
+    deciding = next((r for r in decided if r[ResultKey.IS_SUCCESSFUL] is looked_for), None)
     deciding = deciding or (decided[0] if decided else None)
-    return deciding["score"] if deciding else None
+    return deciding[ResultKey.SCORE] if deciding else None
 
 
 def _reason(target, rows, decided, passed, matched, is_successful) -> str:
     counted = f"{passed} of {len(decided)} {_described(target, len(decided))} passed."
     if not decided:
         counted = f"No verdict for any of the {len(rows)} {_described(target, len(rows))}."
-    skipped = sum(1 for row in rows if row.get("not_applicable"))
+    skipped = sum(1 for row in rows if row.get(ResultKey.NOT_APPLICABLE))
     if skipped:
         counted += f" {skipped} could not be judged: {_first_skipped_reason(rows)}"
     if matched > len(rows):
         counted += f" Only the first {len(rows)} of {matched} were judged."
     # Name the first failing span only when it cost the metric its pass.
-    failed = next((row for row in rows if row["is_successful"] is False), None)
-    if is_successful is False and failed and failed.get("reason"):
-        label = f"`{failed['name']}`" if failed.get("name") else f"#{rows.index(failed) + 1}"
-        counted += f" {label}: {failed['reason']}"
+    failed = next((row for row in rows if row[ResultKey.IS_SUCCESSFUL] is False), None)
+    if is_successful is False and failed and failed.get(ResultKey.REASON):
+        label = (
+            f"`{failed[ResultKey.NAME]}`"
+            if failed.get(ResultKey.NAME)
+            else f"#{rows.index(failed) + 1}"
+        )
+        counted += f" {label}: {failed[ResultKey.REASON]}"
     return counted
 
 
 def _first_skipped_reason(rows: Sequence[Dict[str, Any]]) -> str:
-    row = next(row for row in rows if row.get("not_applicable"))
-    return row.get("reason") or "not applicable."
+    row = next(row for row in rows if row.get(ResultKey.NOT_APPLICABLE))
+    return row.get(ResultKey.REASON) or "not applicable."
 
 
 def _single_turn(target: Target, units: Sequence[Unit]) -> bool:
@@ -657,7 +1147,7 @@ def unit_expectations(
     if expectations is None or target.on not in PER_UNIT:
         return expectations
     if target.on is not TargetKind.TURN:
-        dropped = (*WHOLE_TEST_EXPECTATIONS, "tool_calls_per_turn")
+        dropped = (*WHOLE_TEST_EXPECTATIONS, ExpectationName.TOOL_CALLS_PER_TURN)
         return expectations.model_copy(update=dict.fromkeys(dropped))
     turn = unit.turn if unit is not None else None
     if expectations.tool_calls_per_turn is not None:
@@ -666,7 +1156,9 @@ def unit_expectations(
         calls = expectations.tool_calls
     else:
         calls = None
-    return expectations.model_copy(update={"tool_calls": calls, "tool_calls_per_turn": None})
+    return expectations.model_copy(
+        update={ExpectationName.TOOL_CALLS: calls, ExpectationName.TOOL_CALLS_PER_TURN: None}
+    )
 
 
 def unit_arguments(
@@ -675,11 +1167,15 @@ def unit_arguments(
     """What a metric declaring ``declared`` receives for one unit: the unit's trace, and its
     input and output. A unit of the whole trace reads its input and output from the trace
     only for a metric that doesn't take the trace itself (a conversation's transcript)."""
-    values: Dict[str, Any] = {"trace": unit.trace, "expectations": expectations}
+    values: Dict[str, Any] = {
+        JudgedParam.TRACE: unit.trace,
+        JudgedParam.EXPECTATIONS: expectations,
+    }
     if unit.span is not None:
-        values["input"], values["output"] = unit.input, unit.output
-    elif "trace" not in declared and set(declared) & {"input", "output"}:
-        values["input"], values["output"] = judged_input_output(unit.trace, expectations)
+        values[JudgedParam.INPUT], values[JudgedParam.OUTPUT] = unit.input, unit.output
+    elif JudgedParam.TRACE not in declared and set(declared) & READS_INPUT_OUTPUT:
+        judged = judged_input_output(unit.trace, expectations)
+        values[JudgedParam.INPUT], values[JudgedParam.OUTPUT] = judged
     return {name: value for name, value in values.items() if name in declared}
 
 

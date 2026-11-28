@@ -113,7 +113,8 @@ def agent_trace():
 
 
 def test_every_target_has_a_label_and_a_description():
-    assert set(TARGETS) == set(TargetKind)
+    # "span" is what the presets are short forms of, not a preset of its own.
+    assert set(TARGETS) == set(TargetKind) - {TargetKind.SPAN}
     assert all(preset.label and preset.description for preset in TARGETS.values())
 
 
@@ -130,7 +131,7 @@ def test_every_target_has_a_label_and_a_description():
         {"on": "run", "aggregate": "any"},
         {"on": "conversation", "aggregate": "share", "min_share": 0.5},
         {"on": "run", "where": {"channel": "email"}},
-        {"on": "turn", "where": {}},
+        {"on": "span", "where": []},
         {"on": "turn", "where": {"channel": []}},
         {"on": "turn", "where": {"channel": {"nested": "x"}}},
     ],
@@ -170,9 +171,11 @@ def test_a_metric_reading_the_trace_takes_every_target():
         TargetKind.MODEL_CALL,
         TargetKind.AGENT,
         TargetKind.GUARDRAIL,
+        TargetKind.SPAN,
     ]
     assert default_target(ToolCallTrajectory) is TargetKind.RUN
     assert TargetKind.TOOL_CALL not in supported_targets(ToolCallTrajectory)
+    assert TargetKind.SPAN not in supported_targets(ToolCallTrajectory)
 
 
 def test_judges_read_both():
@@ -297,7 +300,7 @@ def test_where_keeps_the_turns_with_those_attributes():
     # One turn left by a filter still reads as a count, not as the metric's own result.
     assert result.details["matched"] == 1
     assert result.details["reason"].startswith(
-        "0 of 1 turn where `rhesis.reported.metadata.channel` is email passed."
+        "0 of 1 turn where `rhesis.reported.metadata.channel` is `email` passed."
     )
 
 
@@ -318,7 +321,7 @@ def test_where_matching_nothing_is_not_applicable_and_says_why():
     )
 
     assert result.details["not_applicable"] is True
-    assert "tool calls where `region` is eu" in result.details["reason"]
+    assert "tool calls where `region` is `eu`" in result.details["reason"]
 
 
 @pytest.mark.parametrize(

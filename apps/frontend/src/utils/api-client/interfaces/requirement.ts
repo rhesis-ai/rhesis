@@ -62,6 +62,9 @@ export interface RequirementMetricRef {
   backend_type?: RequirementLookupRef | null;
   project_id?: UUID | null;
   class_name?: string | null;
+  /** The stored target in words, as on a metric; null without one. */
+  target_summary?: string | null;
+  target_summary_short?: string | null;
 }
 
 /** A row of `GET /requirements/`. The detail response has full metrics. */

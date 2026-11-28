@@ -1,9 +1,10 @@
 """Telemetry router for trace ingestion and queries."""
 
+import json
 import logging
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Callable, Iterator, List, Optional, TypeVar
+from typing import Any, Callable, Iterator, List, Optional, TypeVar
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Request, status
@@ -18,6 +19,7 @@ from rhesis.backend.app.constants import (
     AISpanAttributes,
     EnrichedDataKeys,
     EntityType,
+    SpanType,
     TestResultStatus,
 )
 from rhesis.backend.app.crud import file as file_crud
@@ -41,8 +43,10 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers import telemetry_intake as intake
 from rhesis.backend.app.routers.base import RhesisRouter, run_first
+from rhesis.backend.app.schemas.metric import read_target
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
+    SpanAttributeCatalogue,
     SpanFacetsResponse,
     SpanFilters,
     SpanListResponse,
@@ -61,6 +65,7 @@ from rhesis.backend.app.services.telemetry.ingest import (
     TooManySpans,
     apply_span_limits,
 )
+from rhesis.backend.app.services.telemetry.span_attributes import get_attribute_catalogue
 from rhesis.backend.app.services.telemetry.span_list import get_span_facets, list_spans
 from rhesis.backend.app.services.telemetry.token_totals import (
     trace_cost_usd,
@@ -483,6 +488,13 @@ def span_filter_params(
     tool: Optional[List[str]] = Query(
         None, description="Tool name (`ai.tool.name`), repeatable; matches the tool's calls"
     ),
+    target: Optional[str] = Query(
+        None,
+        description=(
+            "A metric target as JSON, as stored in a metric's config.target: only the spans "
+            "it picks, the root span of each unit. Applies with the other filters."
+        ),
+    ),
 ) -> SpanFilters:
     """Filters shared by the spans list and its facets."""
     for value, name in (
@@ -511,7 +523,33 @@ def span_filter_params(
         providers=provider,
         agents=agent,
         tools=tool,
+        target=_parse_target(target),
     )
+
+
+def _parse_target(raw: Optional[str]) -> Any:
+    """The ``target`` query parameter as the SDK's Target; 422 naming what is wrong."""
+    if raw is None:
+        return None
+
+    def invalid(detail: str) -> HTTPException:
+        return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+    try:
+        value = json.loads(raw)
+    except (ValueError, RecursionError) as e:
+        raise invalid(f"Invalid target: not JSON ({e})") from e
+    if value is None:
+        # Not "no target": a caller that means none leaves the parameter out.
+        raise invalid("Invalid target: null; leave target out to list every span")
+    try:
+        return read_target(value)
+    except ImportError as e:  # a core install, which runs no metric
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Targets need the metrics SDK"
+        ) from e
+    except ValueError as e:
+        raise invalid(str(e)) from e
 
 
 @contextmanager
@@ -605,6 +643,13 @@ def list_spans_endpoint(
     Test ids, ``trace_source`` and ``trace_type`` describe the trace: they match every
     span of a matching trace, not only its root. ``cost_usd`` is set only for LLM calls
     enrichment has priced.
+
+    ``target`` is a metric target as JSON (URL-encoded), and keeps exactly the spans it
+    picks, matched as a metric's evaluation matches them: for a span target or a preset,
+    each matching span; for ``turn``, each turn's root span; for ``run``, each trace's first
+    root; for ``conversation``, the first root of each conversation. It applies together
+    with every other filter, ``tool`` and ``model`` included. A target that isn't JSON or
+    isn't valid is a 422 naming the problem.
     """
     return _in_requested_project(
         request,
@@ -653,6 +698,43 @@ def get_span_facets_endpoint(
         scope_project_id,
         lambda organization_id, effective_project_id: get_span_facets(
             db, organization_id, effective_project_id, filters, name_limit=name_limit
+        ),
+    )
+
+
+@router.get("/attributes", response_model=SpanAttributeCatalogue)
+def get_attribute_catalogue_endpoint(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
+    project_id: Optional[str] = Query(
+        None, description="Project ID. Defaults to the session project from X-Project-Id."
+    ),
+    kind: Optional[str] = Query(
+        None,
+        max_length=SpanType.MAX_LENGTH,
+        description="Span kind (span_type: llm.invoke, tool.invoke, span, ...); all kinds if unset",
+    ),
+    days: int = Query(7, ge=1, le=90, description="Read spans started in the last N days"),
+    limit: int = Query(100, ge=1, le=500, description="Most attribute keys per kind"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    scope_project_id: Optional[str] = Depends(get_project_context),
+) -> SpanAttributeCatalogue:
+    """Attribute keys each span kind carries, with coverage, type and top values.
+
+    Reads the most recent spans of each kind only (at most 2000 per kind), so it stays
+    cheap on large projects. Keys where nearly every span has its own value (ids) are marked
+    ``unique``; they make poor suggestions.
+    """
+    return _in_requested_project(
+        request,
+        current_user,
+        db,
+        tenant_context,
+        project_id,
+        scope_project_id,
+        lambda organization_id, effective_project_id: get_attribute_catalogue(
+            db, organization_id, effective_project_id, kind=kind, days=days, limit=limit
         ),
     )
 

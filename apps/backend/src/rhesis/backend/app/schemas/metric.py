@@ -1,7 +1,15 @@
 import json
-from typing import Any, ClassVar, Dict, List, Optional, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, ValidationError, model_validator
+from pydantic import (
+    UUID4,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
@@ -86,25 +94,47 @@ def metric_targets(
     one must be chosen). They come from its class, from ``accepted`` (the parameters of an
     SDK metric's function), or else are a judge's. Raises ImportError on a core install."""
     from rhesis.sdk.metrics.targets import (
+        READS_INPUT_OUTPUT,
+        ExpectationName,
+        JudgedParam,
         TargetKind,
         default_target,
         supported_targets,
         targets_for,
     )
 
-    compares = ("response",) if ground_truth_required else ()
+    compares = (ExpectationName.RESPONSE,) if ground_truth_required else ()
     cls = builtin_metric_class(class_name)
     if accepted is not None:
         supported = targets_for(accepted, compares=compares)
-        reads_turns = bool({"input", "output"} & set(accepted))
+        reads_turns = bool(READS_INPUT_OUTPUT & set(accepted))
         default = TargetKind.TURN if reads_turns else TargetKind.RUN
     elif cls is not None:
         supported = supported_targets(cls, compares=compares)
         default = default_target(cls)
     else:
-        supported = targets_for(("input", "output", "trace"), compares=compares)
+        judge_reads = (JudgedParam.INPUT, JudgedParam.OUTPUT, JudgedParam.TRACE)
+        supported = targets_for(judge_reads, compares=compares)
         default = TargetKind.TURN
     return supported, default if default in supported else None
+
+
+def target_summaries(
+    config: Optional[Dict[str, Any]], default: Any
+) -> Tuple[Optional[str], Optional[str]]:
+    """The metric's target in words, long and short: its stored target, else the default
+    it is evaluated with. (None, None) when neither can be read, so an old or broken stored
+    config never fails a response. Raises ImportError on a core install."""
+    from rhesis.sdk.metrics.targets import Target
+
+    stored = (config or {}).get("target") if isinstance(config, dict) else None
+    try:
+        target = Target.coerce(stored if stored is not None else default)
+        if target is None:
+            return None, None
+        return target.describe(), target.describe(short=True)
+    except (ValueError, TypeError):
+        return None, None
 
 
 def check_metric_config(
@@ -123,7 +153,7 @@ def check_metric_config(
     if config is None and not default_target:
         return config
     try:
-        from rhesis.sdk.metrics.targets import Target, UnsupportedTarget, check_target
+        from rhesis.sdk.metrics.targets import check_target
     except ImportError:  # a core install, which runs no native metric
         return config
 
@@ -138,8 +168,18 @@ def check_metric_config(
         if default_target and default is not None:
             return {**settings, "target": {"on": default.value}}
         return settings if config is not None else None
+    target = check_target(cls, read_target(config["target"]), supported)
+    return {**settings, "target": target.to_config()}
+
+
+def read_target(value: Any) -> Any:
+    """``value`` as the SDK's ``Target``, or a ValueError ("Invalid target: …") naming each
+    problem, whatever reading it raised, so a route answers 422 and never 500. Raises
+    ImportError on a core install."""
+    from rhesis.sdk.metrics.targets import Target, UnsupportedTarget
+
     try:
-        target = check_target(cls, Target.coerce(config["target"]), supported)
+        return Target.coerce(value)
     except ValidationError as e:
         problems = "; ".join(
             f"{' -> '.join(str(loc) for loc in err['loc']) or 'target'}: {err['msg']}"
@@ -148,7 +188,9 @@ def check_metric_config(
         raise ValueError(f"Invalid target: {problems}") from None
     except UnsupportedTarget as e:
         raise ValueError(f"Invalid target: {e.reason}") from None
-    return {**settings, "target": target.to_config()}
+    # A shape the SDK didn't expect ("where": 5), or a number too large for it.
+    except (ValueError, TypeError, OverflowError, RecursionError) as e:
+        raise ValueError(f"Invalid target: {e}") from None
 
 
 def check_updated_config(update: "MetricUpdate", stored: Any) -> Optional[Dict[str, Any]]:
@@ -190,13 +232,17 @@ class _ChecksConfig:
 
     @model_validator(mode="after")
     def validate_config(self):
-        self.config = check_metric_config(
-            self.class_name,
-            self.config,
-            ground_truth_required=bool(self.ground_truth_required),
-            accepted=accepted_params(self.evaluation_examples),
-            default_target=self.fills_default_target,
-        )
+        try:
+            self.config = check_metric_config(
+                self.class_name,
+                self.config,
+                ground_truth_required=bool(self.ground_truth_required),
+                accepted=accepted_params(self.evaluation_examples),
+                default_target=self.fills_default_target,
+            )
+        except (TypeError, OverflowError) as e:
+            # Pydantic turns only a ValueError into a 422; anything else would be a 500.
+            raise ValueError(str(e)) from None
         return self
 
 
@@ -239,13 +285,17 @@ class Metric(MetricBase, ServerIdentity):
     metric_type: Optional[TypeLookup] = None
     # The targets the metric can take, for an editor to offer; None on a core install.
     supported_targets: Optional[List[str]] = None
+    # What the metric judges, in words ("each tool call named `issue_refund`"); a card puts
+    # "on " in front. None on a core install or when the stored target can't be read.
+    target_summary: Optional[str] = None
+    target_summary_short: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="after")
-    def _read_supported_targets(self):
+    def _read_targets(self):
         try:
-            supported, _ = metric_targets(
+            supported, default = metric_targets(
                 self.class_name,
                 ground_truth_required=bool(self.ground_truth_required),
                 accepted=accepted_params(self.evaluation_examples),
@@ -253,7 +303,15 @@ class Metric(MetricBase, ServerIdentity):
         except ImportError:
             return self
         self.supported_targets = [kind.value for kind in supported]
+        self.target_summary, self.target_summary_short = target_summaries(self.config, default)
         return self
+
+
+class MetricSaved(Metric):
+    """A created or updated metric, with what the write noticed but didn't refuse."""
+
+    # Such as a target condition on an attribute key no recent span carries.
+    warnings: List[str] = []
 
 
 class TargetChoice(BaseModel):
@@ -265,6 +323,92 @@ class TargetChoice(BaseModel):
     per_span: bool
     span_kind: Optional[str] = None
     """The span type a per-span target judges one by one (``tool.invoke``, ``retrieval``…)."""
+
+
+class ConditionOperatorChoice(BaseModel):
+    """An operator a target's condition takes, and what it compares with."""
+
+    op: str
+    takes_value: bool
+    value_type: str
+    """One of the SDK's ``ValueType``: none, number, list, text or pattern."""
+
+
+class SpecialFieldChoice(BaseModel):
+    """A field a condition reads besides span attributes."""
+
+    field: str
+    label: str
+
+
+class ReaderChoice(BaseModel):
+    """What ``read`` may name besides an attribute key or an event: the SDK's ``Reader``."""
+
+    reader: str
+    label: str
+
+
+class TargetChoices(BaseModel):
+    """What an editor offers for a target: the targets, the parts of a condition, and what
+    ``read`` may name."""
+
+    targets: List[TargetChoice] = []
+    operators: List[ConditionOperatorChoice] = []
+    special_fields: List[SpecialFieldChoice] = []
+    readers: List[ReaderChoice] = []
+    event_prefix: Optional[str] = None
+    """``read`` names an event's value with this prefix: ``event:ai.retrieval.query``."""
+
+
+#: The traces a target preview reads when none is asked for, and at most.
+PREVIEW_TRACES_DEFAULT = 50
+PREVIEW_TRACES_LIMIT = 200
+
+
+class TargetPreviewRequest(BaseModel):
+    """Body of POST /metrics/targets/preview: a target, tried on a project's latest traces."""
+
+    project_id: UUID4
+    target: Union[Dict[str, Any], str]
+    """A target as a metric's ``config.target`` holds it, or a preset's name."""
+    traces: int = Field(default=PREVIEW_TRACES_DEFAULT, ge=1)
+    """How many of the latest traces to read; more than ``PREVIEW_TRACES_LIMIT`` reads that many."""
+
+    @field_validator("traces")
+    @classmethod
+    def _capped(cls, traces: int) -> int:
+        return min(traces, PREVIEW_TRACES_LIMIT)
+
+
+class TargetPreviewSample(BaseModel):
+    """One unit the target picked, with its input and output cut short."""
+
+    trace_id: str
+    span_id: Optional[str] = None
+    name: Optional[str] = None
+    input: Optional[str] = None
+    output: Optional[str] = None
+    duration_ms: Optional[float] = None
+    status: Optional[str] = None
+    """The SDK's ``SpanStatus``: ok or error."""
+
+
+class TargetPreview(BaseModel):
+    """What a target picks in a project's latest traces, matched as evaluation matches it."""
+
+    traces: int
+    """The traces read, at most the number asked for."""
+    partial: bool = False
+    """Matching ran out of time before every trace was read; the counts are of ``traces``."""
+    matching_traces: int
+    units: int
+    """The units picked in all of them: what the metric would run on."""
+    not_applicable_traces: int
+    """Traces where the target picks nothing, which a metric scores as not applicable."""
+    samples: List[TargetPreviewSample] = []
+    target_summary: Optional[str] = None
+    """The previewed target in words, as a saved metric's ``target_summary`` reads."""
+    target_summary_short: Optional[str] = None
 
 
 class ModelReference(Base, ServerIdentity):

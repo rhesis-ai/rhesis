@@ -7,9 +7,8 @@ with a fixed value (``FieldRule``), or the output with the test's expected respo
 When the thing it reads wasn't recorded, a rule is not applicable: never a pass or a fail.
 """
 
-import json
-import math
 import re
+from enum import StrEnum
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 from rhesis.sdk.entities.trace import _REPORTED, _SPAN_SOURCE, Span, Trace
@@ -21,45 +20,60 @@ from rhesis.sdk.metrics.base import (
     MetricType,
     ScoreType,
 )
-from rhesis.sdk.metrics.expectations import ExpectationsLike
-
-#: Fields a ``FieldRule`` reads, besides ``attributes.<key>``.
-FIELDS = (
-    "duration_ms",
-    "status",
-    "error_count",
-    "span_count",
-    "tokens.input",
-    "tokens.output",
-    "tokens.total",
-    "cost_usd",
-    "input",
-    "output",
-    "length.input",
-    "length.output",
+from rhesis.sdk.metrics.conditions import (
+    ATTRIBUTE_PREFIX,
+    NUMERIC_OPS,
+    OPS,
+    PATTERN_LIMIT,
+    REGEX_TEXT_LIMIT,
+    VALUELESS_OPS,
+    ConditionOp,
+    SpanStatus,
+    check_value,
+    compare,
+    span_status,
 )
-ATTRIBUTE_PREFIX = "attributes."
-NUMERIC_OPS = ("<", "<=", ">", ">=")
-OPS = (*NUMERIC_OPS, "==", "!=", "in", "not_in", "contains", "matches", "exists", "is_json")
-#: Operators that take no value.
-VALUELESS_OPS = ("exists", "is_json")
+from rhesis.sdk.metrics.conditions import number as _number
+from rhesis.sdk.metrics.conditions import text as _text
+from rhesis.sdk.metrics.expectations import ExpectationsLike
+from rhesis.telemetry.attributes import AIAttributes
+from rhesis.telemetry.constants import ConversationContext
+
+
+class RuleField(StrEnum):
+    """Fields a ``FieldRule`` reads, besides ``attributes.<key>``."""
+
+    DURATION_MS = "duration_ms"
+    STATUS = "status"
+    ERROR_COUNT = "error_count"
+    SPAN_COUNT = "span_count"
+    TOKENS_INPUT = "tokens.input"
+    TOKENS_OUTPUT = "tokens.output"
+    TOKENS_TOTAL = "tokens.total"
+    COST_USD = "cost_usd"
+    INPUT = "input"
+    OUTPUT = "output"
+    LENGTH_INPUT = "length.input"
+    LENGTH_OUTPUT = "length.output"
+
+
+FIELDS = tuple(RuleField)
+#: The prefixes of the token and length fields; what follows names which one.
+TOKENS_PREFIX = "tokens."
+LENGTH_PREFIX = "length."
 RESPONSE_MATCHES = ("exact", "contains", "matches", "similar")
 SIMILARITIES = ("edit_distance", "rouge_l")
 
 #: Above this many characters, edit distance compares words, to stay fast.
 _CHARACTER_EDIT_LIMIT = 2000
-#: A regular expression is searched in at most this many characters, and may be at most
-#: ``_PATTERN_LIMIT`` long: the standard library has no time limit for a slow pattern.
-_REGEX_TEXT_LIMIT = 100_000
-_PATTERN_LIMIT = 1000
 #: The most characters of a text kept in a result's details.
 _DETAIL_TEXT_LIMIT = 500
 
-_TOKENS_INPUT = "ai.llm.tokens.input"
-_TOKENS_OUTPUT = "ai.llm.tokens.output"
-_TOKENS_TOTAL = "ai.llm.tokens.total"
-_CONVERSATION_INPUT = "rhesis.conversation.input"
-_CONVERSATION_OUTPUT = "rhesis.conversation.output"
+_TOKENS_INPUT = AIAttributes.LLM_TOKENS_INPUT
+_TOKENS_OUTPUT = AIAttributes.LLM_TOKENS_OUTPUT
+_TOKENS_TOTAL = AIAttributes.LLM_TOKENS_TOTAL
+_CONVERSATION_INPUT = ConversationContext.SpanAttributes.CONVERSATION_INPUT
+_CONVERSATION_OUTPUT = ConversationContext.SpanAttributes.CONVERSATION_OUTPUT
 
 
 def rule_not_applicable(reason: str) -> MetricResult:
@@ -144,7 +158,8 @@ class FieldRule(TraceRule):
             settings["span_kind"] = span_kind
         if span_name is not None:
             settings["span_name"] = span_name
-        self.validate_config(settings)
+        # Built from storage too: a pattern saved before the portability check still runs.
+        self._checked(settings, strict=False)
         self.field = field
         self.op = op
         self.value = value
@@ -155,6 +170,11 @@ class FieldRule(TraceRule):
 
     @classmethod
     def validate_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
+        """The settings as saved: a ``matches`` pattern must also mean the same in Postgres."""
+        return cls._checked(config, strict=True)
+
+    @classmethod
+    def _checked(cls, config: Dict[str, Any], strict: bool) -> Dict[str, Any]:
         unknown = set(config) - {"field", "op", "value", "negate", "span_kind", "span_name"}
         if unknown:
             raise ValueError(f"Unknown settings: {', '.join(sorted(unknown))}")
@@ -167,32 +187,10 @@ class FieldRule(TraceRule):
             raise ValueError(
                 f"field must be one of {', '.join(FIELDS)}, or attributes.<key>; got {field!r}"
             )
-        if op not in OPS:
-            raise ValueError(f"op must be one of {', '.join(OPS)}; got {op!r}")
-        value = config.get("value")
-        if op in VALUELESS_OPS:
-            if value is not None:
-                raise ValueError(f"'{op}' takes no value")
-        elif "value" not in config or value is None:
-            raise ValueError(f"'{op}' needs a value")
-        if op in NUMERIC_OPS and _number(value) is None:
-            raise ValueError(f"'{op}' compares with a number; got {value!r}")
-        if op in ("in", "not_in") and not isinstance(value, list):
-            raise ValueError(f"'{op}' takes a list of values")
-        if op == "matches":
-            if not isinstance(value, str):
-                raise ValueError("'matches' takes a regular expression")
-            if len(value) > _PATTERN_LIMIT:
-                raise ValueError(
-                    f"The regular expression is longer than {_PATTERN_LIMIT} characters"
-                )
-            try:
-                re.compile(value)
-            except re.error as e:
-                raise ValueError(f"Invalid regular expression: {e}") from e
+        check_value(op, config.get("value"), OPS, strict=strict)
         if not isinstance(config.get("negate", False), bool):
             raise ValueError("negate must be true or false")
-        if field != "span_count" and (
+        if field != RuleField.SPAN_COUNT and (
             config.get("span_kind") is not None or config.get("span_name") is not None
         ):
             raise ValueError("span_kind and span_name only narrow span_count")
@@ -215,20 +213,18 @@ class FieldRule(TraceRule):
         trace: Optional[Trace] = None,
     ) -> MetricResult:
         measured, missing = self._read(input, output, trace)
-        if missing is not None and self.op != "exists":
+        if missing is not None and self.op != ConditionOp.EXISTS:
             return rule_not_applicable(missing)
         if self.op in NUMERIC_OPS and _number(measured) is None:
             return rule_not_applicable(
                 f"{_label(self.field)} is {_shown(measured)}, not a number, so "
                 f"`{self.statement}` can't be judged."
             )
-        passed, failure = _compare(self.op, measured, self.value, self.field)
+        passed = compare(self.op, measured, self.value, self.field)
         if self.negate:
             passed = not passed
         verdict = "passes" if passed else "fails"
         reason = f"{_label(self.field)} is {_shown(measured)}, so `{self.statement}` {verdict}."
-        if failure and not self.negate:
-            reason = f"{failure} `{self.statement}` fails."
         return rule_result(passed, reason, measured, self.value)
 
     def _read(self, input: Any, output: Any, trace: Optional[Trace]) -> Tuple[Any, Optional[str]]:
@@ -237,45 +233,46 @@ class FieldRule(TraceRule):
         # A call the endpoint both recorded and reported counts once, as in trace.tool_calls.
         spans = _deduplicated(trace.spans()) if roots else []
         field = self.field
-        if field == "duration_ms":
+        if field == RuleField.DURATION_MS:
             value = _duration(roots)
             return value, None if value is not None else (
                 "No timing was recorded here. Reported spans and traces built from a bare "
                 "response have none; send traces to judge timing."
             )
-        if field in ("status", "error_count"):
+        if field in (RuleField.STATUS, RuleField.ERROR_COUNT):
             # A reported span carries no status, so it can neither pass nor fail one.
-            read = [span for span in (roots if field == "status" else spans) if not _reported(span)]
+            status = field == RuleField.STATUS
+            read = [span for span in (roots if status else spans) if not _reported(span)]
             if not read:
                 return None, (
                     "Only reported spans are here, and they carry no status. Send traces to "
                     "judge whether calls failed."
                 )
-            errors = sum(1 for span in read if _status(span) == "error")
-            if field == "status":
-                return ("error" if errors else "ok"), None
+            errors = sum(1 for span in read if span_status(span.status_code) is SpanStatus.ERROR)
+            if status:
+                return (SpanStatus.ERROR if errors else SpanStatus.OK).value, None
             return errors, None
-        if field == "span_count":
+        if field == RuleField.SPAN_COUNT:
             return sum(1 for span in spans if self._counted(span)), None
-        if field.startswith("tokens."):
-            value = _tokens(spans, field.split(".", 1)[1])
+        if field.startswith(TOKENS_PREFIX):
+            value = _tokens(spans, field.removeprefix(TOKENS_PREFIX))
             return value, None if value is not None else (
                 "No model call here reported token counts. Map usage in the endpoint's "
                 "response, or send traces."
             )
-        if field == "cost_usd":
+        if field == RuleField.COST_USD:
             costs = [span.cost_usd for span in spans if span.cost_usd is not None]
             return (sum(costs), None) if costs else (None, "No cost was recorded here.")
         if field.startswith(ATTRIBUTE_PREFIX):
             key = field[len(ATTRIBUTE_PREFIX) :]
             value = next((s.attributes[key] for s in roots if key in s.attributes), None)
             return value, None if value is not None else f"The attribute `{key}` isn't set."
-        which = field.split(".", 1)[1] if field.startswith("length.") else field
-        text = _turn_value(trace, which, input if which == "input" else output)
+        which = field.removeprefix(LENGTH_PREFIX)
+        text = _turn_value(trace, which, input if which == RuleField.INPUT else output)
         # An empty value reads as one never recorded: traces don't keep the difference.
         if text is None or text == "":
             return None, f"No {which} was recorded here."
-        if field.startswith("length."):
+        if field.startswith(LENGTH_PREFIX):
             return len(_text(text)), None
         return text, None
 
@@ -374,13 +371,13 @@ class ResponseRule(TraceRule):
             )
             return rule_result(passed, reason, actual, wanted)
         if self.match == "matches":
-            if len(wanted) > _PATTERN_LIMIT:
+            if len(wanted) > PATTERN_LIMIT:
                 return rule_not_applicable(
-                    f"The expected response is longer than {_PATTERN_LIMIT} characters, too "
+                    f"The expected response is longer than {PATTERN_LIMIT} characters, too "
                     "long to use as a regular expression."
                 )
             try:
-                passed = re.search(wanted, actual[:_REGEX_TEXT_LIMIT]) is not None
+                passed = re.search(wanted, actual[:REGEX_TEXT_LIMIT]) is not None
             except re.error as e:
                 return rule_not_applicable(
                     f"The expected response is not a valid regular expression: {e}"
@@ -492,16 +489,11 @@ def _deduplicated(spans: List[Span]) -> List[Span]:
     return [span for span in spans if not (_reported(span) and span.kind in recorded_kinds)]
 
 
-def _status(span: Span) -> str:
-    code = (span.status_code or "").lower().removeprefix("status_code_")
-    return "error" if code == "error" else "ok"
-
-
 def _tokens(spans: Iterable[Span], which: str) -> Optional[int]:
     # Only model calls: a span around them may repeat their counts.
     total, found = 0, False
     for span in spans:
-        if span.kind != "llm.invoke":
+        if span.kind != AIAttributes.OPERATION_LLM_INVOKE:
             continue
         counts = {
             "input": _number(span.attributes.get(_TOKENS_INPUT)),
@@ -535,85 +527,12 @@ def _turn_value(trace: Optional[Trace], which: str, given: Any) -> Any:
 def _names(span: Span) -> List[str]:
     candidates = [
         span.tool_name,
-        span.attributes.get("ai.agent.name"),
+        span.attributes.get(AIAttributes.AGENT_NAME),
         span.model_name,
-        span.attributes.get("ai.model.name"),
+        span.attributes.get(AIAttributes.MODEL_NAME),
         span.span_name,
     ]
     return [name for name in candidates if isinstance(name, str) and name]
-
-
-def _compare(op: str, measured: Any, value: Any, field: str) -> Tuple[bool, Optional[str]]:
-    """Whether ``measured`` compares as ``op`` says with ``value``, and why not when it can't
-    be compared at all."""
-    if op == "exists":
-        return measured is not None, None
-    if op == "is_json":
-        return _is_json(measured), None
-    if op in NUMERIC_OPS:
-        # FieldRule.evaluate makes a non-number not applicable before comparing.
-        left, right = _number(measured), _number(value)
-        return {
-            "<": left < right,
-            "<=": left <= right,
-            ">": left > right,
-            ">=": left >= right,
-        }[op], None
-    if op == "==":
-        return _same(measured, value, field), None
-    if op == "!=":
-        return not _same(measured, value, field), None
-    if op == "in":
-        return any(_same(measured, choice, field) for choice in value), None
-    if op == "not_in":
-        return not any(_same(measured, choice, field) for choice in value), None
-    if op == "contains":
-        return _text(value) in _text(measured), None
-    return re.search(value, _text(measured)[:_REGEX_TEXT_LIMIT]) is not None, None
-
-
-def _same(measured: Any, value: Any, field: str) -> bool:
-    # Attributes can arrive as text: 200 and "200", true and "true" are the same.
-    left, right = _number(measured), _number(value)
-    if left is not None and right is not None:
-        return left == right
-    if field == "status":
-        return _text(measured).lower() == _text(value).lower()
-    return _text(measured) == _text(value)
-
-
-def _number(value: Any) -> Optional[float]:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value) if math.isfinite(value) else None
-    if isinstance(value, str):
-        try:
-            number = float(value.strip())
-        except ValueError:
-            return None
-        return number if math.isfinite(number) else None
-    return None
-
-
-def _is_json(value: Any) -> bool:
-    if isinstance(value, (dict, list)):
-        return True
-    if not isinstance(value, str):
-        return False
-    try:
-        json.loads(value)
-    except ValueError:
-        return False
-    return True
-
-
-def _text(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    return json.dumps(value, default=str)
 
 
 def _label(field: str) -> str:
@@ -637,7 +556,7 @@ def _statement(
     span_name: Optional[str],
 ) -> str:
     subject = field
-    if field == "span_count" and (span_kind or span_name):
+    if field == RuleField.SPAN_COUNT and (span_kind or span_name):
         subject = f"span_count({', '.join(p for p in (span_kind, span_name) if p)})"
     rule = f"{subject} {op}" if op in VALUELESS_OPS else f"{subject} {op} {_text(value)}"
     return f"not {rule}" if negate else rule

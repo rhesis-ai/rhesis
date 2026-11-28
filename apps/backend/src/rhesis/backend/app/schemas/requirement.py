@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field
+from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
 from rhesis.backend.app.schemas.annotation import AnnotationDetail, AnnotationTuningCase
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
@@ -71,8 +71,22 @@ class RequirementMetricRef(BaseModel):
     # Read by scripts/project_migrate to tell project, org-level and built-in metrics apart.
     project_id: Optional[UUID4] = None
     class_name: Optional[str] = None
+    # The stored target in words, as on a metric response; None without a stored target.
+    target_summary: Optional[str] = None
+    target_summary_short: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def _describe_target(self) -> "RequirementMetricRef":
+        # Imported here: the metric schemas import the SDK, which a core install lacks.
+        from rhesis.backend.app.schemas.metric import target_summaries
+
+        try:
+            self.target_summary, self.target_summary_short = target_summaries(self.config, None)
+        except ImportError:
+            pass
+        return self
 
 
 class RequirementSourceTypeRef(BaseModel):

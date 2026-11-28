@@ -27,7 +27,10 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import type { AnnotationFacets } from '@/utils/api-client/interfaces/annotation';
 import type { TestFacets } from '@/utils/api-client/interfaces/tests';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
-import type { MetricTargetChoice } from '@/utils/api-client/interfaces/metric';
+import type {
+  MetricTargetChoice,
+  MetricTargetOptions,
+} from '@/utils/api-client/interfaces/metric';
 import { getPriorities } from '@/utils/task-lookup';
 import type { Priority } from '@/utils/api-client/interfaces/task';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -246,13 +249,33 @@ export function usePriorities(enabled = true) {
   });
 }
 
+/**
+ * `GET /metrics/targets`: the target registry, and the operators and special
+ * fields a target condition takes.
+ */
+export function useMetricTargetOptions(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
+  return useQuery<MetricTargetOptions>({
+    queryKey: metricTargetKeys.all(),
+    queryFn: () =>
+      new ApiClientFactory().getMetricsClient().getMetricTargetOptions(),
+    enabled: enabled && isAuthenticated,
+    staleTime: Infinity,
+  });
+}
+
+const selectTargets = (options: MetricTargetOptions) => options.targets;
+
 /** The metric target registry, in display order. */
 export function useMetricTargets(enabled = true) {
   const isAuthenticated = useIsAuthenticated();
-  return useQuery<MetricTargetChoice[]>({
+  // One query with useMetricTargetOptions: the same request, cached once.
+  return useQuery<MetricTargetOptions, Error, MetricTargetChoice[]>({
     queryKey: metricTargetKeys.all(),
-    queryFn: () => new ApiClientFactory().getMetricsClient().getMetricTargets(),
+    queryFn: () =>
+      new ApiClientFactory().getMetricsClient().getMetricTargetOptions(),
     enabled: enabled && isAuthenticated,
     staleTime: Infinity,
+    select: selectTargets,
   });
 }

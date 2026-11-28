@@ -334,6 +334,8 @@ Send the numeric fields only for numeric metrics and the category fields only fo
 
 **Never send:** `id`, `user_id`, `organization_id`, `created_at`, `updated_at`, `owner_id`, `status_id`, `model_id`, `backend_type_id`, `metric_type_id`
 
+**Response:** carries `target_summary`, the target in words, and `warnings`. A warning names a `where` attribute key that no recent span of the project carries, and the nearest key that one does. The metric is still saved; report the warning and fix the key with `update_metric` if the suggestion is what was meant.
+
 **Common mistakes:** Sending `score_type: "numeric"` without `min_score`/`max_score`/`threshold` — rejected. Metric names are unique per organization, so creating one that already exists fails with "Metric with this name already exists"; resolve it with `list_metrics` and reuse it, or use `improve_metric`. Never retry with a suffixed name.
 
 ---
@@ -858,6 +860,39 @@ This is the way back. Annotations, comments and tasks on a trace all record the 
 **Key parameters:** `span_db_id` (required) — from `context.trace_db_id`, or an annotation's `entity_id` when `entity_type` is `"Trace"`
 
 **CHAIN:** `list_annotations(entity_type="Trace")` → `lookup_span` → `get_trace`
+
+---
+
+### `list_spans`
+List spans, one compact row per span (name, kind, duration, status, model, tokens, cost), with no attributes or events.
+
+Pass `target`, a metric target as JSON text, to list exactly the spans that target picks, matched as evaluation matches them. It applies together with the other filters. A target that isn't valid is refused with `Invalid target: ...` naming the problem.
+
+**Key parameters:** `target`, `span_type` (repeatable), `project_id` (omit to use the caller's scope), `limit`, `offset`
+
+**Pagination:** the response carries `total`, `limit` and `offset`. Page with `offset`, not `skip`.
+
+---
+
+### `list_trace_attributes`
+List the attribute keys each kind of span carries in a project's recent traces: per key its coverage, type, most common values and number of distinct values. A key marked `unique` has nearly one value per span (an id) and makes a poor condition.
+
+It reads at most 2000 recent spans per kind from the last `days` (7 by default). An empty result means no spans in that window.
+
+**Key parameters:** `project_id` (omit to use the caller's scope), `kind` (one span kind, such as `tool.invoke`), `days`
+
+**CHAIN:** before `create_metric` or `update_metric` with a span target or any `where` on an attribute. Take keys from here instead of guessing, then `preview_target`.
+
+---
+
+### `preview_target`
+Try a metric target on a project's latest traces before saving it. Returns how many traces were read, how many it applies to, how many units a metric would run on, how many traces it picks nothing in, and a few samples. It changes nothing.
+
+A target that picks nothing, or far more than expected, usually has a wrong key, value or operator. Check it against `list_trace_attributes` and try again.
+
+**Key parameters:** `project_id` (required), `target` (required; an object as `config.target` holds it, or a preset's name), `traces` (1 to 200, default 50)
+
+**CHAIN:** `list_trace_attributes` → `preview_target` → `create_metric` or `update_metric` with the same target.
 
 ---
 

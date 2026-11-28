@@ -558,7 +558,7 @@ class TestMetricPerformance(MetricTestMixin, BaseEntityTests):
         response = metric_factory.client.get(f"{self.endpoints.list}targets")
 
         assert response.status_code == status.HTTP_200_OK
-        choices = response.json()
+        choices = response.json()["targets"]
         assert [c["on"] for c in choices] == [kind.value for kind in TARGETS]
         assert choices[0] == {
             "on": "turn",
@@ -570,6 +570,112 @@ class TestMetricPerformance(MetricTestMixin, BaseEntityTests):
         tool_call = next(c for c in choices if c["on"] == "tool_call")
         assert tool_call["per_span"] is True
         assert tool_call["span_kind"] == "tool.invoke"
+
+    def test_metric_targets_lists_the_parts_of_a_condition(self, metric_factory):
+        from rhesis.sdk.metrics.conditions import CONDITION_OPS, SPECIAL_FIELDS
+
+        response = metric_factory.client.get(f"{self.endpoints.list}targets")
+
+        body = response.json()
+        operators = {o["op"]: o for o in body["operators"]}
+        assert list(operators) == [op.value for op in CONDITION_OPS]
+        assert operators["exists"] == {"op": "exists", "takes_value": False, "value_type": "none"}
+        assert operators["<="]["value_type"] == "number"
+        assert operators["not_in"]["value_type"] == "list"
+        assert operators["matches"]["value_type"] == "pattern"
+        assert operators["contains"] == {
+            "op": "contains",
+            "takes_value": True,
+            "value_type": "text",
+        }
+        assert body["special_fields"] == [
+            {"field": field.value, "label": label} for field, label in SPECIAL_FIELDS.items()
+        ]
+        assert body["special_fields"][3] == {"field": "duration_ms", "label": "Duration (ms)"}
+
+    def test_metric_targets_lists_what_read_may_name(self, metric_factory):
+        from rhesis.sdk.metrics.targets import EVENT_READER, READERS
+
+        response = metric_factory.client.get(f"{self.endpoints.list}targets")
+
+        body = response.json()
+        assert [r["reader"] for r in body["readers"]] == [reader.value for reader in READERS]
+        assert all(r["label"] for r in body["readers"])
+        assert body["readers"][0] == {"reader": "input", "label": "Its own input"}
+        assert body["event_prefix"] == EVENT_READER == "event:"
+
+    def test_a_metric_says_what_it_judges_in_words(self, metric_factory):
+        data = self.get_sample_data()
+        data["config"] = {
+            "target": {"on": "tool_call", "name": "issue_refund", "within": "billing_agent"}
+        }
+
+        created = metric_factory.create(data)
+        fetched = metric_factory.client.get(f"{self.endpoints.list}{created['id']}").json()
+        listed = metric_factory.client.get(f"{self.endpoints.list}?limit=100").json()
+
+        long = "each tool call named `issue_refund` inside `billing_agent`"
+        for metric in (created, fetched, next(m for m in listed if m["id"] == created["id"])):
+            assert metric["target_summary"] == long
+            assert metric["target_summary_short"] == long
+
+    def test_a_long_target_has_a_short_summary(self, metric_factory):
+        data = self.get_sample_data()
+        where = [
+            {"field": "kind", "op": "==", "value": "tool.invoke"},
+            {"field": "app.tier", "op": "==", "value": "gold"},
+            {"field": "duration_ms", "op": ">", "value": 500},
+        ]
+        data["config"] = {"target": {"on": "span", "where": where}}
+
+        metric = metric_factory.create(data)
+
+        assert metric["target_summary"] == (
+            "each tool call where `app.tier` is `gold` and `duration_ms` is over `500`"
+        )
+        assert metric["target_summary_short"] == (
+            "each tool call where `app.tier` is `gold`, and 1 more condition"
+        )
+
+    def test_a_metric_without_a_target_is_summarised_by_its_default(self, metric_factory):
+        metric = metric_factory.create(self.get_sample_data())
+
+        assert metric["target_summary"] == "each turn"
+
+
+@pytest.mark.unit
+class TestTargetSummaries:
+    """The summary never fails a response, whatever is stored."""
+
+    def test_a_broken_stored_target_gives_no_summary(self):
+        from rhesis.backend.app.schemas.metric import target_summaries
+
+        broken = {"target": {"on": "tool_call", "where": [{"field": "x", "op": "~"}]}}
+
+        assert target_summaries(broken, None) == (None, None)
+        assert target_summaries({"target": {"on": "trajectory"}}, None) == (None, None)
+        assert target_summaries({"target": "nonsense"}, None) == (None, None)
+
+    def test_no_target_and_no_default_gives_no_summary(self):
+        from rhesis.backend.app.schemas.metric import target_summaries
+
+        assert target_summaries(None, None) == (None, None)
+
+    def test_a_response_with_a_broken_stored_target_still_serialises(self):
+        import uuid
+
+        from rhesis.backend.app.schemas.metric import Metric
+
+        metric = Metric(
+            id=uuid.uuid4(),
+            name="m",
+            evaluation_prompt="p",
+            score_type="numeric",
+            config={"target": {"on": "trajectory"}},
+        )
+
+        assert metric.target_summary is None
+        assert metric.target_summary_short is None
 
 
 # === METRIC GENERATE ENDPOINT TESTS ===
@@ -920,6 +1026,26 @@ class TestRuleMetrics(MetricTestMixin):
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
+    def test_a_pattern_that_differs_in_postgres_is_refused_on_create(self, metric_factory):
+        config = {"field": "output", "op": "matches", "value": r"\brefund\b"}
+
+        response = self._create(metric_factory, self._rule("FieldRule", config))
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "word boundary" in response.text
+
+    def test_a_pattern_that_differs_in_postgres_is_refused_on_update(self, metric_factory):
+        config = {"field": "output", "op": "matches", "value": "refund"}
+        created = self._create(metric_factory, self._rule("FieldRule", config)).json()
+
+        response = metric_factory.client.put(
+            self.endpoints.put(created["id"]),
+            json={"config": {**config, "value": r"\brefund\b"}},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "word boundary" in response.text
+
     def test_a_response_rule_judges_turns_but_not_spans_or_the_conversation(self, metric_factory):
         response = self._create(
             metric_factory,
@@ -955,3 +1081,344 @@ class TestRuleMetrics(MetricTestMixin):
         created = response.json()
         assert created["config"]["target"] == {"on": "run"}
         assert "tool_call" not in created["supported_targets"]
+
+
+TIER = "app.customer_tier"
+
+
+def _condition(field: str, op: str, value: Any = None) -> Dict[str, Any]:
+    return {"field": field, "op": op, "value": value}
+
+
+def _span_target(*conditions: Dict[str, Any]) -> Dict[str, Any]:
+    from rhesis.sdk.metrics.targets import TargetKind
+
+    return {"target": {"on": TargetKind.SPAN.value, "where": list(conditions)}}
+
+
+@pytest.fixture
+def catalogue_calls(monkeypatch):
+    """Counts the catalogue queries a metric write makes."""
+    from rhesis.backend.app.services.telemetry import span_attributes
+
+    calls = []
+    real = span_attributes.get_attribute_catalogue
+
+    def counting(*args, **kwargs):
+        calls.append(args)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(span_attributes, "get_attribute_catalogue", counting)
+    return calls
+
+
+@pytest.fixture
+def tool_spans(authenticated_client, db_project):
+    """Four recent tool spans in the project, two of them with a customer tier."""
+    from datetime import datetime, timedelta, timezone
+
+    from rhesis.telemetry import AIAttributes
+
+    from .fixtures.data_factories import TraceDataFactory
+
+    project_id = str(db_project.id)
+    spans = []
+    for i in range(4):
+        span = TraceDataFactory.minimal_data(project_id=project_id)
+        start = datetime.now(timezone.utc) - timedelta(minutes=i)
+        attributes = {
+            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_TOOL_INVOKE,
+            AIAttributes.TOOL_NAME: "issue_refund",
+        }
+        if i < 2:
+            attributes[TIER] = "gold"
+        span.update(
+            attributes=attributes,
+            start_time=start.isoformat(),
+            end_time=(start + timedelta(seconds=1)).isoformat(),
+        )
+        spans.append(span)
+    response = authenticated_client.post("/telemetry/traces", json={"spans": spans})
+    assert response.status_code == status.HTTP_200_OK, response.text
+    return project_id
+
+
+@pytest.fixture
+def in_project(test_db, test_org_id, authenticated_user_id, tool_spans, monkeypatch):
+    """Requests run scoped to the project with the tool spans, so metrics are stamped with it.
+
+    Route tests bypass the dependency that reads X-Project-Id; the request session copies
+    its scope from ``test_db.info`` instead.
+    """
+    from rhesis.backend.app.scope import RequestScope
+
+    scope = RequestScope(
+        organization_id=str(test_org_id), user_id=str(authenticated_user_id), project_id=tool_spans
+    )
+    monkeypatch.setitem(test_db.info, "_scope", scope)
+    return tool_spans
+
+
+@pytest.mark.integration
+class TestWhereKeyWarnings(MetricTestMixin):
+    """A where key no recent span carries is saved with a warning, never refused."""
+
+    def _create(self, client, config):
+        data = {**MetricDataFactory.sample_data(), "config": config}
+        response = client.post(self.endpoints.create, json=data)
+        assert response.status_code == status.HTTP_200_OK, response.text
+        return response.json()
+
+    def test_an_unknown_key_is_warned_about_with_the_nearest_one(
+        self, authenticated_client, in_project
+    ):
+        metric = self._create(
+            authenticated_client, _span_target(_condition("app.tier", "==", "gold"))
+        )
+
+        assert metric["warnings"] == [
+            f"No recent span carries app.tier; {TIER} is set on 50% of tool.invoke spans"
+        ]
+        assert metric["config"]["target"]["where"][0]["field"] == "app.tier"
+
+    def test_an_unknown_key_with_nothing_near_it_is_named_alone(
+        self, authenticated_client, in_project
+    ):
+        metric = self._create(authenticated_client, _span_target(_condition("zzz", "exists")))
+
+        assert metric["warnings"] == ["No recent span carries zzz"]
+
+    def test_a_known_key_gives_no_warning(self, authenticated_client, in_project):
+        metric = self._create(authenticated_client, _span_target(_condition(TIER, "==", "gold")))
+
+        assert metric["warnings"] == []
+
+    def test_a_known_key_read_as_an_attribute_gives_no_warning(
+        self, authenticated_client, in_project
+    ):
+        from rhesis.sdk.metrics.conditions import ATTRIBUTE_PREFIX
+
+        target = _span_target(_condition(f"{ATTRIBUTE_PREFIX}{TIER}", "exists"))
+
+        assert self._create(authenticated_client, target)["warnings"] == []
+
+    def test_special_fields_are_not_checked(
+        self, authenticated_client, in_project, catalogue_calls
+    ):
+        from rhesis.sdk.metrics.conditions import SpecialField
+
+        target = _span_target(
+            _condition(SpecialField.KIND.value, "==", "tool_call"),
+            _condition(SpecialField.DURATION_MS.value, ">", 10),
+            _condition(SpecialField.STATUS.value, "==", "ok"),
+        )
+
+        assert self._create(authenticated_client, target)["warnings"] == []
+        assert catalogue_calls == []
+
+    def test_a_target_without_attribute_conditions_reads_no_catalogue(
+        self, authenticated_client, in_project, catalogue_calls
+    ):
+        config = {"target": {"on": "tool_call", "name": "issue_refund"}}
+
+        assert self._create(authenticated_client, config)["warnings"] == []
+        assert catalogue_calls == []
+
+    def test_a_metric_without_a_project_is_not_checked(
+        self, authenticated_client, tool_spans, catalogue_calls
+    ):
+        metric = self._create(authenticated_client, _span_target(_condition("app.tier", "exists")))
+
+        assert metric["warnings"] == []
+        assert catalogue_calls == []
+
+    def test_one_catalogue_query_for_several_keys(
+        self, authenticated_client, in_project, catalogue_calls
+    ):
+        target = _span_target(_condition("app.tier", "exists"), _condition("zzz", "exists"))
+
+        metric = self._create(authenticated_client, target)
+
+        assert len(metric["warnings"]) == 2
+        assert len(catalogue_calls) == 1
+
+    def test_an_update_is_warned_about_too(self, authenticated_client, in_project):
+        metric = self._create(authenticated_client, _span_target(_condition(TIER, "exists")))
+
+        response = authenticated_client.put(
+            self.endpoints.put(metric["id"]),
+            json={"config": _span_target(_condition("app.customer_teir", "exists"))},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["warnings"] == [
+            f"No recent span carries app.customer_teir; {TIER} is set on 50% of tool.invoke spans"
+        ]
+
+    def test_an_update_without_a_config_is_not_checked(
+        self, authenticated_client, in_project, catalogue_calls
+    ):
+        metric = self._create(authenticated_client, _span_target(_condition("app.tier", "exists")))
+        catalogue_calls.clear()
+
+        response = authenticated_client.put(
+            self.endpoints.put(metric["id"]),
+            json={"description": "Checks gold customers."},
+        )
+
+        assert response.json()["warnings"] == []
+        assert catalogue_calls == []
+
+    def test_a_where_that_is_not_a_list_is_a_422(self, authenticated_client, in_project):
+        bad = {"target": {"on": "span", "where": 5}}
+        data = {**MetricDataFactory.sample_data(), "config": bad}
+
+        created = authenticated_client.post(self.endpoints.create, json=data)
+        assert created.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, created.text
+
+        metric = self._create(authenticated_client, _span_target(_condition(TIER, "exists")))
+        updated = authenticated_client.put(self.endpoints.put(metric["id"]), json={"config": bad})
+        assert updated.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, updated.text
+        assert "Invalid target:" in updated.text
+
+    def test_a_type_error_reading_a_target_is_a_422(
+        self, authenticated_client, in_project, monkeypatch
+    ):
+        def fails(*_args, **_kwargs):
+            raise TypeError("the SDK tripped")
+
+        monkeypatch.setattr("rhesis.sdk.metrics.targets.Target.coerce", fails)
+        data = {
+            **MetricDataFactory.sample_data(),
+            "config": _span_target(_condition(TIER, "exists")),
+        }
+
+        response = authenticated_client.post(self.endpoints.create, json=data)
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.text
+        assert "Invalid target: the SDK tripped" in response.text
+
+    def test_a_failing_key_check_never_fails_the_write(
+        self, authenticated_client, in_project, monkeypatch
+    ):
+        from rhesis.backend.app.services.telemetry import span_attributes
+
+        def fails(*_args, **_kwargs):
+            raise RuntimeError("catalogue down")
+
+        monkeypatch.setattr(span_attributes, "get_attribute_catalogue", fails)
+
+        metric = self._create(authenticated_client, _span_target(_condition("app.tier", "exists")))
+
+        assert metric["warnings"] == []
+
+    def test_a_slow_key_check_is_cut_short_and_the_write_goes_on(
+        self, authenticated_client, in_project, monkeypatch
+    ):
+        from sqlalchemy import text
+
+        from rhesis.backend.app.services.telemetry import span_attributes
+
+        def slow(db, *_args, **_kwargs):
+            db.execute(text("SELECT pg_sleep(5)"))
+
+        monkeypatch.setattr(span_attributes, "KEY_CHECK_TIMEOUT_MS", 50)
+        monkeypatch.setattr(span_attributes, "get_attribute_catalogue", slow)
+
+        metric = self._create(authenticated_client, _span_target(_condition("app.tier", "exists")))
+
+        assert metric["warnings"] == []
+        # Saved in the same transaction the cancelled query ran in.
+        assert authenticated_client.get(self.endpoints.get(metric["id"])).status_code == 200
+
+    def test_an_invalid_target_reaches_mcp_with_the_message_intact(
+        self, authenticated_client, in_project
+    ):
+        import json
+
+        from rhesis.backend.app.mcp_server.server import format_error
+        from rhesis.sdk.metrics.conditions import CONDITION_OPS
+
+        metric = self._create(authenticated_client, _span_target(_condition(TIER, "exists")))
+        response = authenticated_client.put(
+            self.endpoints.put(metric["id"]),
+            json={"config": _span_target(_condition(TIER, "~", "gold"))},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        detail = json.loads(format_error(response))["detail"]
+        message = detail if isinstance(detail, str) else json.dumps(detail)
+        assert "Invalid target:" in message
+        assert ", ".join(op.value for op in CONDITION_OPS) in message
+
+
+@pytest.mark.unit
+class TestUnknownKeyWarnings:
+    """The warning text, from a catalogue alone."""
+
+    def _catalogue(self, kinds):
+        from datetime import datetime, timezone
+
+        from rhesis.backend.app.schemas.telemetry import (
+            AttributeValueType,
+            SpanAttributeCatalogue,
+            SpanAttributeSummary,
+            SpanKindAttributes,
+        )
+
+        return SpanAttributeCatalogue(
+            kinds={
+                kind: SpanKindAttributes(
+                    spans=10,
+                    attributes=[
+                        SpanAttributeSummary(
+                            key=key,
+                            coverage=coverage,
+                            type=AttributeValueType.STRING,
+                            top_values=[],
+                            distinct=1,
+                            unique=False,
+                        )
+                        for key, coverage in keys.items()
+                    ],
+                )
+                for kind, keys in kinds.items()
+            },
+            sampled_spans=10 * len(kinds),
+            since=datetime.now(timezone.utc),
+        )
+
+    def test_the_suggestion_names_the_kind_that_carries_it_most(self):
+        from rhesis.backend.app.services.telemetry.span_attributes import unknown_key_warnings
+
+        catalogue = self._catalogue({"llm.invoke": {TIER: 0.1}, "tool.invoke": {TIER: 0.92}})
+
+        assert unknown_key_warnings(["app.tier", TIER], catalogue) == [
+            f"No recent span carries app.tier; {TIER} is set on 92% of tool.invoke spans"
+        ]
+
+    def test_an_empty_catalogue_warns_without_a_suggestion(self):
+        from rhesis.backend.app.services.telemetry.span_attributes import unknown_key_warnings
+
+        assert unknown_key_warnings(["app.tier"], self._catalogue({})) == [
+            "No recent span carries app.tier"
+        ]
+
+    def test_only_attribute_keys_are_checked(self):
+        from rhesis.backend.app.services.telemetry.span_attributes import where_attribute_keys
+        from rhesis.sdk.metrics.conditions import ATTRIBUTE_PREFIX, SpecialField
+        from rhesis.sdk.metrics.targets import Target
+
+        target = Target.coerce(
+            {
+                "on": "tool_call",
+                "where": [
+                    _condition(SpecialField.NAME.value, "==", "x"),
+                    _condition(f"{ATTRIBUTE_PREFIX}status", "exists"),
+                    _condition(TIER, "exists"),
+                    _condition(TIER, "!=", "free"),
+                ],
+            }
+        )
+
+        assert where_attribute_keys(target) == ["status", TIER]

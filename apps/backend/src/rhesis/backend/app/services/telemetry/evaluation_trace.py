@@ -141,6 +141,14 @@ def _trace(trace_id: str, project_id: str, nodes: List[Dict[str, Any]]) -> Trace
     )
 
 
+def stored_trace(trace_id: str, project_id: str, rows: Sequence[Any]) -> Optional[Trace]:
+    """The trace a metric reads, built from its stored span rows; None when there are none.
+    For a caller that has already loaded the rows, such as several traces in one query."""
+    if not rows:
+        return None
+    return _trace(trace_id, project_id, _from_rows(rows))
+
+
 def load_evaluation_trace(
     trace_id: str,
     organization_id: str,

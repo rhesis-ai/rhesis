@@ -19,9 +19,13 @@ interface MetricCardProps {
   backend?: string;
   metricType?: string;
   scoreType?: string;
-  /** What the metric judges, shown under its name and linked to its spans. */
+  /** What the metric judges, linked to its spans. */
   target?: MetricTarget;
-  /** `GET /metrics/targets`, for the target's label and icon. */
+  /** The metric's `target_summary_short`, shown under its name; no line without it. */
+  targetSummary?: string | null;
+  /** The metric's `target_summary`, for the tooltip. */
+  targetSummaryFull?: string | null;
+  /** `GET /metrics/targets`, for the target's icon. */
   targetChoices?: MetricTargetChoice[];
   metricId?: string;
   usedIn?: string[];
@@ -66,6 +70,8 @@ export default function MetricCard({
   metricType,
   scoreType,
   target,
+  targetSummary,
+  targetSummaryFull,
   targetChoices,
   metricId,
   usedIn,
@@ -94,9 +100,12 @@ export default function MetricCard({
     <EntityCard
       title={title}
       subtitle={
-        target && (
+        target &&
+        targetSummary && (
           <MetricTargetLine
             target={target}
+            summary={targetSummary}
+            fullSummary={targetSummaryFull}
             choices={targetChoices}
             metricId={metricId}
           />
@@ -137,6 +146,7 @@ export function MetricCardPlaceholders() {
           backend="rhesis"
           scoreType="numeric"
           target={{ on: 'turn' }}
+          targetSummary="each turn"
           targetChoices={PLACEHOLDER_TARGET_CHOICES}
           usedIn={[]}
           showUsage

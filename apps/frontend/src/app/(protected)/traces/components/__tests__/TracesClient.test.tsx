@@ -42,14 +42,11 @@ jest.mock('../TraceFilterDrawer', () => ({
 
 jest.mock('../TargetFilterChip', () => ({
   __esModule: true,
-  default: ({ onRemove }: any) => (
-    <button
-      onClick={() =>
-        onRemove({ spanTypes: ['tool.invoke'], tools: ['issue_refund'] })
-      }
-    >
-      remove target
-    </button>
+  default: ({ onRemove, onShowSpans }: any) => (
+    <>
+      <button onClick={() => onRemove()}>remove target</button>
+      {onShowSpans && <button onClick={onShowSpans}>show spans</button>}
+    </>
   ),
 }));
 
@@ -179,7 +176,40 @@ describe('TracesClient view switch', () => {
 });
 
 describe('TracesClient opened from a metric target', () => {
-  it('keeps the metric in the URL and clears what its target set on removal', () => {
+  const target = JSON.stringify({ on: 'tool_call', name: 'issue_refund' });
+
+  it('keeps the target and metric in the URL and clears both on removal', () => {
+    render(
+      <TracesClient
+        initialView="spans"
+        initialFromMetric="metric-1"
+        initialFilters={{
+          timeRange: 'all',
+          environment: 'production',
+          target,
+        }}
+      />
+    );
+
+    const expected = new URLSearchParams();
+    expected.set('view', 'spans');
+    expected.set('environment', 'production');
+    expected.set('target', target);
+    expected.set('from_metric', 'metric-1');
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      `/traces?${expected.toString()}`,
+      { scroll: false }
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'remove target' }));
+
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      '/traces?view=spans&environment=production',
+      { scroll: false }
+    );
+  });
+
+  it('keeps an old link’s tool and span type filters when its chip is removed', () => {
     render(
       <TracesClient
         initialView="spans"
@@ -188,20 +218,46 @@ describe('TracesClient opened from a metric target', () => {
           timeRange: 'all',
           spanTypes: ['tool.invoke'],
           tools: ['issue_refund'],
-          environment: 'production',
         }}
       />
-    );
-
-    expect(mockReplace).toHaveBeenLastCalledWith(
-      '/traces?view=spans&environment=production&span_type=tool.invoke&tool=issue_refund&from_metric=metric-1',
-      { scroll: false }
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'remove target' }));
 
     expect(mockReplace).toHaveBeenLastCalledWith(
-      '/traces?view=spans&environment=production',
+      '/traces?view=spans&span_type=tool.invoke&tool=issue_refund',
+      { scroll: false }
+    );
+  });
+
+  it('shows the chip for a target without a metric', () => {
+    render(
+      <TracesClient
+        initialView="spans"
+        initialFilters={{ timeRange: 'all', target }}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'remove target' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'show spans' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('in the traces view, marks the target as the spans view’s and switches there', () => {
+    render(
+      <TracesClient
+        initialView="traces"
+        initialFilters={{ timeRange: 'all', target }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'show spans' }));
+
+    expect(mockReplace).toHaveBeenLastCalledWith(
+      expect.stringContaining('view=spans'),
       { scroll: false }
     );
   });

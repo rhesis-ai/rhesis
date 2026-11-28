@@ -92,6 +92,12 @@ class LocalToolProvider(MCPTool):
                     "description": t.description or "",
                     "inputSchema": t.inputSchema,
                     ToolMeta.HTTP_METHOD: self._operation_map.get(t.name, {}).get("method", "GET"),
+                    # A POST marked read_only (preview_target) runs without approval.
+                    **(
+                        {ToolMeta.READONLY_HINT: True}
+                        if t.annotations and t.annotations.readOnlyHint
+                        else {}
+                    ),
                     **self._confirmation_metadata(t.name),
                 }
                 for t in mcp_tools

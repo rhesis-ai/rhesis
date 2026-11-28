@@ -511,6 +511,8 @@ export default function MetricsDirectoryTab({
                       metricType={metric.metric_type?.type_value}
                       scoreType={metric.score_type}
                       target={getMetricTarget(metric) ?? undefined}
+                      targetSummary={metric.target_summary_short}
+                      targetSummaryFull={metric.target_summary}
                       targetChoices={targetChoices}
                       metricId={metric.id}
                       usedIn={requirementNames}

@@ -52,6 +52,8 @@ class Endpoints(Enum):
     TELEMETRY_TRACES = "telemetry/traces"
     TELEMETRY_SPANS = "telemetry/spans"
     TELEMETRY_PROVIDERS = "telemetry/providers"
+    TELEMETRY_ATTRIBUTES = "telemetry/attributes"
+    METRIC_TARGET_PREVIEW = "metrics/targets/preview"
     ANNOTATIONS = "annotations"
 
 

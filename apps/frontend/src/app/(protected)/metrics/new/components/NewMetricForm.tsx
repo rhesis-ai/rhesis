@@ -29,6 +29,7 @@ import BaseTag from '@/components/common/BaseTag';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
+  ConditionOperatorChoice,
   MetricCreate,
   MetricTargetChoice,
   ThresholdOperator,
@@ -38,16 +39,20 @@ import { Model } from '@/utils/api-client/interfaces/model';
 import CircularProgress from '@mui/material/CircularProgress';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { SCORE_TYPES, ScoreTypeValue } from '@/constants/score-types';
-import { useMetricTargets, useTypeLookups } from '@/hooks/useLookups';
+import { useMetricTargetOptions, useTypeLookups } from '@/hooks/useLookups';
 import {
   formatMetricTarget,
   METRIC_TARGET,
-  offeredTargets,
-  toMetricTarget,
+  offeredTargetsWithCustom,
 } from '@/utils/metric-targets';
-import MetricTargetPicker, {
-  type MetricTargetValue,
-} from '../../components/MetricTargetPicker';
+import {
+  draftFromTarget,
+  draftProblem,
+  targetFromDraft,
+  type TargetDraft,
+} from '@/utils/metric-target-draft';
+import MetricTargetBuilder from '../../components/MetricTargetBuilder';
+import TargetSummaryText from '../../components/TargetSummaryText';
 import RuleFields, { RuleSummary } from '../../components/RuleFields';
 import { METRIC_TYPES } from '@/constants/metric-types';
 import {
@@ -92,7 +97,7 @@ interface MetricFormData {
   threshold_operator: ThresholdOperator;
   explanation: string;
   model_id: string;
-  target: MetricTargetValue;
+  target: TargetDraft;
   rule: RuleDraft;
 }
 
@@ -112,7 +117,7 @@ const initialFormData: MetricFormData = {
   threshold_operator: '>=',
   explanation: '',
   model_id: '',
-  target: { on: METRIC_TARGET.TURN, name: '' },
+  target: draftFromTarget(null, METRIC_TARGET.TURN),
   rule: initialRuleDraft,
 };
 
@@ -120,6 +125,21 @@ const initialFormData: MetricFormData = {
 const RULE_SCORE = { min: 0, max: 1, threshold: 1 } as const;
 
 const NO_TARGETS: MetricTargetChoice[] = [];
+const NO_OPERATORS: ConditionOperatorChoice[] = [];
+
+/** The presets a new metric can take: a rule's, else every one. */
+function ruleOrAllTargets(
+  isRule: boolean,
+  rule: RuleDraft,
+  allTargets: MetricTargetChoice[]
+): MetricTargetChoice[] {
+  return isRule ? ruleTargetChoices(rule.ruleClass, allTargets) : allTargets;
+}
+
+/** The presets plus "Custom spans" when any of them judges single spans. */
+function withCustomSpans(choices: MetricTargetChoice[]): MetricTargetChoice[] {
+  return offeredTargetsWithCustom(choices);
+}
 
 const steps = NEW_METRIC_STEPS;
 
@@ -144,17 +164,18 @@ export default function NewMetricForm({
   const { data: allTypeLookups } = useTypeLookups(
     `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq '${backendTypeValue}')`
   );
-  const { data: allTargets = NO_TARGETS } = useMetricTargets();
+  const { data: targetOptions } = useMetricTargetOptions();
+  const allTargets = targetOptions?.targets ?? NO_TARGETS;
+  const operators = targetOptions?.operators ?? NO_OPERATORS;
   const [activeStep, setActiveStep] = React.useState(0);
   const [formData, setFormData] =
     React.useState<MetricFormData>(initialFormData);
+  // The draft's summary as the preview words it, for the confirmation step.
+  const [targetSummary, setTargetSummary] = React.useState<string | null>(null);
   // The form has no "ground truth required" field, so only a rule narrows this.
   const targetChoices = React.useMemo(
-    () =>
-      isRule
-        ? ruleTargetChoices(formData.rule.ruleClass, allTargets)
-        : offeredTargets(allTargets),
-    [allTargets, isRule, formData.rule.ruleClass]
+    () => withCustomSpans(ruleOrAllTargets(isRule, formData.rule, allTargets)),
+    [allTargets, isRule, formData.rule]
   );
   const spanKinds = React.useMemo(
     () => allTargets.filter(choice => choice.per_span),
@@ -163,12 +184,12 @@ export default function NewMetricForm({
 
   const handleRuleChange = (rule: RuleDraft) => {
     setFormData(prev => {
-      const choices = ruleTargetChoices(rule.ruleClass, allTargets);
+      const choices = withCustomSpans(ruleOrAllTargets(true, rule, allTargets));
       // A target the new kind of rule can't take falls back to each turn.
       const target =
         choices.length === 0 || choices.some(c => c.on === prev.target.on)
           ? prev.target
-          : { on: METRIC_TARGET.TURN, name: '' };
+          : draftFromTarget(null, METRIC_TARGET.TURN);
       return { ...prev, rule, target };
     });
   };
@@ -287,6 +308,9 @@ export default function NewMetricForm({
   const isStepValid = React.useCallback((): boolean => {
     // Common required fields
     if (!formData.name.trim()) return false;
+    if (draftProblem(formData.target, allTargets, operators) !== null) {
+      return false;
+    }
     if (isRule) return ruleDraftError(formData.rule) === null;
     if (!formData.evaluation_prompt.trim()) return false;
 
@@ -307,7 +331,7 @@ export default function NewMetricForm({
     }
 
     return true;
-  }, [formData, isRule]);
+  }, [formData, isRule, allTargets, operators]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -346,7 +370,7 @@ export default function NewMetricForm({
         throw new Error(`Backend type "${backendTypeValue}" not found`);
       }
 
-      const target = toMetricTarget(formData.target, targetChoices);
+      const target = targetFromDraft(formData.target, allTargets, operators);
       // Tags are added separately, after the metric exists.
       const metricRequest: MetricCreate = isRule
         ? {
@@ -442,9 +466,14 @@ export default function NewMetricForm({
         }
       }
 
-      notifications.show('Metric created successfully', {
-        severity: 'success',
-      });
+      // What the create noticed, such as a condition on a key no recent span carries.
+      const warnings = createdMetric.warnings ?? [];
+      notifications.show(
+        warnings.length
+          ? `Metric created. ${warnings.join(' ')}`
+          : 'Metric created successfully',
+        { severity: warnings.length ? 'warning' : 'success' }
+      );
       router.push('/metrics?tab=directory');
     } catch (error) {
       notifications.show(
@@ -534,10 +563,12 @@ export default function NewMetricForm({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Choose the part of the trace this metric looks at.
         </Typography>
-        <MetricTargetPicker
+        <MetricTargetBuilder
           choices={targetChoices}
           value={formData.target}
           onChange={target => setFormData(prev => ({ ...prev, target }))}
+          showErrors={showErrors}
+          onSummaryChange={setTargetSummary}
         />
       </Box>
     );
@@ -1013,12 +1044,17 @@ export default function NewMetricForm({
       </Typography>
       <Chip
         label={formatMetricTarget(
-          toMetricTarget(formData.target, targetChoices),
-          allTargets
+          targetFromDraft(formData.target, allTargets, operators),
+          targetChoices
         )}
         color="primary"
         variant="filled"
       />
+      {targetSummary && (
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          Judges <TargetSummaryText summary={targetSummary} />.
+        </Typography>
+      )}
     </Box>
   );
 

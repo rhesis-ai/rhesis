@@ -44,15 +44,23 @@ from .file import FileCreate, FileEntityType, FileResponse, FileUpdate
 from .insights import InsightsIdsResponse, InsightsQuery, InsightsResponse
 from .job import ActivityLogEntry, Job, JobActivity
 from .metric import (
+    ConditionOperatorChoice,
     GenerateMetricRequest,
     ImproveMetricRequest,
     Metric,
     MetricBase,
     MetricCreate,
     MetricDetail,
+    MetricSaved,
     MetricUpdate,
+    ReaderChoice,
     ScoreType,
+    SpecialFieldChoice,
     TargetChoice,
+    TargetChoices,
+    TargetPreview,
+    TargetPreviewRequest,
+    TargetPreviewSample,
 )
 from .model import Model, ModelBase, ModelCreate, ModelDetail, ModelRead, ModelUpdate
 from .notification import (
@@ -488,6 +496,7 @@ __all__ = [
     "TestExecuteRequest",
     "TestExecuteResponse",
     "Metric",
+    "MetricSaved",
     "MetricBase",
     "MetricCreate",
     "MetricUpdate",
@@ -496,4 +505,11 @@ __all__ = [
     "ImproveMetricRequest",
     "ScoreType",
     "TargetChoice",
+    "TargetChoices",
+    "TargetPreview",
+    "TargetPreviewRequest",
+    "TargetPreviewSample",
+    "ConditionOperatorChoice",
+    "SpecialFieldChoice",
+    "ReaderChoice",
 ]

@@ -663,6 +663,8 @@ class TestTraceTools:
         "get_trace",
         "get_trace_metrics",
         "lookup_span",
+        "list_spans",
+        "list_trace_attributes",
     }
 
     def _cfg(self, name):
@@ -1221,30 +1223,45 @@ class TestProjectScopeGuidance:
 
 @pytest.mark.unit
 class TestMetricTargets:
-    """The target choices update_metric describes are the SDK's, all of them."""
+    """The target choices TARGETS in create_metric describes are the SDK's, all of them."""
+
+    def _tool(self, tool_name):
+        return next(t for t in load_tool_configs() if t["name"] == tool_name)
+
+    def _targets(self):
+        description = " ".join(self._tool("create_metric")["description"].split())
+        return description[description.index("TARGETS.") :]
 
     def _config(self, tool_name):
-        tool = next(t for t in load_tool_configs() if t["name"] == tool_name)
-        return " ".join(tool["parameters"]["config"]["description"].split())
+        return " ".join(self._tool(tool_name)["parameters"]["config"]["description"].split())
 
     def test_every_target_and_aggregation_is_described(self):
         from rhesis.sdk.metrics.targets import Aggregation, TargetKind
 
-        described = self._config("update_metric")
+        described = self._targets()
 
         missing = [k.value for k in [*TargetKind, *Aggregation] if f'"{k.value}"' not in described]
-        assert not missing, f"update_metric's config doesn't describe {missing}"
+        assert not missing, f"TARGETS doesn't describe {missing}"
 
     def test_every_refinement_is_described(self):
         from rhesis.sdk.metrics.targets import REFINEMENTS
 
-        described = self._config("update_metric")
+        described = self._targets()
 
         missing = [name for name in REFINEMENTS if f'"{name}"' not in described]
-        assert not missing, f"update_metric's config doesn't describe {missing}"
+        assert not missing, f"TARGETS doesn't describe {missing}"
 
-    def test_create_metric_points_at_them(self):
-        assert '{"target": {"on": ...}}' in self._config("create_metric")
+    def test_every_reader_is_described(self):
+        from rhesis.sdk.metrics.targets import EVENT_READER, READERS
+
+        described = self._targets()
+
+        missing = [r for r in [*READERS, f"{EVENT_READER}<name>"] if f'"{r}"' not in described]
+        assert not missing, f"TARGETS doesn't describe {missing}"
+
+    @pytest.mark.parametrize("tool_name", ["create_metric", "update_metric"])
+    def test_both_config_params_point_at_them(self, tool_name):
+        assert "TARGETS" in self._config(tool_name)
 
 
 @pytest.mark.unit
@@ -1362,3 +1379,108 @@ class TestScheduleTools:
     def test_descriptions_say_not_to_show_cron(self):
         configs = {tc["name"]: tc for tc in load_tool_configs()}
         assert "never the cron expression" in configs["schedule_test_set"]["description"]
+
+
+@pytest.mark.unit
+class TestSpanTargetTools:
+    """An agent writes a span target from the catalogue, previews it, then saves it."""
+
+    TOOLS: ClassVar[list[str]] = ["list_trace_attributes", "preview_target", "list_spans"]
+
+    def _cfg(self, name):
+        return {tc["name"]: tc for tc in load_tool_configs()}[name]
+
+    def _built(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, operations = build_tools_and_operations(app)
+        return {t.name: t for t in tools}, operations
+
+    def test_every_tool_resolves_against_a_route(self):
+        by_name, _ = self._built()
+        missing = [name for name in self.TOOLS if name not in by_name]
+        assert missing == [], f"no matching route: {missing}"
+
+    def test_the_catalogue_takes_project_kind_and_days(self):
+        by_name, _ = self._built()
+        props = by_name["list_trace_attributes"].inputSchema["properties"]
+        assert {"project_id", "kind", "days"} <= set(props)
+
+    def test_the_preview_takes_project_target_and_traces(self):
+        by_name, _ = self._built()
+        schema = by_name["preview_target"].inputSchema
+        assert {"project_id", "target", "traces"} <= set(schema["properties"])
+        assert {"project_id", "target"} <= set(schema["required"])
+
+    def test_the_preview_changes_nothing_so_needs_no_confirmation(self):
+        assert "requires_confirmation" not in self._cfg("preview_target")
+
+    def test_the_preview_is_read_only_though_it_posts(self):
+        by_name, _ = self._built()
+        annotations = by_name["preview_target"].annotations
+        assert annotations.readOnlyHint is True
+        assert annotations.destructiveHint is False
+
+    def test_the_spans_list_takes_a_target(self):
+        by_name, operations = self._built()
+        assert "target" in by_name["list_spans"].inputSchema["properties"]
+        assert operations["list_spans"]["path"] == "/telemetry/spans"
+
+    def test_the_spans_list_caps_its_page_and_pages_by_offset(self):
+        cfg = self._cfg("list_spans")
+        assert "page_size" not in cfg
+        assert cfg["default_query"]["limit"] == 20
+        assert "offset" in cfg["description"]
+
+    @pytest.mark.parametrize("name", ["create_metric", "update_metric"])
+    def test_metric_writes_send_the_agent_to_the_catalogue_and_the_preview(self, name):
+        description = self._cfg(name)["description"]
+        assert "list_trace_attributes" in description
+        assert "preview_target" in description
+
+    @pytest.mark.parametrize("name", ["create_metric", "update_metric"])
+    def test_metric_writes_say_the_response_carries_summary_and_warnings(self, name):
+        description = self._cfg(name)["description"]
+        assert "target_summary" in description
+        assert "warnings" in description
+
+    def test_create_metric_documents_the_span_form(self):
+        from rhesis.sdk.metrics.conditions import CONDITION_OPS, MET_WHEN_MISSING, SPECIAL_FIELDS
+        from rhesis.sdk.metrics.targets import Refinement, TargetKind
+
+        description = self._cfg("create_metric")["description"]
+        for name in [k.value for k in TargetKind] + [r.value for r in Refinement]:
+            assert f'"{name}"' in description, name
+        for op in CONDITION_OPS:
+            assert f'"{op.value}"' in description, op
+        for field in SPECIAL_FIELDS:
+            assert f'"{field.value}"' in description, field
+        missing = ", ".join(f'"{op.value}"' for op in MET_WHEN_MISSING[:-1])
+        assert f'meets only {missing} and "{MET_WHEN_MISSING[-1].value}"' in description
+
+    def test_create_metric_gives_both_examples(self):
+        description = " ".join(self._cfg("create_metric")["description"].split())
+        assert '"name": "issue_refund", "within": "billing_agent"' in description
+        assert '"app.customer_tier", "op": "==", "value": "gold"' in description
+
+    def test_list_metrics_selects_the_target_summary(self):
+        selected = self._cfg("list_metrics")["default_query"]["$select"].split(",")
+        assert "target_summary" in selected
+
+    def test_the_architect_runs_the_preview_without_approval(self, monkeypatch):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server import local_tools
+        from rhesis.sdk.agents.constants import ToolMeta
+
+        monkeypatch.setattr(
+            local_tools, "visible_tools_for", lambda operations, *_args: frozenset(operations)
+        )
+        provider = local_tools.LocalToolProvider(app, "unused", principal=None)
+        provider._initialize()
+        defs = {d["name"]: d for d in provider._tool_defs}
+
+        # The Architect holds every POST for approval unless the tool says it only reads.
+        assert defs["preview_target"][ToolMeta.HTTP_METHOD] == "POST"
+        assert defs["preview_target"][ToolMeta.READONLY_HINT] is True
+        assert ToolMeta.READONLY_HINT not in defs["create_metric"]

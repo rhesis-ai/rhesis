@@ -42,7 +42,7 @@ def _summary(row, context: TraceContext) -> SpanSummary:
         span_id=row.span_id,
         trace_id=row.trace_id,
         parent_span_id=row.parent_span_id,
-        is_root=row.parent_span_id is None,
+        is_root=bool(row.is_root),
         project_id=str(row.project_id),
         span_name=row.span_name,
         span_type=row.span_type,

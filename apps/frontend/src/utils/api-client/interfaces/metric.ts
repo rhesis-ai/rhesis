@@ -20,23 +20,48 @@ export type MetricTargetOn =
   | 'retrieval'
   | 'model_call'
   | 'agent'
-  | 'guardrail';
+  | 'guardrail'
+  | 'span';
 
 export type MetricTargetAggregate = 'all' | 'any' | 'share';
 
 export type MetricTargetAttributeValue = string | number | boolean;
 
+/**
+ * One condition a span must meet. `field` is a special field from
+ * `GET /metrics/targets` or a span attribute key; `op` one of its operators.
+ */
+export interface MetricTargetCondition {
+  field: string;
+  op: string;
+  /** Left out for an operator that takes no value; a list for `in`/`not_in`. */
+  value?: MetricTargetAttributeValue | MetricTargetAttributeValue[] | null;
+}
+
+/**
+ * The older `where` form: attribute values by key, a list meaning any of them.
+ * The API stores conditions now, so only rows written before that carry it.
+ */
+export type MetricTargetLegacyWhere = Record<
+  string,
+  MetricTargetAttributeValue | MetricTargetAttributeValue[]
+>;
+
+/** What a per-unit target hands the metric as input and output. */
+export interface MetricTargetRead {
+  input?: string;
+  output?: string;
+}
+
 export interface MetricTarget {
   on: MetricTargetOn | string;
-  /** Per-span targets only: only spans with this tool, agent or model name. */
+  /** Per-span presets only: only spans with this tool, agent or model name. */
   name?: string;
   /** Per-span targets only: only spans inside the agent with this name. */
   within?: string;
-  /** Only units whose root span has these attributes; a list means any of its values. */
-  where?: Record<
-    string,
-    MetricTargetAttributeValue | MetricTargetAttributeValue[]
-  >;
+  /** Conditions every unit's root span must meet, all of them. */
+  where?: MetricTargetCondition[] | MetricTargetLegacyWhere;
+  read?: MetricTargetRead;
   aggregate?: MetricTargetAggregate;
   min_share?: number;
 }
@@ -55,6 +80,75 @@ export interface MetricTargetChoice {
   per_span: boolean;
   /** The span type a per-span target judges one by one, e.g. `tool.invoke`. */
   span_kind?: string | null;
+}
+
+/** What a condition's operator compares with: `ValueType` in the SDK. */
+export type ConditionValueType =
+  | 'none'
+  | 'number'
+  | 'list'
+  | 'text'
+  | 'pattern';
+
+/** An operator a target condition takes. */
+export interface ConditionOperatorChoice {
+  op: string;
+  takes_value: boolean;
+  value_type: ConditionValueType | string;
+}
+
+/** A field a condition reads besides span attributes (`kind`, `name`, ...). */
+export interface SpecialFieldChoice {
+  field: string;
+  label: string;
+}
+
+/** What `read` may name besides an attribute key or an event (`input`, ...). */
+export interface ReaderChoice {
+  reader: string;
+  label: string;
+}
+
+/** `GET /metrics/targets`: the presets, the parts of a condition, and what `read` may name. */
+export interface MetricTargetOptions {
+  targets: MetricTargetChoice[];
+  operators: ConditionOperatorChoice[];
+  special_fields: SpecialFieldChoice[];
+  readers: ReaderChoice[];
+  /** `read` names an event's value with this prefix: `event:ai.retrieval.query`. */
+  event_prefix: string | null;
+}
+
+/** Body of `POST /metrics/targets/preview`. */
+export interface MetricTargetPreviewRequest {
+  project_id: string;
+  target: MetricTarget;
+  traces?: number;
+}
+
+/** One unit a previewed target picked, its input and output cut short. */
+export interface MetricTargetPreviewSample {
+  trace_id: string;
+  span_id?: string | null;
+  name?: string | null;
+  input?: string | null;
+  output?: string | null;
+  duration_ms?: number | null;
+  status?: string | null;
+}
+
+/** What a target picks in the project's latest traces. */
+export interface MetricTargetPreview {
+  traces: number;
+  matching_traces: number;
+  units: number;
+  not_applicable_traces: number;
+  samples: MetricTargetPreviewSample[];
+  /** The preview ran out of time: the counts cover only the `traces` it read. */
+  partial?: boolean;
+  /** The draft target in words, as `Metric.target_summary` reads. */
+  target_summary?: string | null;
+  target_summary_short?: string | null;
 }
 
 export interface Metric {
@@ -82,12 +176,24 @@ export interface Metric {
   config?: MetricConfig | null;
   /** Targets this metric can take, in registry order; null when unknown. */
   supported_targets?: string[] | null;
+  /**
+   * What the metric judges, in words, names in backticks: "each tool call named
+   * `issue_refund`". A card puts "on " in front of the short form.
+   */
+  target_summary?: string | null;
+  target_summary_short?: string | null;
   organization_id?: UUID;
 
   // References (now always included from backend)
   metric_type: TypeLookup;
   backend_type: TypeLookup;
   model_id?: UUID;
+}
+
+/** A created or updated metric, with what the write noticed but didn't refuse. */
+export interface MetricSaved extends Metric {
+  /** Such as a condition on an attribute key no recent span carries. */
+  warnings?: string[];
 }
 
 export interface MetricCreate {

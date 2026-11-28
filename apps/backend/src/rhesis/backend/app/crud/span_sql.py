@@ -10,6 +10,7 @@ from typing import Any, Callable, Collection, List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import (
+    Text,
     and_,
     any_,
     asc,
@@ -19,10 +20,12 @@ from sqlalchemy import (
     exists,
     false,
     func,
+    literal,
     or_,
     select,
     type_coerce,
 )
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import aliased
 
@@ -97,6 +100,61 @@ def span_token_columns() -> tuple:
     return input_tokens, output_tokens, case((reported, span_total_tokens_expr(attributes)))
 
 
+#: The attributes holding a span's name, ahead of its span name: the SDK's ``targets.NAME_KEYS``.
+SPAN_NAME_KEYS = (
+    AISpanAttributes.TOOL_NAME,
+    AISpanAttributes.AGENT_NAME,
+    AISpanAttributes.MODEL_NAME,
+)
+#: What ``jsonb_typeof`` says of a JSON string.
+JSONB_STRING = "string"
+
+
+def span_name_field_expr(trace=models.Trace) -> Any:
+    """The ``name`` a metric target reads, for *trace* (the table or an alias of it): the
+    first of ``SPAN_NAME_KEYS`` that is a non-empty string, else the span name. Every query
+    that reads a span's name builds it here."""
+
+    def named(key: str) -> Any:
+        value = trace.attributes.op("->")(literal(key, Text))
+        as_text = trace.attributes.op("->>", return_type=Text)(literal(key, Text))
+        is_string = func.jsonb_typeof(value) == JSONB_STRING
+        return case((and_(is_string, as_text != ""), as_text))
+
+    return func.coalesce(*(named(key) for key in SPAN_NAME_KEYS), trace.span_name)
+
+
+def span_name_field_sql() -> str:
+    """``span_name_field_expr`` as SQL text over the ``trace`` table, for raw statements."""
+    compiled = span_name_field_expr().compile(
+        dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+    )
+    return str(compiled)
+
+
+def same_trace(other, trace) -> list:
+    """*other* (an alias of the table) is a stored span of *trace*'s trace."""
+    return [
+        other.organization_id == trace.organization_id,
+        other.project_id == trace.project_id,
+        other.trace_id == trace.trace_id,
+        other.deleted_at.is_(None),
+    ]
+
+
+def span_is_root_expr(trace=models.Trace) -> Any:
+    """Whether *trace* is a root of its span tree: its parent isn't stored in the trace.
+
+    Read from ``is_root``, which ingest keeps; a span stored before the column existed, and
+    not backfilled yet, looks its parent up (``COALESCE`` reads that only for those rows)."""
+    parent = aliased(models.Trace)
+    stored_parent = exists().where(
+        *same_trace(parent, trace), parent.span_id == trace.parent_span_id
+    )
+    looked_up = or_(trace.parent_span_id.is_(None), ~stored_parent)
+    return func.coalesce(trace.is_root, looked_up)
+
+
 def span_scope(trace, org_uuid, project_id: Optional[str]) -> list:
     clauses = [trace.organization_id == org_uuid, trace.deleted_at.is_(None)]
     if project_id:
@@ -152,7 +210,7 @@ def _row_clauses(filters: SpanFilters, skip: Collection[str]) -> list:
             )
         )
     if filters.is_root is not None:
-        is_root = trace.parent_span_id.is_(None)
+        is_root = span_is_root_expr(trace)
         clauses.append(is_root if filters.is_root else ~is_root)
     if filters.status_code:
         clauses.append(trace.status_code == filters.status_code)
@@ -245,6 +303,11 @@ def span_filter_clauses(
         clauses.append(span_agent_expr().in_(filters.agents))
     if filters.tools:
         clauses.append(span_tool_expr().in_(filters.tools))
+    if filters.target is not None:
+        # Imports the SDK, which a core install hasn't: only when a target is given.
+        from rhesis.backend.app.crud.span_target_sql import target_clause
+
+        clauses.append(target_clause(filters.target))
     return clauses
 
 

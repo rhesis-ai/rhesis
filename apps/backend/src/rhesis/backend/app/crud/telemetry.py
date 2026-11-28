@@ -8,13 +8,44 @@ Import the functions directly::
 import logging
 import uuid
 import zlib
-from datetime import datetime, timezone
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Union,
+)
 from uuid import UUID
 
-from sqlalchemy import String, and_, asc, cast, desc, false, func, insert, or_, select
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import (
+    String,
+    Text,
+    and_,
+    asc,
+    case,
+    cast,
+    column,
+    desc,
+    distinct,
+    false,
+    func,
+    insert,
+    literal,
+    literal_column,
+    or_,
+    select,
+    text,
+    true,
+)
+from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 from sqlalchemy.orm import Session, make_transient_to_detached
 
 from rhesis.backend.app import models
@@ -35,7 +66,9 @@ from rhesis.backend.app.crud.span_sql import (
     span_breakdown_entry,
     span_cost_expr,
     span_filter_clauses,
+    span_is_root_expr,
     span_model_expr,
+    span_name_field_sql,
     span_recorded_provider_expr,
     span_scope,
     span_sort_clauses,
@@ -69,6 +102,7 @@ from rhesis.backend.app.services.telemetry.providers import (
 from rhesis.backend.app.services.telemetry.span_types import classify_span_type
 from rhesis.backend.app.utils.crud_utils import bulk_update, clean_strings_recursive
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
+from rhesis.telemetry.attributes import AIAttributes
 
 logger = logging.getLogger(__name__)
 
@@ -312,17 +346,47 @@ def first_root_start_time(db: Session, trace_id: str) -> Optional[datetime]:
     )
 
 
-def load_trace_spans(db: Session, trace_ids: Iterable[str]) -> List[models.Trace]:
-    """Every stored span of *trace_ids* in the bound project, oldest first."""
+def load_trace_spans(
+    db: Session, trace_ids: Iterable[str], project_id: Optional[str] = None
+) -> List[models.Trace]:
+    """Every stored span of *trace_ids* in the bound project (or *project_id*), oldest first."""
     trace_ids = list(set(trace_ids))
     if not trace_ids:
         return []
-    return (
-        db.query(models.Trace)
-        .filter(models.Trace.trace_id.in_(trace_ids))
-        .order_by(models.Trace.start_time.asc())
+    query = db.query(models.Trace).filter(models.Trace.trace_id.in_(trace_ids))
+    if project_id is not None:
+        query = query.filter(models.Trace.project_id == project_id)
+    return query.order_by(models.Trace.start_time.asc()).all()
+
+
+#: How far back the target preview looks for traces, so it never groups a project's every root.
+RECENT_TRACE_DAYS = 30
+
+
+def recent_trace_ids(db: Session, project_id: str, limit: int) -> List[str]:
+    """The ids of the project's ``limit`` latest traces of the last ``RECENT_TRACE_DAYS``,
+    newest first, by their latest root span.
+
+    Roots as the span tree has them (a span whose parent isn't stored), so a trace whose
+    roots are orphans counts; a trace with no root at all is left out.
+    """
+    trace = models.Trace
+    since = datetime.now(timezone.utc) - timedelta(days=RECENT_TRACE_DAYS)
+    latest = func.max(trace.start_time)
+    rows = (
+        db.query(trace.trace_id)
+        .filter(
+            trace.project_id == project_id,
+            trace.start_time >= since,
+            trace.deleted_at.is_(None),
+            span_is_root_expr(trace),
+        )
+        .group_by(trace.trace_id)
+        .order_by(latest.desc(), models.Trace.trace_id)
+        .limit(limit)
         .all()
     )
+    return [row.trace_id for row in rows]
 
 
 def existing_span_keys(db: Session, keys: List[Tuple[str, str]]) -> set[Tuple[str, str]]:
@@ -372,7 +436,105 @@ def move_spans_to_trace(
         synchronize_session=False,
     )
     db.flush()
+    if moved:
+        # The source trace is empty now; only the target's tree changed.
+        owners = (
+            db.query(models.Trace.organization_id, models.Trace.project_id)
+            .filter(models.Trace.id.in_(moved))
+            .distinct()
+            .all()
+        )
+        update_agent_paths(db, [(org, project, target_trace_id) for org, project in owners])
     return len(moved)
+
+
+# Deeper than any real span tree; stops the walk if duplicate span ids make a loop.
+AGENT_PATH_MAX_DEPTH = 1000
+
+# The SDK's _name for an agent span: the target's name field.
+_AGENT_NAME_SQL = f"CASE WHEN span_type = :agent_kind THEN {span_name_field_sql()} END"
+
+# A root is a span whose parent isn't stored in the trace, as tree_builder has it. A span
+# the walk never reaches (a parent loop) gets an empty path and isn't a root: no tree shows it.
+_UPDATE_AGENT_PATHS = text(
+    f"""
+    WITH RECURSIVE spans AS (
+        SELECT id, organization_id, project_id, trace_id, span_id, parent_span_id,
+               {_AGENT_NAME_SQL} AS agent_name
+        FROM trace
+        WHERE (organization_id, project_id, trace_id) IN (
+            SELECT * FROM unnest(
+                CAST(:organization_ids AS uuid[]),
+                CAST(:project_ids AS uuid[]),
+                CAST(:trace_ids AS text[])
+            )
+        )
+    ),
+    walk AS (
+        SELECT s.id, s.organization_id, s.project_id, s.trace_id, s.span_id, s.agent_name,
+               CAST(ARRAY[] AS text[]) AS path, 1 AS depth
+        FROM spans s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM spans p
+            WHERE p.organization_id = s.organization_id AND p.project_id = s.project_id
+              AND p.trace_id = s.trace_id AND p.span_id = s.parent_span_id
+        )
+        UNION ALL
+        SELECT c.id, c.organization_id, c.project_id, c.trace_id, c.span_id, c.agent_name,
+               CASE WHEN w.agent_name IS NULL THEN w.path ELSE w.path || w.agent_name END,
+               w.depth + 1
+        FROM walk w
+        JOIN spans c
+          ON c.organization_id = w.organization_id AND c.project_id = w.project_id
+         AND c.trace_id = w.trace_id AND c.parent_span_id = w.span_id
+        WHERE w.depth < :max_depth
+    ),
+    paths AS (
+        SELECT s.id, coalesce(w.path, CAST(ARRAY[] AS text[])) AS path,
+               NOT EXISTS (
+                   SELECT 1 FROM spans p
+                   WHERE p.organization_id = s.organization_id AND p.project_id = s.project_id
+                     AND p.trace_id = s.trace_id AND p.span_id = s.parent_span_id
+               ) AS is_root
+        FROM spans s LEFT JOIN walk w ON w.id = s.id
+    )
+    UPDATE trace t SET agent_path = paths.path, is_root = paths.is_root
+    FROM paths
+    WHERE t.id = paths.id
+      AND (t.agent_path IS DISTINCT FROM paths.path OR t.is_root IS DISTINCT FROM paths.is_root)
+    """
+)
+
+
+#: A stored trace: its organization, project and trace id.
+TraceKey = Tuple[Any, Any, str]
+
+
+def update_agent_paths(db: Session, traces: Iterable[TraceKey]) -> None:
+    """Recompute ``agent_path`` and ``is_root`` for every span of ``traces``, each named by
+    its organization, project and trace id, so the statement reads only their rows whatever
+    the session's scope.
+
+    A span's path names the agent spans above it, outermost first, the way the SDK's
+    ``targets._walk`` does; an agent span is not inside itself. A span is a root when its
+    parent isn't stored in the trace. Whole traces, because a child can be stored before its
+    parent, which turns it from a root into a child. Call it with the traces' ingest lock held, a
+    handful of traces at a time: one project-wide walk takes minutes.
+    """
+    keys = sorted({(str(org), str(project), trace_id) for org, project, trace_id in traces})
+    if not keys:
+        return
+    organization_ids, project_ids, trace_ids = (list(column) for column in zip(*keys, strict=True))
+    db.execute(
+        _UPDATE_AGENT_PATHS,
+        {
+            "organization_ids": organization_ids,
+            "project_ids": project_ids,
+            "trace_ids": trace_ids,
+            "agent_kind": AIAttributes.OPERATION_AGENT_INVOKE,
+            "max_depth": AGENT_PATH_MAX_DEPTH,
+        },
+    )
 
 
 # What create_trace_spans writes; the rest (created_at, nano_id, defaults) the insert fills.
@@ -512,6 +674,10 @@ def create_trace_spans(
             for row in trace_models:
                 make_transient_to_detached(row)
                 db.add(row)
+            # Before the commit, which releases the caller's ingest lock.
+            update_agent_paths(
+                db, {(row.organization_id, row.project_id, row.trace_id) for row in trace_models}
+            )
         db.expire_on_commit = False
         db.commit()
         return trace_models
@@ -1180,7 +1346,16 @@ def _span_provider_clause(db: Session, org_uuid, project_id: Optional[str], prov
     return provider_clause(recorded, model_names)
 
 
+def _without_jit_for_a_target(db: Session, filters: SpanFilters) -> None:
+    """A target's fallbacks for spans not backfilled yet (the walk up for ``within``, the
+    parent lookup for roots) are costed as if every row ran them, so JIT kicks in and its
+    compile alone takes ~150 ms on a query that runs in 1. Off for this transaction only."""
+    if filters.target is not None:
+        db.execute(select(func.set_config("jit", "off", True)))
+
+
 def _span_clauses(db: Session, org_uuid, project_id: Optional[str], filters: SpanFilters) -> list:
+    _without_jit_for_a_target(db, filters)
     clauses = span_filter_clauses(org_uuid, project_id, filters)
     if filters.providers:
         clauses.append(_span_provider_clause(db, org_uuid, project_id, filters.providers))
@@ -1242,6 +1417,7 @@ def query_spans(
             output_tokens.label("output_tokens"),
             total_tokens.label("total_tokens"),
             span_cost_expr(entry).label("cost_usd"),
+            span_is_root_expr(trace).label("is_root"),
             (trace.attributes[AISpanAttributes.SPAN_SOURCE].astext == REPORTED_SPAN_SOURCE).label(
                 "reported"
             ),
@@ -1316,6 +1492,7 @@ def span_facets(
     others to add.
     """
     org_uuid = UUID(organization_id)
+    _without_jit_for_a_target(db, filters)
     by_provider = (
         [_span_provider_clause(db, org_uuid, project_id, filters.providers)]
         if filters.providers
@@ -1341,6 +1518,199 @@ def span_facets(
         models=counts(span_model_expr(span_breakdown_entry()), SKIP_MODEL),
         agents=counts(span_agent_expr(), SKIP_AGENT),
     )
+
+
+class AttributeSample(NamedTuple):
+    """Which spans the attribute catalogue reads, and how much of each key it returns."""
+
+    since: datetime
+    kind: Optional[str]
+    sample_size: int
+    attribute_limit: int
+    value_limit: int
+    value_length: int
+
+
+#: How much of an attribute value the catalogue hashes to tell values apart.
+ATTRIBUTE_VALUE_HASH_LENGTH = 1000
+
+
+@contextmanager
+def statement_time_limit(db: Session, milliseconds: int) -> Iterator[None]:
+    """Cancel any statement in the block that runs past ``milliseconds``.
+
+    Use it inside a savepoint (``db.begin_nested()``): on success the previous limit is put
+    back; on an error the savepoint's rollback puts it back."""
+    previous = db.execute(text("SELECT current_setting('statement_timeout')")).scalar()
+    db.execute(
+        text("SELECT set_config('statement_timeout', :limit, true)"),
+        {"limit": f"{milliseconds}ms"},
+    )
+    yield
+    db.execute(text("SELECT set_config('statement_timeout', :limit, true)"), {"limit": previous})
+
+
+def _window_kinds(clauses: list):
+    """The span kinds in the window, as a loose index scan over (project, span_type, start_time).
+
+    Span kinds are open-ended (any ``ai.operation.type``), so they are read, not listed.
+    A plain DISTINCT reads every span in the window; this jumps from one kind to the
+    next, one index probe each.
+    """
+    trace = models.Trace
+    first = select(trace.span_type.label("kind")).where(*clauses).order_by(trace.span_type)
+    kinds = first.limit(1).cte("window_kinds", recursive=True)
+    following = (
+        select(trace.span_type)
+        .where(*clauses, trace.span_type > kinds.c.kind)
+        .order_by(trace.span_type)
+        .limit(1)
+        .scalar_subquery()
+    )
+    return kinds.union_all(select(following).where(kinds.c.kind.isnot(None)))
+
+
+def _attribute_sample(org_uuid, project_id: Optional[str], sample: AttributeSample):
+    """The most recent spans of each kind, with one (kind, key, text value) row per attribute.
+
+    Sampled per kind, so a rare kind isn't crowded out by the busy ones.
+    """
+    trace = models.Trace
+    clauses = span_scope(trace, org_uuid, project_id) + [trace.start_time >= sample.since]
+    if sample.kind:
+        clauses.append(trace.span_type == sample.kind)
+    kinds = _window_kinds(clauses)
+    recent = (
+        select(trace.attributes)
+        .where(*clauses, trace.span_type == kinds.c.kind)
+        .order_by(trace.start_time.desc())
+        .limit(sample.sample_size)
+        .lateral("recent")
+    )
+    spans = (
+        select(kinds.c.kind, recent.c.attributes)
+        .select_from(kinds.join(recent, true()))
+        .where(kinds.c.kind.isnot(None))
+        .cte("sample")
+    )
+    # jsonb_each raises on anything but an object, so a malformed row reads as empty.
+    attributes = case(
+        (func.jsonb_typeof(spans.c.attributes) == "object", spans.c.attributes),
+        else_=cast(literal("{}"), JSONB),
+    )
+    entry = (
+        func.jsonb_each(attributes)
+        .table_valued(column("key", Text), column("value", JSONB))
+        .lateral("entry")
+    )
+    # The value as text, so "5" and 5 count as one value, as conditions compare them.
+    value = entry.c.value.op("#>>")(literal_column("'{}'"))
+    pairs = (
+        select(
+            spans.c.kind,
+            entry.c.key,
+            func.jsonb_typeof(entry.c.value).label("type"),
+            # Values are counted by hash and carried only as long as shown (plus one
+            # character to tell a cut value apart), so the sorts stay small. The hash reads
+            # the first ATTRIBUTE_VALUE_HASH_LENGTH characters, so a 100 kB prompt isn't
+            # hashed whole; values alike that far count as one.
+            func.md5(
+                func.left(value, max(ATTRIBUTE_VALUE_HASH_LENGTH, sample.value_length + 1))
+            ).label("value_hash"),
+            func.left(value, sample.value_length + 1).label("value"),
+        )
+        .select_from(spans.join(entry, true()))
+        .cte("pairs")
+    )
+    return spans, pairs
+
+
+def span_attribute_stats(
+    db: Session, organization_id: str, project_id: Optional[str], sample: AttributeSample
+) -> list:
+    """Attribute keys per span kind over a sample of recent spans, counted in SQL.
+
+    One row per (kind, key), keys ordered by how many spans carry them and capped at
+    ``attribute_limit`` per kind. A kind whose spans carry no attributes gets one row
+    with ``key`` NULL. ``top_values`` is a JSON list of ``{value, count, truncated}``.
+    """
+    spans, pairs = _attribute_sample(UUID(organization_id), project_id, sample)
+    kinds = select(spans.c.kind, func.count().label("spans")).group_by(spans.c.kind).cte("kinds")
+    carried = func.count()
+    keys = (
+        select(
+            pairs.c.kind,
+            pairs.c.key,
+            carried.label("count"),
+            func.count(distinct(pairs.c.value_hash)).label("distinct_values"),
+            func.array_agg(distinct(pairs.c.type)).label("types"),
+            func.row_number()
+            .over(partition_by=pairs.c.kind, order_by=(carried.desc(), pairs.c.key))
+            .label("rank"),
+        )
+        .group_by(pairs.c.kind, pairs.c.key)
+        .cte("keys")
+    )
+    seen = func.count()
+    shown = func.min(pairs.c.value)
+    value_counts = (
+        select(
+            pairs.c.kind,
+            pairs.c.key,
+            shown.label("value"),
+            seen.label("count"),
+            func.row_number()
+            .over(partition_by=(pairs.c.kind, pairs.c.key), order_by=(seen.desc(), shown))
+            .label("rank"),
+        )
+        .where(pairs.c.value_hash.isnot(None))
+        .group_by(pairs.c.kind, pairs.c.key, pairs.c.value_hash)
+        .cte("value_counts")
+    )
+    top = (
+        select(
+            value_counts.c.kind,
+            value_counts.c.key,
+            func.jsonb_agg(
+                aggregate_order_by(
+                    func.jsonb_build_object(
+                        "value",
+                        func.left(value_counts.c.value, sample.value_length),
+                        "count",
+                        value_counts.c.count,
+                        "truncated",
+                        func.length(value_counts.c.value) > sample.value_length,
+                    ),
+                    value_counts.c.rank,
+                )
+            ).label("top_values"),
+        )
+        .where(value_counts.c.rank <= sample.value_limit)
+        .group_by(value_counts.c.kind, value_counts.c.key)
+        .cte("top")
+    )
+    statement = (
+        select(
+            kinds.c.kind,
+            kinds.c.spans,
+            keys.c.key,
+            keys.c.count,
+            keys.c.distinct_values,
+            keys.c.types,
+            top.c.top_values,
+        )
+        .select_from(
+            kinds.outerjoin(
+                keys, and_(keys.c.kind == kinds.c.kind, keys.c.rank <= sample.attribute_limit)
+            ).outerjoin(top, and_(top.c.kind == keys.c.kind, top.c.key == keys.c.key))
+        )
+        .order_by(kinds.c.spans.desc(), kinds.c.kind, keys.c.rank)
+    )
+    # The planner guesses 100 rows per jsonb_each and per kind, so the cost looks huge
+    # and JIT kicks in: ~1.5 s instead of ~0.5 s on 15k sampled spans. Off for this
+    # transaction only.
+    db.execute(select(func.set_config("jit", "off", True)))
+    return db.execute(statement).all()
 
 
 def get_unprocessed_traces(

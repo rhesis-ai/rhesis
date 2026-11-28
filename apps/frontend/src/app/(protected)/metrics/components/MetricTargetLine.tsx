@@ -10,54 +10,40 @@ import type {
   MetricTarget,
   MetricTargetChoice,
 } from '@/utils/api-client/interfaces/metric';
-import {
-  getMetricTargetIcon,
-  moreConditionsText,
-  targetPhrase,
-  whereConditions,
-} from '@/utils/metric-targets';
-import { CODE_FONT_SIZE, rem } from '@/styles/theme-constants';
+import { getMetricTargetIcon } from '@/utils/metric-targets';
+import { rem } from '@/styles/theme-constants';
+import TargetSummaryText, { summaryPlainText } from './TargetSummaryText';
 
 interface MetricTargetLineProps {
   target: MetricTarget;
+  /** `target_summary_short` from the API: "each tool call named `issue_refund`". */
+  summary: string;
+  /** `target_summary`, shown in the tooltip when the short form drops conditions. */
+  fullSummary?: string | null;
+  /** `GET /metrics/targets`, for the per-kind icon. */
   choices: MetricTargetChoice[] | undefined;
   metricId?: string;
 }
 
 const TOOLTIP = 'Show the spans this metric judges';
 
-function Code({ children }: { children: React.ReactNode }) {
-  return (
-    <Box
-      component="code"
-      sx={{
-        fontFamily: theme => theme.typography.fontFamilyCode,
-        fontSize: rem(CODE_FONT_SIZE),
-      }}
-    >
-      {children}
-    </Box>
-  );
-}
-
 /**
  * What a metric judges, as the end of a sentence under its name: "on each tool
- * call named issue_refund inside billing_agent and 1 more condition". Nothing is
- * hidden: attribute conditions are counted here and listed in the tooltip. The
- * target links to the Traces page filtered to the spans it picks. Nothing
- * renders until the target labels load.
+ * call named issue_refund inside billing_agent and 1 more condition". The words
+ * are the API's; the full summary is in the tooltip when the short one counts
+ * conditions instead of listing them. The target links to exactly its spans.
  */
 export default function MetricTargetLine({
   target,
+  summary,
+  fullSummary,
   choices,
   metricId,
 }: MetricTargetLineProps) {
-  const phrase = targetPhrase(target, choices);
-  if (!phrase) return null;
-  const conditions = whereConditions(target);
-  const tooltip = conditions.length
-    ? `${TOOLTIP}. Also where ${conditions.join(' and ')}`
-    : TOOLTIP;
+  const tooltip =
+    fullSummary && fullSummary !== summary
+      ? `${TOOLTIP}: ${summaryPlainText(fullSummary)}`
+      : TOOLTIP;
 
   return (
     <>
@@ -66,7 +52,7 @@ export default function MetricTargetLine({
       <Tooltip title={tooltip} describeChild>
         <Link
           component={NextLink}
-          href={tracesHrefForTarget(target, choices, metricId)}
+          href={tracesHrefForTarget(target, metricId)}
           underline="hover"
           data-testid="metric-target-link"
           // The card opens the metric; this link opens the target's spans instead.
@@ -82,22 +68,9 @@ export default function MetricTargetLine({
               '& .MuiSvgIcon-root': { fontSize: rem(16) },
             }}
           >
-            {getMetricTargetIcon(target.on, choices, 'inherit')}
+            {getMetricTargetIcon(target.on, choices, 'inherit', target.where)}
           </Box>
-          {phrase}
-          {target.name && (
-            <>
-              {' named '}
-              <Code>{target.name}</Code>
-            </>
-          )}
-          {target.within && (
-            <>
-              {' inside '}
-              <Code>{target.within}</Code>
-            </>
-          )}
-          {conditions.length > 0 && ` ${moreConditionsText(conditions.length)}`}
+          <TargetSummaryText summary={summary} />
         </Link>
       </Tooltip>
     </>

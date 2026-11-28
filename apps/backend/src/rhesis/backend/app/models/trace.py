@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -12,7 +13,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import relationship
 
 from rhesis.backend.app.constants import AISpanAttributes, AnnotationTarget, SpanType
@@ -75,6 +76,11 @@ class Trace(
     span_kind = Column(String(20), nullable=False)
     # Set at ingest by services/telemetry/span_types.py; never null, "span" when untyped.
     span_type = Column(String(SpanType.MAX_LENGTH), nullable=False, server_default=SpanType.SPAN)
+    # Names of the agent spans above this one, outermost first, and whether its parent is
+    # missing from the trace. Kept by crud.telemetry.update_agent_paths at ingest and on span
+    # moves; NULL on spans stored before either existed, until the backfill reaches them.
+    agent_path = Column(ARRAY(Text), nullable=True)
+    is_root = Column(Boolean, nullable=True)
 
     # Timing
     start_time = Column(DateTime(timezone=True), nullable=False, index=True)
