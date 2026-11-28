@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Email imprint is a setting**: the legal imprint at the foot of every email comes from `EMAIL_IMPRINT` (Helm: `config.emailImprint`), one line per entry, instead of a fixed Rhesis AI GmbH address. Unset, emails show a "No imprint configured" notice in its place, and the backend logs a warning at startup when SMTP is configured.
 - **Branded email**: email to an organization's members follows its branding. The product name is the sender name and replaces "Rhesis AI" in the subject and text, its favicon is attached and shown beside the name in place of the Rhesis logo, and its primary and secondary colours style links and buttons. The imprint stays. The onboarding emails take only the sender name. Without a product name, `FROM_EMAIL` and `WELCOME_FROM_EMAIL` are used as written: a bare address no longer gets the name "Harry from Rhesis AI" added.
 
 ### Fixed

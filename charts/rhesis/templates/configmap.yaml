@@ -113,6 +113,7 @@ data:
   # SMTP
   # -------------------------------------------------------------------------
   SMTP_PORT: {{ .Values.config.smtpPort | quote }}
+  EMAIL_IMPRINT: {{ .Values.config.emailImprint | quote }}
 
   # -------------------------------------------------------------------------
   # Celery

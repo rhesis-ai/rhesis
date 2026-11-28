@@ -13,9 +13,10 @@ import re
 
 import pytest
 
+from rhesis.backend.app.config.settings import get_smtp_settings
 from rhesis.backend.notifications.email.brand import get_brand
 from rhesis.backend.notifications.email.template_service import EmailTemplate, TemplateService
-from tests.notifications.email_fixtures import FIXTURES, VARIANTS
+from tests.notifications.email_fixtures import FIXTURES, HOSTED_IMPRINT, VARIANTS
 
 # Hex values and font names from the superseded generations. Matched
 # case-insensitively — the old templates mixed #2AA1CE and #2aa1ce.
@@ -66,8 +67,12 @@ CASE_IDS = [name for name, _, _ in CASES]
 
 @pytest.fixture(scope="module")
 def rendered() -> dict[str, str]:
-    """Every template rendered once, keyed by case name."""
-    service = TemplateService()
+    """Every template rendered once, keyed by case name, as hosted Rhesis sends it."""
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("EMAIL_IMPRINT", HOSTED_IMPRINT)
+        get_smtp_settings.cache_clear()
+        service = TemplateService()
+    get_smtp_settings.cache_clear()
     return {name: service.render_template(template, dict(v)) for name, template, v in CASES}
 
 
@@ -129,7 +134,7 @@ def test_client_compatibility_scaffold(rendered: dict[str, str], name: str):
 
 @pytest.mark.parametrize("name", CASE_IDS)
 def test_imprint_is_present(rendered: dict[str, str], name: str):
-    """Legally required on every outbound mail."""
+    """Hosted Rhesis sets EMAIL_IMPRINT, and every template must carry it."""
     assert "Rhesis AI GmbH" in rendered[name]
     assert "HRB 39358 Potsdam" in rendered[name]
 

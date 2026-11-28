@@ -28,6 +28,15 @@ database:
 # ---------------------------------------------------------------------------
 config:
   environment: "production"
+  # Hosted Rhesis sends as Rhesis AI GmbH.
+  emailImprint: |-
+    Rhesis AI GmbH
+    August-Bebel-Str. 89
+    14482 Potsdam, Germany
+    Managing Director: Dr. Nicolai Bohn
+    Registered at: HRB 39358 Potsdam
+    VAT No.: DE368312944
+    E-Mail: hello@rhesis.ai
   chatbotRateLimitAlertsEnabled: "true"
   logLevel: "INFO"
   jsonLoggerEnabled: true

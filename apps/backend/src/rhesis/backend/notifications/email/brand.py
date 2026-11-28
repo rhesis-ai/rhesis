@@ -23,12 +23,16 @@ Email constrains what can be expressed:
   and button shadows are omitted rather than approximated.
 """
 
+import logging
+import re
 from dataclasses import dataclass, replace
 from typing import Optional
 
 from markupsafe import Markup
 
 from rhesis.backend.app.config.settings import get_smtp_settings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -148,6 +152,60 @@ class Layout:
     wash_offset_mobile: int = 240
 
 
+_EMAIL_ADDRESS = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+
+
+@dataclass(frozen=True)
+class ImprintLine:
+    """One line of the imprint, split around an email address so it can be a link."""
+
+    text: str
+    email: str = ""
+    after: str = ""
+
+
+def imprint_lines(imprint: Optional[str]) -> tuple[ImprintLine, ...]:
+    """``EMAIL_IMPRINT`` as lines, each with its first email address picked out."""
+    lines = []
+    # A literal "\n" counts as a line break too: a shell or .env value without
+    # quote processing keeps it as two characters.
+    for line in (imprint or "").replace("\\n", "\n").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        match = _EMAIL_ADDRESS.search(line)
+        if match:
+            lines.append(ImprintLine(line[: match.start()], match.group(), line[match.end() :]))
+        else:
+            lines.append(ImprintLine(line))
+    return tuple(lines)
+
+
+#: Settings cannot change within a process, and tests start a fresh app lifespan
+#: per test, so the warning is logged once.
+_imprint_checked = False
+
+
+def warn_if_imprint_missing() -> None:
+    """Warn at startup when this deployment sends email without an imprint.
+
+    Only the operator knows who legally sends the mail, so there is no default to
+    fall back on. A warning rather than a failed boot: mail still works without it.
+    """
+    global _imprint_checked
+    if _imprint_checked:
+        return
+    _imprint_checked = True
+    settings = get_smtp_settings()
+    if settings.host and not imprint_lines(settings.imprint):
+        logger.warning(
+            "Email is sent without an imprint because EMAIL_IMPRINT is unset; a notice "
+            "shows in its place. In some "
+            "countries, such as Germany, business email must name the sending company "
+            "and its legal details. Set EMAIL_IMPRINT to yours, one line per entry."
+        )
+
+
 DEFAULT_PRODUCT_NAME = "Rhesis AI"
 # Content-ID of the organization's favicon, attached to the message itself because
 # the uploaded file is only served to signed-in users.
@@ -177,10 +235,12 @@ class Brand:
     product_name: str = DEFAULT_PRODUCT_NAME
     # Set when the organization has its own product name. The header shows that name
     # (and its favicon) instead of the Rhesis lockup and wash, and Rhesis-only copy
-    # such as the invitation's "About" block is left out. The imprint stays: Rhesis
-    # still sends the mail.
+    # such as the invitation's "About" block is left out. The imprint stays: it names
+    # whoever runs the deployment, which is still the sender.
     white_label: bool = False
     has_logo: bool = False
+    # The deployment's EMAIL_IMPRINT. Empty shows a notice that it is not set.
+    imprint: tuple[ImprintLine, ...] = ()
 
     @property
     def logo_cid(self) -> str:
@@ -239,7 +299,9 @@ def get_brand(organization: Optional[OrganizationBrand] = None) -> Brand:
     With an organization's branding, its colours replace the accent and button
     colours and its product name replaces "Rhesis AI".
     """
-    asset_base_url = get_smtp_settings().asset_base_url.rstrip("/")
+    settings = get_smtp_settings()
+    asset_base_url = settings.asset_base_url.rstrip("/")
+    imprint = imprint_lines(settings.imprint)
     if organization is None:
         return Brand(
             color=Colors(),
@@ -247,6 +309,7 @@ def get_brand(organization: Optional[OrganizationBrand] = None) -> Brand:
             type=Type(),
             layout=Layout(),
             asset_base_url=asset_base_url,
+            imprint=imprint,
         )
     return Brand(
         color=_colors(organization),
@@ -257,4 +320,5 @@ def get_brand(organization: Optional[OrganizationBrand] = None) -> Brand:
         product_name=organization.product_name or DEFAULT_PRODUCT_NAME,
         white_label=bool(organization.product_name),
         has_logo=bool(organization.product_name and organization.logo_png),
+        imprint=imprint,
     )

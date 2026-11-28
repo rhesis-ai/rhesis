@@ -177,6 +177,9 @@ config:
 
   # SMTP
   smtpPort: "465"
+  # Your company's legal details at the foot of every email, one per line. Empty
+  # shows a "No imprint configured" notice there, and the backend warns at startup.
+  emailImprint: ""
 
   # Celery
   celeryWorkerConcurrency: "8"

@@ -11,6 +11,19 @@ from datetime import datetime, timezone
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 
 FRONTEND = "https://app.rhesis.ai"
+
+# EMAIL_IMPRINT as the hosted Helm values set it (charts/rhesis/values-prd.yaml).
+HOSTED_IMPRINT = "\n".join(
+    [
+        "Rhesis AI GmbH",
+        "August-Bebel-Str. 89",
+        "14482 Potsdam, Germany",
+        "Managing Director: Dr. Nicolai Bohn",
+        "Registered at: HRB 39358 Potsdam",
+        "VAT No.: DE368312944",
+        "E-Mail: hello@rhesis.ai",
+    ]
+)
 NOW = datetime(2026, 8, 3, 14, 30, tzinfo=timezone.utc)
 
 # One fixture per template. Values are deliberately long in places (names,
