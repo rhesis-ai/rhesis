@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-11-28
+
+### Fixed
+
+- **Filter Suggestions**: Resolved an issue in filter drawers (test set, test run, test, annotation, and report run picker) where typing text failed to filter tag suggestions.
+- **Entity Tag Loading**: Improved tag filter suggestions to display relevant tags for the selected entity type (up to 100) and automatically refresh when drawers are opened.
+- **Document Title Loop**: Fixed an infinite re-render loop affecting document titles when opening overlay drawers above list pages.
+- **HTML Error Handling**: Gracefully handle proxy and CDN timeout HTML pages by replacing raw HTML content with clear, status-based error messages.
+
+### Changed
+
+- Standardized API error response parsing across file upload, download, and streaming operations.
+
 ## [0.23.0] - 2026-11-27
 
 ### Added

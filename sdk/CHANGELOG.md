@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-11-28
+
 ### Changed
 
 - Architect lists most tools by name with their required arguments instead of their full parameters, which cuts the tools in each prompt from about 27k tokens to 3k-7k. The full parameters of a core set of lookup tools, the tools of the current mode, and any tool the agent loads with the new `load_tools` are always shown. A call to a tool whose parameters were not loaded is sent back to the agent with them instead of being run or shown for approval. Loaded tools are kept across turns in the saved session state.
@@ -26,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GeneratedMetric` also requires a numeric metric's threshold to lie between `min_score` and `max_score` and a categorical metric's passing categories to be among its categories. A metric that still breaks the rules after the retry raises `GeneratedMetricRejected` with the reasons. `generate()` fills a missing numeric `threshold_operator` with `>=`, and `improve()` keeps the metric's own.
 - Test generation keeps to the requested requirements: single-turn generation maps a re-cased requirement to the requested spelling and drops tests for requirements that were not requested, as multi-turn generation already did (in `ConfigSynthesizer` and `Synthesizer`), and `OWASPSynthesizer` stores its configured requirement instead of the model's rewording.
 - Multi-turn generation, including `OWASPSynthesizer`, drops tests the platform would not save (blank goal, text over the length limits, `min_turns` above `max_turns`) and generates replacements.
+- `load_tools` coerces tool names to strings before lookup to handle malformed non-string arguments without raising an error.
+
 
 ## [0.23.0] - 2026-11-27
 
