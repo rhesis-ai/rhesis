@@ -251,6 +251,7 @@ async def build_agent(
         carried_tool_results=agent_state.get("carried_tool_results") or [],
         test_set_counts=agent_state.get("test_set_counts") or {},
         test_set_names_by_id=agent_state.get("test_set_names_by_id") or {},
+        loaded_tools=agent_state.get("loaded_tools") or [],
     )
 
     tool_provider = LocalToolProvider(
@@ -389,6 +390,8 @@ async def persist_state(
             # Which workflow guidance to load. Without it every turn starts
             # unrouted, and a follow-up like "drop R3" loses the PRD guidance.
             "workflow_path": snapshot.workflow_path,
+            # Tools whose parameters the agent loaded, so it doesn't load them again.
+            "loaded_tools": snapshot.loaded_tools,
         }
         if root_trace_id:
             # Read on the next turn by ``architect_chat_task`` and bound via

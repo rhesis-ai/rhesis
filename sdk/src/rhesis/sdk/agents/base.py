@@ -1042,10 +1042,14 @@ class BaseAgent:
             self._turn_failure_counts.pop(tool_call.tool_name, None)
 
     async def _report_unsent(
-        self, tool_call: ToolCall, error: str, reasoning: str = ""
+        self, tool_call: ToolCall, error: str, reasoning: str = "", failed: bool = True
     ) -> ToolResult:
-        """Report a call rejected before sending the way a failed call is reported."""
-        refused = self._refuse_repeated_failure(tool_call)
+        """Report a call rejected before sending the way a failed call is reported.
+
+        ``failed=False`` is for a call that was right to make, only not yet: it is
+        not counted, so sending it again unchanged is not refused as a repeat.
+        """
+        refused = self._refuse_repeated_failure(tool_call) if failed else None
         if refused:
             return refused
         await _emit(
@@ -1056,7 +1060,8 @@ class BaseAgent:
             reasoning=reasoning,
         )
         result = ToolResult(tool_name=tool_call.tool_name, success=False, error=error)
-        self._note_outcome(tool_call, result)
+        if failed:
+            self._note_outcome(tool_call, result)
         await _emit(
             self._event_handlers,
             "on_tool_end",
