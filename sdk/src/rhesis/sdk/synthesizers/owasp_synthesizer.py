@@ -32,7 +32,11 @@ from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 # shape after generation. Reuses multi_turn.base's FlatTests (which wraps FlatTest)
 # rather than redefining an identical schema.
 from rhesis.sdk.synthesizers.multi_turn.base import FlatTests as FlatMultiTurnTests
-from rhesis.sdk.synthesizers.utils import load_prompt_template, stamp_multi_turn
+from rhesis.sdk.synthesizers.utils import (
+    load_prompt_template,
+    multi_turn_config_problem,
+    stamp_multi_turn,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +215,9 @@ class OWASPSynthesizer(TestSetSynthesizer):
                 # paraphrase or re-case it, e.g. "improper output handling"
                 # instead of "LLM05: Improper Output Handling".
                 t["topic"] = context["topic"]
+                # Same for the requirement: a reworded echo would create a second one.
+                if self._requirement:
+                    t["requirement"] = self._requirement
                 t.setdefault("metadata", {})["owasp_category"] = section.id
                 t.setdefault("metadata", {})["owasp_name"] = section.name
             all_tests.extend(tests)
@@ -288,15 +295,25 @@ class OWASPSynthesizer(TestSetSynthesizer):
             )
             return []
 
-        flat_tests = response["tests"][:num_tests]
-        return [
-            {
-                **self._flat_multiturn_test_to_nested(flat, kwargs["topic"]),
-                "test_type": TestType.MULTI_TURN.value,
-                "metadata": {"generated_by": self._get_synthesizer_name()},
-            }
-            for flat in flat_tests
-        ]
+        tests = []
+        for flat in response["tests"][:num_tests]:
+            nested = self._flat_multiturn_test_to_nested(flat, kwargs["topic"])
+            problem = multi_turn_config_problem(nested["test_configuration"])
+            if problem:
+                # Short batches are topped up by _generate_with_retry.
+                self.last_error = f"generated a test the platform would not save: {problem}"
+                logger.warning(
+                    "[OWASPSynthesizer] Dropped a test the platform would not save: %s", problem
+                )
+                continue
+            tests.append(
+                {
+                    **nested,
+                    "test_type": TestType.MULTI_TURN.value,
+                    "metadata": {"generated_by": self._get_synthesizer_name()},
+                }
+            )
+        return tests
 
     # ------------------------------------------------------------------
     # Helpers

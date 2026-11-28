@@ -757,3 +757,25 @@ def test_generate_gives_up_after_max_retries_rather_than_looping():
         synthesizer.generate(num_tests=10)
 
     assert mock_model.generate.call_count == 3
+
+
+# --- Tests the platform would not save ---
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"test_configuration_goal": "   "},
+        {"test_configuration_goal": "x" * 5001},
+        {"test_configuration_min_turns": 8, "test_configuration_max_turns": 3},
+    ],
+)
+def test_a_test_the_platform_would_not_save_is_dropped(change):
+    config = GenerationConfig(generation_prompt="p", requirements=["Compliance"])
+    synthesizer = MultiTurnSynthesizer(config=config, model=Mock(spec=BaseLLM))
+
+    kept = synthesizer._validated_tests(
+        [_flat_test("Compliance"), {**_flat_test("Compliance"), **change}]
+    )
+
+    assert len(kept) == 1

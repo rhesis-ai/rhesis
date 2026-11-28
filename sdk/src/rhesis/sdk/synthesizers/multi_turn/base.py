@@ -10,7 +10,12 @@ from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.synthesizers.utils import create_test_set, stamp_multi_turn
+from rhesis.sdk.synthesizers.utils import (
+    canonical_requirement,
+    create_test_set,
+    multi_turn_config_problem,
+    stamp_multi_turn,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -126,38 +131,28 @@ class MultiTurnSynthesizer:
         }
 
     def _canonical_requirement(self, value: Any) -> Optional[str]:
-        """Map an LLM-emitted requirement onto the configured set.
-
-        Returns the caller's own spelling of the requirement, or ``None`` when the
-        model produced something that was never asked for. Matching is exact first,
-        then case- and whitespace-insensitive, so a model that answers "compliance"
-        for a requested "Compliance" is corrected rather than discarded.
-
-        With no configured requirements there is nothing to validate against and the
-        value passes through unchanged.
-        """
-        allowed = self.config.requirements
-        if not allowed:
-            return None if value is None else str(value)
-
-        text = str(value or "").strip()
-        if text in allowed:
-            return text
-        folded = text.casefold()
-        for candidate in allowed:
-            if folded == candidate.strip().casefold():
-                return candidate
-        return None
+        """Map an LLM-emitted requirement onto the configured set (see canonical_requirement)."""
+        return canonical_requirement(value, self.config.requirements)
 
     def _validated_tests(self, flat_tests: List[Dict[str, Any]]) -> List[dict]:
-        """Repack flat LLM tests, dropping any whose requirement was not requested."""
+        """Repack flat LLM tests, dropping any the platform would not save.
+
+        A test is dropped when its requirement was not requested or its configuration
+        breaks the rules a saved multi-turn test must meet. The caller asks for more
+        while a batch is short, so a dropped test is replaced rather than lost.
+        """
         tests: List[dict] = []
         dropped: List[str] = []
+        unsavable: List[str] = []
         for flat in flat_tests:
             nested = self._flat_test_to_nested(flat)
             requirement = self._canonical_requirement(nested["requirement"])
             if requirement is None:
                 dropped.append(str(nested["requirement"]))
+                continue
+            problem = multi_turn_config_problem(nested["test_configuration"])
+            if problem:
+                unsavable.append(problem)
                 continue
             nested["requirement"] = requirement
             tests.append({**nested, "test_type": TestType.MULTI_TURN.value})
@@ -169,6 +164,12 @@ class MultiTurnSynthesizer:
                 len(dropped),
                 self.config.requirements,
                 sorted(set(dropped)),
+            )
+        if unsavable:
+            logger.warning(
+                "[MultiTurnSynthesizer] Dropped %d test(s) the platform would not save: %s",
+                len(unsavable),
+                sorted(set(unsavable)),
             )
         return tests
 

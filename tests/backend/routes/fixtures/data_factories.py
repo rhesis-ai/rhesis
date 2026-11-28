@@ -415,8 +415,9 @@ class MetricDataFactory(BaseDataFactory):
             "evaluation_steps": fake.text(max_nb_chars=200),
             "reasoning": fake.text(max_nb_chars=100),
             "score_type": fake.random_element(elements=("numeric", "categorical")),
-            "min_score": fake.random_number(digits=1),
-            "max_score": fake.random_number(digits=2),
+            # A valid range with the threshold inside it, which numeric metrics require.
+            "min_score": 0,
+            "max_score": 10,
             "reference_score": fake.word(),
             "threshold": fake.random_number(digits=1),
             "threshold_operator": fake.random_element(elements=("=", "<", ">", "<=", ">=", "!=")),

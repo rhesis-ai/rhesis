@@ -66,6 +66,7 @@ from rhesis.backend.app.services.metric_tuning.annotations import (
     NothingToAnnotate,
 )
 from rhesis.backend.app.services.metric_tuning.improve import (
+    ImprovementDoesNotFit,
     ImprovementUnavailable,
     NoStandingRejections,
 )
@@ -379,6 +380,9 @@ def improve_metric_from_annotations(
         # The model's fields did not fit MetricUpdate, so applying them would
         # fail. That is our template or our schema, not the caller's request.
         raise internal_error(e, context=f"improving metric {metric_id} from its annotations") from e
+    except ImprovementDoesNotFit as e:
+        # The model answered, just not within the metric's rules: worth another try.
+        raise HTTPException(status_code=400, detail=f"{e}. Try improving it again.") from e
     except ImprovementUnavailable as e:
         # Same public detail as /metrics/{id}/improve: the caller acts on it the
         # same way, and the real reason stays in the log.

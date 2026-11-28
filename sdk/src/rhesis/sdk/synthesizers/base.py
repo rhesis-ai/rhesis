@@ -12,6 +12,7 @@ from rhesis.sdk.enums import TestType
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers.utils import (
+    canonical_requirement,
     create_test_set,
     load_prompt_template,
 )
@@ -270,17 +271,7 @@ class TestSetSynthesizer(ABC):
             )
             return []
 
-        flat_tests = response["tests"][:expected_size]
-        return [
-            {
-                **self._flat_test_to_nested(flat),
-                "test_type": TestType.SINGLE_TURN.value,
-                "metadata": {
-                    "generated_by": self._get_synthesizer_name(),
-                },
-            }
-            for flat in flat_tests
-        ]
+        return self._single_turn_tests(response["tests"][:expected_size])
 
     def _generate_without_sources(
         self,
@@ -477,6 +468,47 @@ class TestSetSynthesizer(ABC):
 
         return all_tests
 
+    def _requested_requirements(self) -> Optional[List[str]]:
+        """The requirements generated tests must belong to, or None to accept any."""
+        return None
+
+    def _single_turn_tests(self, flat_tests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Repack flat LLM tests, keeping each requirement to the requested ones.
+
+        A requirement the model re-cased is mapped back to the requested spelling, so it
+        doesn't create a second requirement; one that was never requested is dropped,
+        and the caller asks for more while a batch is short.
+        """
+        allowed = self._requested_requirements()
+        tests: List[Dict[str, Any]] = []
+        dropped: List[str] = []
+        for flat in flat_tests:
+            nested = self._flat_test_to_nested(flat)
+            if allowed:
+                requirement = canonical_requirement(nested["requirement"], allowed)
+                if requirement is None:
+                    dropped.append(str(nested["requirement"]))
+                    continue
+                nested["requirement"] = requirement
+            tests.append(
+                {
+                    **nested,
+                    "test_type": TestType.SINGLE_TURN.value,
+                    "metadata": {"generated_by": self._get_synthesizer_name()},
+                }
+            )
+        if dropped:
+            # Kept as the reason if every batch ends up empty.
+            self.last_error = f"tests named requirements outside {allowed}: {sorted(set(dropped))}"
+            logger.warning(
+                "[Synthesizer] Dropped %d test(s) with a requirement outside the requested "
+                "set %s: %s",
+                len(dropped),
+                allowed,
+                sorted(set(dropped)),
+            )
+        return tests
+
     def _flat_test_to_nested(self, flat: Dict[str, Any]) -> Dict[str, Any]:
         """Repack a flat test dict (LLM output) into the nested Test structure."""
         return {
@@ -597,10 +629,5 @@ class TestSetSynthesizer(ABC):
         token_stream = self.model.generate_stream(prompt=prompt, schema=FlatTests)
         async for chunk in token_stream:
             for flat in parser.feed(chunk):
-                yield {
-                    **self._flat_test_to_nested(flat),
-                    "test_type": TestType.SINGLE_TURN.value,
-                    "metadata": {
-                        "generated_by": self._get_synthesizer_name(),
-                    },
-                }
+                for test in self._single_turn_tests([flat]):
+                    yield test

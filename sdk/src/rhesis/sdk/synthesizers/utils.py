@@ -1,7 +1,7 @@
 """Utility functions for common synthesizer operations."""
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Sequence
 
 from jinja2 import Environment, FileSystemLoader, Template
 
@@ -58,3 +58,54 @@ def stamp_multi_turn(test_set: "TestSet") -> "TestSet":
     if test_set.name:
         test_set.name = f"{test_set.name} (Multi-Turn)"
     return test_set
+
+
+def canonical_requirement(value: Any, allowed: Optional[Sequence[str]]) -> Optional[str]:
+    """Map a generated requirement onto the requested ones, or None if it is none of them.
+
+    Returns the caller's own spelling. Matching is exact first, then case- and
+    whitespace-insensitive, so "compliance" for a requested "Compliance" is corrected
+    rather than saved as a second requirement. With nothing requested, the value
+    passes through unchanged.
+    """
+    if not allowed:
+        return None if value is None else str(value)
+    text = str(value or "").strip()
+    if text in allowed:
+        return text
+    folded = text.casefold()
+    for candidate in allowed:
+        if folded == candidate.strip().casefold():
+            return candidate
+    return None
+
+
+# The limits the platform's MultiTurnTestConfig applies when a multi-turn test is saved.
+_MULTI_TURN_TEXT_LIMITS = {
+    "goal": 5000,
+    "instructions": 10000,
+    "restrictions": 10000,
+    "scenario": 5000,
+}
+_TURN_RANGE = (1, 50)
+_DEFAULT_MAX_TURNS = 10  # what the platform stores when max_turns is left out
+
+
+def multi_turn_config_problem(config: Dict[str, Any]) -> Optional[str]:
+    """Why the platform would refuse to save this multi-turn test configuration, or None.
+
+    Mirrors ``MultiTurnTestConfig`` in the backend's ``schemas/multi_turn_test_config.py``.
+    """
+    if not str(config.get("goal") or "").strip():
+        return "goal is empty"
+    for field, limit in _MULTI_TURN_TEXT_LIMITS.items():
+        if len(str(config.get(field) or "").strip()) > limit:
+            return f"{field} is longer than {limit} characters"
+    turns = {f: config.get(f) for f in ("min_turns", "max_turns") if config.get(f) is not None}
+    for field, value in turns.items():
+        if not _TURN_RANGE[0] <= value <= _TURN_RANGE[1]:
+            return f"{field} must be between {_TURN_RANGE[0]} and {_TURN_RANGE[1]}"
+    min_turns = turns.get("min_turns")
+    if min_turns is not None and min_turns > turns.get("max_turns", _DEFAULT_MAX_TURNS):
+        return "min_turns is above max_turns"
+    return None

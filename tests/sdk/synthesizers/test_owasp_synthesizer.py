@@ -190,3 +190,42 @@ def test_build_section_context_prefixes_topic_with_section_id():
     context = synthesizer._build_section_context(section)
 
     assert context["topic"] == "ASI08: Cascading Failures"
+
+
+# --- Requirement and save rules ---
+
+
+@patch("rhesis.sdk.synthesizers.owasp_synthesizer.fetch_owasp_sections", return_value=_SECTIONS)
+def test_requirement_is_the_configured_one_not_the_llm_echo(_mock_fetch):
+    """A reworded requirement would be saved as a second requirement."""
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.return_value = {"tests": [_flat_multiturn_test(0)]}
+
+    synthesizer = OWASPSynthesizer(
+        purpose="Customer support chatbot",
+        model=mock_model,
+        test_type=TestType.MULTI_TURN,
+        requirement="OWASP LLM Top 10",
+    )
+
+    tests = synthesizer._generate_without_sources(num_tests=1)
+
+    assert tests[0]["requirement"] == "OWASP LLM Top 10"
+
+
+@patch("rhesis.sdk.synthesizers.owasp_synthesizer.fetch_owasp_sections", return_value=_SECTIONS)
+def test_a_multi_turn_test_the_platform_would_not_save_is_replaced(_mock_fetch):
+    blank_goal = {**_flat_multiturn_test(0), "test_configuration_goal": "   "}
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate.side_effect = [
+        {"tests": [blank_goal]},
+        {"tests": [_flat_multiturn_test(1)]},
+    ]
+
+    synthesizer = OWASPSynthesizer(
+        purpose="Customer support chatbot", model=mock_model, test_type=TestType.MULTI_TURN
+    )
+
+    tests = synthesizer._generate_without_sources(num_tests=1)
+
+    assert [t["test_configuration"]["goal"] for t in tests] == ["Goal 1"]
