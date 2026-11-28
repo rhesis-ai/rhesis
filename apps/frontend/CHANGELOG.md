@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-28
+
+### Fixed
+
+- **Tag Filter Suggestions**: Tag filter drawers (Test Set, Test Run, Test, Annotation) and the Report Run picker now filter options accurately as you type and display entity-specific tags rather than a static list of organization-wide tags. (#3335)
+- **Error Page Display**: HTML error responses from proxy or CDN timeouts are now automatically converted into clear, concise status messages instead of rendering raw HTML code. (#3338)
+- **Document Title Conflicts**: Resolved a title state loop that occurred when opening side drawers over list pages. (#3315)
+
+### Changed
+
+- Standardized API error response parsing across direct fetch calls, including file uploads, downloads, and streams. (#3338)
+
 ## [0.23.0] - 2026-11-27
 
 ### Added

@@ -7,10 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-28
+
+### Added
+
+- **Architect tool state persistence**: Architect tools loaded on demand during execution are now retained across turns in backend state.
+
 ### Changed
 
 - **Email imprint is a setting**: the legal imprint at the foot of every email comes from `EMAIL_IMPRINT` (Helm: `config.emailImprint`), one line per entry, instead of a fixed Rhesis AI GmbH address. Unset, emails show a "No imprint configured" notice in its place, and the backend logs a warning at startup when SMTP is configured.
 - **Branded email**: email to an organization's members follows its branding. The product name is the sender name and replaces "Rhesis AI" in the subject and text, its favicon is attached and shown beside the name in place of the Rhesis logo, and its primary and secondary colours style links and buttons. The imprint stays. The onboarding emails take only the sender name. Without a product name, `FROM_EMAIL` and `WELCOME_FROM_EMAIL` are used as written: a bare address no longer gets the name "Harry from Rhesis AI" added.
+
+### Performance
+
+- **Trace usage rollup**: Optimized per-trace usage aggregation into a single pass to resolve severe database query latency when listing test runs.
 
 ### Fixed
 
@@ -20,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Multi-turn test configuration**: a blank goal is refused instead of being stored as no goal, and `min_turns` cannot be above `max_turns`.
 - **Metric score fields are checked on save**: a numeric metric's `min_score` must be below `max_score` with the threshold between them, and a categorical metric's passing categories must be among its categories. An update is checked together with the fields it doesn't send, so a threshold sent alone must fit the stored range. A generated or improved metric that still breaks these after one retry returns 422 with the reason instead of a server error, and metric tuning says so instead of blaming the model settings.
 - **Explorer suggestions**: a model that writes fewer suggestions than requested no longer fails the request, and blank suggestions are dropped.
+- **Docker Compose environment pass-through**: Configured `docker-compose` to properly pass database pooling parameters, context TTL, flush intervals, and asset URLs from `.env`.
+
+### Removed
+
+- **Legacy trace background tasks**: Removed deprecated `enrich_trace_async`, `post_ingest_link`, and `TraceEnricher` code, as trace ingestion handles enrichment and linking directly.
+
 
 ## [0.23.0] - 2026-11-27
 

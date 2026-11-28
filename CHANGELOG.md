@@ -13,6 +13,15 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-28
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.24.0**
+- **Frontend 0.24.0**
+- **SDK 0.24.0**
+
 ### Upgrading a self-hosted deployment
 
 1. If you upgrade from a release before 0.23.0, run 0.23.0 until its worker has emptied the old `telemetry` queue. The jobs that finished traces queued by older releases are removed in this release.
@@ -28,6 +37,31 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 ### Removed
 
 - The `enrich_trace_async` and `post_ingest_link` worker jobs. Spans are enriched and linked by the job that stores them.
+
+### Summary of Changes
+
+**Backend v0.24.0:**
+- Added support for organization-level email branding (custom logos, colors, and product names) and configurable deployment email imprints (`EMAIL_IMPRINT`).
+- Optimized Architect tools to load parameter schemas on demand and maintain state across turns.
+- Improved query performance for the test runs list and removed deprecated legacy background trace jobs.
+- Enhanced backend validation for generated metrics and test data to prevent un-saveable configurations.
+
+**Frontend v0.24.0:**
+- Improved tag filter suggestions in filter drawers to narrow results as you type and display entity-relevant tags.
+- Enhanced API error handling to show clean error messages for proxy and CDN timeouts instead of raw HTML pages.
+- Fixed an infinite document title loop issue when opening and closing side drawers over list pages.
+
+**SDK v0.24.0:**
+- Added on-demand parameter loading for Architect tools to streamline prompts and dynamically load tool definitions as needed.
+- Fixed an issue where the Architect re-asked for approval on previously confirmed work, persisting entity approvals across turns and executing approved calls in multi-step actions.
+- Enhanced validation for synthesized metrics and generated test sets to comply with platform save rules, raising `GeneratedMetricRejected` when generated metrics fail rule checks after retry.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
 
 ## [0.23.0] - 2026-11-27
 
