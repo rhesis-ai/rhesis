@@ -49,14 +49,38 @@ export function previewAnnouncement(
   unitNoun: { one: string; many: string }
 ): string {
   if (preview.traces === 0) return 'Preview: no traces yet.';
+  const partial = preview.partial ? ` ${partialText(preview.traces)}` : '';
   if (preview.matching_traces === 0) {
-    return `Preview: nothing matches in the last ${plural(preview.traces, 'trace', 'traces')}.`;
+    return `Preview: nothing matches in the last ${plural(preview.traces, 'trace', 'traces')}.${partial}`;
   }
   return `Preview: ${plural(preview.units, unitNoun.one, unitNoun.many)} in ${plural(
     preview.matching_traces,
     'trace',
     'traces'
-  )}; ${plural(preview.not_applicable_traces, 'trace', 'traces')} not applicable.`;
+  )}; ${plural(preview.not_applicable_traces, 'trace', 'traces')} not applicable.${partial}`;
+}
+
+function partialText(traces: number): string {
+  return `The preview stopped early to stay quick, so these counts cover only the ${plural(
+    traces,
+    'trace',
+    'traces'
+  )} it read.`;
+}
+
+function PartialNote({ preview }: { preview: MetricTargetPreview }) {
+  if (!preview.partial) return null;
+  return (
+    <Typography
+      variant="caption"
+      color="text.secondary"
+      component="p"
+      sx={{ mt: 1 }}
+      data-testid="target-preview-partial"
+    >
+      {partialText(preview.traces)}
+    </Typography>
+  );
 }
 
 function Stat({ value, label }: { value: number; label: string }) {
@@ -248,6 +272,7 @@ export default function TargetPreviewPanel({
               ' Check the field names against a trace, or send traces that carry them.'
             )}
           </Typography>
+          <PartialNote preview={preview} />
         </Box>
       );
     }
@@ -267,6 +292,7 @@ export default function TargetPreviewPanel({
             label={`${preview.not_applicable_traces === 1 ? 'trace' : 'traces'} not applicable`}
           />
         </Box>
+        <PartialNote preview={preview} />
         {preview.samples.length > 0 && (
           <Box
             component="ul"

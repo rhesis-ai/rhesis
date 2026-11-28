@@ -2729,8 +2729,9 @@ tools:
       were read), matching_traces, units (what the metric would run on in
       all of them), not_applicable_traces (traces where it picks nothing,
       which a metric reports as not applicable) and a few samples with their
-      trace_id, span_id, name, input, output, duration_ms and status. It
-      changes nothing.
+      trace_id, span_id, name, input, output, duration_ms and status. When
+      partial is true it stopped early, and the counts cover only the traces
+      it read; say so when you report them. It changes nothing.
 
       A target that picks no units, or far more than the user expects, is
       almost always a wrong key, value or operator. Check the conditions

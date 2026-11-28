@@ -144,6 +144,8 @@ export interface MetricTargetPreview {
   units: number;
   not_applicable_traces: number;
   samples: MetricTargetPreviewSample[];
+  /** The preview ran out of time: the counts cover only the `traces` it read. */
+  partial?: boolean;
   /** The draft target in words, as `Metric.target_summary` reads. */
   target_summary?: string | null;
   target_summary_short?: string | null;
